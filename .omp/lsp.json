@@ -1,0 +1,16 @@
+{
+  "servers": {
+    "clangd": {
+      "rootMarkers": [".git"],
+      "args": ["--background-index", "--clang-tidy", "--compile-commands-dir=build/release"]
+    },
+    "basedpyright": {
+      "rootMarkers": [".git"]
+    },
+    "marksman": {
+      "command": "marksman",
+      "fileTypes": [".md"],
+      "rootMarkers": [".git"]
+    }
+  }
+}

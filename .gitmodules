@@ -1,0 +1,15 @@
+[submodule "third_party/Catch2"]
+	path = third_party/Catch2
+	url = https://github.com/catchorg/Catch2.git
+[submodule "third_party/chess-library"]
+	path = third_party/chess-library
+	url = https://github.com/Disservin/chess-library.git
+[submodule "third_party/cpp-httplib"]
+	path = third_party/cpp-httplib
+	url = https://github.com/yhirose/cpp-httplib.git
+[submodule "third_party/json"]
+	path = third_party/json
+	url = https://github.com/nlohmann/json.git
+[submodule "third_party/llama.cpp"]
+	path = third_party/llama.cpp
+	url = https://github.com/ggml-org/llama.cpp.git

@@ -1,0 +1,24 @@
+# Copyrighted books and their text extracts / OCR output / retrieval indexes
+Resources/
+
+# Downloaded engines, models and datasets (fetched by tools/fetch_assets.sh)
+assets/
+
+# Build trees
+build/
+build-*/
+
+# Python
+__pycache__/
+.ruff_cache/
+.venv/
+
+# Editor / tooling
+.cache/
+compile_commands.json
+
+# omp: machine-local environment, session transcripts, and the Captain's private
+# resource wishlist (names the books she holds locally)
+.omp/LOCAL_ENVIRONMENT.md
+.omp/RESOURCE_WISHLIST.md
+.omp/sessions/

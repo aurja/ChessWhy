@@ -1,0 +1,33 @@
+modelRoles:
+    # Orchestrator (Anthropic bucket)
+    default: "anthropic/claude-opus-5-5:high"
+    plan: "anthropic/claude-opus-5-5:high"
+
+    # Completion reviewer (OpenAI bucket). Alternative: "openai-codex/gpt-6-astra:max"
+    slow: "openai-codex/gpt-6.1-sol:max"
+
+    # Coding worker (OpenAI bucket, 272K window)
+    task: "openai-codex/gpt-6-luna:max"
+
+    # Admin worker and scout (Anthropic bucket, 100K window)
+    smol: "anthropic/claude-haiku-5-5:max"
+
+    # Auxiliary workloads
+    commit: "@smol"
+    tiny: "@smol"
+    memory: "@smol"
+
+task:
+    agentModelOverrides:
+        task: "@task"
+        sonic: "@smol"
+        scout: "@smol"
+        reviewer: "@slow"
+    # Soft cap per coding task; attempt-1 SM10G workers ran up to 574 requests.
+    agentSoftRequestBudget:
+        task: 150
+
+compaction:
+    # Keep orchestrator turns small; attempt-1 median context was 209k tokens.
+    modelThresholds:
+        "anthropic/claude-opus-5-5": "f150000"
