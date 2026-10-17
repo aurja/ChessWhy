@@ -112,23 +112,25 @@ first plies of the line:
 
 ### 5.3 Urgency (4c)
 
-Rules, applied in order and frozen with fixtures in M1:
+Rules, applied in order, frozen with fixtures in M1 (`Planning/milestones/M1.md` §4.6;
+the earlier within-class "larger or faster" rule picked the wrong side when `S`, who
+moves first, had a forcing line):
 
 1. `S` in check: answering the check is the problem.
-2. Compare consequence classes (mate > decisive material ≥ 3 > material ≥ 1 >
-   promotion > positional). The higher class is more urgent; within a class the larger
-   or faster consequence (fewer plies, mate distance) wins.
-3. "Who is faster": if `S`'s best move does not parry `O`'s threat (D shows the threat
-   still works) yet keeps `S`'s `ES`, `S`'s threat is more urgent (counterattack);
-   if the best move parries it, `O`'s threat was the urgent one.
-4. If neither threat reaches the material class, the position is "quiet" and the
-   explanation leads with positional facts.
+2. Rank each threat's consequence (mate > decisive material ≥ 3 > material ≥ 1 >
+   promotion > positional). If neither reaches material ≥ 1, the position is "quiet"
+   and the explanation leads with positional facts.
+3. Different ranks: the higher one is more urgent.
+4. Same rank, "who is faster": if `S`'s best move does not parry `O`'s threat (D shows
+   the threat still works), `S`'s threat is more urgent (counterattack); if it parries
+   it, `O`'s threat was the urgent one.
 
 ### 5.4 Move verdict (4d)
 
 - `loss(m) = ES_S(best) − ES_S(m)`. Moves with `loss ≤ τ_fine` are **fine**; worse
-  moves are graded inaccuracy / mistake / blunder. Starting proposal (frozen in M1):
-  `τ_fine = 0.03`, inaccuracy `0.05`, mistake `0.10`, blunder `0.20`.
+  moves are graded inaccuracy / mistake / blunder. Frozen in M1 (Captain's decision,
+  rescaled to Stockfish 19's WDL curve): fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake
+  < 0.27 ≤ blunder.
 - Reasons attached to each verdict: parries or ignores `O`'s threat (D), executes or
   keeps `S`'s threat, creates a new threat (E), the refutation line and its
   consequence when `m` is bad, and tactical/positional facts that change (M2–M3).
@@ -332,9 +334,11 @@ tablebases; our own evaluation function.
 | Process | trimmed multi-model workflow (`.omp/AGENTS.md`) |
 | Git | local repository now, remote later |
 | Prior code | ChessPGNAnalyzer is not a port source; ChessWhy starts clean |
+| License | MIT for ChessWhy's own code; dependencies keep their licenses; Stockfish (GPL-3.0) runs as a separate, separately fetched process |
+| Verdict thresholds | fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder (ES loss, M1) |
 | Openings | names in M1 (lichess chess-openings); per-platform game statistics in M3 (Lichess broadcasts over the board + Lichess Elite online, never merged); Wikibooks prose is an M5 maybe |
 
-Open for the Captain: default model (M4), project license, HTTP consumer details (M6).
+Open for the Captain: default model (M4), HTTP consumer details (M6).
 
 ## 14. Risks
 

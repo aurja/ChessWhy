@@ -1,0 +1,14 @@
+[Event "Fixture transposition"]
+[Result "*"]
+
+1. c4 e6 2. Nc3 Nf6 3. d4 Bb4 *
+
+[Event "Fixture unnamed"]
+[Result "*"]
+
+1. a3 a6 2. h3 h6 *
+
+[Event "Fixture illegal move"]
+[Result "*"]
+
+1. e4 e5 2. Ke3 *
