@@ -1,7 +1,6 @@
 #include <array>
 #include <cctype>
 #include <charconv>
-#include <limits>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -187,8 +186,7 @@ chess::Board parse_fen(std::string_view fen) {
 
     const auto half_move = fields.size() == 6 ? fields[4] : std::string_view{"0"};
     const auto full_move = fields.size() == 6 ? fields[5] : std::string_view{"1"};
-    if (!parse_counter(half_move, 0, 255) ||
-        !parse_counter(full_move, 1, std::numeric_limits<int>::max() / 2)) {
+    if (!parse_counter(half_move, 0, 150) || !parse_counter(full_move, 1, 9999)) {
         invalid_fen(fen, "invalid half-move or full-move counter");
     }
 

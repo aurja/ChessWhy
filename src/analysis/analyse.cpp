@@ -235,15 +235,17 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     if (!gives_check && has_reply) {
         chess::Board null_after_move = after_move;
         null_after_move.makeNullMove();
-        engine::SearchRequest request;
-        request.fen = null_after_move.getFen();
-        request.nodes = budget.e;
-        request.multipv = 1;
-        const auto searched = engine.search(request);
-        nodes_searched += searched.nodes;
-        const auto& line = first_line(searched);
-        creates_threat = make_threat(null_after_move, line.pv_uci, line,
-                                     report_side(null_after_move.sideToMove()));
+        if (has_legal_moves(null_after_move)) {
+            engine::SearchRequest request;
+            request.fen = null_after_move.getFen();
+            request.nodes = budget.e;
+            request.multipv = 1;
+            const auto searched = engine.search(request);
+            nodes_searched += searched.nodes;
+            const auto& line = first_line(searched);
+            creates_threat = make_threat(null_after_move, line.pv_uci, line,
+                                         report_side(null_after_move.sideToMove()));
+        }
     }
 
     MoveAssessment result;
@@ -315,19 +317,21 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     if (!in_check) {
         chess::Board null_board = board;
         null_board.makeNullMove();
-        engine::SearchRequest b_request;
-        b_request.fen = null_board.getFen();
-        b_request.nodes = budget.b;
-        b_request.multipv = 1;
-        auto b_result = engine.search(b_request);
-        report.engine.nodes_searched += b_result.nodes;
-        if (b_result.lines.empty()) {
-            throw engine::EngineError(
-                "Stockfish search B returned no complete principal variation");
+        if (has_legal_moves(null_board)) {
+            engine::SearchRequest b_request;
+            b_request.fen = null_board.getFen();
+            b_request.nodes = budget.b;
+            b_request.multipv = 1;
+            auto b_result = engine.search(b_request);
+            report.engine.nodes_searched += b_result.nodes;
+            if (b_result.lines.empty()) {
+                throw engine::EngineError(
+                    "Stockfish search B returned no complete principal variation");
+            }
+            opponent_line.emplace(std::move(b_result.lines.front()));
+            opponent_threat = make_threat(null_board, opponent_line->pv_uci, *opponent_line,
+                                          report_side(opponent));
         }
-        opponent_line.emplace(std::move(b_result.lines.front()));
-        opponent_threat =
-            make_threat(null_board, opponent_line->pv_uci, *opponent_line, report_side(opponent));
     }
 
     Threat own_threat = make_threat(board, best_line.pv_uci, best_line, report_side(side_to_move));

@@ -102,6 +102,24 @@ TEST_CASE("four- and six-field FEN fixture normalization", "[input]") {
     CHECK(four_fields.getFen() == "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }
 
+TEST_CASE("FEN counter boundaries are enforced before chess-library narrowing", "[input]") {
+    const std::string position = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+    CHECK(chesswhy::input::parse_fen(position + " 150 1").getFen() == position + " 150 1");
+    CHECK(chesswhy::input::parse_fen(position + " 0 9999").getFen() == position + " 0 9999");
+
+    const auto invalid_fens = {position + " 151 1", position + " 0 10000", position + " 0 32769"};
+    for (const auto& fen : invalid_fens) {
+        std::string message;
+        try {
+            static_cast<void>(chesswhy::input::parse_fen(fen));
+            FAIL("out-of-range FEN counter was accepted");
+        } catch (const chesswhy::input::InputError& error) {
+            message = error.what();
+        }
+        CHECK(message.find("invalid half-move or full-move counter") != std::string::npos);
+    }
+}
+
 TEST_CASE("input error fixtures report the required function-level fragments", "[input]") {
     const auto fixtures = fixture_data().at("error_fixtures");
     for (const auto& fixture : fixtures) {
@@ -257,5 +275,42 @@ TEST_CASE("load_pgn stops before errors in later games", "[input]") {
     CHECK(selected.ply == 2);
     CHECK(selected.board.fullMoveNumber() == 2);
     CHECK_THROWS_AS(chesswhy::input::read_games(path), chesswhy::input::InputError);
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("PGN replay enforces the 75-move half-move limit", "[input]") {
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto path = std::filesystem::temp_directory_path() /
+                      ("chesswhy-half-move-limit-" + std::to_string(stamp) + ".pgn");
+    const auto write_game = [&path](int half_move) {
+        std::ofstream output(path);
+        REQUIRE(output.good());
+        output << "[Event \"Half-move limit\"]\n"
+                  "[SetUp \"1\"]\n"
+                  "[FEN \"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - "
+               << half_move
+               << " 7\"]\n\n"
+                  "7. Nf3 Nf6 *\n";
+    };
+
+    write_game(149);
+    std::string message;
+    try {
+        static_cast<void>(chesswhy::input::load_pgn(path, 1, std::nullopt));
+        FAIL("PGN replay exceeded the half-move limit without an error");
+    } catch (const chesswhy::input::InputError& error) {
+        message = error.what();
+    }
+    CHECK(message.find("game 1") != std::string::npos);
+    CHECK(message.find("move 7") != std::string::npos);
+    CHECK(message.find("Nf6") != std::string::npos);
+    CHECK(message.find("half-move clock exceeds 150 (75-move rule)") != std::string::npos);
+    CHECK(message.find(path.string()) != std::string::npos);
+
+    write_game(148);
+    const auto accepted = chesswhy::input::load_pgn(path, 1, std::nullopt);
+    CHECK(accepted.ply == 2);
+    CHECK(accepted.board.getFen() ==
+          "rnbqkb1r/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 150 8");
     std::filesystem::remove(path);
 }

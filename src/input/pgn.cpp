@@ -293,6 +293,12 @@ void append_move(PgnGame& game, chess::Board& board, std::string_view token,
         parsed.nags.push_back(nag);
     }
     board.makeMove(move);
+    if (board.halfMoveClock() > 150) {
+        throw InputError("game " + std::to_string(game.game) + ", move " +
+                         std::to_string(move_number) +
+                         ": half-move clock exceeds 150 (75-move rule) after move '" +
+                         std::string(token) + "' in " + path.string());
+    }
     game.moves.push_back(std::move(parsed));
 }
 

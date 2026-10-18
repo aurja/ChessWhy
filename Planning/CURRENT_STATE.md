@@ -3,14 +3,13 @@
 Updated 2026-10-18.
 
 - Milestone: **M1 complete** on branch `m1` (receipt `Planning/receipts/M1.md`): CLI,
-  engine analysis, report v1. Release and ASan/UBSan CTests 70/70; slowest `standard`
-  fixture 6.63 s. Awaiting the Captain's smoke check and approval to merge `m1`
+  engine analysis, report v1. Release and ASan/UBSan CTests 74/74; slowest `standard`
+  fixture 6.67 s. Awaiting the Captain's smoke check and approval to merge `m1`
   (M1 §13 item 4).
 - Contract changes during M1: `Planning/milestones/M1.md` §16 (PGN reader, fixture
-  rebuild F01–F18, `MultiPvCollector`, parry provenance).
-- Scope proposals for the Captain: receipt "Open" (stalemate in hypothetical null-move
-  positions, FEN counter overflow, `chesswhy-pgn` argument order, dropping F16).
-- Next: M2 (tactical motif detectors), in a fresh orchestrator session.
+  rebuild F01–F20, `MultiPvCollector`, parry provenance, stalemate after the null move,
+  FEN counter bounds, `chesswhy-pgn` argument order).
+- Scope proposal for the Captain: drop F16 (receipt "Open").
 - Vision: `Planning/PROJECT_VISION.md`. M0: `Planning/receipts/M0.md`.
 - `.clang-tidy`: third-party headers excluded, `clang-analyzer-optin.core.EnumCastOutOfRange`
   off (it fired only inside chess-library).

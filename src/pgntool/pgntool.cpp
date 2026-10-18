@@ -1,5 +1,6 @@
 #include "pgntool.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <exception>
 #include <filesystem>
@@ -16,7 +17,7 @@
 namespace chesswhy::pgntool {
 namespace {
 
-constexpr std::string_view kUsage = "usage: chesswhy-pgn FILE [--game N]\n"
+constexpr std::string_view kUsage = "usage: chesswhy-pgn [--game N] FILE\n"
                                     "       chesswhy-pgn --games FILE\n"
                                     "       chesswhy-pgn --help\n";
 
@@ -74,37 +75,60 @@ void print_moves(const input::PgnGame& game, std::ostream& output) {
 } // namespace
 
 int run(std::span<const std::string_view> args, std::ostream& out, std::ostream& err) {
-    if (args.size() == 1 && args.front() == "--help") {
+    if (std::ranges::find(args, std::string_view{"--help"}) != args.end()) {
         out << kUsage;
         return 0;
     }
 
     bool list_games = false;
+    bool game_seen = false;
     std::optional<int> requested_game;
     std::string_view path;
-    if (!args.empty() && args.front() == "--games") {
-        if (args.size() != 2) {
-            return report_error("expected --games FILE", err);
-        }
-        list_games = true;
-        path = args[1];
-    } else {
-        if (args.empty()) {
-            return report_error("expected FILE [--game N]", err);
-        }
-        path = args.front();
-        if (args.size() == 3 && args[1] == "--game") {
+    bool have_path = false;
+
+    for (std::size_t index = 0; index < args.size(); ++index) {
+        const auto arg = args[index];
+        if (arg == "--games") {
+            if (game_seen) {
+                return report_error("--games cannot be used with --game", err);
+            }
+            list_games = true;
+        } else if (arg == "--game") {
+            if (game_seen) {
+                return report_error("--game given twice", err);
+            }
+            if (list_games) {
+                return report_error("--games cannot be used with --game", err);
+            }
+            game_seen = true;
+            if (index + 1 == args.size() || args[index + 1] == "--game" ||
+                args[index + 1] == "--games") {
+                return report_error("--game requires a value", err);
+            }
+            const auto value = args[++index];
+            if (value.starts_with("--")) {
+                return report_error("unknown flag " + std::string(value), err);
+            }
             int game = 0;
-            if (!parse_game_number(args[2], game)) {
-                return report_error("invalid game number " + std::string(args[2]), err);
+            if (!parse_game_number(value, game)) {
+                return report_error("invalid game number " + std::string(value), err);
             }
             if (game < 1) {
                 return report_error("game " + std::to_string(game) + " must be 1-based", err);
             }
             requested_game = game;
-        } else if (args.size() != 1) {
-            return report_error("expected FILE [--game N]", err);
+        } else if (arg.starts_with("--")) {
+            return report_error("unknown flag " + std::string(arg), err);
+        } else if (have_path) {
+            return report_error("unexpected positional argument " + std::string(arg), err);
+        } else {
+            path = arg;
+            have_path = true;
         }
+    }
+
+    if (!have_path) {
+        return report_error("missing FILE", err);
     }
 
     try {

@@ -370,6 +370,56 @@
         "fxe8=Q": {"/verdict": "blunder"},
         "Rxg3+": {"/verdict": "blunder"}
       }
+    },
+    {
+      "id": "F19",
+      "title": "search B skips a stalemated null-move position",
+      "source": "constructed: stalemate in the null-move position (search B)",
+      "args": ["--fen", "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1", "--move", "Qg7"],
+      "equals": {
+        "/position/side_to_move": "white",
+        "/position/in_check": false,
+        "/threats/black": null,
+        "/threats/null_move_reliable/value": false,
+        "/threats/urgency/more_urgent": "white",
+        "/threats/urgency/rule": "consequence_class",
+        "/threats/white/consequence/class": "mate",
+        "/threats/white/consequence/mate_in": 1,
+        "/asked_move/san": "Qg7#",
+        "/asked_move/uci": "g6g7",
+        "/asked_move/verdict": "fine",
+        "/asked_move/in_multipv": true,
+        "/asked_move/gives_check": true,
+        "/asked_move/parries_threat": null
+      },
+      "line_prefix": {"/threats/white/line": ["Qh5#"]},
+      "fine_includes": ["Qg7#"]
+    },
+    {
+      "id": "F20",
+      "title": "search E skips a stalemated null-move position",
+      "source": "constructed: stalemate in the null-move position (search E)",
+      "args": ["--fen", "6K1/8/5kq1/8/8/8/8/8 w - - 0 1", "--move", "Kh8"],
+      "equals": {
+        "/position/side_to_move": "white",
+        "/position/in_check": true,
+        "/threats/black": null,
+        "/threats/null_move_reliable/value": null,
+        "/threats/urgency/more_urgent": "black",
+        "/threats/urgency/rule": "in_check",
+        "/asked_move/san": "Kh8",
+        "/asked_move/uci": "g8h8",
+        "/asked_move/verdict": "fine",
+        "/asked_move/in_multipv": true,
+        "/asked_move/gives_check": false,
+        "/asked_move/parries_threat": null,
+        "/asked_move/creates_threat": null
+      },
+      "line_prefix": {
+        "/threats/white/line": ["Kf8", "Qf7#"],
+        "/asked_move/line": ["Kh8", "Qg7#"]
+      },
+      "fine_includes": ["Kh8"]
     }
   ],
   "unit_fixtures": [
@@ -459,6 +509,8 @@
     {"id": "E13", "args": [], "exit": 2, "contains": ["exactly one of --fen or --pgn"]},
     {"id": "E14", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--level", "expert"], "exit": 2, "contains": ["--level"]},
     {"id": "E15", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--engine", "/nonexistent/stockfish"], "exit": 3, "contains": ["engine", "/nonexistent/stockfish"]},
-    {"id": "E16", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--openings", "/nonexistent/openings"], "exit": 3, "contains": ["openings", "/nonexistent/openings"]}
+    {"id": "E16", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--openings", "/nonexistent/openings"], "exit": 3, "contains": ["openings", "/nonexistent/openings"]},
+    {"id": "E17", "args": ["--fen", "7k/5Q2/6K1/8/8/8/8/8 b - - 0 10000"], "exit": 2, "contains": ["invalid FEN", "counter"]},
+    {"id": "E18", "args": ["--fen", "7k/5Q2/6K1/8/8/8/8/8 b - - 151 40"], "exit": 2, "contains": ["invalid FEN", "counter"]}
   ]
 }
