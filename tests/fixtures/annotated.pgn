@@ -1,0 +1,56 @@
+[Event "Annotated One"]
+[White "Ada"]
+[Black "Bela"]
+[Result "1-0"]
+[Annotator "A \"quote\" and \\ slash"]
+[Site "Local"]
+[Date "2026.10.18"]
+[PlyCount "10"]
+
+% an escape line is ignored
+1. e4 $1 {A brace comment
+continues on a second line.} e5! ; a semicolon comment ends here
+2. Nf3? Nc6!!
+3. Bb5?? ({A variation begins with a comment.} 3... Nf6 (3... a6 $2) $3) $7
+{The next mainline number follows a comment and variation.} 3... a6!?
+4. Ba4?! Nf6 $19 5. O-O $4 Be7 $18 1-0
+
+[Event "Black To Move"]
+[White "Cy"]
+[Black "Dee"]
+[SetUp "1"]
+[FEN "4k3/8/8/8/8/8/4K3/8 b - - 0 1"]
+[Result "*"]
+[PlyCount "2"]
+
+1... Kf7 2. Kf3
+
+[Event "En Passant"]
+[White "Eve"]
+[Black "Fox"]
+[SetUp "1"]
+[FEN "4k3/8/8/3pP3/8/8/8/4K3 w - d6 0 1"]
+[Result "*"]
+[PlyCount "1"]
+
+1. exd6 *
+
+[Event "Promotion"]
+[White "Gia"]
+[Black "Hal"]
+[SetUp "1"]
+[FEN "4k3/P7/8/8/8/8/8/4K3 w - - 0 12"]
+[Result "*"]
+[PlyCount "1"]
+
+12. a8=Q+ *
+
+[Event "Move Number"]
+[White "Ian"]
+[Black "Jae"]
+[SetUp "1"]
+[FEN "4k3/8/8/8/8/8/4K3/8 b - - 0 12"]
+[Result "*"]
+[PlyCount "1"]
+
+12... Kf7 *

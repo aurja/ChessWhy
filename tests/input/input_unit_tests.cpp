@@ -1,7 +1,9 @@
+#include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 #include <chesswhy/input.hpp>
@@ -165,4 +167,95 @@ TEST_CASE("negative PGN ply is rejected", "[input]") {
     } catch (const chesswhy::input::InputError& error) {
         CHECK(std::string(error.what()).find("ply -1") != std::string::npos);
     }
+}
+
+TEST_CASE("annotated PGN reader preserves mainline SAN, NAGs, and headers", "[input]") {
+    const auto games = chesswhy::input::read_games(fixture_path("annotated.pgn"));
+    REQUIRE(games.size() == 5);
+    CHECK(games[0].moves.size() == 10);
+    CHECK(games[1].moves.size() == 2);
+    CHECK(games[2].moves.size() == 1);
+    CHECK(games[3].moves.size() == 1);
+    CHECK(games[4].moves.size() == 1);
+
+    const std::vector<std::string> expected_san = {"e4", "e5",  "Nf3", "Nc6", "Bb5",
+                                                   "a6", "Ba4", "Nf6", "O-O", "Be7"};
+    for (std::size_t index = 0; index < expected_san.size(); ++index) {
+        CHECK(games[0].moves[index].san == expected_san[index]);
+    }
+    CHECK((games[0].moves[0].nags == std::vector<int>{1}));
+    CHECK((games[0].moves[1].nags == std::vector<int>{1}));
+    CHECK((games[0].moves[2].nags == std::vector<int>{2}));
+    CHECK((games[0].moves[3].nags == std::vector<int>{3}));
+    CHECK((games[0].moves[4].nags == std::vector<int>{4, 7}));
+    CHECK((games[0].moves[5].nags == std::vector<int>{5}));
+    CHECK((games[0].moves[6].nags == std::vector<int>{6}));
+    CHECK((games[0].moves[7].nags == std::vector<int>{19}));
+    CHECK((games[0].moves[8].nags == std::vector<int>{4}));
+    CHECK((games[0].moves[9].nags == std::vector<int>{18}));
+
+    REQUIRE(games[0].headers.size() == 8);
+    const std::vector<std::string> expected_headers = {"Event",     "White", "Black", "Result",
+                                                       "Annotator", "Site",  "Date",  "PlyCount"};
+    for (std::size_t index = 0; index < expected_headers.size(); ++index) {
+        CHECK(games[0].headers[index].first == expected_headers[index]);
+    }
+    CHECK((games[0].headers[0] == std::pair<std::string, std::string>{"Event", "Annotated One"}));
+    CHECK((games[0].headers[4] ==
+           std::pair<std::string, std::string>{"Annotator", "A \"quote\" and \\ slash"}));
+    CHECK(games[0].moves[0].ply == 1);
+    CHECK(games[0].moves[9].ply == 10);
+    CHECK(games[1].start.sideToMove() == chess::Color::BLACK);
+    CHECK(games[1].moves[0].san == "Kf7");
+
+    CHECK(games[1].start.getFen() == "4k3/8/8/8/8/8/4K3/8 b - - 0 1");
+    CHECK(games[1].moves[0].ply == 1);
+
+    CHECK(games[2].moves[0].san == "exd6");
+    CHECK(chess::uci::moveToUci(games[2].moves[0].move) == "e5d6");
+    CHECK(games[3].moves[0].san == "a8=Q+");
+
+    CHECK(games[4].start.sideToMove() == chess::Color::BLACK);
+    CHECK(games[4].start.fullMoveNumber() == 12);
+    CHECK(games[4].moves[0].san == "Kf7");
+    CHECK(games[4].moves[0].ply == 1);
+}
+
+TEST_CASE("load_pgn selects requested annotated mainline positions", "[input]") {
+    const auto path = fixture_path("annotated.pgn");
+    const auto first = chesswhy::input::load_pgn(path, 1, 5);
+    CHECK(first.ply == 5);
+    CHECK(first.mainline.size() == 5);
+    CHECK(first.board.getFen() ==
+          "r1bqkbnr/pppp1ppp/2n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3");
+
+    const auto black_start = chesswhy::input::load_pgn(path, 2, 0);
+    CHECK(black_start.board.sideToMove() == chess::Color::BLACK);
+    CHECK(black_start.ply == 0);
+    const auto en_passant = chesswhy::input::load_pgn(path, 3, 1);
+    CHECK(en_passant.mainline.size() == 1);
+    const auto promotion = chesswhy::input::load_pgn(path, 4, std::nullopt);
+    CHECK(promotion.ply == 1);
+    CHECK(promotion.board.at(chess::Square("a8")) ==
+          chess::Piece(chess::PieceType::QUEEN, chess::Color::WHITE));
+    const auto numbered = chesswhy::input::load_pgn(path, 5, 1);
+    CHECK(numbered.ply == 1);
+    CHECK(numbered.board.fullMoveNumber() == 13);
+}
+
+TEST_CASE("load_pgn stops before errors in later games", "[input]") {
+    const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+    const auto path = std::filesystem::temp_directory_path() /
+                      ("chesswhy-later-error-" + std::to_string(stamp) + ".pgn");
+    {
+        std::ofstream output(path);
+        REQUIRE(output.good());
+        output << "[Event \"Good\"]\n1. e4 e5 *\n\n[Event \"Bad\"]\n1. Ke3 *\n";
+    }
+
+    const auto selected = chesswhy::input::load_pgn(path, 1, std::nullopt);
+    CHECK(selected.ply == 2);
+    CHECK(selected.board.fullMoveNumber() == 2);
+    CHECK_THROWS_AS(chesswhy::input::read_games(path), chesswhy::input::InputError);
+    std::filesystem::remove(path);
 }
