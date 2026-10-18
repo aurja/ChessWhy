@@ -57,7 +57,7 @@
         "/threats/white/line": ["Qxf7#"],
         "/asked_move/refutation/line": ["Qxf7#"]
       },
-      "fine_includes": ["g6", "Qe7", "Qf6"],
+      "fine_includes": ["g6", "Qe7"],
       "candidate": {
         "g6": {"/parries_threat/value": true, "/parries_threat/test": "threat_move_illegal"},
         "Qe7": {"/parries_threat/value": true, "/parries_threat/test": "searched"}
@@ -173,10 +173,11 @@
     },
     {
       "id": "F11",
-      "title": "opponent pawn will promote; no move parries",
-      "args": ["--fen", "k7/8/8/8/8/8/p7/6K1 w - - 0 1"],
+      "title": "opponent pawn will promote with mate; no move parries",
+      "args": ["--fen", "k7/8/8/8/8/8/p5PP/7K w - - 0 1"],
       "equals": {
         "/threats/black/consequence/class": "mate",
+        "/threats/black/consequence/mate_in": 1,
         "/threats/black/consequence/promotes": true,
         "/threats/null_move_reliable/value": false,
         "/threats/urgency/more_urgent": "black",
@@ -184,6 +185,9 @@
         "/candidates/0/parries_threat/value": false,
         "/candidates/0/parries_threat/test": "searched",
         "/fine_truncated": true
+      },
+      "line_prefix": {
+        "/threats/black/line": ["a1=Q#"]
       }
     },
     {

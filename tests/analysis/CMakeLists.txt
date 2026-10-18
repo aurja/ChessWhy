@@ -1,0 +1,7 @@
+add_executable(analysis_unit_tests unit_tests.cpp)
+target_link_libraries(analysis_unit_tests PRIVATE chesswhy_analysis Catch2::Catch2WithMain chesswhy_warnings chesswhy_paths)
+catch_discover_tests(analysis_unit_tests PROPERTIES LABELS unit)
+
+add_executable(analysis_engine_tests engine_tests.cpp)
+target_link_libraries(analysis_engine_tests PRIVATE chesswhy_analysis Catch2::Catch2WithMain chesswhy_warnings chesswhy_paths)
+catch_discover_tests(analysis_engine_tests PROPERTIES LABELS engine)

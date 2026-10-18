@@ -159,7 +159,8 @@ struct Report {
     OpeningInfo opening;
 };
 
-// Serialisation (src/report). Key order follows the schema; output is deterministic.
-[[nodiscard]] nlohmann::json to_json(const Report& report);
+// Serialisation (src/report). Key order follows the schema (ordered_json keeps insertion
+// order; plain nlohmann::json would sort keys); output is deterministic.
+[[nodiscard]] nlohmann::ordered_json to_json(const Report& report);
 
 } // namespace chesswhy

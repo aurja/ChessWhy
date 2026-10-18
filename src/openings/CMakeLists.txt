@@ -1,0 +1,3 @@
+add_library(chesswhy_openings STATIC openings.cpp)
+target_link_libraries(chesswhy_openings PUBLIC chesswhy_headers)
+target_link_libraries(chesswhy_openings PRIVATE chesswhy_warnings)
