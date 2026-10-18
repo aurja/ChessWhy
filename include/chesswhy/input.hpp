@@ -23,6 +23,9 @@ public:
 // count, bad characters, rank not summing to 8, not exactly one king per side, pawns on
 // rank 1/8, side not to move in check. Castling rights without the king/rook on their
 // home squares are rejected. An en-passant square without a legal capture is dropped.
+// Counters: half-move clock 0..150 (FIDE 75-move rule), full-move number 1..9999; outside
+// that range: "invalid half-move or full-move counter". chess-library stores them in 8/16
+// bits, so larger values would wrap.
 [[nodiscard]] chess::Board parse_fen(std::string_view fen);
 
 struct PgnPosition {
@@ -34,8 +37,9 @@ struct PgnPosition {
 
 // Mainline only: comments, variations and NAGs are ignored. Honors [FEN]/[SetUp].
 // game is 1-based; ply defaults to the final position. Throws InputError for an
-// unreadable file, missing game, ply beyond the mainline, or an illegal/unparsable move
-// (message names the game, move number and token).
+// unreadable file, missing game, ply beyond the mainline, an illegal/unparsable move, or
+// a move that takes the half-move clock above 150 (message names the game, move number
+// and token).
 [[nodiscard]] PgnPosition load_pgn(const std::filesystem::path& path, int game,
                                    std::optional<int> ply);
 
