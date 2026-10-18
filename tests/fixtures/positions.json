@@ -294,28 +294,6 @@
       }
     },
     {
-      "id": "F16",
-      "title": "underpromotion asked; opponent threatens mate in one",
-      "source": "De la Bourdonnais, Louis Mahe - McDonnell, Alexander, London m1 1834, before 38.f8=N+",
-      "args": ["--fen", "8/1p3P1k/3p4/8/8/pPn5/P2N4/K3n3 w - - 0 38", "--move", "f8=N+"],
-      "equals": {
-        "/position/side_to_move": "white",
-        "/position/in_check": false,
-        "/threats/null_move_reliable/value": false,
-        "/threats/urgency/more_urgent": "black",
-        "/threats/urgency/rule": "consequence_class",
-        "/threats/white/consequence/class": "material",
-        "/threats/white/consequence/promotes": true,
-        "/threats/black/consequence/class": "mate",
-        "/threats/black/consequence/mate_in": 1,
-        "/asked_move/san": "f8=N+",
-        "/asked_move/uci": "f7f8n",
-        "/asked_move/verdict": "fine",
-        "/asked_move/gives_check": true
-      },
-      "line_prefix": {"/threats/black/line": ["Nc2#"]}
-    },
-    {
       "id": "F17",
       "title": "underpromotion is the only fine move; queening allows mate",
       "source": "Korchnoi, Viktor - Kasparov, Gary, London 1983, round 6, annotator's line 60...Rg6 61.Rg2, before 70.d8=N+",
