@@ -116,7 +116,8 @@ struct MoveAssessment {
     std::vector<std::string>
         line_san; // from the current position, starts with this move, <= 10 plies
     std::optional<ParryInfo> parries_threat; // null: no opponent threat of class mate/material
-    std::optional<Threat> creates_threat;    // search E; null iff gives_check or move ends the game
+    std::optional<Threat> creates_threat;    // search E; null iff gives_check, move ends the game,
+                                             // or no legal move after the opponent's null move
     std::optional<Threat> refutation;        // opponent's reply line; set iff verdict != Fine
 };
 
@@ -126,7 +127,8 @@ struct Urgency {
 };
 
 struct Threats {
-    std::optional<Threat> white; // null for the opponent when the side to move is in check
+    std::optional<Threat> white; // null for the opponent when the side to move is in check or
+                                 // has no legal move after the side to move's null move
     std::optional<Threat> black;
     std::optional<bool> null_move_reliable; // null iff side to move is in check
     Urgency urgency;

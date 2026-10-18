@@ -89,6 +89,9 @@ int run(std::span<const std::string_view> args, std::ostream& out, std::ostream&
     for (std::size_t index = 0; index < args.size(); ++index) {
         const auto arg = args[index];
         if (arg == "--games") {
+            if (list_games) {
+                return report_error("--games given twice", err);
+            }
             if (game_seen) {
                 return report_error("--games cannot be used with --game", err);
             }

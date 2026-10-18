@@ -99,6 +99,7 @@ TEST_CASE("pgntool reports argument and input errors without stdout", "[pgntool]
     require_error({fixture, "--game", "2", "--game", "3"}, "--game");
     require_error({"--games", fixture, "--game", "2"}, "--games");
     require_error({fixture, "--game", "2", "--games"}, "--game");
+    require_error({"--games", "--games", fixture}, "--games given twice");
     require_error({fixture, "--unknown"}, "--unknown");
 }
 
