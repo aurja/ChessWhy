@@ -14,6 +14,12 @@ Clone with `git clone --recurse-submodules`, or run
 `git submodule update --init --recursive`. Change a pin only as an explicit task and
 update this table.
 
+## Development-only Python packages (`.venv/`, git-ignored, `tools/requirements-dev.txt`)
+
+| Package | Pin | License | Role | Milestone |
+|---|---|---|---|---|
+| python-jsonschema/jsonschema with attrs, jsonschema-specifications, referencing, rpds-py | `4.26.0`; others pinned in `tools/requirements-dev.txt` | MIT (all five) | validates reports against `schema/report.v1.schema.json` in CTest | M1 |
+
 ## Fetched assets (`assets/`, git-ignored, `tools/fetch_assets.sh`)
 
 | Asset | Version | SHA-256 | License | Use |

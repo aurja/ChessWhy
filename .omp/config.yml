@@ -23,11 +23,11 @@ task:
         sonic: "@smol"
         scout: "@smol"
         reviewer: "@slow"
-    # Soft cap per coding task; attempt-1 SM10G workers ran up to 574 requests.
+    # Soft cap per coding task
     agentSoftRequestBudget:
         task: 150
 
 compaction:
-    # Keep orchestrator turns small; attempt-1 median context was 209k tokens.
+    # Keep orchestrator turns small
     modelThresholds:
         "anthropic/claude-opus-5-5": "f150000"

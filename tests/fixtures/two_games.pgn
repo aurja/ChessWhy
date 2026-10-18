@@ -1,0 +1,19 @@
+[Event "Fixture game 1"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "1"]
+[White "A"]
+[Black "B"]
+[Result "*"]
+
+1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 *
+
+[Event "Fixture game 2"]
+[Site "?"]
+[Date "????.??.??"]
+[Round "2"]
+[White "C"]
+[Black "D"]
+[Result "*"]
+
+1. d4 {comment} d5 (1... Nf6 2. c4) 2. c4 $1 e6 3. Nc3 Nf6 *

@@ -1,0 +1,3 @@
+add_library(chesswhy_report STATIC report.cpp)
+target_link_libraries(chesswhy_report PUBLIC chesswhy_headers)
+target_link_libraries(chesswhy_report PRIVATE chesswhy_warnings)
