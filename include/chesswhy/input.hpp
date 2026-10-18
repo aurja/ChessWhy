@@ -49,7 +49,7 @@ struct PgnMove {
 };
 
 struct PgnGame {
-    int game = 1; // 1-based index in the file
+    int game = 1;                                             // 1-based index in the file
     std::vector<std::pair<std::string, std::string>> headers; // tag pairs in file order
     chess::Board start;                                       // [FEN] position or standard start
     std::vector<PgnMove> moves;                               // mainline only

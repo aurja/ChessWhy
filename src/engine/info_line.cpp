@@ -1,7 +1,9 @@
 #include "chesswhy/engine.hpp"
 
+#include <algorithm>
 #include <charconv>
 #include <cstddef>
+#include <ranges>
 #include <string_view>
 #include <utility>
 
@@ -75,12 +77,8 @@ std::optional<PvInfo> info_pv(std::string_view text) {
 }
 
 bool already_selected(const std::vector<Line*>& selected, std::string_view move) {
-    for (const auto* line : selected) {
-        if (line->pv_uci.front() == move) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(selected,
+                               [move](const Line* line) { return line->pv_uci.front() == move; });
 }
 
 } // namespace
@@ -188,9 +186,9 @@ std::optional<Line> parse_info_line(std::string_view text) {
     return line;
 }
 
-void MultiPvCollector::add(std::string_view text) {
-    auto info = info_pv(text);
-    auto exact = parse_info_line(text);
+void MultiPvCollector::add(std::string_view info_line) {
+    auto info = info_pv(info_line);
+    auto exact = parse_info_line(info_line);
     const bool is_exact = exact.has_value();
     if (exact) {
         exact_lines_.push_back(std::move(*exact));
@@ -231,16 +229,16 @@ std::vector<Line> MultiPvCollector::finish() && {
         }
 
         Line* choice = nullptr;
-        for (auto line = exact_lines_.rbegin(); line != exact_lines_.rend(); ++line) {
-            if (line->pv_uci.front() == move) {
-                choice = &*line;
+        for (auto& line : std::views::reverse(exact_lines_)) {
+            if (line.pv_uci.front() == move) {
+                choice = &line;
                 break;
             }
         }
         if (choice == nullptr) {
-            for (auto line = exact_lines_.rbegin(); line != exact_lines_.rend(); ++line) {
-                if (line->multipv == multipv) {
-                    choice = &*line;
+            for (auto& line : std::views::reverse(exact_lines_)) {
+                if (line.multipv == multipv) {
+                    choice = &line;
                     break;
                 }
             }
