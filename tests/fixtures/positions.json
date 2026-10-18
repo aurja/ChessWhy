@@ -342,6 +342,34 @@
         "d8=Q": {"/verdict": "blunder"},
         "d8=R": {"/verdict": "blunder"}
       }
+    },
+    {
+      "id": "F18",
+      "title": "underpromotion by capture is the only fine move",
+      "source": "De la Bourdonnais, Louis Mahe - McDonnell, Alexander, London m1 1834, annotator's line 34.Nb1 Kxg7 35.gxf7+ Qxg3, before 36.fxe8=N+",
+      "args": ["--fen", "4r3/1p3Pk1/3p4/8/8/pPnn2q1/P7/KN4R1 w - - 0 36", "--move", "fxe8=N+"],
+      "equals": {
+        "/position/side_to_move": "white",
+        "/position/in_check": false,
+        "/threats/null_move_reliable/value": true,
+        "/threats/urgency/more_urgent": "black",
+        "/threats/urgency/rule": "consequence_class",
+        "/threats/white/consequence/class": "material",
+        "/threats/white/consequence/promotes": true,
+        "/threats/black/consequence/class": "mate",
+        "/threats/black/consequence/mate_in": 3,
+        "/asked_move/san": "fxe8=N+",
+        "/asked_move/uci": "f7e8n",
+        "/asked_move/verdict": "fine",
+        "/asked_move/in_multipv": true,
+        "/asked_move/gives_check": true
+      },
+      "line_prefix": {"/threats/black/line": ["Qxg1"]},
+      "fine_includes": ["fxe8=N+"],
+      "candidate": {
+        "fxe8=Q": {"/verdict": "blunder"},
+        "Rxg3+": {"/verdict": "blunder"}
+      }
     }
   ],
   "unit_fixtures": [

@@ -4,7 +4,7 @@ target_link_libraries(engine_unit_tests PRIVATE
     chesswhy_engine
     chesswhy_warnings
     chesswhy_paths)
-catch_discover_tests(engine_unit_tests PROPERTIES LABELS unit)
+catch_discover_tests(engine_unit_tests TEST_PREFIX engine_ PROPERTIES LABELS unit)
 
 add_executable(engine_engine_tests engine_engine_tests.cpp)
 target_link_libraries(engine_engine_tests PRIVATE
@@ -12,4 +12,4 @@ target_link_libraries(engine_engine_tests PRIVATE
     chesswhy_engine
     chesswhy_warnings
     chesswhy_paths)
-catch_discover_tests(engine_engine_tests PROPERTIES LABELS engine)
+catch_discover_tests(engine_engine_tests TEST_PREFIX engine_ PROPERTIES LABELS engine)

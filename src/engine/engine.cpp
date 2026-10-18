@@ -8,10 +8,8 @@
 #include <cstdint>
 #include <cstring>
 #include <fcntl.h>
-#include <map>
 #include <poll.h>
 #include <pthread.h>
-#include <set>
 #include <string>
 #include <string_view>
 #include <sys/stat.h>
@@ -202,26 +200,6 @@ std::optional<std::uint64_t> info_nodes(std::string_view text) {
         }
     }
     return std::nullopt;
-}
-
-std::optional<int> info_multipv(std::string_view text) {
-    std::size_t offset = 0;
-    if (next_token(text, offset) != "info") {
-        return std::nullopt;
-    }
-    int multipv = 1;
-    while (offset < text.size()) {
-        const auto token = next_token(text, offset);
-        if (token.empty() || token == "pv" || token == "string") {
-            break;
-        }
-        if (token == "multipv") {
-            if (!parse_integer(next_token(text, offset), multipv) || multipv < 1) {
-                return std::nullopt;
-            }
-        }
-    }
-    return multipv;
 }
 
 void child_report_error(int status_fd, int error) noexcept {
@@ -469,8 +447,7 @@ struct Engine::Impl {
         write_command(go, deadline, "engine search");
 
         SearchResult result;
-        std::set<int> seen_indices;
-        std::map<int, Line> complete_lines;
+        MultiPvCollector collector;
         bool got_bestmove = false;
         while (!got_bestmove) {
             const auto text = read_line(deadline, "engine search");
@@ -478,13 +455,7 @@ struct Engine::Impl {
             const auto first = next_token(text, offset);
             if (first == "info") {
                 result.nodes = info_nodes(text).value_or(0);
-                if (const auto index = info_multipv(text)) {
-                    seen_indices.insert(*index);
-                }
-                if (auto parsed = parse_info_line(text)) {
-                    seen_indices.insert(parsed->multipv);
-                    complete_lines[parsed->multipv] = std::move(*parsed);
-                }
+                collector.add(text);
             } else if (first == "bestmove") {
                 const auto move = next_token(text, offset);
                 if (move.empty()) {
@@ -495,18 +466,7 @@ struct Engine::Impl {
             }
         }
 
-        if (seen_indices.empty()) {
-            throw EngineError("engine search returned no complete info lines");
-        }
-        const auto expected_lines = seen_indices.size();
-        result.lines.reserve(expected_lines);
-        for (std::size_t index = 1; index <= expected_lines; ++index) {
-            const auto complete = complete_lines.find(static_cast<int>(index));
-            if (complete == complete_lines.end()) {
-                throw EngineError("engine search returned an incomplete MultiPV result");
-            }
-            result.lines.push_back(std::move(complete->second));
-        }
+        result.lines = std::move(collector).finish();
         return result;
     }
 

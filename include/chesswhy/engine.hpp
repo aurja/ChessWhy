@@ -75,9 +75,9 @@ public:
     [[nodiscard]] std::vector<Line> finish() &&;
 
 private:
-    std::vector<std::pair<int, std::string>> last_batch_; // (multipv, first move)
-    std::vector<Line> newest_exact_;                       // one per first move
-    std::vector<Line> newest_exact_by_slot_;               // index multipv - 1
+    std::vector<std::pair<int, std::string>> last_batch_; // (multipv, first move), sorted by slot
+    std::vector<Line> exact_lines_;                       // exact lines in arrival order
+    bool has_last_batch_ = false;
 };
 
 class Engine {
@@ -94,7 +94,7 @@ public:
     [[nodiscard]] const std::string& name() const; // "id name" value
 
     // ucinewgame, setoption MultiPV, isready/readyok, position fen, go nodes [searchmoves],
-    // read until bestmove. Keeps the last complete line per multipv index.
+    // read until bestmove. Lines are selected by MultiPvCollector.
     [[nodiscard]] SearchResult search(const SearchRequest& request);
 
 private:
