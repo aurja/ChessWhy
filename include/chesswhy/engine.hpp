@@ -9,6 +9,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace chesswhy::engine {
@@ -46,7 +47,9 @@ struct Line {
 };
 
 struct SearchResult {
-    std::vector<Line> lines; // ordered by multipv index, 1..k (k <= legal moves)
+    // The engine's final MultiPV order; every first move at most once; lines[i].multipv
+    // == i + 1 (k <= legal moves). Built by MultiPvCollector.
+    std::vector<Line> lines;
     std::string bestmove_uci;
     std::uint64_t nodes = 0; // "nodes" of the last info line
 };
@@ -54,6 +57,28 @@ struct SearchResult {
 // Parses one "info ... multipv ... score ... wdl ... pv ..." line. Returns nullopt for
 // info lines without pv, without wdl, or with lowerbound/upperbound.
 [[nodiscard]] std::optional<Line> parse_info_line(std::string_view text);
+
+// Turns one search's "info" output into SearchResult::lines. A node-limited search
+// can stop mid-iteration, so the last batch the engine prints (the run of lines that
+// starts at multipv 1) may contain lowerbound/upperbound lines, and an older exact
+// line in the same slot may name a move that has since moved to another slot.
+// Rules, applied to the last batch's slots in multipv order:
+//   1. The slot's move is the first pv move of its line in the last batch, exact or bound.
+//   2. Its Line is the newest exact line (any slot, any depth) whose first move is that move.
+//   3. No exact line for that move: the newest exact line of the same slot, if its move
+//      is not already selected; otherwise the slot is omitted.
+// Selected lines are renumbered 1..k. Info lines without pv are ignored.
+class MultiPvCollector {
+public:
+    void add(std::string_view info_line);
+    // Throws EngineError when no exact line was seen.
+    [[nodiscard]] std::vector<Line> finish() &&;
+
+private:
+    std::vector<std::pair<int, std::string>> last_batch_; // (multipv, first move)
+    std::vector<Line> newest_exact_;                       // one per first move
+    std::vector<Line> newest_exact_by_slot_;               // index multipv - 1
+};
 
 class Engine {
 public:

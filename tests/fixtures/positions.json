@@ -314,6 +314,34 @@
         "/asked_move/gives_check": true
       },
       "line_prefix": {"/threats/black/line": ["Nc2#"]}
+    },
+    {
+      "id": "F17",
+      "title": "underpromotion is the only fine move; queening allows mate",
+      "source": "Korchnoi, Viktor - Kasparov, Gary, London 1983, round 6, annotator's line 60...Rg6 61.Rg2, before 70.d8=N+",
+      "args": ["--fen", "4K3/3P2r1/4k3/8/8/8/8/8 w - - 3 70", "--move", "d8=N+"],
+      "equals": {
+        "/position/side_to_move": "white",
+        "/position/in_check": false,
+        "/threats/null_move_reliable/value": false,
+        "/threats/urgency/more_urgent": "black",
+        "/threats/urgency/rule": "consequence_class",
+        "/threats/white/consequence/class": "material",
+        "/threats/white/consequence/promotes": true,
+        "/threats/black/consequence/class": "mate",
+        "/threats/black/consequence/mate_in": 1,
+        "/asked_move/san": "d8=N+",
+        "/asked_move/uci": "d7d8n",
+        "/asked_move/verdict": "fine",
+        "/asked_move/in_multipv": true,
+        "/asked_move/gives_check": true
+      },
+      "line_prefix": {"/threats/black/line": ["Rg8#"]},
+      "fine_includes": ["d8=N+"],
+      "candidate": {
+        "d8=Q": {"/verdict": "blunder"},
+        "d8=R": {"/verdict": "blunder"}
+      }
     }
   ],
   "unit_fixtures": [
