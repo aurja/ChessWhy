@@ -4,7 +4,9 @@
 #include <filesystem>
 #include <optional>
 #include <stdexcept>
+#include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <chess.hpp>
@@ -36,6 +38,27 @@ struct PgnPosition {
 // (message names the game, move number and token).
 [[nodiscard]] PgnPosition load_pgn(const std::filesystem::path& path, int game,
                                    std::optional<int> ply);
+
+// One mainline half-move of a game as read from the file.
+struct PgnMove {
+    int ply = 0;           // half-moves played after this move (1 = first move of the game)
+    chess::Move move;      // legal in the position after ply - 1 half-moves
+    std::string san;       // chess-library SAN with check suffix, e.g. "Nf3", "Qxf7#"
+    std::vector<int> nags; // annotation glyphs on this move in file order: "$n" as n;
+                           // suffixes ! ? !! ?? !? ?! as 1 2 3 4 5 6
+};
+
+struct PgnGame {
+    int game = 1; // 1-based index in the file
+    std::vector<std::pair<std::string, std::string>> headers; // tag pairs in file order
+    chess::Board start;                                       // [FEN] position or standard start
+    std::vector<PgnMove> moves;                               // mainline only
+};
+
+// Every game in file order. Mainline only: comments (brace and ";"), variations (nested),
+// NAGs and move-number indications ("12.", "12...") never become moves. Comment text is
+// not returned. Same InputError rules and messages as load_pgn; load_pgn uses this parser.
+[[nodiscard]] std::vector<PgnGame> read_games(const std::filesystem::path& path);
 
 // SAN ("Nf3", "O-O", "exf6", "a8=N", check/mate suffixes optional) or UCI ("g1f3",
 // "e1g1", "a7a8n"). Throws InputError for illegal, ambiguous or unparsable text.

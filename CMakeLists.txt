@@ -39,7 +39,7 @@ target_compile_definitions(chesswhy_paths INTERFACE
 # ---- Modules (Planning/milestones/M1.md, Build layout) ----
 # M1 integration guard: modules land in separate work packages. The EXISTS checks are
 # removed in the CLI work package, once every module is present.
-foreach(module IN ITEMS input engine openings report render analysis cli)
+foreach(module IN ITEMS input engine openings report render analysis cli pgntool)
     if(EXISTS "${PROJECT_SOURCE_DIR}/src/${module}/CMakeLists.txt")
         add_subdirectory("src/${module}")
     endif()
