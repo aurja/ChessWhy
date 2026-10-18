@@ -34,6 +34,8 @@ enum class ParryTest : std::uint8_t { Searched, ThreatMoveIllegal, DeferredByChe
 [[nodiscard]] std::string to_string(Verdict verdict);
 [[nodiscard]] std::string to_string(UrgencyRule rule);
 [[nodiscard]] std::string to_string(ParryTest test);
+// Provenance of a parry decision: "engine" for searched, "rule" for the legality tests.
+[[nodiscard]] const char* parry_source(ParryTest test);
 
 struct InputInfo {
     InputSource source = InputSource::Fen;

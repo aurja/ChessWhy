@@ -52,7 +52,8 @@ void write_move_details(std::ostringstream& output, const std::string& label,
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
     if (move.parries_threat) {
         output << label << " parries threat: " << boolean(move.parries_threat->parries) << " ("
-               << to_string(move.parries_threat->test) << ") [engine]\n";
+               << to_string(move.parries_threat->test) << ") ["
+               << parry_source(move.parries_threat->test) << "]\n";
     } else {
         output << label << " parries threat: null [rule]\n";
     }

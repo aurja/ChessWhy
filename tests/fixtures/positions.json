@@ -109,7 +109,7 @@
       },
       "fine_includes": ["Ne2+"],
       "candidate": {
-        "Ne2+": {"/gives_check": true, "/parries_threat/value": false, "/parries_threat/test": "deferred_by_check"}
+        "Ne2+": {"/gives_check": true, "/parries_threat/value": false, "/parries_threat/test": "deferred_by_check", "/parries_threat/source": "rule"}
       }
     },
     {
@@ -151,7 +151,7 @@
       },
       "fine_includes": ["cxd3"],
       "candidate": {
-        "cxd3": {"/parries_threat/value": true, "/parries_threat/test": "threat_move_illegal"}
+        "cxd3": {"/parries_threat/value": true, "/parries_threat/test": "threat_move_illegal", "/parries_threat/source": "rule"}
       }
     },
     {

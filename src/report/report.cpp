@@ -67,7 +67,7 @@ template <typename Enum>
     value["line"] = move.line_san;
     if (move.parries_threat) {
         Json parry = Json::object();
-        parry["source"] = "engine";
+        parry["source"] = parry_source(move.parries_threat->test);
         parry["value"] = move.parries_threat->parries;
         parry["test"] = to_string(move.parries_threat->test);
         value["parries_threat"] = std::move(parry);
@@ -190,6 +190,10 @@ std::string to_string(ParryTest test) {
         return "deferred_by_check";
     }
     throw std::invalid_argument(invalid_enum("ParryTest", test));
+}
+
+const char* parry_source(ParryTest test) {
+    return test == ParryTest::Searched ? "engine" : "rule";
 }
 
 nlohmann::ordered_json to_json(const Report& report) {
