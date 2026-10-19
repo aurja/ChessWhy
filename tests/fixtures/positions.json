@@ -46,6 +46,7 @@
       "title": "in check; fine, mistake and blunder replies",
       "source": "Gunsberg, Isidor - Chigorin, Michael, Havana 1890, before 17.Kf1",
       "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17", "--move", "Kf1"],
+      "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "g8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": true,
@@ -94,6 +95,7 @@
       "title": "own material threat against the opponent's mate threat",
       "source": "Anand, Viswanathan - Karpov, Anatoly, FIDE-Wch k.o. final 1998, before 34...h6",
       "args": ["--fen", "2r3k1/Q5pp/1Bq5/P2pb3/8/2n2R1P/2p2PP1/2R3K1 b - - 3 34", "--move", "h6"],
+      "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "g8"}]},
       "equals": {
         "/position/side_to_move": "black",
         "/position/in_check": false,
@@ -137,6 +139,11 @@
       "title": "equal material threats; the fine move parries by capture",
       "source": "Alekhine, Alexander - Euwe, Max, The Netherlands 1927, before 31.Qxd3",
       "args": ["--fen", "6k1/2n2ppp/p3q3/1pB1p1P1/1Pr1P3/PQ1r3P/2PR2K1/8 w - - 0 31", "--move", "Qxd3"],
+      "motifs_include": {
+        "/asked_move/motifs": [{"tag": "fork", "side": "white", "actor": "d8"}],
+        "/asked_move/refutation/motifs": [{"tag": "fork", "side": "white", "actor": "d8"}],
+        "/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "g8"}]
+      },
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -159,6 +166,7 @@
       "title": "equal material threats; checking move does not parry",
       "source": "Tal, Mikhail - Smyslov, Vasily, Candidates' tournament 1959, before 19.Qxf7",
       "args": ["--fen", "r1bb1r1k/p4ppp/2p2n1N/7Q/2p5/2B2N2/qPP2PPP/2KR3R w - - 2 19", "--move", "Qxf7"],
+      "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "h8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -203,6 +211,7 @@
       "title": "rook against pawns: null move unreliable, promotion threat",
       "source": "Korchnoi, Viktor - Karpov, Anatoly, Candidates' final 1974, before 58.a7",
       "args": ["--fen", "6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58", "--move", "a7"],
+      "motifs_include": {"/asked_move/motifs": [{"tag": "promotion", "side": "white", "actor": "a8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -221,6 +230,7 @@
       "title": "en passant capture outside the engine's top lines",
       "source": "Lasker, Emanuel - Schlechter, Carl, Wch10 1910, before 18.exf6",
       "args": ["--fen", "1r1q1rk1/4b1pp/4b3/1p1pPp2/3p1P2/8/1PBB2PP/R2Q1RK1 w - f6 0 18", "--move", "exf6"],
+      "motifs_include": {"/asked_move/motifs": [{"tag": "hanging_piece", "side": "white", "actor": "e6"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -326,6 +336,7 @@
       "title": "underpromotion by capture is the only fine move",
       "source": "De la Bourdonnais, Louis Mahe - McDonnell, Alexander, London m1 1834, annotator's line 34.Nb1 Kxg7 35.gxf7+ Qxg3, before 36.fxe8=N+",
       "args": ["--fen", "4r3/1p3Pk1/3p4/8/8/pPnn2q1/P7/KN4R1 w - - 0 36", "--move", "fxe8=N+"],
+      "motifs_include": {"/asked_move/motifs": [{"tag": "promotion", "side": "white", "actor": "e8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,

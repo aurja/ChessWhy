@@ -1,5 +1,6 @@
 #include "chesswhy/render.hpp"
 
+#include <cstdint>
 #include <iomanip>
 #include <locale>
 #include <sstream>
@@ -24,6 +25,31 @@ namespace {
     return value ? "true" : "false";
 }
 
+void write_square(std::ostringstream& output, std::uint8_t square) {
+    output << static_cast<char>('a' + (square % 8)) << static_cast<char>('1' + (square / 8));
+}
+
+void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs) {
+    for (const auto& motif : motifs) {
+        output << to_string(motif.tag) << ": " << motif.actor.piece << ' ';
+        write_square(output, motif.actor.square);
+        if (!motif.targets.empty()) {
+            output << " → ";
+            for (std::size_t index = 0; index < motif.targets.size(); ++index) {
+                if (index != 0) {
+                    output << ", ";
+                }
+                output << motif.targets[index].piece << ' ';
+                write_square(output, motif.targets[index].square);
+            }
+        }
+        if (motif.gain) {
+            output << ", gain " << *motif.gain;
+        }
+        output << " (ply " << motif.ply << ") [rule]\n";
+    }
+}
+
 void write_consequence(std::ostringstream& output, const std::string& label,
                        const Consequence& consequence) {
     output << label << ": class=" << to_string(consequence.cls) << ", mate_in=";
@@ -44,12 +70,16 @@ void write_threat(std::ostringstream& output, const std::string& label,
         return;
     }
     output << label << " line: " << san_line(threat->line_san) << " [engine]\n";
+    write_motifs(output, threat->motifs);
     write_consequence(output, label + " consequence", threat->consequence);
 }
 
 void write_move_details(std::ostringstream& output, const std::string& label,
                         const MoveAssessment& move) {
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
+    if (move.verdict == Verdict::Fine) {
+        write_motifs(output, move.motifs);
+    }
     if (move.parries_threat) {
         output << label << " parries threat: " << boolean(move.parries_threat->parries) << " ("
                << to_string(move.parries_threat->test) << ") ["
@@ -62,6 +92,7 @@ void write_move_details(std::ostringstream& output, const std::string& label,
                << " [engine]\n";
         output << label << " creates threat line: " << san_line(move.creates_threat->line_san)
                << " [engine]\n";
+        write_motifs(output, move.creates_threat->motifs);
         write_consequence(output, label + " creates threat consequence",
                           move.creates_threat->consequence);
     } else {
@@ -70,6 +101,7 @@ void write_move_details(std::ostringstream& output, const std::string& label,
     if (move.refutation) {
         output << label << " refutation line: " << san_line(move.refutation->line_san)
                << " [engine]\n";
+        write_motifs(output, move.refutation->motifs);
         write_consequence(output, label + " refutation consequence", move.refutation->consequence);
     } else {
         output << label << " refutation: null [rule]\n";

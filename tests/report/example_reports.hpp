@@ -41,6 +41,26 @@ inline constexpr const char* kAfterE4E5 =
     return value;
 }
 
+[[nodiscard]] inline PieceOnSquare piece_on_square(char file, int rank, char piece) {
+    return PieceOnSquare{
+        .square = static_cast<std::uint8_t>(((rank - 1) * 8) + (file - 'a')),
+        .piece = piece,
+    };
+}
+
+[[nodiscard]] inline Motif motif(MotifTag tag, Side side, int ply, PieceOnSquare actor,
+                                 std::vector<PieceOnSquare> targets = {},
+                                 std::optional<int> gain = std::nullopt) {
+    Motif value;
+    value.tag = tag;
+    value.side = side;
+    value.ply = ply;
+    value.actor = actor;
+    value.targets = std::move(targets);
+    value.gain = gain;
+    return value;
+}
+
 [[nodiscard]] inline MoveAssessment move(std::string san, std::string uci,
                                          std::vector<std::string> line, int es_units,
                                          std::string root_fen, Side threat_side = Side::Black,
@@ -119,18 +139,35 @@ inline constexpr const char* kAfterE4E5 =
     Report report = base_report(kF03, Side::Black);
     report.input.move = "Nf6";
     report.position.eval_white = Eval{.es_units = 1234, .cp = 45, .mate = std::nullopt};
+    report.position.motifs.push_back(
+        motif(MotifTag::HangingPiece, Side::White, 0, piece_on_square('d', 5, 'n'), {}, 3));
+    report.position.motifs.push_back(
+        motif(MotifTag::BackRankWeakness, Side::White, 0, piece_on_square('e', 8, 'k')));
 
     Threats threats;
     threats.white =
         threat(Side::White, "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 3 3",
                {"Qxf7#"}, consequence(ConsequenceClass::Mate, 0, 1, false, 1));
+    threats.white->motifs.push_back(
+        motif(MotifTag::Fork, Side::White, 3, piece_on_square('e', 5, 'N'),
+              {piece_on_square('c', 6, 'r'), piece_on_square('g', 6, 'k')}));
     threats.black =
         threat(Side::Black, kF03, {"Nf6"}, consequence(ConsequenceClass::Positional, 0, 6));
+    threats.black->motifs.push_back(motif(MotifTag::DiscoveredCheck, Side::Black, 1,
+                                          piece_on_square('f', 6, 'q'),
+                                          {piece_on_square('e', 1, 'K')}));
     threats.null_move_reliable = true;
     threats.urgency = {.more_urgent = Side::White, .rule = UrgencyRule::ConsequenceClass};
     report.threats = std::move(threats);
 
     report.candidates.push_back(move("d6", "d7d6", {"d6"}, 1234, kF03));
+    report.candidates.back().motifs.push_back(
+        motif(MotifTag::Promotion, Side::Black, 1, piece_on_square('e', 8, 'Q')));
+    if (auto& creates_threat = report.candidates.back().creates_threat; creates_threat) {
+        creates_threat->motifs.push_back(motif(MotifTag::DiscoveredAttack, Side::Black, 1,
+                                               piece_on_square('c', 5, 'b'),
+                                               {piece_on_square('h', 5, 'Q')}));
+    }
     report.candidates.push_back(move("g6", "g7g6", {"g6"}, 1234, kF03));
     report.candidates.push_back(move("Qf6", "d8f6", {"Qf6"}, 1234, kF03));
     report.candidates.push_back(move("Qe7", "d8e7", {"Qe7"}, 1234, kF03));
@@ -146,12 +183,16 @@ inline constexpr const char* kAfterE4E5 =
     asked.in_multipv = false;
     asked.gives_check = false;
     asked.line_san = {"Nf6", "Qxf7#"};
+    asked.motifs.push_back(motif(MotifTag::Skewer, Side::Black, 1, piece_on_square('f', 6, 'q'),
+                                 {piece_on_square('f', 1, 'R')}));
     asked.parries_threat = ParryInfo{.parries = false, .test = ParryTest::Searched};
     asked.creates_threat =
         threat(Side::Black, "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 4 4",
                {"Nxe4"}, consequence(ConsequenceClass::Positional, 0, 6));
     asked.refutation = threat(Side::White, kAfterNf6, {"Qxf7#"},
                               consequence(ConsequenceClass::Mate, 0, 1, false, 1));
+    asked.refutation->motifs.push_back(
+        motif(MotifTag::HangingPiece, Side::White, 1, piece_on_square('d', 5, 'n'), {}, 3));
     report.asked_move = std::move(asked);
     return report;
 }

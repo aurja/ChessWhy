@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -26,6 +27,40 @@ template <typename Enum>
     return value;
 }
 
+[[nodiscard]] Json serialize_piece_on_square(const PieceOnSquare& piece) {
+    Json value = Json::object();
+    std::string square(2, ' ');
+    square[0] = static_cast<char>('a' + (piece.square % 8));
+    square[1] = static_cast<char>('1' + (piece.square / 8));
+    value["square"] = std::move(square);
+    value["piece"] = std::string(1, piece.piece);
+    return value;
+}
+
+[[nodiscard]] Json serialize_motif(const Motif& motif) {
+    Json value = Json::object();
+    value["source"] = "rule";
+    value["tag"] = to_string(motif.tag);
+    value["side"] = to_string(motif.side);
+    value["ply"] = motif.ply;
+    value["actor"] = serialize_piece_on_square(motif.actor);
+    Json targets = Json::array();
+    for (const auto& target : motif.targets) {
+        targets.push_back(serialize_piece_on_square(target));
+    }
+    value["targets"] = std::move(targets);
+    value["gain"] = motif.gain ? Json(*motif.gain) : Json(nullptr);
+    return value;
+}
+
+[[nodiscard]] Json serialize_motifs(const std::vector<Motif>& motifs) {
+    Json values = Json::array();
+    for (const auto& motif : motifs) {
+        values.push_back(serialize_motif(motif));
+    }
+    return values;
+}
+
 [[nodiscard]] Json serialize_consequence(const Consequence& consequence) {
     Json value = Json::object();
     value["source"] = "rule";
@@ -44,6 +79,7 @@ template <typename Enum>
     value["root_fen"] = threat.root_fen;
     value["line"] = threat.line_san;
     value["consequence"] = serialize_consequence(threat.consequence);
+    value["motifs"] = serialize_motifs(threat.motifs);
     return value;
 }
 
@@ -77,6 +113,7 @@ template <typename Enum>
     value["creates_threat"] =
         move.creates_threat ? serialize_threat(*move.creates_threat) : Json(nullptr);
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
+    value["motifs"] = serialize_motifs(move.motifs);
     return value;
 }
 
@@ -268,6 +305,7 @@ nlohmann::ordered_json to_json(const Report& report) {
         report.position.terminal ? Json(to_string(*report.position.terminal)) : Json(nullptr);
     position["eval_white"] =
         report.position.eval_white ? serialize_eval(*report.position.eval_white) : Json(nullptr);
+    position["motifs"] = serialize_motifs(report.position.motifs);
     value["position"] = std::move(position);
 
     if (report.threats) {

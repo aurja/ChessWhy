@@ -7,5 +7,333 @@
     "excludes: no instance may match; omitted fields match anything (e.g. {tag, side, ply} forbids every such motif at that ply).",
     "Proposed by M2 WP5; frozen after the Captain's review (M2 §12, checkpoint 1)."
   ],
-  "motif_fixtures": []
+  "motif_fixtures": [
+    {
+      "id": "T01",
+      "title": "rook attacks undefended knight",
+      "source": "constructed",
+      "fen": "7k/8/8/4n3/8/8/8/K3R3 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "hanging_piece", "side": "white", "ply": 0, "actor": "e5", "targets": []}],
+      "excludes": []
+    },
+    {
+      "id": "T02",
+      "title": "attacked knight is defended by bishop",
+      "source": "constructed",
+      "fen": "7k/2b5/8/4n3/8/8/8/K3R3 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "hanging_piece", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T03",
+      "title": "rook pins knight to king",
+      "source": "constructed",
+      "fen": "4k3/8/4n3/8/8/8/8/K3R3 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_absolute", "side": "white", "ply": 0, "actor": "e1", "targets": ["e6", "e8"]}],
+      "excludes": []
+    },
+    {
+      "id": "T04",
+      "title": "bishop pins knight to king",
+      "source": "constructed",
+      "fen": "8/6k1/8/4n3/8/8/1B6/K7 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_absolute", "side": "white", "ply": 0, "actor": "b2", "targets": ["e5", "g7"]}],
+      "excludes": []
+    },
+    {
+      "id": "T05",
+      "title": "rook lines up pieces with a queen behind the knight",
+      "source": "constructed",
+      "fen": "4q2k/8/4n3/8/8/8/8/K3R3 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "pin_absolute", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T06",
+      "title": "rook lines up pieces with a rook behind the knight",
+      "source": "constructed",
+      "fen": "k3r3/8/4n3/8/8/8/8/K3R3 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "pin_absolute", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T07",
+      "title": "pawn is pinned in front of queen",
+      "source": "constructed",
+      "fen": "4q2k/8/4p3/8/8/8/8/K3R3 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_relative", "side": "white", "ply": 0, "actor": "e1", "targets": ["e6", "e8"]}],
+      "excludes": []
+    },
+    {
+      "id": "T08",
+      "title": "bishop pins knight in front of rook",
+      "source": "constructed",
+      "fen": "7k/6r1/8/4n3/8/8/1B6/K7 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_relative", "side": "white", "ply": 0, "actor": "b2", "targets": ["e5", "g7"]}],
+      "excludes": []
+    },
+    {
+      "id": "T09",
+      "title": "queen behind a more valuable front piece",
+      "source": "constructed",
+      "fen": "4n2k/8/4q3/8/8/8/8/K3R3 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "pin_relative", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T10",
+      "title": "equal knights do not make a relative pin",
+      "source": "constructed",
+      "fen": "4n2k/8/4n3/8/8/8/8/K3R3 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "pin_relative", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T11",
+      "title": "literal rule marks both kings in the initial position",
+      "source": "Lasker, Emanuel - Schlechter, Carl, Wch10 1910, before 1.e4",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+      "line_uci": [],
+      "includes": [
+        {"tag": "back_rank_weakness", "side": "white", "ply": 0, "actor": "e8", "targets": []},
+        {"tag": "back_rank_weakness", "side": "black", "ply": 0, "actor": "e1", "targets": []}
+      ],
+      "excludes": []
+    },
+    {
+      "id": "T12",
+      "title": "white king's three front squares are occupied",
+      "source": "constructed",
+      "fen": "4k2r/8/8/8/8/8/PPP5/1K6 b - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "back_rank_weakness", "side": "black", "ply": 0, "actor": "b1", "targets": []}],
+      "excludes": []
+    },
+    {
+      "id": "T13",
+      "title": "black king has luft on f7",
+      "source": "constructed",
+      "fen": "6k1/6pp/8/8/8/8/8/R3K3 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "back_rank_weakness", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T14",
+      "title": "white king has luft on b2",
+      "source": "constructed",
+      "fen": "4k2r/8/8/8/8/8/P1P5/1K6 b - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "back_rank_weakness", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T15",
+      "title": "queen defends both attacked knights",
+      "source": "constructed",
+      "fen": "7k/8/8/2n1n3/3q4/8/8/2R1RK2 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "overloaded_defender", "side": "white", "ply": 0, "actor": "d4", "targets": ["c5", "e5"]}],
+      "excludes": []
+    },
+    {
+      "id": "T16",
+      "title": "bishop defends both attacked knights",
+      "source": "constructed",
+      "fen": "7k/8/8/2n1n3/3b4/8/8/2R1RK2 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "overloaded_defender", "side": "white", "ply": 0, "actor": "d4", "targets": ["c5", "e5"]}],
+      "excludes": []
+    },
+    {
+      "id": "T17",
+      "title": "defender only protects one attacked knight",
+      "source": "constructed",
+      "fen": "7k/8/1b6/2n1n3/8/8/8/2R1RK2 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "overloaded_defender", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T18",
+      "title": "second defender survives removal of queen",
+      "source": "constructed",
+      "fen": "1b5k/8/8/2n1n3/3q4/8/8/2R1RK2 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "overloaded_defender", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T19",
+      "title": "rook's file exit is blocked and rank exits are attacked",
+      "source": "constructed",
+      "fen": "r3k3/pQB5/8/8/8/8/8/K7 b - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "trapped_piece", "side": "white", "ply": 0, "actor": "a8", "targets": []}],
+      "excludes": []
+    },
+    {
+      "id": "T20",
+      "title": "corner rook can escape to b8",
+      "source": "constructed",
+      "fen": "r7/2k5/8/8/8/8/8/Q3K3 b - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "trapped_piece", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T21",
+      "title": "knight forks queen and king from a safe square",
+      "source": "constructed",
+      "fen": "6k1/8/6q1/5N2/1B6/8/8/K7 w - - 0 1",
+      "line_uci": ["f5e7"],
+      "includes": [{"tag": "fork", "side": "white", "ply": 1, "actor": "e7", "targets": ["g6", "g8"]}],
+      "excludes": []
+    },
+    {
+      "id": "T22",
+      "title": "forking knight can be taken on its landing square",
+      "source": "constructed",
+      "fen": "6k1/8/6q1/2b2N2/8/8/8/K7 w - - 0 1",
+      "line_uci": ["f5e7"],
+      "includes": [],
+      "excludes": [{"tag": "fork", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T23",
+      "title": "rook skewers queen in front of knight",
+      "source": "constructed",
+      "fen": "4n2k/8/4q3/8/R7/8/8/KB6 w - - 0 1",
+      "line_uci": ["a4e4"],
+      "includes": [{"tag": "skewer", "side": "white", "ply": 1, "actor": "e4", "targets": ["e6", "e8"]}],
+      "excludes": []
+    },
+    {
+      "id": "T24",
+      "title": "front knight is no more valuable than rear queen",
+      "source": "constructed",
+      "fen": "4q2k/8/4n3/8/R7/8/8/KB6 w - - 0 1",
+      "line_uci": ["a4e4"],
+      "includes": [],
+      "excludes": [{"tag": "skewer", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T25",
+      "title": "bishop vacates rook's line to king",
+      "source": "constructed",
+      "fen": "K7/8/8/8/8/8/8/R2B3k w - - 0 1",
+      "line_uci": ["d1e2"],
+      "includes": [{"tag": "discovered_check", "side": "white", "ply": 1, "actor": "a1", "targets": ["h1"]}],
+      "excludes": []
+    },
+    {
+      "id": "T26",
+      "title": "bishop vacates rook's line but king is off it",
+      "source": "constructed",
+      "fen": "K7/8/8/8/8/8/7k/R2B4 w - - 0 1",
+      "line_uci": ["d1e2"],
+      "includes": [],
+      "excludes": [{"tag": "discovered_check", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T27",
+      "title": "pawn uncovers bishop attack on a more valuable rook",
+      "source": "constructed",
+      "fen": "4k2r/8/8/8/3P4/8/8/BK6 w - - 0 1",
+      "line_uci": ["d4d5"],
+      "includes": [{"tag": "discovered_attack", "side": "white", "ply": 1, "actor": "a1", "targets": ["h8"]}],
+      "excludes": []
+    },
+    {
+      "id": "T28",
+      "title": "unmasked bishop attacks a defended equal-value knight",
+      "source": "constructed",
+      "fen": "4k2n/7r/8/8/3P4/8/8/BK6 w - - 0 1",
+      "line_uci": ["d4d5"],
+      "includes": [],
+      "excludes": [{"tag": "discovered_attack", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T29",
+      "title": "bishop move reveals rook check as double check",
+      "source": "constructed",
+      "fen": "4k3/8/8/8/4B3/8/8/K3R3 w - - 0 1",
+      "line_uci": ["e4g6"],
+      "includes": [{"tag": "double_check", "side": "white", "ply": 1, "actor": "g6", "targets": ["e8"]}],
+      "excludes": []
+    },
+    {
+      "id": "T30",
+      "title": "bishop opens a single rook check",
+      "source": "constructed",
+      "fen": "4k3/8/8/8/4B3/8/8/K3R3 w - - 0 1",
+      "line_uci": ["e4f3"],
+      "includes": [],
+      "excludes": [{"tag": "double_check", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T31",
+      "title": "rook delivers back-rank mate",
+      "source": "constructed",
+      "fen": "7k/6pp/8/8/2B5/8/Q7/1R2K3 w - - 0 1",
+      "line_uci": ["b1b8"],
+      "includes": [{"tag": "back_rank_mate", "side": "white", "ply": 1, "actor": "b8", "targets": ["h8"]}],
+      "excludes": []
+    },
+    {
+      "id": "T32",
+      "title": "mate remains but one front square is empty",
+      "source": "constructed",
+      "fen": "7k/7p/8/6Q1/8/8/8/1R2K3 w - - 0 1",
+      "line_uci": ["b1b8"],
+      "includes": [],
+      "excludes": [{"tag": "back_rank_mate", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T33",
+      "title": "captured bishop releases knight for later rook capture",
+      "source": "constructed",
+      "fen": "7k/8/3b4/1N2n3/8/8/8/K3R3 w - - 0 1",
+      "line_uci": ["b5d6", "h8h7", "e1e5"],
+      "includes": [{"tag": "removal_of_defender", "side": "white", "ply": 1, "actor": "d6", "targets": ["d6", "e5"]}],
+      "excludes": []
+    },
+    {
+      "id": "T34",
+      "title": "defender is removed but target is never recaptured",
+      "source": "constructed",
+      "fen": "7k/8/3b4/1N2n3/8/8/8/K3R3 w - - 0 1",
+      "line_uci": ["b5d6", "h8h7"],
+      "includes": [],
+      "excludes": [{"tag": "removal_of_defender", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T35",
+      "title": "pawn promotes to queen",
+      "source": "constructed",
+      "fen": "7k/3P4/8/8/8/8/8/K7 w - - 0 1",
+      "line_uci": ["d7d8q"],
+      "includes": [{"tag": "promotion", "side": "white", "ply": 1, "actor": "d8", "targets": []}],
+      "excludes": []
+    },
+    {
+      "id": "T36",
+      "title": "pawn advances without promoting",
+      "source": "constructed",
+      "fen": "7k/8/3P4/8/8/8/8/K7 w - - 0 1",
+      "line_uci": ["d6d7"],
+      "includes": [],
+      "excludes": [{"tag": "promotion", "side": "white", "ply": 1}]
+    }
+  ]
 }
