@@ -18,7 +18,7 @@ update this table.
 
 | Package | Pin | License | Role | Milestone |
 |---|---|---|---|---|
-| python-jsonschema/jsonschema with attrs, jsonschema-specifications, referencing, rpds-py | `4.26.0`; others pinned in `tools/requirements-dev.txt` | MIT (all five) | validates reports against `schema/report.v1.schema.json` in CTest | M1 |
+| python-jsonschema/jsonschema with attrs, jsonschema-specifications, referencing, rpds-py | `4.26.0`; others pinned in `tools/requirements-dev.txt` | MIT (all five) | validates reports against `schema/report.v2.schema.json` in CTest | M1 |
 
 ## Fetched assets (`assets/`, git-ignored, `tools/fetch_assets.sh`)
 

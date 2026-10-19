@@ -2,10 +2,13 @@
 
 Updated 2026-10-19.
 
-- Milestone: **M2 planned** on branch `m2`: tactical motif detectors. Plan
+- Milestone: **M2 contract frozen** on branch `m2`: tactical motif detectors. Plan
   `Planning/milestones/M2.md`, frozen except the motif fixture table (§9) and the
   calibrated definitions and targets (§8), which the Captain approves at the §12
-  checkpoints. Next: contract commit (headers, schema v2, CMake skeleton), then batch 1.
+  checkpoints. Contract commit done (headers, schema v2, tactics CMake, `motifs.json`
+  skeleton). Expected red until batch 1: `report_schema_unit` (to_json still emits v1
+  shape). Next: batch 1 (WP1 tactics, WP2 puzzles, WP3 report + render, WP5 fixtures) in a
+  fresh orchestrator session.
 - Decided 2026-10-19 (M2 briefing D1–D10): see M2 §1. ChessWhy stays MIT; lichess-puzzler
   (AGPL-3.0) is read for definitions only, never copied, and credited.
 - M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine

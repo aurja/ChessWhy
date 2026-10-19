@@ -1,0 +1,11 @@
+{
+  "comment": [
+    "Motif unit fixtures T01-Tnn (Planning/milestones/M2.md §9). Label unit; no engine.",
+    "Each fixture: id, title, source ('<game>, before <move>' from the Captain's PGN via chesswhy-pgn, or 'constructed'), fen, line_uci (moves from fen; may be empty), includes, excludes.",
+    "An instance: tag (report spelling), side ('white'|'black', the side the motif benefits), ply (0 = fen, k = after the k-th move of line_uci), actor (square, e.g. 'e5'), targets (squares, in the order the motif reports them).",
+    "includes: each instance must appear in position_motifs(fen) (ply 0) or line_motifs(fen, line_uci) (ply >= 1) with exactly these fields.",
+    "excludes: no instance may match; omitted fields match anything (e.g. {tag, side, ply} forbids every such motif at that ply).",
+    "Proposed by M2 WP5; frozen after the Captain's review (M2 §12, checkpoint 1)."
+  ],
+  "motif_fixtures": []
+}

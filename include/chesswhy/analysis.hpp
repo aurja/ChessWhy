@@ -46,8 +46,14 @@ void analyse(engine::Engine& engine, const Request& request, Report& report);
 // Side to move has at most one piece other than king and pawns.
 [[nodiscard]] bool null_move_prone(const chess::Board& board);
 
-// Consequence of `pv_uci` played from `root` for root's side to move. `root_line` is the
-// engine line the pv came from (mate score, root side's point of view).
+// Plies of `pv_uci` the consequence rule walks from `root` (M1 §4.3, M2 §5): the first
+// kHorizonPlies plies, then further plies while each one is a capture, at most kLinePlies;
+// stops early at the first illegal or missing move. Motif lists cover exactly these plies.
+[[nodiscard]] int walked_plies(const chess::Board& root, std::span<const std::string> pv_uci);
+
+// Consequence of `pv_uci` played from `root` for root's side to move, over the first
+// walked_plies(root, pv_uci) plies (`plies` equals it). `root_line` is the engine line the
+// pv came from (mate score, root side's point of view).
 [[nodiscard]] Consequence consequence(const chess::Board& root, std::span<const std::string> pv_uci,
                                       const engine::Line& root_line);
 

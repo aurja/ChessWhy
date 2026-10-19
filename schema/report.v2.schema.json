@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/report.v1.schema.json",
-  "title": "ChessWhy report, schema version 1",
+  "$id": "https://chesswhy.local/schema/report.v2.schema.json",
+  "title": "ChessWhy report, schema version 2",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "input", "engine", "position", "threats", "candidates", "fine_truncated", "asked_move", "opening"],
   "properties": {
-    "schema_version": {"const": 1},
+    "schema_version": {"const": 2},
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -49,13 +49,14 @@
     "position": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["fen", "side_to_move", "in_check", "terminal", "eval_white"],
+      "required": ["fen", "side_to_move", "in_check", "terminal", "eval_white", "motifs"],
       "properties": {
         "fen": {"type": "string"},
         "side_to_move": {"$ref": "#/$defs/side"},
         "in_check": {"type": "boolean"},
         "terminal": {"enum": ["checkmate", "stalemate", null]},
-        "eval_white": {"oneOf": [{"$ref": "#/$defs/eval"}, {"type": "null"}]}
+        "eval_white": {"oneOf": [{"$ref": "#/$defs/eval"}, {"type": "null"}]},
+        "motifs": {"$ref": "#/$defs/motifs"}
       }
     },
     "threats": {
@@ -157,19 +158,20 @@
     "threat": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "side", "root_fen", "line", "consequence"],
+      "required": ["source", "side", "root_fen", "line", "consequence", "motifs"],
       "properties": {
         "source": {"const": "engine"},
         "side": {"$ref": "#/$defs/side"},
         "root_fen": {"type": "string"},
         "line": {"$ref": "#/$defs/san_line"},
-        "consequence": {"$ref": "#/$defs/consequence"}
+        "consequence": {"$ref": "#/$defs/consequence"},
+        "motifs": {"$ref": "#/$defs/motifs"}
       }
     },
     "move": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "san", "uci", "eval", "loss", "verdict", "in_multipv", "gives_check", "line", "parries_threat", "creates_threat", "refutation"],
+      "required": ["source", "san", "uci", "eval", "loss", "verdict", "in_multipv", "gives_check", "line", "parries_threat", "creates_threat", "refutation", "motifs"],
       "properties": {
         "source": {"const": "engine"},
         "san": {"type": "string"},
@@ -196,8 +198,39 @@
           ]
         },
         "creates_threat": {"oneOf": [{"$ref": "#/$defs/threat"}, {"type": "null"}]},
-        "refutation": {"oneOf": [{"$ref": "#/$defs/threat"}, {"type": "null"}]}
+        "refutation": {"oneOf": [{"$ref": "#/$defs/threat"}, {"type": "null"}]},
+        "motifs": {"$ref": "#/$defs/motifs"}
       }
-    }
+    },
+    "piece_on_square": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["square", "piece"],
+      "properties": {
+        "square": {"type": "string", "pattern": "^[a-h][1-8]$"},
+        "piece": {"type": "string", "pattern": "^[PNBRQKpnbrqk]$"}
+      }
+    },
+    "motif": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain"],
+      "properties": {
+        "source": {"const": "rule"},
+        "tag": {"enum": ["hanging_piece", "pin_absolute", "pin_relative", "back_rank_weakness",
+                         "overloaded_defender", "trapped_piece", "fork", "skewer", "discovered_check",
+                         "discovered_attack", "double_check", "back_rank_mate", "removal_of_defender",
+                         "promotion"]},
+        "side": {"$ref": "#/$defs/side"},
+        "ply": {"type": "integer", "minimum": 0},
+        "actor": {"$ref": "#/$defs/piece_on_square"},
+        "targets": {"type": "array", "items": {"$ref": "#/$defs/piece_on_square"}},
+        "gain": {"type": ["integer", "null"], "minimum": 1}
+      },
+      "if": {"properties": {"tag": {"enum": ["hanging_piece", "trapped_piece"]}}},
+      "then": {"properties": {"gain": {"type": "integer"}}},
+      "else": {"properties": {"gain": {"type": "null"}}}
+    },
+    "motifs": {"type": "array", "items": {"$ref": "#/$defs/motif"}}
   }
 }
