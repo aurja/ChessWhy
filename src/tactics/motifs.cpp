@@ -139,7 +139,7 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
         if (board.sideToMove() == side) {
             for (const chess::Square square : hanging_squares) {
                 const int gain = cached_see(square);
-                if (gain < 1 || (last_capture && square == last_capture->moved_square &&
+                if (gain < 3 || (last_capture && square == last_capture->moved_square &&
                                  last_capture->captured_value >= gain)) {
                     continue;
                 }
@@ -189,7 +189,8 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
                     motifs.push_back(
                         make_motif(board, MotifTag::PinAbsolute, side, 0, pinner, {first, rear}));
                 } else if (comparison_value(rear_type) >
-                           comparison_value(board.at<chess::PieceType>(first))) {
+                               comparison_value(board.at<chess::PieceType>(first)) &&
+                           detail::see_without_piece(board, rear, side, first) >= 1) {
                     motifs.push_back(
                         make_motif(board, MotifTag::PinRelative, side, 0, pinner, {first, rear}));
                 }
@@ -349,6 +350,30 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
     return false;
 }
 
+[[nodiscard]] bool has_later_actor_activity(chess::Square actor, std::size_t ply_index,
+                                            const std::vector<chess::Board>& positions,
+                                            std::span<const chess::Move> line) {
+    for (std::size_t later = ply_index + 1; later < line.size(); ++later) {
+        const chess::Move move = line[later];
+        if (move.from() == actor) {
+            return true;
+        }
+
+        const chess::Board& before = positions[later];
+        if (!before.isCapture(move)) {
+            continue;
+        }
+        chess::Square captured_square = move.to();
+        if (move.typeOf() == chess::Move::ENPASSANT) {
+            captured_square = move.to().ep_square();
+        }
+        if (captured_square == actor) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void append_fork(const chess::Board& after, chess::Square actor, chess::Color side, int ply,
                  std::vector<Motif>& motifs) {
     const auto attacker_type = after.at<chess::PieceType>(actor);
@@ -422,7 +447,7 @@ void append_skewers(const chess::Board& after, chess::Square actor, chess::Color
         const auto rear_type = after.at<chess::PieceType>(rear);
         if ((front_type == chess::PieceType::KING ||
              comparison_value(front_type) > comparison_value(rear_type)) &&
-            (front_type == chess::PieceType::KING || see_actor <= 0)) {
+            see_actor <= 0) {
             motifs.push_back(make_motif(after, MotifTag::Skewer, side, ply, actor, {front, rear}));
         }
     }
@@ -534,7 +559,8 @@ void append_removal_of_defender(const chess::Board& before, const chess::Board& 
             const chess::Move future = line[later];
             const chess::Board& future_before = positions[later];
             if (future_before.sideToMove() == side && future.to() == target &&
-                future_before.isCapture(future) && future.typeOf() != chess::Move::ENPASSANT) {
+                future_before.isCapture(future) && future.typeOf() != chess::Move::ENPASSANT &&
+                see(future_before, target, side) >= 1) {
                 captured_later = true;
                 break;
             }
@@ -633,10 +659,14 @@ std::vector<Motif> line_motifs(const chess::Board& root, std::span<const chess::
                 std::ranges::any_of(previous_state, [&motif](const Motif& previous) {
                     return same_identity(previous, motif);
                 });
-            if (!already_present) {
-                motif.ply = static_cast<int>(ply + 1);
-                motifs.push_back(std::move(motif));
+            // Broader filtering breaks T40 and sharply reduces pin recall on dev.
+            if (already_present || (motif.tag == MotifTag::TrappedPiece &&
+                                    !has_later_actor_activity(chess::Square(motif.actor.square),
+                                                              ply, positions, line))) {
+                continue;
             }
+            motif.ply = static_cast<int>(ply + 1);
+            motifs.push_back(std::move(motif));
         }
         previous_state = std::move(current_state);
     }

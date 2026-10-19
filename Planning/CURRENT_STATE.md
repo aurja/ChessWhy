@@ -16,7 +16,8 @@ Updated 2026-10-19.
   `tactics::piece_value`, motifs on position, threats and candidates, `motifs_include`
   in the F harness; smoke shows Black's `fork` Nf3 → Ke1, Qd4. Release CTests: unit
   68/68, engine 23/23 (run the engine label serially; `-j4` failed once, likely the
-  timing checks). Next: batch 3 (WP6 calibration on dev), then checkpoint 2 (targets).
+  timing checks). Batch 3 (WP6) calibrated on dev: five kept changes (M2 §15); unit
+  69/69, engine 23/23. Waiting on: checkpoint 2 (Captain approves targets, §8.2).
 - Decided 2026-10-19 (M2 briefing D1–D10): see M2 §1. ChessWhy stays MIT; lichess-puzzler
   (AGPL-3.0) is read for definitions only, never copied, and credited.
 - M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine
