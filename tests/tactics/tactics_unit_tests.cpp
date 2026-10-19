@@ -256,6 +256,11 @@ TEST_CASE("state motifs include hanging pieces and pin kinds", "[unit]") {
           nullptr);
     CHECK(find_motif(position_motifs(chess::Board("7k/8/3p4/4n3/8/2B5/8/K7 w - - 0 1")),
                      MotifTag::HangingPiece, Side::White, "e5") == nullptr);
+    const chess::Board check_restricts_hanging("4k3/8/8/8/1r5Q/8/8/4R2K b - - 0 1");
+    REQUIRE(check_restricts_hanging.inCheck());
+    CHECK(chesswhy::tactics::see(check_restricts_hanging, square("h4"), chess::Color::BLACK) >= 3);
+    CHECK(find_motif(position_motifs(check_restricts_hanging), MotifTag::HangingPiece, Side::Black,
+                     "h4") == nullptr);
 
     const auto absolute = position_motifs(chess::Board("4k3/4n3/8/8/8/8/8/K3R3 w - - 0 1"));
     expect_motif(absolute, MotifTag::PinAbsolute, Side::White, "e1", 'R',
@@ -364,6 +369,9 @@ TEST_CASE("move motifs detect forks and skewers", "[unit]") {
     expect_motif(skewer, MotifTag::Skewer, Side::White, "c3", 'B', {{"e5", 'q'}, {"f6", 'r'}});
     const auto wrong_order = line_motifs_from("7k/8/5r2/4b3/8/8/1B6/K1R5 w - - 0 1", {"b2c3"});
     CHECK(find_motif(wrong_order, MotifTag::Skewer, Side::White, "c3") == nullptr);
+    const auto unprofitable_rear =
+        line_motifs_from("5r1k/8/5n2/4q3/8/8/1B6/K1R5 w - - 0 1", {"b2c3"});
+    CHECK(find_motif(unprofitable_rear, MotifTag::Skewer, Side::White, "c3") == nullptr);
     const auto unsafe_king_front =
         line_motifs_from("7r/1Q1nkppp/4p3/p1r5/Pp6/6P1/NqP4P/4RRK1 w - - 2 23",
                          {"f1f7", "e7f7", "b7d7", "f7g6", "e1e6"});

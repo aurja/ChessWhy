@@ -137,11 +137,36 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
                                                    board.pieces(chess::PieceType::QUEEN, enemy);
         const SquareList hanging_squares = squares(hanging_candidates.getBits());
         if (board.sideToMove() == side) {
+            const bool in_check = board.inCheck();
+            bool legal_capture_targets_ready = false;
+            std::uint64_t legal_capture_targets = 0;
             for (const chess::Square square : hanging_squares) {
                 const int gain = cached_see(square);
                 if (gain < 3 || (last_capture && square == last_capture->moved_square &&
                                  last_capture->captured_value >= gain)) {
                     continue;
+                }
+                // SEE ignores check; an in-check side must have a legal capture on the target.
+                if (in_check) {
+                    if (!legal_capture_targets_ready) {
+                        chess::Movelist legal_moves;
+                        chess::movegen::legalmoves(legal_moves, board);
+                        for (const chess::Move move : legal_moves) {
+                            const chess::Square target = move.to();
+                            const chess::Piece target_piece = board.at(target);
+                            if (target_piece != chess::Piece::NONE &&
+                                target_piece.color() == enemy) {
+                                legal_capture_targets |= std::uint64_t{1}
+                                                         << static_cast<unsigned>(target.index());
+                            }
+                        }
+                        legal_capture_targets_ready = true;
+                    }
+                    const std::uint64_t target_bit = std::uint64_t{1}
+                                                     << static_cast<unsigned>(square.index());
+                    if ((legal_capture_targets & target_bit) == 0) {
+                        continue;
+                    }
                 }
                 motifs.push_back(
                     make_motif(board, MotifTag::HangingPiece, side, 0, square, {}, gain));
@@ -185,6 +210,7 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
                     continue;
                 }
                 const auto rear_type = board.at<chess::PieceType>(rear);
+                // Relative pins need at least one pawn of exposed material.
                 if (rear_type == chess::PieceType::KING) {
                     motifs.push_back(
                         make_motif(board, MotifTag::PinAbsolute, side, 0, pinner, {first, rear}));
@@ -445,9 +471,12 @@ void append_skewers(const chess::Board& after, chess::Square actor, chess::Color
         }
         const auto front_type = after.at<chess::PieceType>(front);
         const auto rear_type = after.at<chess::PieceType>(rear);
+        // A non-king front must leave a profitable rear capture when it vacates the ray.
         if ((front_type == chess::PieceType::KING ||
              comparison_value(front_type) > comparison_value(rear_type)) &&
-            see_actor <= 0) {
+            see_actor <= 0 &&
+            (front_type == chess::PieceType::KING ||
+             detail::see_without_piece(after, rear, side, front) >= 1)) {
             motifs.push_back(make_motif(after, MotifTag::Skewer, side, ply, actor, {front, rear}));
         }
     }
