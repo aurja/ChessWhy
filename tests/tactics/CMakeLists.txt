@@ -7,8 +7,8 @@ endif()
 # WP1: SEE and detector unit tests, T fixtures from tests/fixtures/motifs.json.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tactics_unit_tests.cpp")
     add_executable(tactics_unit_tests tactics_unit_tests.cpp)
-    target_link_libraries(tactics_unit_tests PRIVATE chesswhy_tactics Catch2::Catch2WithMain
-        chesswhy_warnings chesswhy_paths)
+    target_link_libraries(tactics_unit_tests PRIVATE chesswhy_tactics chesswhy_report
+        Catch2::Catch2WithMain chesswhy_warnings chesswhy_paths)
     catch_discover_tests(tactics_unit_tests PROPERTIES LABELS unit)
 endif()
 
@@ -17,7 +17,8 @@ endif()
 # frozen it only prints the table and exits 0.
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/puzzle_eval.cpp")
     add_executable(tactics_puzzle_eval puzzle_eval.cpp)
-    target_link_libraries(tactics_puzzle_eval PRIVATE chesswhy_tactics chesswhy_warnings)
+    target_link_libraries(tactics_puzzle_eval PRIVATE chesswhy_tactics chesswhy_report
+        chesswhy_warnings)
     add_test(NAME tactics_puzzles
         COMMAND tactics_puzzle_eval "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv")
     set_tests_properties(tactics_puzzles PROPERTIES LABELS unit)

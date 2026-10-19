@@ -192,6 +192,40 @@ std::string to_string(ParryTest test) {
     throw std::invalid_argument(invalid_enum("ParryTest", test));
 }
 
+std::string to_string(MotifTag tag) {
+    switch (tag) {
+    case MotifTag::HangingPiece:
+        return "hanging_piece";
+    case MotifTag::PinAbsolute:
+        return "pin_absolute";
+    case MotifTag::PinRelative:
+        return "pin_relative";
+    case MotifTag::BackRankWeakness:
+        return "back_rank_weakness";
+    case MotifTag::OverloadedDefender:
+        return "overloaded_defender";
+    case MotifTag::TrappedPiece:
+        return "trapped_piece";
+    case MotifTag::Fork:
+        return "fork";
+    case MotifTag::Skewer:
+        return "skewer";
+    case MotifTag::DiscoveredCheck:
+        return "discovered_check";
+    case MotifTag::DiscoveredAttack:
+        return "discovered_attack";
+    case MotifTag::DoubleCheck:
+        return "double_check";
+    case MotifTag::BackRankMate:
+        return "back_rank_mate";
+    case MotifTag::RemovalOfDefender:
+        return "removal_of_defender";
+    case MotifTag::Promotion:
+        return "promotion";
+    }
+    throw std::invalid_argument(invalid_enum("MotifTag", tag));
+}
+
 const char* parry_source(ParryTest test) {
     return test == ParryTest::Searched ? "engine" : "rule";
 }
