@@ -12,9 +12,9 @@ Updated 2026-10-19.
   X to move and skips trades in progress, `back_rank_weakness` needs no Y rook/queen on
   its first rank, castling rook checks are not discovered checks; T01–T41, F rows on
   F04/F07/F09/F10/F18, new smoke command. Release CTests: unit 66/66, engine 23/23 (run
-  the engine label serially; `-j4` failed once, likely the timing checks). Waiting on: the
-  Captain freezing T01–T41 in §9. Next: batch 2 (WP4 analysis wiring, `motifs_include`
-  in the F harness).
+  the engine label serially; `-j4` failed once, likely the timing checks). The Captain
+  froze T01–T41, the F motif rows and the smoke command (M2 §9, §14). Next: batch 2 (WP4
+  analysis wiring, `motifs_include` in the F harness).
 - Decided 2026-10-19 (M2 briefing D1–D10): see M2 §1. ChessWhy stays MIT; lichess-puzzler
   (AGPL-3.0) is read for definitions only, never copied, and credited.
 - M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine
