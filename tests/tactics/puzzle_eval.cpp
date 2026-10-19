@@ -33,7 +33,6 @@ struct MeasuredTag {
     std::string_view lichess_tag;
     std::array<MotifTag, 2> motif_tags;
     std::size_t motif_tag_count;
-    std::optional<double> precision_target;
     std::optional<double> recall_target;
 };
 
@@ -42,57 +41,46 @@ constexpr std::array<MeasuredTag, kTagCount> kMeasuredTags{{
     {.lichess_tag = "hangingPiece",
      .motif_tags = {MotifTag::HangingPiece, MotifTag::HangingPiece},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "fork",
      .motif_tags = {MotifTag::Fork, MotifTag::Fork},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "pin",
      .motif_tags = {MotifTag::PinAbsolute, MotifTag::PinRelative},
      .motif_tag_count = 2,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "skewer",
      .motif_tags = {MotifTag::Skewer, MotifTag::Skewer},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "discoveredAttack",
      .motif_tags = {MotifTag::DiscoveredAttack, MotifTag::DiscoveredCheck},
      .motif_tag_count = 2,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "discoveredCheck",
      .motif_tags = {MotifTag::DiscoveredCheck, MotifTag::DiscoveredCheck},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "doubleCheck",
      .motif_tags = {MotifTag::DoubleCheck, MotifTag::DoubleCheck},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "backRankMate",
      .motif_tags = {MotifTag::BackRankMate, MotifTag::BackRankMate},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "capturingDefender",
      .motif_tags = {MotifTag::RemovalOfDefender, MotifTag::RemovalOfDefender},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "trappedPiece",
      .motif_tags = {MotifTag::TrappedPiece, MotifTag::TrappedPiece},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
     {.lichess_tag = "promotion",
      .motif_tags = {MotifTag::Promotion, MotifTag::Promotion},
      .motif_tag_count = 1,
-     .precision_target = std::nullopt,
      .recall_target = std::nullopt},
 }};
 
@@ -493,7 +481,7 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
 void print_table(const std::array<Metrics, kTagCount>& metrics) {
     std::cout << std::left << std::setw(22) << "tag" << std::right << std::setw(13) << "bg-tagged"
               << std::setw(13) << "bg-predicted" << std::setw(9) << "bg-TP" << std::setw(9)
-              << "bg-FP" << std::setw(12) << "precision" << std::setw(12) << "stratum-n"
+              << "bg-FP" << std::setw(12) << "lichess-agree" << std::setw(12) << "stratum-n"
               << std::setw(12) << "stratum-TP" << std::setw(10) << "recall" << '\n';
     std::cout << std::fixed << std::setprecision(3);
     for (std::size_t index = 0; index < kTagCount; ++index) {
@@ -516,9 +504,6 @@ void print_background_mean(const BackgroundSummary& summary) {
 [[nodiscard]] bool targets_met(const std::array<Metrics, kTagCount>& metrics) {
     for (std::size_t index = 0; index < kTagCount; ++index) {
         const auto& tag = kMeasuredTags[index];
-        if (tag.precision_target && precision(metrics[index]) < *tag.precision_target) {
-            return false;
-        }
         if (tag.recall_target && recall(metrics[index]) < *tag.recall_target) {
             return false;
         }
