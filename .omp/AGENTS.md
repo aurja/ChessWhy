@@ -92,11 +92,15 @@ handoff.
   batch, not on work in progress. Documentation-only or mechanical milestones
   may skip it with the Captain's agreement.
 - One reviewer, one round. Scope: the milestone's frozen acceptance criteria
-  and the principles in Project stance.
+  and the principles in Project stance. A reviewer should **always** attempt
+  to identify and report the root causes of the issues it raises.
 - A blocker cites an acceptance row or principle and gives a concrete failing
   input (FEN, move, flags). Anything else is a scope proposal or an optional nit.
-- After fixes, one recheck limited to the reported blockers. Whatever remains
-  open goes to the Captain.
+- Fixers should **always** attempt to fix the root cause of each issue, never
+  the surface-level symptom. If the root cause can not be fixed, escalate to parent
+  agent for guidance.
+- After fixes, one recheck limited to the reported blockers. Whatever remains open
+  goes to the Captain.
 - If the same invariant fails twice, stop patching and bring the Captain a short
   design note.
 
@@ -147,8 +151,7 @@ and resume that work when it exits 0.
 
 ## Git
 
-Local repository; no remote yet. Commit locally when meaningful progress is
-achieved; push once the Captain adds a remote. Merge/rebase/pull-request only
+Commit and push when meaningful progress is achieved. Merge/rebase/pull-request only
 when asked. Submodules are pinned: change a pin only as an explicit task and
 update `third_party/DEPENDENCIES.md`. Exclude unrelated and private local
 changes.
