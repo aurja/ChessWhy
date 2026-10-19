@@ -113,7 +113,7 @@ before that, keep it out of the default targets.
 |When|Gate|
 |---|---|
 |After each batch|Build affected targets; run affected CTests in Release|
-|Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and clang-tidy on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; the milestone's smoke command once|
+|Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and `clang-tidy --quiet -p build/release` on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; the milestone's smoke command once|
 
 - CTest labels: `unit` (no engine, no model), `engine` (needs
   `assets/engines/stockfish`), `model` (needs a GGUF in `assets/models/`, opt-in).
@@ -121,6 +121,8 @@ before that, keep it out of the default targets.
 - Engine fixtures are pinned to the Stockfish 19 build in `assets/`; a new
   engine version means re-blessing fixtures as an explicit milestone task.
 - Report pass/fail summaries, not full logs. A skip is not a pass.
+- clang-tidy reports tens of thousands of suppressed warnings per unit from
+  libstdc++/glibc headers (not our code); `--quiet` hides that summary.
 
 ## Context hygiene
 
