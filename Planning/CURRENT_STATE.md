@@ -1,12 +1,16 @@
 # Current state
 
-Updated 2026-10-18.
+Updated 2026-10-19.
 
-- Milestone: **M1 complete, merged into `main`** with the Captain's approval (receipt
-  `Planning/receipts/M1.md`): CLI, engine analysis, report v1. Release and ASan/UBSan
-  CTests 73/73; slowest `standard` fixture 6.67 s.
-- Next: M2, tactical motif detectors (vision §5.5, milestone table). Start in a fresh
-  orchestrator session; contract to be frozen in `Planning/milestones/M2.md`.
+- Milestone: **M2 planned** on branch `m2`: tactical motif detectors. Plan
+  `Planning/milestones/M2.md`, frozen except the motif fixture table (§9) and the
+  calibrated definitions and targets (§8), which the Captain approves at the §12
+  checkpoints. Next: contract commit (headers, schema v2, CMake skeleton), then batch 1.
+- Decided 2026-10-19 (M2 briefing D1–D10): see M2 §1. ChessWhy stays MIT; lichess-puzzler
+  (AGPL-3.0) is read for definitions only, never copied, and credited.
+- M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine
+  analysis, report v1. Release and ASan/UBSan CTests 73/73; slowest `standard` fixture
+  6.67 s.
 - Contract changes during M1: `Planning/milestones/M1.md` §16 (PGN reader, fixture
   rebuild, `MultiPvCollector`, parry provenance, stalemate after the null move, FEN
   counter bounds, `chesswhy-pgn` argument order, F16 dropped).
