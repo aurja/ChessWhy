@@ -5,6 +5,7 @@
 #include <bit>
 #include <cstdint>
 #include <cstdlib>
+#include <optional>
 #include <vector>
 
 #include "see_internal.hpp"
@@ -13,10 +14,10 @@ namespace chesswhy::tactics {
 namespace {
 
 using SquareList = std::vector<chess::Square>;
-
-[[nodiscard]] chess::Color other(chess::Color color) {
-    return ~color;
-}
+struct RecentCapture {
+    chess::Square moved_square;
+    int captured_value;
+};
 
 [[nodiscard]] Side report_side(chess::Color color) {
     return color == chess::Color::WHITE ? Side::White : Side::Black;
@@ -77,32 +78,28 @@ using SquareList = std::vector<chess::Square>;
     return result;
 }
 
-[[nodiscard]] bool attacks_square(const chess::Board& board, chess::Square source,
-                                  chess::Square target) {
-    const chess::Piece piece = board.at(source);
+[[nodiscard]] bool attacks_square(const chess::Board& board, chess::Square origin,
+                                  chess::Square destination) {
+    const chess::Piece piece = board.at(origin);
     if (piece.type() == chess::PieceType::NONE) {
         return false;
     }
     switch (piece.type().internal()) {
     case chess::PieceType::PAWN:
-        return chess::attacks::pawn(piece.color(), source).check(target.index());
+        return chess::attacks::pawn(piece.color(), origin).check(destination.index());
     case chess::PieceType::KNIGHT:
-        return chess::attacks::knight(source).check(target.index());
+        return chess::attacks::knight(origin).check(destination.index());
     case chess::PieceType::BISHOP:
-        return chess::attacks::bishop(source, board.occ()).check(target.index());
+        return chess::attacks::bishop(origin, board.occ()).check(destination.index());
     case chess::PieceType::ROOK:
-        return chess::attacks::rook(source, board.occ()).check(target.index());
+        return chess::attacks::rook(origin, board.occ()).check(destination.index());
     case chess::PieceType::QUEEN:
-        return chess::attacks::queen(source, board.occ()).check(target.index());
+        return chess::attacks::queen(origin, board.occ()).check(destination.index());
     case chess::PieceType::KING:
-        return chess::attacks::king(source).check(target.index());
+        return chess::attacks::king(origin).check(destination.index());
     default:
         return false;
     }
-}
-[[nodiscard]] bool attacks_square_by(const chess::Board& board, chess::Square attacker,
-                                     chess::Square target) {
-    return attacks_square(board, attacker, target);
 }
 
 [[nodiscard]] int direction(int from, int to) {
@@ -115,14 +112,15 @@ using SquareList = std::vector<chess::Square>;
     return 0;
 }
 
-[[nodiscard]] std::vector<Motif> state_motifs(const chess::Board& board) {
+[[nodiscard]] std::vector<Motif>
+state_motifs(const chess::Board& board, std::optional<RecentCapture> last_capture = std::nullopt) {
     std::vector<Motif> motifs;
     if (!chess::movegen::anylegalmoves(board)) {
         return motifs;
     }
 
     for (const chess::Color side : {chess::Color::WHITE, chess::Color::BLACK}) {
-        const chess::Color enemy = other(side);
+        const chess::Color enemy = ~side;
         std::array<int, 64> see_cache{};
         see_cache.fill(-1);
         const auto cached_see = [&board, &see_cache, side](chess::Square square) {
@@ -138,9 +136,13 @@ using SquareList = std::vector<chess::Square>;
                                                    board.pieces(chess::PieceType::ROOK, enemy) |
                                                    board.pieces(chess::PieceType::QUEEN, enemy);
         const SquareList hanging_squares = squares(hanging_candidates.getBits());
-        for (const chess::Square square : hanging_squares) {
-            const int gain = cached_see(square);
-            if (gain >= 1) {
+        if (board.sideToMove() == side) {
+            for (const chess::Square square : hanging_squares) {
+                const int gain = cached_see(square);
+                if (gain < 1 || (last_capture && square == last_capture->moved_square &&
+                                 last_capture->captured_value >= gain)) {
+                    continue;
+                }
                 motifs.push_back(
                     make_motif(board, MotifTag::HangingPiece, side, 0, square, {}, gain));
             }
@@ -196,9 +198,14 @@ using SquareList = std::vector<chess::Square>;
 
         const chess::Square enemy_king = board.kingSq(enemy);
         const int back_rank = enemy == chess::Color::WHITE ? 0 : 7;
+        const std::uint64_t back_rank_mask = 0xffULL << (back_rank * 8);
+        const std::uint64_t enemy_heavy = (board.pieces(chess::PieceType::ROOK, enemy) |
+                                           board.pieces(chess::PieceType::QUEEN, enemy))
+                                              .getBits();
         if (static_cast<int>(enemy_king.rank()) == back_rank &&
             (board.pieces(chess::PieceType::ROOK, side) ||
-             board.pieces(chess::PieceType::QUEEN, side))) {
+             board.pieces(chess::PieceType::QUEEN, side)) &&
+            (enemy_heavy & back_rank_mask) == 0) {
             const int rank_delta = enemy == chess::Color::WHITE ? 1 : -1;
             bool weak = true;
             for (int file_delta = -1; file_delta <= 1; ++file_delta) {
@@ -348,7 +355,7 @@ void append_fork(const chess::Board& after, chess::Square actor, chess::Color si
     if (attacker_type == chess::PieceType::KING) {
         return;
     }
-    const chess::Color enemy = other(side);
+    const chess::Color enemy = ~side;
     SquareList targets;
     const chess::Bitboard candidates =
         after.us(enemy) & ~after.pieces(chess::PieceType::PAWN, enemy);
@@ -357,12 +364,11 @@ void append_fork(const chess::Board& after, chess::Square actor, chess::Color si
             continue;
         }
         const auto target_type = after.at<chess::PieceType>(target);
-        const chess::Square defender_source = target;
-        const chess::Square fork_destination = actor;
+        const chess::Square defender = target;
+        const chess::Square destination = actor;
         if (target_type == chess::PieceType::KING ||
             comparison_value(target_type) > comparison_value(attacker_type) ||
-            (see(after, target, side) >= 1 &&
-             !attacks_square_by(after, defender_source, fork_destination))) {
+            (see(after, target, side) >= 1 && !attacks_square(after, defender, destination))) {
             targets.push_back(target);
         }
     }
@@ -389,7 +395,7 @@ void append_skewers(const chess::Board& after, chess::Square actor, chess::Color
         {{-1, 1}},
         {{-1, -1}},
     }};
-    const chess::Color enemy = other(side);
+    const chess::Color enemy = ~side;
     const int see_actor = see(after, actor, enemy);
     for (const auto& direction : directions) {
         const int file_delta = direction[0];
@@ -433,7 +439,7 @@ void append_discovered_attacks(const chess::Board& before, const chess::Board& a
     if (discovered_check) {
         return;
     }
-    const chess::Color enemy = other(side);
+    const chess::Color enemy = ~side;
     const chess::Bitboard sliders = before.pieces(chess::PieceType::BISHOP, side) |
                                     before.pieces(chess::PieceType::ROOK, side) |
                                     before.pieces(chess::PieceType::QUEEN, side);
@@ -478,7 +484,7 @@ void append_discovered_attacks(const chess::Board& before, const chess::Board& a
 
 void append_back_rank_mates(const chess::Board& after, chess::Color side, int ply,
                             const SquareList& checking_pieces, std::vector<Motif>& motifs) {
-    const chess::Color enemy = other(side);
+    const chess::Color enemy = ~side;
     if (!after.inCheck() || chess::movegen::anylegalmoves(after)) {
         return;
     }
@@ -515,7 +521,7 @@ void append_removal_of_defender(const chess::Board& before, const chess::Board& 
         before.at<chess::PieceType>(defender) == chess::PieceType::KING) {
         return;
     }
-    const chess::Color enemy = other(side);
+    const chess::Color enemy = ~side;
     const chess::Bitboard targets = before.us(enemy) & ~before.pieces(chess::PieceType::KING);
     const chess::Square actor = move.to();
     for (const chess::Square target : squares(targets.getBits())) {
@@ -548,19 +554,25 @@ void append_move_motifs(const chess::Board& before, const chess::Board& after,
                         std::vector<Motif>& motifs) {
     const chess::Color side = before.sideToMove();
     const chess::Square from = move.from();
-    const chess::Square actor = move.typeOf() == chess::Move::CASTLING
-                                    ? chess::Square::castling_king_square(move.to() > from, side)
-                                    : move.to();
-    const chess::Square king = after.kingSq(other(side));
+    const bool is_castling = move.typeOf() == chess::Move::CASTLING;
+    const bool king_side_castle = move.to() > from;
+    const chess::Square actor =
+        is_castling ? chess::Square::castling_king_square(king_side_castle, side) : move.to();
+    const chess::Square castling_rook_destination =
+        is_castling ? chess::Square::castling_rook_square(king_side_castle, side)
+                    : chess::Square::NO_SQ;
+    const chess::Square king = after.kingSq(~side);
 
     const SquareList checking_pieces = checkers(after, side, king);
     const bool discovered_check = std::ranges::any_of(
-        checking_pieces, [actor](chess::Square square) { return square != actor; });
+        checking_pieces, [actor, castling_rook_destination](chess::Square square) {
+            return square != actor && square != castling_rook_destination;
+        });
 
     append_fork(after, actor, side, static_cast<int>(ply_index + 1), motifs);
     append_skewers(after, actor, side, static_cast<int>(ply_index + 1), motifs);
     for (const chess::Square checker : checking_pieces) {
-        if (checker != actor) {
+        if (checker != actor && checker != castling_rook_destination) {
             motifs.push_back(make_motif(after, MotifTag::DiscoveredCheck, side,
                                         static_cast<int>(ply_index + 1), checker, {king}));
         }
@@ -604,7 +616,18 @@ std::vector<Motif> line_motifs(const chess::Board& root, std::span<const chess::
         const chess::Board& after = positions[ply + 1];
         append_move_motifs(before, after, line[ply], positions, line, ply, motifs);
 
-        std::vector<Motif> current_state = state_motifs(after);
+        std::optional<RecentCapture> last_capture;
+        const chess::Move move = line[ply];
+        if (before.isCapture(move)) {
+            chess::Square captured_square = move.to();
+            if (move.typeOf() == chess::Move::ENPASSANT) {
+                captured_square = move.to().ep_square();
+            }
+            last_capture = RecentCapture{
+                .moved_square = move.to(),
+                .captured_value = comparison_value(before.at<chess::PieceType>(captured_square))};
+        }
+        std::vector<Motif> current_state = state_motifs(after, last_capture);
         for (Motif motif : current_state) {
             const bool already_present =
                 std::ranges::any_of(previous_state, [&motif](const Motif& previous) {

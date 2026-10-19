@@ -107,6 +107,10 @@ struct Metrics {
     std::size_t stratum_count = 0;
     std::size_t stratum_true_positive = 0;
 };
+struct BackgroundSummary {
+    std::size_t puzzles = 0;
+    std::size_t motif_instances = 0;
+};
 
 struct Disagreement {
     std::string puzzle_id;
@@ -338,7 +342,7 @@ void emit_disagreement(std::ostream& output, std::string_view tag, std::string_v
 }
 
 void process_row(const std::string& line, std::size_t line_number, std::size_t limit,
-                 std::array<Metrics, kTagCount>& metrics,
+                 std::array<Metrics, kTagCount>& metrics, BackgroundSummary& background_summary,
                  std::array<DisagreementBucket, kTagCount>& disagreements) {
     std::string puzzle_id = first_field(line);
     try {
@@ -407,6 +411,10 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
         auto line_motifs = chesswhy::tactics::line_motifs(
             root, std::span<const chess::Move>(line_moves.data(), line_move_count));
         motifs.insert(motifs.end(), line_motifs.begin(), line_motifs.end());
+        if (fields[4] == "background") {
+            ++background_summary.puzzles;
+            background_summary.motif_instances += motifs.size();
+        }
 
         const std::array<bool, kTagCount> actual = lichess_tags(fields[3]);
         std::array<bool, kTagCount> predicted{};
@@ -499,6 +507,12 @@ void print_table(const std::array<Metrics, kTagCount>& metrics) {
     }
 }
 
+void print_background_mean(const BackgroundSummary& summary) {
+    std::cout << std::fixed << std::setprecision(3)
+              << "mean motif instances per puzzle (background): "
+              << ratio(summary.motif_instances, summary.puzzles) << '\n';
+}
+
 [[nodiscard]] bool targets_met(const std::array<Metrics, kTagCount>& metrics) {
     for (std::size_t index = 0; index < kTagCount; ++index) {
         const auto& tag = kMeasuredTags[index];
@@ -573,18 +587,21 @@ int main(int argc, char* argv[]) {
     }
 
     std::array<Metrics, kTagCount> metrics{};
+    BackgroundSummary background_summary;
     std::array<DisagreementBucket, kTagCount> disagreements{};
     std::string line;
     std::size_t line_number = 1;
     try {
         while (std::getline(input, line)) {
             ++line_number;
-            process_row(line, line_number, options.disagreements_per_kind, metrics, disagreements);
+            process_row(line, line_number, options.disagreements_per_kind, metrics,
+                        background_summary, disagreements);
         }
         if (input.bad()) {
             throw std::runtime_error("failed reading " + options.csv_path);
         }
         print_table(metrics);
+        print_background_mean(background_summary);
         if (options.disagreement_path) {
             write_disagreements(*options.disagreement_path, options.disagreements_per_kind,
                                 disagreements);

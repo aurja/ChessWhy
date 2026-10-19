@@ -264,6 +264,29 @@ TEST_CASE("state motifs include hanging pieces and pin kinds", "[unit]") {
     const auto equal_rear = position_motifs(chess::Board("4b1k1/8/4n3/8/8/8/8/K3R3 w - - 0 1"));
     CHECK(find_motif(equal_rear, MotifTag::PinRelative, Side::White, "e1") == nullptr);
 }
+TEST_CASE("hanging motifs follow the turn and suppress captures in progress", "[unit]") {
+    using chesswhy::tactics::position_motifs;
+    using chesswhy::tactics::see;
+
+    constexpr std::string_view fen =
+        "r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4";
+    const chess::Board root(fen);
+    const auto root_motifs = position_motifs(root);
+    CHECK(std::ranges::none_of(root_motifs, [](const Motif& motif) {
+        return motif.tag == MotifTag::HangingPiece && motif.side == Side::Black;
+    }));
+
+    chess::Board line_board(fen);
+    const auto line = parse_line(line_board, {"b5c6", "d7c6"});
+    chess::Board after_capture(fen);
+    after_capture.makeMove(line.front());
+    CHECK(see(after_capture, square("c6"), chess::Color::BLACK) == 3);
+
+    const auto line_result = chesswhy::tactics::line_motifs(root, line);
+    CHECK(std::ranges::none_of(line_result, [](const Motif& motif) {
+        return motif.tag == MotifTag::HangingPiece && motif.side == Side::Black && motif.ply == 1;
+    }));
+}
 
 TEST_CASE("state motifs identify back-rank weakness and overloaded defenders", "[unit]") {
     using chesswhy::tactics::position_motifs;
@@ -272,6 +295,10 @@ TEST_CASE("state motifs identify back-rank weakness and overloaded defenders", "
     expect_motif(weak, MotifTag::BackRankWeakness, Side::White, "h8", 'k');
     const auto luft = position_motifs(chess::Board("7k/6p1/8/8/8/8/8/R5K1 w - - 0 1"));
     CHECK(find_motif(luft, MotifTag::BackRankWeakness, Side::White, "h8") == nullptr);
+    const auto start =
+        position_motifs(chess::Board("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
+    CHECK(std::ranges::none_of(
+        start, [](const Motif& motif) { return motif.tag == MotifTag::BackRankWeakness; }));
 
     const auto overloaded = position_motifs(chess::Board("7k/8/8/3p4/2n1n3/8/1N3N2/K7 w - - 0 1"));
     expect_motif(overloaded, MotifTag::OverloadedDefender, Side::White, "d5", 'p',
@@ -347,6 +374,17 @@ TEST_CASE("move motifs detect discoveries and double check", "[unit]") {
     expect_motif(double_check, MotifTag::DoubleCheck, Side::White, "e5", 'B', {{"h8", 'k'}});
     const auto single_check = line_motifs_from("7k/8/8/8/8/8/7B/K6R w - - 0 1", {"h2f4"});
     CHECK(find_motif(single_check, MotifTag::DoubleCheck, Side::White, "f4") == nullptr);
+}
+TEST_CASE("castling rook checks are not discoveries or solo double checks", "[unit]") {
+    const auto queenside = line_motifs_from("3k4/8/8/8/8/8/8/R3K3 w Q - 0 1", {"e1c1"});
+    CHECK(std::ranges::none_of(queenside, [](const Motif& motif) {
+        return motif.tag == MotifTag::DiscoveredCheck || motif.tag == MotifTag::DoubleCheck;
+    }));
+
+    const auto kingside = line_motifs_from("5k2/8/8/8/8/8/8/4K2R w K - 0 1", {"e1g1"});
+    CHECK(std::ranges::none_of(kingside, [](const Motif& motif) {
+        return motif.tag == MotifTag::DiscoveredCheck || motif.tag == MotifTag::DoubleCheck;
+    }));
 }
 
 TEST_CASE("move motifs detect back-rank mate, defender removal, and promotion", "[unit]") {

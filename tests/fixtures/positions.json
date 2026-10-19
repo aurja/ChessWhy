@@ -46,7 +46,6 @@
       "title": "in check; fine, mistake and blunder replies",
       "source": "Gunsberg, Isidor - Chigorin, Michael, Havana 1890, before 17.Kf1",
       "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17", "--move", "Kf1"],
-      "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "g8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": true,
@@ -69,6 +68,7 @@
       "title": "opponent threatens mate in one; asked move parries it but allows another mate",
       "source": "Korchnoi, Viktor - Karpov, Anatoly, Wch29 1978, before 39.Ra1",
       "args": ["--fen", "8/7R/2r5/8/P3n3/R7/3nk1PP/6K1 w - - 3 39", "--move", "Ra1"],
+      "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "black", "actor": "g1"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -95,7 +95,6 @@
       "title": "own material threat against the opponent's mate threat",
       "source": "Anand, Viswanathan - Karpov, Anatoly, FIDE-Wch k.o. final 1998, before 34...h6",
       "args": ["--fen", "2r3k1/Q5pp/1Bq5/P2pb3/8/2n2R1P/2p2PP1/2R3K1 b - - 3 34", "--move", "h6"],
-      "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "g8"}]},
       "equals": {
         "/position/side_to_move": "black",
         "/position/in_check": false,
@@ -166,7 +165,6 @@
       "title": "equal material threats; checking move does not parry",
       "source": "Tal, Mikhail - Smyslov, Vasily, Candidates' tournament 1959, before 19.Qxf7",
       "args": ["--fen", "r1bb1r1k/p4ppp/2p2n1N/7Q/2p5/2B2N2/qPP2PPP/2KR3R w - - 2 19", "--move", "Qxf7"],
-      "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "h8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -190,6 +188,7 @@
       "title": "counterattack: own threat outweighs the opponent's",
       "source": "Euwe, Max - Keres, Paul, Wch18 1948, before 39...Qg3",
       "args": ["--fen", "8/6pk/7p/5p2/5Pqn/1P5P/P2Q2P1/2r2RK1 b - - 0 39", "--move", "Qg3"],
+      "motifs_include": {"/threats/black/motifs": [{"tag": "fork", "side": "black", "actor": "f3"}]},
       "equals": {
         "/position/side_to_move": "black",
         "/position/in_check": false,
@@ -230,7 +229,6 @@
       "title": "en passant capture outside the engine's top lines",
       "source": "Lasker, Emanuel - Schlechter, Carl, Wch10 1910, before 18.exf6",
       "args": ["--fen", "1r1q1rk1/4b1pp/4b3/1p1pPp2/3p1P2/8/1PBB2PP/R2Q1RK1 w - f6 0 18", "--move", "exf6"],
-      "motifs_include": {"/asked_move/motifs": [{"tag": "hanging_piece", "side": "white", "actor": "e6"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,

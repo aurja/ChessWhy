@@ -183,10 +183,6 @@ struct Position {
     }
 }
 
-[[nodiscard]] int exchange_value(chess::PieceType type) {
-    return type == chess::PieceType::KING ? 100 : piece_value(type);
-}
-
 [[nodiscard]] bool least_attacker(const Position& position, chess::Square target, chess::Color side,
                                   chess::Square& source, chess::PieceType& type) {
     constexpr std::array<chess::PieceType, 6> attacker_order{
@@ -246,7 +242,7 @@ struct Position {
     }
     after.add(target, resulting_type, side);
 
-    const int capture_gain = exchange_value(victim) + promotion_gain;
+    const int capture_gain = piece_value(victim) + promotion_gain;
     return std::max(0, capture_gain - exchange(after, target, ~side));
 }
 

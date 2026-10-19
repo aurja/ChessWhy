@@ -100,15 +100,15 @@
     },
     {
       "id": "T11",
-      "title": "literal rule marks both kings in the initial position",
+      "title": "both kings have an opposing rook or queen on their first rank",
       "source": "Lasker, Emanuel - Schlechter, Carl, Wch10 1910, before 1.e4",
       "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
       "line_uci": [],
-      "includes": [
-        {"tag": "back_rank_weakness", "side": "white", "ply": 0, "actor": "e8", "targets": []},
-        {"tag": "back_rank_weakness", "side": "black", "ply": 0, "actor": "e1", "targets": []}
-      ],
-      "excludes": []
+      "includes": [],
+      "excludes": [
+        {"tag": "back_rank_weakness", "side": "white", "ply": 0},
+        {"tag": "back_rank_weakness", "side": "black", "ply": 0}
+      ]
     },
     {
       "id": "T12",
@@ -180,7 +180,7 @@
       "fen": "r3k3/pQB5/8/8/8/8/8/K7 b - - 0 1",
       "line_uci": [],
       "includes": [{"tag": "trapped_piece", "side": "white", "ply": 0, "actor": "a8", "targets": []}],
-      "excludes": []
+      "excludes": [{"tag": "hanging_piece", "side": "white", "ply": 0}]
     },
     {
       "id": "T20",
@@ -334,6 +334,54 @@
       "line_uci": ["d6d7"],
       "includes": [],
       "excludes": [{"tag": "promotion", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T37",
+      "title": "white king has occupied front squares and no home-rank rook or queen",
+      "source": "constructed",
+      "fen": "4k3/7r/8/8/8/8/PPP5/1K6 b - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "back_rank_weakness", "side": "black", "ply": 0, "actor": "b1", "targets": []}],
+      "excludes": []
+    },
+    {
+      "id": "T38",
+      "title": "opponent has no rook or queen",
+      "source": "constructed",
+      "fen": "6k1/5ppp/8/8/8/8/8/K1B5 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "back_rank_weakness", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T39",
+      "title": "equal-value recapture is a trade in progress",
+      "source": "constructed",
+      "fen": "r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4",
+      "line_uci": ["b5c6", "d7c6"],
+      "includes": [],
+      "excludes": [
+        {"tag": "hanging_piece", "side": "black", "ply": 0},
+        {"tag": "hanging_piece", "side": "black", "ply": 1}
+      ]
+    },
+    {
+      "id": "T40",
+      "title": "black bishop abandons its queen's defense",
+      "source": "constructed",
+      "fen": "7k/8/8/8/8/5b2/4q3/K3R3 b - - 0 1",
+      "line_uci": ["f3h1"],
+      "includes": [{"tag": "hanging_piece", "side": "white", "ply": 1, "actor": "e2", "targets": []}],
+      "excludes": []
+    },
+    {
+      "id": "T41",
+      "title": "castling rook gives the check but is not a discovered checker",
+      "source": "constructed",
+      "fen": "3k4/8/8/8/8/8/8/R3K3 w Q - 0 1",
+      "line_uci": ["e1c1"],
+      "includes": [],
+      "excludes": [{"tag": "discovered_check", "side": "white", "ply": 1}]
     }
   ]
 }
