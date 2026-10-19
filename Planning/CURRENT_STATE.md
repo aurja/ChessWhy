@@ -11,10 +11,12 @@ Updated 2026-10-19.
   rows, smoke command). Checkpoint 1 review (M2 §15, 2026-10-19): `hanging_piece` needs
   X to move and skips trades in progress, `back_rank_weakness` needs no Y rook/queen on
   its first rank, castling rook checks are not discovered checks; T01–T41, F rows on
-  F04/F07/F09/F10/F18, new smoke command. Release CTests: unit 66/66, engine 23/23 (run
-  the engine label serially; `-j4` failed once, likely the timing checks). The Captain
-  froze T01–T41, the F motif rows and the smoke command (M2 §9, §14). Next: batch 2 (WP4
-  analysis wiring, `motifs_include` in the F harness).
+  F04/F07/F09/F10/F18, new smoke command. The Captain froze T01–T41, the F motif rows
+  and the smoke command (M2 §9, §14). Batch 2 (WP4) integrated: `walked_plies`, single
+  `tactics::piece_value`, motifs on position, threats and candidates, `motifs_include`
+  in the F harness; smoke shows Black's `fork` Nf3 → Ke1, Qd4. Release CTests: unit
+  68/68, engine 23/23 (run the engine label serially; `-j4` failed once, likely the
+  timing checks). Next: batch 3 (WP6 calibration on dev), then checkpoint 2 (targets).
 - Decided 2026-10-19 (M2 briefing D1–D10): see M2 §1. ChessWhy stays MIT; lichess-puzzler
   (AGPL-3.0) is read for definitions only, never copied, and credited.
 - M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine
