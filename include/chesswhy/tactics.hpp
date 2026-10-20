@@ -1,5 +1,6 @@
-// Rule-based tactical motif detectors (provenance "rule"). Frozen by
-// Planning/milestones/M2.md: definitions §4, report placement §5, signatures §6.
+// Rule-based tactical motif detectors and tactic rules (provenance "rule"). Frozen by
+// Planning/milestones/M2.md (definitions §4, report placement §5, signatures §6) and
+// PostM2_EM1.md (contribution §4.3, removal_of_defender §4.4, signatures §6).
 // Pure functions of a board and a move list: no engine, no global state, deterministic.
 #pragma once
 
@@ -36,5 +37,18 @@ namespace chesswhy::tactics {
 // moves, already cut to the walked plies by the caller. Ordered per M2 §5.
 [[nodiscard]] std::vector<Motif> line_motifs(const chess::Board& root,
                                              std::span<const chess::Move> line);
+
+// Tactic labels (PostM2_EM1 §4.4) of the tactic sequence `line` played from `root`, for the
+// side to move at `root` (X). `line` holds legal moves, already cut to the walked plies.
+// Ordered by ply, then t's square.
+[[nodiscard]] std::vector<TacticLabel> tactic_labels(const chess::Board& root,
+                                                     std::span<const chess::Move> line);
+
+// Sets `contribution` (PostM2_EM1 §4.3) on every motif of `motifs`, whose plies lie in
+// 0..line.size() of the tactic sequence `line` played from `root`; X = side to move at
+// `root`. Motifs of the other side get None. `line` holds legal moves, already cut to the
+// walked plies.
+void judge_contributions(const chess::Board& root, std::span<const chess::Move> line,
+                         std::span<Motif> motifs);
 
 } // namespace chesswhy::tactics

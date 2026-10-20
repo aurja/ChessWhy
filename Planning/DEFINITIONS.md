@@ -52,7 +52,7 @@ Read these first. Each word is used in two or more senses in the plans.
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| report | The JSON document one query produces; everything the tool claims is a field of it. Versioned by `schema_version` (2 at M2; 3 from PostM2_EM1, adding `tactic` and `engine.nodes.r`) with a JSON Schema in `schema/` | vision §6, M2 §5, PostM2_EM1 §5 |
+| report | The JSON document one query produces; everything the tool claims is a field of it. Versioned by `schema_version` (2 at M2; 3 from PostM2_EM1, adding `tactic` and `engine.nodes.R`) with a JSON Schema in `schema/` | vision §6, M2 §5, PostM2_EM1 §5 |
 | provenance | Every fact's source: `engine` (Stockfish search), `rule` (deterministic board rule), `book` (reference material, opening names), `games` (counts from game collections) | vision §2 |
 | facts first | Chess content is computed in C++ and stored in the report; the language model (M4) only puts report fields into words | vision §2 |
 | budget | `quick`, `standard` (default) or `deep`: fixed node counts per search kind | M1 §3 |

@@ -1,0 +1,12 @@
+{
+  "comment": [
+    "Contribution and tactic-label unit fixtures C01-Cnn (Planning/milestones/PostM2_EM1.md §9). Label unit; no engine.",
+    "Each fixture: id, title, source (Lichess puzzle ID 'lichess:<id>' (CC0), '<game>, before <move>' via chesswhy-pgn, or 'constructed'), fen, line_uci, margin, contributions, labels_include, labels_exclude.",
+    "line_uci: a tactic sequence from fen (X = the side to move at fen), already cut to its walked plies (M1 §4.3). margin: null for a Lichess puzzle solution; otherwise the only-move margin (ES, X's view) WP4 measured at budget standard, >= 0.13.",
+    "contributions: every X-side motif of position_motifs(fen) (ply 0) and line_motifs(fen, line_uci) (ply >= 1), each {tag, side, ply, actor, targets, contribution, reason}; a missing or extra X-side motif fails. contribution: 'direct'|'indirect'|'none', hand-labelled from the plain meaning of §4.3; reason: one line.",
+    "Motif fields as in motifs.json: tag (report spelling), side ('white'|'black'), ply, actor (square, e.g. 'e5'), targets (squares, in the order the motif reports them).",
+    "labels_include: each entry {tag, side, ply, actor, targets, reason} must appear in tactic_labels(fen, line_uci) with exactly these fields (reason excepted). labels_exclude: no label may match; omitted fields match anything.",
+    "Proposed by PostM2_EM1 WP4; frozen after the Captain's review (§12, checkpoint 1); labels change only at checkpoint 2."
+  ],
+  "fixtures": []
+}

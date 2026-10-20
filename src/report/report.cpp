@@ -275,6 +275,14 @@ std::string to_string(MotifContribution contribution) {
     throw std::invalid_argument(invalid_enum("MotifContribution", contribution));
 }
 
+std::string to_string(TacticLabelTag tag) {
+    switch (tag) {
+    case TacticLabelTag::RemovalOfDefender:
+        return "removal_of_defender";
+    }
+    throw std::invalid_argument(invalid_enum("TacticLabelTag", tag));
+}
+
 const char* parry_source(ParryTest test) {
     return test == ParryTest::Searched ? "engine" : "rule";
 }

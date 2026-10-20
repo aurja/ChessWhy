@@ -1,5 +1,5 @@
-// Searches A–E and the rules that turn them into threats, urgency and verdicts.
-// Frozen by Planning/milestones/M1.md §Analysis rules.
+// Searches A–E and R and the rules that turn them into threats, urgency, verdicts and
+// tactic judgements. Frozen by Planning/milestones/M1.md §Analysis rules and PostM2_EM1.md.
 #pragma once
 
 #include "chesswhy/engine.hpp"
@@ -22,6 +22,8 @@ inline constexpr int kLinePlies = 10;       // plies kept in report lines
 inline constexpr int kFineUnits = 60;
 inline constexpr int kMistakeUnits = 260;
 inline constexpr int kBlunderUnits = 540;
+// PostM2_EM1 E2: a line is a tactic iff its only-move margin is at least a mistake.
+inline constexpr int kTacticMarginUnits = kMistakeUnits;
 
 [[nodiscard]] NodeBudget node_budget(Budget budget);
 
@@ -42,6 +44,9 @@ void analyse(engine::Engine& engine, const Request& request, Report& report);
 [[nodiscard]] int es_units(const engine::Line& line);
 
 [[nodiscard]] Verdict verdict_for_loss(int loss_units);
+
+// PostM2_EM1 §4.1: margin_units >= kTacticMarginUnits.
+[[nodiscard]] bool is_tactic_margin(int margin_units);
 
 // Side to move has at most one piece other than king and pawns.
 [[nodiscard]] bool null_move_prone(const chess::Board& board);

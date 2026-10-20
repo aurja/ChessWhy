@@ -38,7 +38,7 @@ Created by the orchestrator in the contract commit, before batch 1:
 | `src/report/report.cpp` | `to_string(TacticLabelTag)` only, so WP1 does not wait for WP3 |
 | `schema/report.v3.schema.json` | replaces `report.v2.schema.json` (deleted; git history keeps it) |
 | `src/tactics/CMakeLists.txt` | `tactic.cpp` added to `chesswhy_tactics`, guarded while missing; the guard is removed at batch 1 integration |
-| `tests/tactics/CMakeLists.txt`, `tests/cli/CMakeLists.txt`, `tests/report/CMakeLists.txt` | C fixture path passed to `tactics_unit_tests` like `motifs.json`; schema validation points at `report.v3.schema.json` |
+| `tests/cli/CMakeLists.txt`, `tests/report/CMakeLists.txt` | schema validation points at `report.v3.schema.json`. `tactics_unit_tests` finds `tactics.json` through `CHESSWHY_SOURCE_DIR`, like `motifs.json` (no CMake change) |
 | `tests/fixtures/tactics.json` | C fixtures (§9): format in its `comment`, empty list until checkpoint 1 |
 
 Workers implement against these files and do not change them. A header that turns out
@@ -154,7 +154,7 @@ proposals from the M2 audit.
 
 - `schema_version` 3; `schema/report.v3.schema.json`. v2 is released on `main`, so the
   new required keys bump the version.
-- `engine.nodes.r`: node budget of search R.
+- `engine.nodes.R`: node budget of search R (upper case like `A`–`E`).
 - `tactic` (required, nullable) on `MoveAssessment` and on `Threat`. Set only where §4.1
   judges: `candidates[0]` (and the asked move when it copies it) and judged refutations.
   Example (values illustrative):
@@ -353,3 +353,5 @@ contribution `direct`.
 | Date | Change | Reason |
 |---|---|---|
 | 2026-10-20 | Plan frozen (E1–E7) | Captain's approval of P1–P5 |
+| 2026-10-20 | JSON key `engine.nodes.R`, not `r` | Existing node keys are `A`–`E`; the C++ field stays `NodeBudget::r` |
+| 2026-10-20 | No `tests/tactics/CMakeLists.txt` change; `tactics.json` has a per-entry `reason` and a per-fixture `margin` (null for puzzles) | The unit test builds fixture paths from `CHESSWHY_SOURCE_DIR`; reasons and margin checks (§9) need a place in the file |
