@@ -12,17 +12,20 @@ namespace chesswhy::analysis {
 NodeBudget node_budget(Budget budget) {
     switch (budget) {
     case Budget::Quick:
-        return {.a = 250'000, .b = 50'000, .c = 50'000, .d = 25'000, .e = 25'000};
+        return {.a = 250'000, .b = 50'000, .c = 50'000, .d = 25'000, .e = 25'000, .r = 25'000};
     case Budget::Standard:
-        return {.a = 1'000'000, .b = 200'000, .c = 200'000, .d = 100'000, .e = 100'000};
+        return {.a = 1'000'000, .b = 200'000, .c = 200'000, .d = 100'000, .e = 100'000, .r = 100'000};
     case Budget::Deep:
-        return {.a = 4'000'000, .b = 800'000, .c = 800'000, .d = 400'000, .e = 400'000};
+        return {.a = 4'000'000, .b = 800'000, .c = 800'000, .d = 400'000, .e = 400'000, .r = 400'000};
     }
     return {};
 }
 
 int es_units(const engine::Line& line) {
     return (2 * line.win) + line.draw;
+}
+bool is_tactic_margin(int margin_units) {
+    return margin_units >= kTacticMarginUnits;
 }
 
 Verdict verdict_for_loss(int loss_units) {

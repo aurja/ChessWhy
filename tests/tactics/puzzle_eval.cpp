@@ -26,6 +26,8 @@ namespace {
 using chesswhy::Motif;
 using chesswhy::MotifTag;
 using chesswhy::Side;
+using chesswhy::MotifContribution;
+using chesswhy::TacticLabelTag;
 
 constexpr std::size_t kTagCount = 10;
 
@@ -94,10 +96,17 @@ struct Metrics {
     std::size_t background_false_positive = 0;
     std::size_t stratum_count = 0;
     std::size_t stratum_true_positive = 0;
+    std::size_t stratum_direct = 0;
 };
 struct BackgroundSummary {
     std::size_t puzzles = 0;
     std::size_t motif_instances = 0;
+};
+struct RemovalMetrics {
+    std::size_t background_predicted = 0;
+    std::size_t background_true_positive = 0;
+    std::size_t stratum_count = 0;
+    std::size_t stratum_predicted = 0;
 };
 
 struct Disagreement {
@@ -247,6 +256,25 @@ private:
     return result;
 }
 
+[[nodiscard]] bool has_theme(std::string_view themes, std::string_view wanted) {
+    std::size_t cursor = 0;
+    while (cursor < themes.size()) {
+        while (cursor < themes.size() &&
+               std::isspace(static_cast<unsigned char>(themes[cursor])) != 0) {
+            ++cursor;
+        }
+        const std::size_t start = cursor;
+        while (cursor < themes.size() &&
+               std::isspace(static_cast<unsigned char>(themes[cursor])) == 0) {
+            ++cursor;
+        }
+        if (themes.substr(start, cursor - start) == wanted) {
+            return true;
+        }
+    }
+    return false;
+}
+
 [[nodiscard]] std::string square_name(std::uint8_t square) {
     std::string result(2, ' ');
     result[0] = static_cast<char>('a' + (square % 8));
@@ -331,6 +359,7 @@ void emit_disagreement(std::ostream& output, std::string_view tag, std::string_v
 
 void process_row(const std::string& line, std::size_t line_number, std::size_t limit,
                  std::array<Metrics, kTagCount>& metrics, BackgroundSummary& background_summary,
+                 RemovalMetrics& removal_metrics,
                  std::array<DisagreementBucket, kTagCount>& disagreements) {
     std::string puzzle_id = first_field(line);
     try {
@@ -396,9 +425,13 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
         }
 
         std::vector<Motif> motifs = chesswhy::tactics::position_motifs(root);
-        auto line_motifs = chesswhy::tactics::line_motifs(
+        auto line_motif_instances = chesswhy::tactics::line_motifs(
             root, std::span<const chess::Move>(line_moves.data(), line_move_count));
-        motifs.insert(motifs.end(), line_motifs.begin(), line_motifs.end());
+        motifs.insert(motifs.end(), line_motif_instances.begin(), line_motif_instances.end());
+        chesswhy::tactics::judge_contributions(
+            root, std::span<const chess::Move>(line_moves.data(), line_move_count), motifs);
+        const auto labels = chesswhy::tactics::tactic_labels(
+            root, std::span<const chess::Move>(line_moves.data(), line_move_count));
         if (fields[4] == "background") {
             ++background_summary.puzzles;
             background_summary.motif_instances += motifs.size();
@@ -406,6 +439,7 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
 
         const std::array<bool, kTagCount> actual = lichess_tags(fields[3]);
         std::array<bool, kTagCount> predicted{};
+        std::array<bool, kTagCount> direct_predicted{};
         for (const Motif& motif : motifs) {
             if (motif.side != solver) {
                 continue;
@@ -413,8 +447,25 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
             for (std::size_t index = 0; index < kTagCount; ++index) {
                 if (maps_to(kMeasuredTags[index], motif.tag)) {
                     predicted[index] = true;
+                    if (motif.contribution == MotifContribution::Direct) {
+                        direct_predicted[index] = true;
+                    }
                 }
             }
+        }
+        const bool removal_predicted =
+            std::ranges::any_of(labels, [solver](const auto& label) {
+                return label.side == solver &&
+                       label.tag == TacticLabelTag::RemovalOfDefender;
+            });
+        const bool removal_actual = has_theme(fields[3], kUnmeasuredStratum);
+        if (fields[4] == "background") {
+            removal_metrics.background_predicted += removal_predicted ? 1U : 0U;
+            removal_metrics.background_true_positive +=
+                removal_predicted && removal_actual ? 1U : 0U;
+        } else if (fields[4] == kUnmeasuredStratum) {
+            ++removal_metrics.stratum_count;
+            removal_metrics.stratum_predicted += removal_predicted ? 1U : 0U;
         }
 
         std::optional<std::string> instances;
@@ -440,6 +491,7 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
                 ++tag_metrics.stratum_count;
                 if (predicted[index]) {
                     ++tag_metrics.stratum_true_positive;
+                    tag_metrics.stratum_direct += direct_predicted[index] ? 1U : 0U;
                 } else {
                     auto& false_negatives = disagreements[index].false_negatives;
                     if (false_negatives.size() < limit) {
@@ -479,10 +531,12 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
 }
 
 void print_table(const std::array<Metrics, kTagCount>& metrics) {
-    std::cout << std::left << std::setw(22) << "tag" << std::right << std::setw(13) << "bg-tagged"
-              << std::setw(13) << "bg-predicted" << std::setw(9) << "bg-TP" << std::setw(9)
-              << "bg-FP" << std::setw(15) << "lichess-agree" << std::setw(12) << "stratum-n"
-              << std::setw(12) << "stratum-TP" << std::setw(10) << "recall" << '\n';
+    std::cout << std::left << std::setw(22) << "tag" << std::right << std::setw(13)
+              << "bg-tagged" << std::setw(13) << "bg-predicted" << std::setw(9) << "bg-TP"
+              << std::setw(9) << "bg-FP" << std::setw(15) << "lichess-agree"
+              << std::setw(12) << "stratum-n" << std::setw(12) << "stratum-TP"
+              << std::setw(10) << "recall" << std::setw(14) << "direct-count"
+              << std::setw(13) << "direct-share" << '\n';
     std::cout << std::fixed << std::setprecision(3);
     for (std::size_t index = 0; index < kTagCount; ++index) {
         const Metrics& value = metrics[index];
@@ -491,9 +545,24 @@ void print_table(const std::array<Metrics, kTagCount>& metrics) {
                   << value.background_predicted << std::setw(9) << value.background_true_positive
                   << std::setw(9) << value.background_false_positive << std::setw(15)
                   << lichess_agreement(value) << std::setw(12) << value.stratum_count
-                  << std::setw(12) << value.stratum_true_positive << std::setw(10) << recall(value)
-                  << '\n';
+                  << std::setw(12) << value.stratum_true_positive << std::setw(10)
+                  << recall(value) << std::setw(14) << value.stratum_direct << std::setw(13)
+                  << ratio(value.stratum_direct, value.stratum_true_positive) << '\n';
     }
+}
+
+void print_removal_metrics(const RemovalMetrics& metrics) {
+    std::cout << "\n" << std::left << std::setw(22) << "label" << std::right
+              << std::setw(14) << "stratum-n" << std::setw(18) << "stratum-predicted"
+              << std::setw(10) << "recall" << std::setw(15) << "bg-predicted"
+              << std::setw(9) << "bg-TP" << std::setw(15) << "lichess-agree" << '\n';
+    std::cout << std::left << std::setw(22) << "removal_of_defender" << std::right
+              << std::setw(14) << metrics.stratum_count << std::setw(18)
+              << metrics.stratum_predicted << std::setw(10)
+              << ratio(metrics.stratum_predicted, metrics.stratum_count) << std::setw(15)
+              << metrics.background_predicted << std::setw(9)
+              << metrics.background_true_positive << std::setw(15)
+              << ratio(metrics.background_true_positive, metrics.background_predicted) << '\n';
 }
 
 void print_background_mean(const BackgroundSummary& summary) {
@@ -577,6 +646,7 @@ int main(int argc, char* argv[]) {
 
     std::array<Metrics, kTagCount> metrics{};
     BackgroundSummary background_summary;
+    RemovalMetrics removal_metrics;
     std::array<DisagreementBucket, kTagCount> disagreements{};
     std::string line;
     std::size_t line_number = 1;
@@ -584,13 +654,14 @@ int main(int argc, char* argv[]) {
         while (std::getline(input, line)) {
             ++line_number;
             process_row(line, line_number, options.disagreements_per_kind, metrics,
-                        background_summary, disagreements);
+                        background_summary, removal_metrics, disagreements);
         }
         if (input.bad()) {
             throw std::runtime_error("failed reading " + options.csv_path);
         }
         print_table(metrics);
         print_background_mean(background_summary);
+        print_removal_metrics(removal_metrics);
         if (options.disagreement_path) {
             write_disagreements(*options.disagreement_path, options.disagreements_per_kind,
                                 disagreements);

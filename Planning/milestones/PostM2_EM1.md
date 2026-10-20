@@ -355,3 +355,4 @@ contribution `direct`.
 | 2026-10-20 | Plan frozen (E1–E7) | Captain's approval of P1–P5 |
 | 2026-10-20 | JSON key `engine.nodes.R`, not `r` | Existing node keys are `A`–`E`; the C++ field stays `NodeBudget::r` |
 | 2026-10-20 | No `tests/tactics/CMakeLists.txt` change; `tactics.json` has a per-entry `reason` and a per-fixture `margin` (null for puzzles) | The unit test builds fixture paths from `CHESSWHY_SOURCE_DIR`; reasons and margin checks (§9) need a place in the file |
+| 2026-10-20 | An asked move that is `candidates[0]` copies its motifs with their contributions together with its `tactic`; §4.2's root-tactic lists include that copy | Same line, same judgement; §4.2 named only `candidates[0]`, and the invariant check needs one answer |
