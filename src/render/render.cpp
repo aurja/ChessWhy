@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <iomanip>
 #include <locale>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -46,8 +47,52 @@ void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs) 
         if (motif.gain) {
             output << ", gain " << *motif.gain;
         }
-        output << " (ply " << motif.ply << ") [rule]\n";
+        output << " (ply " << motif.ply;
+        if (motif.contribution) {
+            output << ", " << to_string(*motif.contribution);
+        }
+        output << ") [rule]\n";
     }
+}
+
+void write_tactic_labels(std::ostringstream& output, const std::vector<TacticLabel>& labels) {
+    for (const auto& label : labels) {
+        output << to_string(label.tag) << ": " << label.actor.piece << ' ';
+        write_square(output, label.actor.square);
+        if (!label.targets.empty()) {
+            output << " → ";
+            for (std::size_t index = 0; index < label.targets.size(); ++index) {
+                if (index != 0) {
+                    output << ", ";
+                }
+                output << label.targets[index].piece << ' ';
+                write_square(output, label.targets[index].square);
+            }
+        }
+        output << " (ply " << label.ply << ") [rule]\n";
+    }
+}
+
+void write_tactic(std::ostringstream& output, const std::optional<TacticJudgement>& tactic) {
+    if (!tactic) {
+        return;
+    }
+    if (tactic->forced) {
+        output << "forced: only legal move [rule]\n";
+        return;
+    }
+    if (!tactic->is_tactic) {
+        return;
+    }
+
+    const auto flags = output.flags();
+    const auto precision = output.precision();
+    output << "tactic: next best " << tactic->alternative->san << " is " << std::fixed
+           << std::setprecision(2)
+           << static_cast<double>(*tactic->margin_units) / 2000.0 << " worse [engine]\n";
+    output.flags(flags);
+    output.precision(precision);
+    write_tactic_labels(output, tactic->labels);
 }
 
 void write_consequence(std::ostringstream& output, const std::string& label,
@@ -77,6 +122,7 @@ void write_threat(std::ostringstream& output, const std::string& label,
 void write_move_details(std::ostringstream& output, const std::string& label,
                         const MoveAssessment& move) {
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
+    write_tactic(output, move.tactic);
     if (move.verdict == Verdict::Fine) {
         write_motifs(output, move.motifs);
     }
@@ -101,6 +147,7 @@ void write_move_details(std::ostringstream& output, const std::string& label,
     if (move.refutation) {
         output << label << " refutation line: " << san_line(move.refutation->line_san)
                << " [engine]\n";
+        write_tactic(output, move.refutation->tactic);
         write_motifs(output, move.refutation->motifs);
         write_consequence(output, label + " refutation consequence", move.refutation->consequence);
     } else {

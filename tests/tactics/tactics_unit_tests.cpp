@@ -8,6 +8,7 @@
 #include <initializer_list>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -552,6 +553,477 @@ TEST_CASE("motif fixtures exercise every frozen include and exclude", "[unit]") 
                 CHECK(std::ranges::none_of(walked, [&forbidden](const Motif& motif) {
                     return fixture_instance_matches(motif, forbidden, false);
                 }));
+            }
+        }
+    }
+}
+namespace {
+
+[[nodiscard]] Motif test_motif(MotifTag tag, Side side, int ply, std::string_view actor_square,
+                               char actor_piece,
+                               std::initializer_list<std::pair<std::string_view, char>> targets = {}) {
+    Motif motif;
+    motif.tag = tag;
+    motif.side = side;
+    motif.ply = ply;
+    motif.actor = PieceOnSquare{.square = static_cast<std::uint8_t>(square(actor_square).index()),
+                                .piece = actor_piece};
+    for (const auto& [target_square, target_piece] : targets) {
+        motif.targets.push_back(
+            PieceOnSquare{.square = static_cast<std::uint8_t>(square(target_square).index()),
+                          .piece = target_piece});
+    }
+    return motif;
+}
+
+[[nodiscard]] json contribution_fixture_instance(const Motif& motif) {
+    json targets = json::array();
+    for (const PieceOnSquare& target : motif.targets) {
+        targets.push_back(square_name(target.square));
+    }
+    return {{"tag", chesswhy::to_string(motif.tag)},
+            {"side", chesswhy::to_string(motif.side)},
+            {"ply", motif.ply},
+            {"actor", square_name(motif.actor.square)},
+            {"targets", std::move(targets)},
+            {"contribution", motif.contribution ? json(chesswhy::to_string(*motif.contribution))
+                                                : json(nullptr)}};
+}
+
+[[nodiscard]] json label_fixture_instance(const chesswhy::TacticLabel& label) {
+    json targets = json::array();
+    for (const PieceOnSquare& target : label.targets) {
+        targets.push_back(square_name(target.square));
+    }
+    return {{"tag", chesswhy::to_string(label.tag)},
+            {"side", chesswhy::to_string(label.side)},
+            {"ply", label.ply},
+            {"actor", square_name(label.actor.square)},
+            {"targets", std::move(targets)}};
+}
+
+[[nodiscard]] bool valid_contribution_fixture_instance(const json& expected) {
+    if (!expected.is_object() || expected.size() != 7 ||
+        !expected.contains("tag") || !valid_fixture_tag(expected["tag"]) ||
+        !expected.contains("side") || !expected["side"].is_string() ||
+        !(expected["side"] == "white" || expected["side"] == "black") ||
+        !expected.contains("ply") || !expected["ply"].is_number_integer() ||
+        expected["ply"].get<int>() < 0 || !expected.contains("actor") ||
+        !square_name_is_valid(expected["actor"]) || !expected.contains("targets") ||
+        !expected["targets"].is_array() || !expected.contains("contribution") ||
+        !expected["contribution"].is_string() || !expected.contains("reason") ||
+        !expected["reason"].is_string()) {
+        return false;
+    }
+    const std::string contribution = expected["contribution"].get<std::string>();
+    if (contribution != "direct" && contribution != "indirect" && contribution != "none") {
+        return false;
+    }
+    return std::ranges::all_of(expected["targets"],
+                               [](const json& target) { return square_name_is_valid(target); });
+}
+
+[[nodiscard]] bool valid_label_fixture_instance(const json& expected, bool include) {
+    if (!expected.is_object()) {
+        return false;
+    }
+    constexpr std::array<std::string_view, 6> allowed_fields{
+        "tag", "side", "ply", "actor", "targets", "reason"};
+    for (auto iterator = expected.begin(); iterator != expected.end(); ++iterator) {
+        if (std::ranges::none_of(allowed_fields, [&iterator](std::string_view field) {
+                return iterator.key() == field;
+            })) {
+            return false;
+        }
+    }
+    if (include && (expected.size() != allowed_fields.size() || !expected.contains("tag") ||
+                    !expected.contains("side") || !expected.contains("ply") ||
+                    !expected.contains("actor") || !expected.contains("targets") ||
+                    !expected.contains("reason"))) {
+        return false;
+    }
+    if (expected.contains("tag") &&
+        (!expected["tag"].is_string() ||
+         expected["tag"] != chesswhy::to_string(chesswhy::TacticLabelTag::RemovalOfDefender))) {
+        return false;
+    }
+    if (expected.contains("side") &&
+        (!expected["side"].is_string() ||
+         !(expected["side"] == "white" || expected["side"] == "black"))) {
+        return false;
+    }
+    if (expected.contains("ply") &&
+        (!expected["ply"].is_number_integer() || expected["ply"].get<int>() < 1)) {
+        return false;
+    }
+    if (expected.contains("actor") && !square_name_is_valid(expected["actor"])) {
+        return false;
+    }
+    if (expected.contains("targets") &&
+        (!expected["targets"].is_array() ||
+         !std::ranges::all_of(expected["targets"],
+                              [](const json& target) { return square_name_is_valid(target); }))) {
+        return false;
+    }
+    return !expected.contains("reason") || expected["reason"].is_string();
+}
+
+[[nodiscard]] bool contribution_matches(const Motif& motif, const json& expected) {
+    if (!motif.contribution || expected["tag"] != chesswhy::to_string(motif.tag) ||
+        expected["side"] != chesswhy::to_string(motif.side) ||
+        expected["ply"].get<int>() != motif.ply ||
+        expected["actor"].get<std::string>() != square_name(motif.actor.square) ||
+        expected["contribution"] != chesswhy::to_string(*motif.contribution) ||
+        expected["targets"].size() != motif.targets.size()) {
+        return false;
+    }
+    for (std::size_t index = 0; index < motif.targets.size(); ++index) {
+        if (expected["targets"][index] != square_name(motif.targets[index].square)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+[[nodiscard]] bool label_matches_include(const chesswhy::TacticLabel& label,
+                                         const json& expected) {
+    if (expected["tag"] != chesswhy::to_string(label.tag) ||
+        expected["side"] != chesswhy::to_string(label.side) ||
+        expected["ply"].get<int>() != label.ply ||
+        expected["actor"].get<std::string>() != square_name(label.actor.square) ||
+        expected["targets"].size() != label.targets.size()) {
+        return false;
+    }
+    for (std::size_t index = 0; index < label.targets.size(); ++index) {
+        if (expected["targets"][index] != square_name(label.targets[index].square)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+[[nodiscard]] bool label_matches_exclude(const chesswhy::TacticLabel& label,
+                                         const json& forbidden) {
+    if (forbidden.contains("tag") && forbidden["tag"] != chesswhy::to_string(label.tag)) {
+        return false;
+    }
+    if (forbidden.contains("side") && forbidden["side"] != chesswhy::to_string(label.side)) {
+        return false;
+    }
+    if (forbidden.contains("ply") && forbidden["ply"].get<int>() != label.ply) {
+        return false;
+    }
+    if (forbidden.contains("actor") &&
+        forbidden["actor"].get<std::string>() != square_name(label.actor.square)) {
+        return false;
+    }
+    if (forbidden.contains("targets")) {
+        if (forbidden["targets"].size() != label.targets.size()) {
+            return false;
+        }
+        for (std::size_t index = 0; index < label.targets.size(); ++index) {
+            if (forbidden["targets"][index] != square_name(label.targets[index].square)) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+[[nodiscard]] std::vector<chess::Move> parse_fixture_line(chess::Board board,
+                                                           const json& moves) {
+    std::vector<chess::Move> line;
+    line.reserve(moves.size());
+    for (const json& move_json : moves) {
+        REQUIRE(move_json.is_string());
+        const std::string uci = move_json.get<std::string>();
+        REQUIRE((uci.size() == 4 || uci.size() == 5));
+        REQUIRE(chess::Square::is_valid_string_sq(std::string_view(uci).substr(0, 2)));
+        REQUIRE(chess::Square::is_valid_string_sq(std::string_view(uci).substr(2, 2)));
+        const chess::Move move = chess::uci::uciToMove(board, uci);
+        REQUIRE(move != chess::Move::NO_MOVE);
+        REQUIRE(board.isLegal(move));
+        line.push_back(move);
+        board.makeMove(move);
+    }
+    return line;
+}
+
+} // namespace
+
+TEST_CASE("contributions mark move motifs and later motif-piece activity direct", "[unit]") {
+    SECTION("a move motif is direct on its producing ply") {
+        const chess::Board root("6k1/8/6q1/5N2/1B6/8/8/K7 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"f5e7"});
+        std::vector<Motif> motifs = chesswhy::tactics::line_motifs(root, line);
+        auto fork = std::ranges::find_if(motifs, [](const Motif& motif) {
+            return motif.tag == MotifTag::Fork && motif.side == Side::White && motif.ply == 1;
+        });
+        REQUIRE(fork != motifs.end());
+        std::vector<Motif> judged{*fork};
+        chesswhy::tactics::judge_contributions(root, line, judged);
+        CHECK(judged[0].contribution == chesswhy::MotifContribution::Direct);
+    }
+
+    SECTION("a later capture of a target is direct") {
+        const chess::Board root("7k/8/8/2n5/8/8/8/K1R5 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"c1c5"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::HangingPiece, Side::White, 0, "a1", 'K', {{"c5", 'n'}})};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
+    }
+
+    SECTION("a later move of the actor is direct, before indirect classification") {
+        const chess::Board root("7k/8/8/8/8/8/8/K7 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"a1b1"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::HangingPiece, Side::White, 0, "a1", 'K')};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
+    }
+
+    SECTION("later direct use wins over an earlier indirect move") {
+        const chess::Board root("7k/8/8/8/8/8/8/KNR5 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"b1c3", "h8g8", "c1c2"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::HangingPiece, Side::White, 0, "c1", 'R')};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
+    }
+}
+
+TEST_CASE("contributions treat castling and en passant as piece activity", "[unit]") {
+    SECTION("castling directly moves its rook") {
+        const chess::Board root("4k3/8/8/8/8/8/8/4K2R w K - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"e1g1"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::HangingPiece, Side::White, 0, "h1", 'R')};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
+    }
+
+    SECTION("en passant directly captures the passed pawn") {
+        const chess::Board root("7k/3p3p/8/4P3/8/8/P7/K7 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line =
+            parse_line(board, {"a2a3", "h7h6", "a3a4", "d7d5", "e5d6"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::HangingPiece, Side::White, 4, "e5", 'P', {{"d5", 'p'}})};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
+    }
+}
+
+TEST_CASE("contribution indirect attacks use pseudo-attacks and skip castling", "[unit]") {
+    SECTION("a pinned motif piece still attacks the destination") {
+        const chess::Board root("4k3/4n3/8/8/8/8/8/K3RR2 w - - 0 1");
+        const auto all_motifs = chesswhy::tactics::position_motifs(root);
+        const auto pin = std::ranges::find_if(all_motifs, [](const Motif& motif) {
+            return motif.tag == MotifTag::PinAbsolute && motif.side == Side::White &&
+                   motif.actor.square == static_cast<std::uint8_t>(square("e1").index());
+        });
+        REQUIRE(pin != all_motifs.end());
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"f1f5"});
+        std::vector<Motif> motifs{*pin};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Indirect);
+    }
+
+    SECTION("a castling move never contributes indirectly") {
+        const chess::Board root("4k3/8/8/8/8/5B2/8/4K2R w K - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"e1g1"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::HangingPiece, Side::White, 0, "f3", 'B')};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::None);
+    }
+}
+
+TEST_CASE("contribution none covers Y-side, ply-n and ply-zero motifs", "[unit]") {
+    const chess::Board root("7k/8/8/8/8/8/8/K1R5 w - - 0 1");
+    chess::Board board = root;
+    const std::vector<chess::Move> line = parse_line(board, {"c1c2"});
+    std::vector<Motif> motifs{
+        test_motif(MotifTag::HangingPiece, Side::Black, 0, "h8", 'k'),
+        test_motif(MotifTag::HangingPiece, Side::White, 1, "c2", 'R'),
+        test_motif(MotifTag::HangingPiece, Side::White, 0, "a1", 'K')};
+    chesswhy::tactics::judge_contributions(root, line, motifs);
+    for (const Motif& motif : motifs) {
+        REQUIRE(motif.contribution.has_value());
+        CHECK(motif.contribution == chesswhy::MotifContribution::None);
+    }
+}
+
+TEST_CASE("removal-of-defender labels revive T33 and reject T34", "[unit]") {
+    SECTION("T33: removing the bishop releases the knight for capture") {
+        const chess::Board root("7k/8/3b4/1N2n3/8/8/8/K3R3 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"b5d6", "h8h7", "e1e5"});
+        const auto labels = chesswhy::tactics::tactic_labels(root, line);
+        REQUIRE(labels.size() == 1);
+        CHECK(labels[0].tag == chesswhy::TacticLabelTag::RemovalOfDefender);
+        CHECK(labels[0].side == Side::White);
+        CHECK(labels[0].ply == 1);
+        CHECK((labels[0].actor ==
+               PieceOnSquare{static_cast<std::uint8_t>(square("d6").index()), 'N'}));
+        REQUIRE(labels[0].targets.size() == 2);
+        CHECK((labels[0].targets[0] ==
+               PieceOnSquare{static_cast<std::uint8_t>(square("d6").index()), 'b'}));
+        CHECK((labels[0].targets[1] ==
+               PieceOnSquare{static_cast<std::uint8_t>(square("e5").index()), 'n'}));
+    }
+
+    SECTION("T34: no later capture means no label") {
+        const chess::Board root("7k/8/3b4/1N2n3/8/8/8/K3R3 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"b5d6", "h8h7"});
+        CHECK(chesswhy::tactics::tactic_labels(root, line).empty());
+    }
+}
+
+TEST_CASE("removal-of-defender labels reject near misses", "[unit]") {
+    SECTION("the target remains defended after d is removed") {
+        const chess::Board root("4r2k/8/3b4/1N2n3/8/8/8/K3R3 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"b5d6", "h8h7", "e1e5"});
+        CHECK(chesswhy::tactics::tactic_labels(root, line).empty());
+    }
+
+    SECTION("a later capture by Y does not count") {
+        const chess::Board root("7k/6b1/3b1r2/1N2n3/8/8/8/K3R3 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line =
+            parse_line(board, {"b5d6", "e5f7", "a1b1", "f6f5", "e1e5", "g7e5"});
+        CHECK(chesswhy::tactics::tactic_labels(root, line).empty());
+    }
+
+    SECTION("an en-passant capture on the target square does not count") {
+        const chess::Board root("7k/3p4/2b5/1B1nP3/8/8/8/K2R4 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line =
+            parse_line(board, {"b5c6", "d5f4", "a1b1", "d7d5", "e5d6"});
+        CHECK(chesswhy::tactics::tactic_labels(root, line).empty());
+    }
+
+    SECTION("a later capture with SEE below one does not count") {
+        const chess::Board root("7k/6b1/3b1r2/1N2n3/8/8/8/K3R3 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"b5d6", "f6f7", "e1e5"});
+        CHECK(chesswhy::tactics::tactic_labels(root, line).empty());
+    }
+}
+
+TEST_CASE("tactic fixtures exercise contributions and labels", "[unit]") {
+    const auto path =
+        std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests" / "fixtures" / "tactics.json";
+    std::ifstream input(path);
+    REQUIRE(input.is_open());
+    const json root = json::parse(input);
+    REQUIRE(root.is_object());
+    REQUIRE(root.contains("comment"));
+    REQUIRE(root["comment"].is_array());
+    REQUIRE(root.contains("fixtures"));
+    REQUIRE(root["fixtures"].is_array());
+
+    for (const json& fixture : root["fixtures"]) {
+        REQUIRE(fixture.is_object());
+        REQUIRE(fixture.size() == 9);
+        for (const std::string_view field : {"id", "title", "source", "fen"}) {
+            REQUIRE(fixture.contains(field));
+            REQUIRE(fixture[std::string(field)].is_string());
+        }
+        INFO("fixture " << fixture["id"].get<std::string>());
+        REQUIRE(fixture.contains("line_uci"));
+        REQUIRE(fixture["line_uci"].is_array());
+        REQUIRE(fixture.contains("margin"));
+        REQUIRE((fixture["margin"].is_null() || fixture["margin"].is_number()));
+        REQUIRE(fixture.contains("contributions"));
+        REQUIRE(fixture["contributions"].is_array());
+        REQUIRE(fixture.contains("labels_include"));
+        REQUIRE(fixture["labels_include"].is_array());
+        REQUIRE(fixture.contains("labels_exclude"));
+        REQUIRE(fixture["labels_exclude"].is_array());
+
+        const chess::Board root_board(fixture["fen"].get<std::string>());
+        const std::vector<chess::Move> line = parse_fixture_line(root_board, fixture["line_uci"]);
+        std::vector<Motif> motifs = chesswhy::tactics::position_motifs(root_board);
+        const std::vector<Motif> line_motifs =
+            chesswhy::tactics::line_motifs(root_board, line);
+        motifs.insert(motifs.end(), line_motifs.begin(), line_motifs.end());
+        chesswhy::tactics::judge_contributions(root_board, line, motifs);
+        const std::vector<chesswhy::TacticLabel> labels =
+            chesswhy::tactics::tactic_labels(root_board, line);
+        const Side tactic_side =
+            root_board.sideToMove() == chess::Color::WHITE ? Side::White : Side::Black;
+        const std::string tactic_side_name = chesswhy::to_string(tactic_side);
+
+        std::vector<bool> matched(motifs.size(), false);
+        for (const json& expected : fixture["contributions"]) {
+            REQUIRE(valid_contribution_fixture_instance(expected));
+            REQUIRE(expected["side"] == tactic_side_name);
+            REQUIRE(expected["ply"].get<int>() <= static_cast<int>(line.size()));
+            const auto found = std::ranges::find_if(
+                motifs, [&expected, &matched, &motifs](const Motif& actual) {
+                    const std::size_t index =
+                        static_cast<std::size_t>(&actual - motifs.data());
+                    return !matched[index] && contribution_matches(actual, expected);
+                });
+            if (found == motifs.end()) {
+                INFO("fixture " << fixture["id"].get<std::string>() << " differing motif "
+                                << expected.dump());
+                CHECK(false);
+            } else {
+                matched[static_cast<std::size_t>(found - motifs.begin())] = true;
+            }
+        }
+        for (std::size_t index = 0; index < motifs.size(); ++index) {
+            const Motif& motif = motifs[index];
+            if (motif.side != tactic_side) {
+                if (motif.contribution != chesswhy::MotifContribution::None) {
+                    INFO("fixture " << fixture["id"].get<std::string>() << " differing motif "
+                                    << contribution_fixture_instance(motif).dump());
+                    CHECK(motif.contribution == chesswhy::MotifContribution::None);
+                }
+                continue;
+            }
+            if (!matched[index]) {
+                INFO("fixture " << fixture["id"].get<std::string>() << " differing motif "
+                                << contribution_fixture_instance(motif).dump());
+                CHECK(false);
+            }
+        }
+
+        for (const json& expected : fixture["labels_include"]) {
+            REQUIRE(valid_label_fixture_instance(expected, true));
+            REQUIRE(expected["ply"].get<int>() <= static_cast<int>(line.size()));
+            if (!std::ranges::any_of(labels, [&expected](const chesswhy::TacticLabel& label) {
+                    return label_matches_include(label, expected);
+                })) {
+                INFO("fixture " << fixture["id"].get<std::string>() << " differing label "
+                                << expected.dump());
+                CHECK(false);
+            }
+        }
+        for (const json& forbidden : fixture["labels_exclude"]) {
+            REQUIRE(valid_label_fixture_instance(forbidden, false));
+            REQUIRE((!forbidden.contains("ply") ||
+                     forbidden["ply"].get<int>() <= static_cast<int>(line.size())));
+            const auto found = std::ranges::find_if(
+                labels, [&forbidden](const chesswhy::TacticLabel& label) {
+                    return label_matches_exclude(label, forbidden);
+                });
+            if (found != labels.end()) {
+                INFO("fixture " << fixture["id"].get<std::string>() << " differing label "
+                                << label_fixture_instance(*found).dump());
+                CHECK(false);
             }
         }
     }

@@ -63,6 +63,50 @@ template <typename Enum>
     return values;
 }
 
+[[nodiscard]] Json serialize_tactic_label(const TacticLabel& label) {
+    Json value = Json::object();
+    value["source"] = "rule";
+    value["tag"] = to_string(label.tag);
+    value["side"] = to_string(label.side);
+    value["ply"] = label.ply;
+    value["actor"] = serialize_piece_on_square(label.actor);
+    Json targets = Json::array();
+    for (const auto& target : label.targets) {
+        targets.push_back(serialize_piece_on_square(target));
+    }
+    value["targets"] = std::move(targets);
+    return value;
+}
+
+[[nodiscard]] Json serialize_tactic(const TacticJudgement& tactic) {
+    Json value = Json::object();
+    value["source"] = tactic.forced ? "rule" : "engine";
+    value["forced"] = tactic.forced;
+    if (tactic.alternative) {
+        Json alternative = Json::object();
+        alternative["san"] = tactic.alternative->san;
+        alternative["uci"] = tactic.alternative->uci;
+        alternative["eval"] = serialize_eval(tactic.alternative->eval);
+        value["alternative"] = std::move(alternative);
+    } else {
+        value["alternative"] = nullptr;
+    }
+    value["margin"] = tactic.margin_units
+                          ? Json(static_cast<double>(*tactic.margin_units) / 2000.0)
+                          : Json(nullptr);
+    value["is_tactic"] = tactic.is_tactic;
+    Json labels = Json::array();
+    for (const auto& label : tactic.labels) {
+        labels.push_back(serialize_tactic_label(label));
+    }
+    value["labels"] = std::move(labels);
+    return value;
+}
+
+[[nodiscard]] Json serialize_optional_tactic(const std::optional<TacticJudgement>& tactic) {
+    return tactic ? serialize_tactic(*tactic) : Json(nullptr);
+}
+
 [[nodiscard]] Json serialize_consequence(const Consequence& consequence) {
     Json value = Json::object();
     value["source"] = "rule";
@@ -82,6 +126,7 @@ template <typename Enum>
     value["line"] = threat.line_san;
     value["consequence"] = serialize_consequence(threat.consequence);
     value["motifs"] = serialize_motifs(threat.motifs);
+    value["tactic"] = serialize_optional_tactic(threat.tactic);
     return value;
 }
 
@@ -116,6 +161,7 @@ template <typename Enum>
         move.creates_threat ? serialize_threat(*move.creates_threat) : Json(nullptr);
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
     value["motifs"] = serialize_motifs(move.motifs);
+    value["tactic"] = serialize_optional_tactic(move.tactic);
     return value;
 }
 
@@ -313,6 +359,7 @@ nlohmann::ordered_json to_json(const Report& report) {
     nodes["C"] = report.engine.nodes.c;
     nodes["D"] = report.engine.nodes.d;
     nodes["E"] = report.engine.nodes.e;
+    nodes["R"] = report.engine.nodes.r;
     engine["nodes"] = std::move(nodes);
     engine["nodes_searched"] = report.engine.nodes_searched;
     value["engine"] = std::move(engine);
