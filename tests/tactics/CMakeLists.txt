@@ -17,14 +17,19 @@ add_test(NAME tactics_puzzles
     COMMAND tactics_puzzle_eval "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv")
 set_tests_properties(tactics_puzzles PROPERTIES LABELS unit)
 
-# Engine confirmation (precision, M2 §7.4). Usage:
-# tactics_motif_confirm <csv> [--per-tag N] [--jobs J] [--details <out.tsv>].
-# Exit 0 iff every claim tag meets its frozen confirmed-precision target (M2 §8.2);
-# before the targets are frozen it only prints the table and exits 0.
-add_executable(tactics_motif_confirm motif_confirm.cpp)
-target_link_libraries(tactics_motif_confirm PRIVATE chesswhy_analysis chesswhy_engine
-    chesswhy_tactics chesswhy_report chesswhy_warnings chesswhy_paths)
-add_test(NAME tactics_confirm
-    COMMAND tactics_motif_confirm "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
-    --jobs 4)
-set_tests_properties(tactics_confirm PROPERTIES LABELS engine)
+# Reference implementation of the motif definitions (motif recognition, M2 §7.4). Usage:
+# tactics_motif_oracle <csv> [--fixtures <motifs.json>] [--mismatches N <out.tsv>].
+# Exit 0 iff the detectors and the reference agree on every compared list.
+# Guard: skipped until WP9's sources exist; removed at integration.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/motif_oracle.cpp")
+    file(GLOB TACTICS_ORACLE_SOURCES CONFIGURE_DEPENDS
+        "${CMAKE_CURRENT_SOURCE_DIR}/oracle/*.cpp")
+    add_executable(tactics_motif_oracle motif_oracle.cpp ${TACTICS_ORACLE_SOURCES})
+    target_include_directories(tactics_motif_oracle PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(tactics_motif_oracle PRIVATE chesswhy_tactics chesswhy_report
+        chesswhy_warnings)
+    add_test(NAME tactics_oracle
+        COMMAND tactics_motif_oracle "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
+        --fixtures "${PROJECT_SOURCE_DIR}/tests/fixtures/motifs.json")
+    set_tests_properties(tactics_oracle PROPERTIES LABELS unit)
+endif()

@@ -38,9 +38,12 @@ enum class MotifTag : std::uint8_t {
     DiscoveredAttack,
     DoubleCheck,
     BackRankMate,
-    RemovalOfDefender,
     Promotion,
 };
+
+// A motif's role in the tactic of the line it is listed on (M2 D11, §5). Judged in
+// PostM2_EM1; M2 never sets it.
+enum class MotifContribution : std::uint8_t { Direct, Indirect, None };
 
 // Lower-case JSON spellings: "white", "standard", "consequence_class", ...
 [[nodiscard]] std::string to_string(Side side);
@@ -53,6 +56,7 @@ enum class MotifTag : std::uint8_t {
 [[nodiscard]] std::string to_string(UrgencyRule rule);
 [[nodiscard]] std::string to_string(ParryTest test);
 [[nodiscard]] std::string to_string(MotifTag tag); // "hanging_piece", "pin_absolute", ...
+[[nodiscard]] std::string to_string(MotifContribution contribution); // "direct", "indirect", "none"
 // Provenance of a parry decision: "engine" for searched, "rule" for the legality tests.
 [[nodiscard]] const char* parry_source(ParryTest test);
 
@@ -101,8 +105,9 @@ struct PieceOnSquare {
     bool operator==(const PieceOnSquare&) const = default;
 };
 
-// A tactical motif (M2 §4, §5). Source: rule. Identity for "newly present" (M2 §5) is
-// (tag, side, actor, targets); `ply` and `gain` are not part of it.
+// A tactical motif (M2 §4, §5): a pattern of one position. Source: rule. Identity for
+// "newly present" (M2 §5) is (tag, side, actor, targets); `ply`, `gain` and
+// `contribution` are not part of it.
 struct Motif {
     MotifTag tag = MotifTag::HangingPiece;
     Side side = Side::White; // X: the side the motif benefits
@@ -110,6 +115,7 @@ struct Motif {
     PieceOnSquare actor;
     std::vector<PieceOnSquare> targets; // order per M2 §5
     std::optional<int> gain;            // pawn units, set iff tag is HangingPiece or TrappedPiece
+    std::optional<MotifContribution> contribution; // null: not judged (always in M2)
 };
 
 struct PositionInfo {

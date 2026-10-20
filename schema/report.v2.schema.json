@@ -214,18 +214,18 @@
     "motif": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain"],
+      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain", "contribution"],
       "properties": {
         "source": {"const": "rule"},
         "tag": {"enum": ["hanging_piece", "pin_absolute", "pin_relative", "back_rank_weakness",
                          "overloaded_defender", "trapped_piece", "fork", "skewer", "discovered_check",
-                         "discovered_attack", "double_check", "back_rank_mate", "removal_of_defender",
-                         "promotion"]},
+                         "discovered_attack", "double_check", "back_rank_mate", "promotion"]},
         "side": {"$ref": "#/$defs/side"},
         "ply": {"type": "integer", "minimum": 0},
         "actor": {"$ref": "#/$defs/piece_on_square"},
         "targets": {"type": "array", "items": {"$ref": "#/$defs/piece_on_square"}},
-        "gain": {"type": ["integer", "null"], "minimum": 1}
+        "gain": {"type": ["integer", "null"], "minimum": 1},
+        "contribution": {"enum": ["direct", "indirect", "none", null]}
       },
       "if": {"properties": {"tag": {"enum": ["hanging_piece", "trapped_piece"]}}},
       "then": {"properties": {"gain": {"type": "integer"}}},

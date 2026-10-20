@@ -27,62 +27,62 @@ using chesswhy::Motif;
 using chesswhy::MotifTag;
 using chesswhy::Side;
 
-constexpr std::size_t kTagCount = 11;
+constexpr std::size_t kTagCount = 10;
 
 struct MeasuredTag {
     std::string_view lichess_tag;
     std::array<MotifTag, 2> motif_tags;
     std::size_t motif_tag_count;
-    std::optional<double> recall_target;
+    double recall_target;
 };
 
-// Keep mapping order and targets together; freezing targets only changes this table.
+// Mapping order and recall targets are frozen by M2 §7.3 / §8.2.
 constexpr std::array<MeasuredTag, kTagCount> kMeasuredTags{{
     {.lichess_tag = "hangingPiece",
      .motif_tags = {MotifTag::HangingPiece, MotifTag::HangingPiece},
      .motif_tag_count = 1,
-     .recall_target = std::nullopt},
+     .recall_target = 0.95},
     {.lichess_tag = "fork",
      .motif_tags = {MotifTag::Fork, MotifTag::Fork},
      .motif_tag_count = 1,
-     .recall_target = std::nullopt},
+     .recall_target = 0.95},
     {.lichess_tag = "pin",
      .motif_tags = {MotifTag::PinAbsolute, MotifTag::PinRelative},
      .motif_tag_count = 2,
-     .recall_target = std::nullopt},
+     .recall_target = 0.95},
     {.lichess_tag = "skewer",
      .motif_tags = {MotifTag::Skewer, MotifTag::Skewer},
      .motif_tag_count = 1,
-     .recall_target = std::nullopt},
+     .recall_target = 0.85},
     {.lichess_tag = "discoveredAttack",
      .motif_tags = {MotifTag::DiscoveredAttack, MotifTag::DiscoveredCheck},
      .motif_tag_count = 2,
-     .recall_target = std::nullopt},
+     .recall_target = 0.80},
     {.lichess_tag = "discoveredCheck",
      .motif_tags = {MotifTag::DiscoveredCheck, MotifTag::DiscoveredCheck},
      .motif_tag_count = 1,
-     .recall_target = std::nullopt},
+     .recall_target = 0.95},
     {.lichess_tag = "doubleCheck",
      .motif_tags = {MotifTag::DoubleCheck, MotifTag::DoubleCheck},
      .motif_tag_count = 1,
-     .recall_target = std::nullopt},
+     .recall_target = 0.95},
     {.lichess_tag = "backRankMate",
      .motif_tags = {MotifTag::BackRankMate, MotifTag::BackRankMate},
      .motif_tag_count = 1,
-     .recall_target = std::nullopt},
-    {.lichess_tag = "capturingDefender",
-     .motif_tags = {MotifTag::RemovalOfDefender, MotifTag::RemovalOfDefender},
-     .motif_tag_count = 1,
-     .recall_target = std::nullopt},
+     .recall_target = 0.95},
     {.lichess_tag = "trappedPiece",
      .motif_tags = {MotifTag::TrappedPiece, MotifTag::TrappedPiece},
      .motif_tag_count = 1,
-     .recall_target = std::nullopt},
+     .recall_target = 0.95},
     {.lichess_tag = "promotion",
      .motif_tags = {MotifTag::Promotion, MotifTag::Promotion},
      .motif_tag_count = 1,
-     .recall_target = std::nullopt},
+     .recall_target = 0.95},
 }};
+
+// Stratum drawn before M2 D13 (removal_of_defender left M2): kept in the frozen sample,
+// not measured (M2 §7.2).
+constexpr std::string_view kUnmeasuredStratum = "capturingDefender";
 
 constexpr std::array<std::string_view, 5> kCsvColumns{"PuzzleId", "FEN", "Moves", "Themes",
                                                       "Stratum"};
@@ -347,7 +347,7 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
         if (puzzle_id.empty()) {
             throw std::invalid_argument("PuzzleId is empty");
         }
-        if (fields[4] != "background" &&
+        if (fields[4] != "background" && fields[4] != kUnmeasuredStratum &&
             std::ranges::none_of(kMeasuredTags, [&fields](const auto& tag) {
                 return fields[4] == tag.lichess_tag;
             })) {
@@ -469,7 +469,7 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
     return static_cast<double>(numerator) / static_cast<double>(denominator);
 }
 
-[[nodiscard]] double precision(const Metrics& metrics) {
+[[nodiscard]] double lichess_agreement(const Metrics& metrics) {
     return ratio(metrics.background_true_positive,
                  metrics.background_true_positive + metrics.background_false_positive);
 }
@@ -481,7 +481,7 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
 void print_table(const std::array<Metrics, kTagCount>& metrics) {
     std::cout << std::left << std::setw(22) << "tag" << std::right << std::setw(13) << "bg-tagged"
               << std::setw(13) << "bg-predicted" << std::setw(9) << "bg-TP" << std::setw(9)
-              << "bg-FP" << std::setw(12) << "lichess-agree" << std::setw(12) << "stratum-n"
+              << "bg-FP" << std::setw(15) << "lichess-agree" << std::setw(12) << "stratum-n"
               << std::setw(12) << "stratum-TP" << std::setw(10) << "recall" << '\n';
     std::cout << std::fixed << std::setprecision(3);
     for (std::size_t index = 0; index < kTagCount; ++index) {
@@ -489,8 +489,8 @@ void print_table(const std::array<Metrics, kTagCount>& metrics) {
         std::cout << std::left << std::setw(22) << kMeasuredTags[index].lichess_tag << std::right
                   << std::setw(13) << value.background_tagged << std::setw(13)
                   << value.background_predicted << std::setw(9) << value.background_true_positive
-                  << std::setw(9) << value.background_false_positive << std::setw(12)
-                  << precision(value) << std::setw(12) << value.stratum_count << std::setw(12)
+                  << std::setw(9) << value.background_false_positive << std::setw(15)
+                  << lichess_agreement(value) << std::setw(12) << value.stratum_count << std::setw(12)
                   << value.stratum_true_positive << std::setw(10) << recall(value) << '\n';
     }
 }
@@ -502,13 +502,16 @@ void print_background_mean(const BackgroundSummary& summary) {
 }
 
 [[nodiscard]] bool targets_met(const std::array<Metrics, kTagCount>& metrics) {
+    bool met = true;
     for (std::size_t index = 0; index < kTagCount; ++index) {
         const auto& tag = kMeasuredTags[index];
-        if (tag.recall_target && recall(metrics[index]) < *tag.recall_target) {
-            return false;
+        if (recall(metrics[index]) < tag.recall_target) {
+            std::cerr << "tactics_puzzle_eval: " << tag.lichess_tag << " recall "
+                      << recall(metrics[index]) << " below target " << tag.recall_target << '\n';
+            met = false;
         }
     }
-    return true;
+    return met;
 }
 
 void write_disagreements(const std::string& path, std::size_t limit,
