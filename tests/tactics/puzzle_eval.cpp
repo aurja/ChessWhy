@@ -490,8 +490,9 @@ void print_table(const std::array<Metrics, kTagCount>& metrics) {
                   << std::setw(13) << value.background_tagged << std::setw(13)
                   << value.background_predicted << std::setw(9) << value.background_true_positive
                   << std::setw(9) << value.background_false_positive << std::setw(15)
-                  << lichess_agreement(value) << std::setw(12) << value.stratum_count << std::setw(12)
-                  << value.stratum_true_positive << std::setw(10) << recall(value) << '\n';
+                  << lichess_agreement(value) << std::setw(12) << value.stratum_count
+                  << std::setw(12) << value.stratum_true_positive << std::setw(10) << recall(value)
+                  << '\n';
     }
 }
 

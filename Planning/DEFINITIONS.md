@@ -43,7 +43,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | PV | Principal variation: the line Stockfish thinks best play follows | standard |
 | MultiPV K | Stockfish reports its K best first moves, each with a PV. K = 5 in search A | M1 §4.2 |
 | nodes | Positions Stockfish examines. Searches stop at a fixed node count, not a time, so results repeat | M1 §3 |
-| terminal | Checkmate or stalemate on the board: no search runs | M1 §4.1 |
+| terminal | Checkmate or stalemate on the board: no search runs, and the board has no state motifs (at ply 0 or inside a line) | M1 §4.1, M2 §5 |
 
 ## 3. Analysis (M1)
 

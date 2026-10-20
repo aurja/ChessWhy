@@ -316,6 +316,10 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
                     captured_square = move.to().ep_square();
                 }
                 const auto captured = enemy_to_move.at<chess::PieceType>(captured_square);
+                // Null-moving an opponent in check can expose a pseudo-capture of its king.
+                if (captured == chess::PieceType::KING) {
+                    continue;
+                }
                 if (captured != chess::PieceType::NONE &&
                     comparison_value(captured) >= comparison_value(candidate_type)) {
                     trapped = false;

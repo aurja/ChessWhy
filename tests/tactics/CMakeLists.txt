@@ -20,16 +20,11 @@ set_tests_properties(tactics_puzzles PROPERTIES LABELS unit)
 # Reference implementation of the motif definitions (motif recognition, M2 §7.4). Usage:
 # tactics_motif_oracle <csv> [--fixtures <motifs.json>] [--mismatches N <out.tsv>].
 # Exit 0 iff the detectors and the reference agree on every compared list.
-# Guard: skipped until WP9's sources exist; removed at integration.
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/motif_oracle.cpp")
-    file(GLOB TACTICS_ORACLE_SOURCES CONFIGURE_DEPENDS
-        "${CMAKE_CURRENT_SOURCE_DIR}/oracle/*.cpp")
-    add_executable(tactics_motif_oracle motif_oracle.cpp ${TACTICS_ORACLE_SOURCES})
-    target_include_directories(tactics_motif_oracle PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(tactics_motif_oracle PRIVATE chesswhy_tactics chesswhy_report
-        chesswhy_warnings)
-    add_test(NAME tactics_oracle
-        COMMAND tactics_motif_oracle "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
-        --fixtures "${PROJECT_SOURCE_DIR}/tests/fixtures/motifs.json")
-    set_tests_properties(tactics_oracle PROPERTIES LABELS unit)
-endif()
+add_executable(tactics_motif_oracle motif_oracle.cpp oracle/reference.cpp)
+target_include_directories(tactics_motif_oracle PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(tactics_motif_oracle PRIVATE chesswhy_tactics chesswhy_report
+    chesswhy_warnings)
+add_test(NAME tactics_oracle
+    COMMAND tactics_motif_oracle "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
+    --fixtures "${PROJECT_SOURCE_DIR}/tests/fixtures/motifs.json")
+set_tests_properties(tactics_oracle PROPERTIES LABELS unit)

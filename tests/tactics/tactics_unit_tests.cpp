@@ -223,6 +223,14 @@ TEST_CASE("piece values and static exchange evaluation cover x-rays and pins", "
         const chess::Board board("4k3/8/4p3/3n4/2P5/8/8/K3R3 w - - 0 1");
         CHECK(see(board, square("d5"), chess::Color::WHITE) == 3);
     }
+    SECTION("equal-value attackers choose the exchange line that respects a pin") {
+        const chess::Board board("7k/8/8/8/8/Br6/rPK5/8 b - - 0 1");
+        CHECK(see(board, square("a3"), chess::Color::BLACK) == 3);
+    }
+    SECTION("equal-valued knight and bishop attackers both enter the exchange") {
+        const chess::Board board("6k1/6p1/5n2/6B1/4N3/8/6Q1/7K w - - 0 1");
+        CHECK(see(board, square("f6"), chess::Color::WHITE) == 3);
+    }
 }
 
 TEST_CASE("SEE permits king recapture only onto a safe square", "[unit]") {
@@ -330,6 +338,38 @@ TEST_CASE("state motifs find trapped pieces only when every legal escape stays l
     CHECK(trapped_piece->gain == 3);
     const auto escape = position_motifs(chess::Board("k6n/8/8/8/8/8/8/4KR1R w - - 0 1"));
     CHECK(find_motif(escape, MotifTag::TrappedPiece, Side::White, "h8") == nullptr);
+}
+
+TEST_CASE("trapped pieces evaluate every legal escape on a side-to-move board", "[unit]") {
+    using chesswhy::tactics::position_motifs;
+    using chesswhy::tactics::see;
+
+    const chess::Board board("7k/8/5qN1/8/8/8/8/7K b - - 0 1");
+    chess::Board white_to_move = board;
+    white_to_move.makeNullMove();
+    chess::Movelist legal_moves;
+    chess::movegen::legalmoves(legal_moves, white_to_move);
+    const chess::Square knight = square("g6");
+    CHECK(chess::movegen::anylegalmoves(board));
+    CHECK_FALSE(board.isAttacked(board.kingSq(chess::Color::WHITE), chess::Color::BLACK));
+    CHECK(see(board, knight, chess::Color::BLACK) == 3);
+    CHECK(std::ranges::any_of(legal_moves, [&](chess::Move move) {
+        return move.from() == knight &&
+               white_to_move.at(move.to()).type() == chess::PieceType::KING;
+    }));
+    for (const chess::Move move : legal_moves) {
+        if (move.from() != knight ||
+            white_to_move.at<chess::PieceType>(move.to()) == chess::PieceType::KING) {
+            continue;
+        }
+        const chess::Piece captured = white_to_move.at(move.to());
+        CHECK((captured == chess::Piece::NONE ||
+               chesswhy::tactics::piece_value(captured.type()) < 3));
+        chess::Board after = white_to_move;
+        after.makeMove(move);
+        CHECK(see(after, move.to(), chess::Color::BLACK) >= 1);
+    }
+    expect_motif(position_motifs(board), MotifTag::TrappedPiece, Side::Black, "g6", 'N');
 }
 
 TEST_CASE("state motifs are ordered and omitted for terminal positions", "[unit]") {

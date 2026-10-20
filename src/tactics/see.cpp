@@ -5,6 +5,7 @@
 #include <bit>
 #include <cassert>
 #include <cstdint>
+#include <limits>
 
 #include "see_internal.hpp"
 
@@ -183,14 +184,22 @@ struct Position {
     }
 }
 
-[[nodiscard]] bool least_attacker(const Position& position, chess::Square target, chess::Color side,
-                                  chess::Square& source, chess::PieceType& type) {
+[[nodiscard]] std::uint64_t least_attackers(const Position& position, chess::Square target,
+                                            chess::Color side) {
     constexpr std::array<chess::PieceType, 6> attacker_order{
         chess::PieceType::PAWN, chess::PieceType::KNIGHT, chess::PieceType::BISHOP,
         chess::PieceType::ROOK, chess::PieceType::QUEEN,  chess::PieceType::KING,
     };
+    int least_value = std::numeric_limits<int>::max();
+    std::uint64_t least_attackers_bits = 0;
     for (const chess::PieceType candidate_type : attacker_order) {
+        const int value =
+            candidate_type == chess::PieceType::KING ? 100 : piece_value(candidate_type);
+        if (value > least_value) {
+            break;
+        }
         std::uint64_t attackers = attackers_to(position, target, side, candidate_type);
+        std::uint64_t legal_attackers = 0;
         while (attackers != 0) {
             const int index = std::countr_zero(attackers);
             attackers &= attackers - 1;
@@ -200,20 +209,29 @@ struct Position {
                 continue;
             }
 
-            Position after = position;
-            after.remove(candidate);
-            after.remove(target);
-            after.add(target, candidate_type, side);
-            if (candidate_type == chess::PieceType::KING && attacked_by(after, target, ~side)) {
-                continue;
+            if (candidate_type == chess::PieceType::KING) {
+                Position after = position;
+                after.remove(candidate);
+                after.remove(target);
+                after.add(target, candidate_type, side);
+                if (attacked_by(after, target, ~side)) {
+                    continue;
+                }
             }
 
-            source = candidate;
-            type = candidate_type;
-            return true;
+            legal_attackers |= std::uint64_t{1} << candidate.index();
+        }
+        if (legal_attackers == 0) {
+            continue;
+        }
+        if (value < least_value) {
+            least_attackers_bits = legal_attackers;
+            least_value = value;
+        } else if (value == least_value) {
+            least_attackers_bits |= legal_attackers;
         }
     }
-    return false;
+    return least_attackers_bits;
 }
 
 [[nodiscard]] int exchange(const Position& position, chess::Square target, chess::Color side) {
@@ -224,26 +242,30 @@ struct Position {
         return 0;
     }
 
-    chess::Square attacker;
-    chess::PieceType attacker_type;
-    if (!least_attacker(position, target, side, attacker, attacker_type)) {
-        return 0;
-    }
+    std::uint64_t attackers = least_attackers(position, target, side);
+    int best = 0;
+    while (attackers != 0) {
+        const int index = std::countr_zero(attackers);
+        attackers &= attackers - 1;
+        const chess::Square attacker(index);
+        const chess::PieceType attacker_type =
+            position.types[static_cast<std::size_t>(attacker.index())];
+        Position after = position;
+        after.remove(attacker);
+        after.remove(target);
+        chess::PieceType resulting_type = attacker_type;
+        int promotion_gain = 0;
+        if (attacker_type == chess::PieceType::PAWN &&
+            static_cast<int>(target.rank()) == (side == chess::Color::WHITE ? 7 : 0)) {
+            resulting_type = chess::PieceType::QUEEN;
+            promotion_gain = piece_value(resulting_type) - piece_value(attacker_type);
+        }
+        after.add(target, resulting_type, side);
 
-    Position after = position;
-    after.remove(attacker);
-    after.remove(target);
-    chess::PieceType resulting_type = attacker_type;
-    int promotion_gain = 0;
-    if (attacker_type == chess::PieceType::PAWN &&
-        static_cast<int>(target.rank()) == (side == chess::Color::WHITE ? 7 : 0)) {
-        resulting_type = chess::PieceType::QUEEN;
-        promotion_gain = piece_value(resulting_type) - piece_value(attacker_type);
+        const int capture_gain = piece_value(victim) + promotion_gain;
+        best = std::max(best, capture_gain - exchange(after, target, ~side));
     }
-    after.add(target, resulting_type, side);
-
-    const int capture_gain = piece_value(victim) + promotion_gain;
-    return std::max(0, capture_gain - exchange(after, target, ~side));
+    return best;
 }
 
 [[nodiscard]] int see_position(const Position& position, chess::Square square, chess::Color side) {
