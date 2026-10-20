@@ -7,6 +7,7 @@ points to the section that defines or decides each term.
 
 Status: updated 2026-10-20 at M2 close. At checkpoint 2b the Captain split motifs from
 tactics (§4.5): M2 measures motif recognition only; tactics are milestone PostM2_EM1.
+Updated 2026-10-20 with the frozen PostM2_EM1 plan (§3.2, §4.5, §5.8, §6).
 
 ## 1. Words that mean several things
 
@@ -18,7 +19,8 @@ Read these first. Each word is used in two or more senses in the plans.
 | precision | Used in four senses over time. (1) Until 2026-10-19: share of our puzzle predictions that Lichess also named, now called **Lichess agreement** (§5.4). (2) 2026-10-19 to 2026-10-20: **engine-confirmed precision**, share of reported motifs that Stockfish turns into a material win (§5.5); it measured whether a tactic *works*, not whether the pattern is *on the board*, and left M2 with the motif/tactic split. (3) Since 2026-10-20, for motifs: **motif recognition**, exact agreement with the definitions, checked against the reference implementation (§5.7). (4) The everyday sense, "how often a reported fact is right". The plans avoid the bare word |
 | line | A sequence of moves from a stated position. Engine lines are Stockfish's principal variations; a puzzle's line is its solution moves (§3.1) |
 | threat | Not the everyday "something attacks something". A threat is the line a side would play **if it were its move**, taken from an engine search, with its consequence (§3.3) |
-| gain | (1) A motif's `gain` field: an SEE value in pawns, only on `hanging_piece` and `trapped_piece` (§4.3). (2) The `material` of a consequence (§3.3). (3) A tactic's gain: how much better, in engine evaluation, its line is than the second-best move (§4.5). (4) "Hit-no-gain" in the former engine confirmation (§5.5) |
+| gain | (1) A motif's `gain` field: an SEE value in pawns, only on `hanging_piece` and `trapped_piece` (§4.3). (2) The `material` of a consequence (§3.3). (3) A tactic's gain: its **only-move margin**, how much better in ES its line is than the best alternative move (§4.5). (4) "Hit-no-gain" in the former engine confirmation (§5.5) |
+| forced | A **forced** move is the only legal move of its position: a rule fact in the report, never judged as a tactic (§4.5). Not the loose chess sense "the only good move"; that is a tactic or a lone fine move |
 | fine | A verdict: the move loses at most 0.03 expected score against the best move (§3.5). Not "good" or "best" |
 | hanging | Our `hanging_piece` is an SEE rule (X wins at least 3 pawns on the square), not the everyday "undefended" (§4.4) |
 | side | The side a fact is about. In analysis: `S` side to move, `O` opponent. In motifs: `X` the side that benefits, `Y` the other (§2) |
@@ -33,7 +35,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | SAN / UCI move | `Nf3` / `g1f3`. The CLI accepts both; engine lines are UCI internally, SAN in reports | M1 §5 |
 | ply | One half-move. Ply 0 is the position itself; ply k is the position after k moves of a line | M2 §5 |
 | `S`, `O` | Side to move in the analysed position, and its opponent | vision §5 |
-| `X`, `Y` | For a motif: the side it benefits (its `side` field), and the other side | M2 §4 |
+| `X`, `Y` | For a motif or tactic label: the side it benefits (its `side` field), and the other side. For a judged line (PostM2_EM1): X is the side playing it, the **tactic side** (`S` for the root line, `O` for a refutation) | M2 §4, PostM2_EM1 §4 |
 | piece values | P 1, N 3, B 3, R 5, Q 9 pawn units; the king is never exchanged. One definition: `tactics::piece_value` | M1 §4.3, M2 §3 |
 | SEE | Static exchange evaluation: net pawns X wins by the best capture sequence on one square, without search, both sides free to stop; handles x-rays, pins and king captures. **Ignores check and every other square** | M2 §4 |
 | null move | Pass the move to the other side without moving (same placement, en passant cleared). Used to ask "what would the opponent do if it were their move" | vision §5.1 |
@@ -50,7 +52,7 @@ Read these first. Each word is used in two or more senses in the plans.
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| report | The JSON document one query produces; everything the tool claims is a field of it. Versioned by `schema_version` (now 2) with a JSON Schema in `schema/` | vision §6, M2 §5 |
+| report | The JSON document one query produces; everything the tool claims is a field of it. Versioned by `schema_version` (2 at M2; 3 from PostM2_EM1, adding `tactic` and `engine.nodes.r`) with a JSON Schema in `schema/` | vision §6, M2 §5, PostM2_EM1 §5 |
 | provenance | Every fact's source: `engine` (Stockfish search), `rule` (deterministic board rule), `book` (reference material, opening names), `games` (counts from game collections) | vision §2 |
 | facts first | Chess content is computed in C++ and stored in the report; the language model (M4) only puts report fields into words | vision §2 |
 | budget | `quick`, `standard` (default) or `deep`: fixed node counts per search kind | M1 §3 |
@@ -60,7 +62,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | candidates | A's K best moves with their verdicts | M1 §4.7 |
 | level | `beginner`, `club`, `advanced`: audience of the M4 prose; no effect on analysis | vision §3 |
 
-### 3.2 Searches A–E
+### 3.2 Searches A–E, R
 
 | Search | From | Answers |
 |---|---|---|
@@ -69,8 +71,10 @@ Read these first. Each word is used in two or more senses in the plans.
 | C | current position, `searchmoves m` | the asked move when it is not among A's lines |
 | D(m) | after `m`, `searchmoves t` | does `m` parry `O`'s threat? |
 | E(m) | after `m`, null move | which threat `m` creates |
+| R(m) | after a move `m` that is not fine, `searchmoves` all of `O`'s legal moves except the refutation's first | `O`'s best alternative to the refutation, for the refutation's tactic judgement (§4.5) |
 
-Node counts per budget: M1 §3.
+Node counts per budget: M1 §3; R (same size as D and E): PostM2_EM1 §3. Order: A, B, per
+candidate D, E, R; then C, D, E, R for an asked move outside A.
 
 ### 3.3 Threats and consequences
 
@@ -85,7 +89,7 @@ Node counts per budget: M1 §3.
 | parry test | Whether `m` stops `O`'s threat: by rule when `t` becomes illegal, otherwise by search D (the threat still works iff `O`'s ES stays within 0.03 of B's) | M1 §4.5 |
 | `parries_threat` | Result of the parry test for one move; null when `O`'s threat has rank < 2 | M1 §4.5 |
 | `creates_threat` | The threat `m` creates (search E); null when `m` gives check | M1 §4.7 |
-| refutation | For a move that is not fine: `O`'s best reply line after it, as a threat by `O` | M1 §4.7 |
+| refutation | For a move that is not fine: `O`'s best reply line after it, as a threat by `O`. From PostM2_EM1 it carries a tactic judgement (§4.5) | M1 §4.7 |
 
 ### 3.4 Urgency
 
@@ -138,7 +142,7 @@ Node counts per budget: M1 §3.
 | `actor` | The piece that does it: the forking knight, the pinner, the hanging piece itself, the overloaded defender |
 | `targets` | The pieces it acts on, in a fixed order (M2 §5) |
 | `gain` | SEE value in pawns, only for `hanging_piece` and `trapped_piece`; null otherwise |
-| `contribution` | The motif's role in the tactic of the line it is listed on: `direct`, `indirect`, `none`, or null = not judged. Always null in M2; PostM2_EM1 fills it (§4.5) |
+| `contribution` | The motif's role in the tactic of the line it is listed on: `direct`, `indirect`, `none`, or null = not judged. Always null in M2; from PostM2_EM1 set on every motif of a tactic line, null elsewhere (§4.5) |
 
 ### 4.4 The tags in plain words
 
@@ -158,7 +162,7 @@ Exact definitions: M2 §4. These sentences only orient.
 | `discovered_attack` | An X move unmasks an attack from an X slider on a valuable or winnable Y piece (not check) | measured |
 | `double_check` | After the move, two X pieces give check | measured |
 | `back_rank_mate` | Mate on Y's first rank against a king boxed in by its own pieces | measured |
-| (`removal_of_defender`) | Removed from M2 on 2026-10-20: X captures a Y defender, then later in the line wins the piece it defended. It reads later moves, so it is a tactic-side label for PostM2_EM1 | — |
+| (`removal_of_defender`) | Removed from M2 on 2026-10-20: X captures a Y defender, then later in the line wins the piece it defended. It reads later moves, so from PostM2_EM1 it is a **tactic label** on tactic lines, not a motif (§4.5) | tactic label |
 | `promotion` | The move promotes a pawn | measured |
 
 "Measured" = has a Lichess theme and is evaluated on the puzzle sample (§5).
@@ -167,18 +171,28 @@ Exact definitions: M2 §4. These sentences only orient.
 
 ### 4.5 Motif, tactic and contribution (Captain, 2026-10-20)
 
-Decided at M2 checkpoint 2b (M2 D11–D13). Tactics and contribution are built in
-PostM2_EM1; their exact rules are frozen in that milestone's plan.
+Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
+(2026-10-20, E1–E7). Until then the threshold and the "indirect" rule were open.
 
 | Term | Meaning | Where |
 |---|---|---|
-| tactic | A sequence of moves that gains in engine evaluation even when the opponent plays the best replies. Measured in evaluation, not material, so a sacrifice can be a tactic. The gain is measured against the **second-best move** (the only-move margin): along the engine's own best line the evaluation does not change, so the comparison point is the best alternative. Threshold: PostM2_EM1 | PostM2_EM1 |
-| only-move margin | ES of the best move minus ES of the second-best move, from search A's MultiPV lines | PostM2_EM1 |
+| tactic | A sequence of moves that gains in engine evaluation even when the opponent plays the best replies. Measured in evaluation, not material, so a sacrifice can be a tactic. The gain is measured against the **best alternative move** (the only-move margin): along the engine's own best line the evaluation does not change, so the comparison point is the alternative. A line is a tactic iff its only-move margin is ≥ 0.13 ES (`kTacticMarginUnits` = `kMistakeUnits`): every alternative is at least a mistake. Threshold open before 2026-10-20 | PostM2_EM1 §4.1, E2 |
+| only-move margin | Line ES minus the best alternative's ES, from the line side's view, in es_units; may be negative. Root line: `candidates[0]` minus `candidates[1]` (search A). Refutation: (1 − ES of the refuted move) minus search R's line. Before 2026-10-20 defined for the root only ("best minus second-best of A") | PostM2_EM1 §4.1 |
+| judged line | A line that gets a tactic judgement: the root's best line (`candidates[0]`) and every refutation. Other candidates, B's and E's threats and lines from C are not judged | PostM2_EM1 §4.1, E3–E4 |
+| tactic judgement | The `tactic` object of a judged line: `forced`, `alternative`, `margin`, `is_tactic`, `labels` | PostM2_EM1 §5 |
+| tactic line | A judged line with `is_tactic`. Only tactic lines get contributions and tactic labels | PostM2_EM1 §4.2 |
+| best alternative | The move a tactic is compared with: A's second line at the root, R's line for a refutation | PostM2_EM1 §4.1 |
+| tactic sequence | A judged line cut to its walked plies (§3.3): the moves contributions and labels read | PostM2_EM1 §4 |
+| forced (in the report) | `tactic.forced`: the judged line's root has exactly one legal move. No alternative and no margin; never a tactic; source `rule` | PostM2_EM1 §4.1, E5 |
+| saturation limit | ES flattens near 0 and 1, so in an already decided position (mate against a second-best at 0.98) no line is a tactic. Known, accepted | E2 |
+| two-winners limit | With two equally winning moves the margin is near 0, so neither is a tactic. Known, accepted | E4 |
 | motif recognition | Is the pattern on the board, and do we report it exactly when it is? Must be exact against the written definitions; checked by the T fixtures and the reference implementation (§5.7) | M2 §7.4 |
-| tactic recognition | Does the line gain against the second-best move, and do we label it a tactic exactly when it does? Mechanical from the engine, so exact by construction; tests check the computation | PostM2_EM1 |
-| contribution judgement | For each motif and tactic: **direct** (the motif is part of the tactic's move sequence), **indirect** (the motif helps without being in the sequence, e.g. a pin that stops a recapture), or **none**. The rule for "indirect" is open; measured against hand-labelled fixtures | PostM2_EM1 |
+| tactic recognition | Does the line gain against the best alternative, and do we label it a tactic exactly when it does? Mechanical from the engine, so exact by construction; tests check the computation (invariant check, §6.2) | PostM2_EM1 §14 |
+| contribution judgement | For each motif on a tactic line, by rule: motifs of the other side → **none**; **direct** if it is a move motif or a later move of the tactic sequence moves or captures its actor or a target; **indirect** if not direct and its actor or a target attacks (pins ignored) the destination of a later move of the tactic side; else **none**. Plain sense: direct = the moves use it; indirect = it helps without moving (a pin that stops a recapture, an overloaded defender); none = the tactic works without it. "Indirect" was open before 2026-10-20. Measured against hand-labelled C fixtures (§6.2) | PostM2_EM1 §4.3 |
+| tactic label | A rule fact about a tactic line that reads later moves, so it is not a motif. Its fields match a motif's (`tag`, `side`, `ply`, `actor`, `targets`), without `gain` and `contribution`. One tag: `removal_of_defender` | PostM2_EM1 §4.4 |
+| `removal_of_defender` | Tactic label: an X capture takes a Y piece d that alone kept another Y piece t safe (SEE 0 with d, ≥ 1 without), and a later X capture on t's square wins it. Actor: the capturing piece; targets: d, t. Outside the motif reference implementation | PostM2_EM1 §4.4 |
 | claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
-| PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic-side label. Seeded by the former engine-confirmation evaluator (commit `d5b703a`) | vision §11 |
+| PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label. Plan `Planning/milestones/PostM2_EM1.md`, branch `postm2-em1`. Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
 
 ## 5. Measurement (M2)
 
@@ -254,6 +268,14 @@ PostM2_EM1 starts from commit `d5b703a`.
 | mismatch | A position where the detectors' motif list and the reference's differ in any field. Each one is traced to its root: detector wrong, reference wrong, or plan text ambiguous (then the text is clarified) | M2 §7.4 |
 | compared positions | Every position of every `test.csv` puzzle (before and after each move, plus the whole line) and every T fixture. `tactics_oracle` passes only with zero mismatches | M2 §7.4 |
 
+### 5.8 Puzzle check (PostM2_EM1, not gating)
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| puzzle check | `tactics_puzzle_eval` treats each puzzle's solution line from the root as a tactic sequence and prints the two numbers below. Printed in the receipt; never gated, never tuned against | PostM2_EM1 §7 |
+| direct share | Per measured theme, on its stratum, among puzzles where we predict the theme: share where a mapped instance for the solver is judged `direct`. Checks the contribution rule against Lichess's naming of the puzzle's idea | PostM2_EM1 §7 |
+| `removal_of_defender` recall | Share of the `capturingDefender` stratum where the solver gets a `removal_of_defender` label; Lichess agreement on background alongside | PostM2_EM1 §7 |
+
 ## 6. Process and testing
 
 ### 6.1 Planning and roles
@@ -261,11 +283,12 @@ PostM2_EM1 starts from commit `d5b703a`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | vision | `Planning/PROJECT_VISION.md`: the source of truth for scope, method and decisions | AGENTS.md |
-| milestone (M0–M6, PostM2_EM1) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sits between M2 and M3 (§4.5) | vision §11 |
+| milestone (M0–M6, PostM2_EM1) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sits between M2 and M3 (§4.5); M3 waits until it closes (E1) | vision §11 |
 | contract | The frozen parts of a milestone plan: headers, report schema, fixtures, acceptance, owned files. Workers implement against it and do not change it | AGENTS.md |
 | contract change | Any change to a frozen item after freezing; recorded as a row in the plan's last section ("§15 row" in M2) with date, change and reason | M2 §15 |
 | D1–D13 | The Captain's numbered decisions in M2: D1–D10 at the start, D11–D13 at checkpoint 2b (motif/tactic split, reference implementation, `removal_of_defender` removed) | M2 §1 |
-| checkpoint | A point where the Captain approves something before it is frozen (M2: fixtures; targets; merge) | M2 §12 |
+| E1–E7 | The Captain's numbered decisions in PostM2_EM1 (briefed as P1–P5 on 2026-10-20): order, threshold, judged lines and search R, best move only, forced moves, contribution rule, `removal_of_defender` as a tactic label | PostM2_EM1 §1 |
+| checkpoint | A point where the Captain approves something before it is frozen (M2: fixtures; targets; merge. PostM2_EM1: C fixtures and F rows; rule-versus-label mismatches; merge) | M2 §12, PostM2_EM1 §12 |
 | work package (WP) | One worker's slice of a milestone: owned files, done-condition, non-goals | M2 §11 |
 | batch | WPs run at the same time; integrated and tested together | AGENTS.md |
 | orchestrator / Deputy | The main session: freezes contracts, slices work, integrates, runs gates, reports to the Captain | AGENTS.md |
@@ -278,12 +301,15 @@ PostM2_EM1 starts from commit `d5b703a`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | fixture | A stored test case with expected results | — |
-| F fixtures | Engine fixtures in `tests/fixtures/positions.json` (F01–F20, F16 dropped): world-championship positions with expected threats, urgency, verdicts; pinned to Stockfish 19 at `standard`, robust at all budgets | M1 §9 |
+| F fixtures | Engine fixtures in `tests/fixtures/positions.json` (F01–F20, F16 dropped; PostM2_EM1 adds F21 onward): world-championship positions with expected threats, urgency, verdicts and, from PostM2_EM1, tactic judgements; pinned to Stockfish 19 at `standard`, robust at all budgets | M1 §9, PostM2_EM1 §9 |
 | U, E, parse fixtures | No engine judgement: U = opening names and PGN/ply input, E = error exit codes and messages, parse = FEN/move parsing | M1 §9 |
 | T fixtures | Motif unit fixtures T01–T41 in `tests/fixtures/motifs.json`: a position and line with instances that must (`includes`) or must not (`excludes`) be reported | M2 §9 |
+| C fixtures | Contribution unit fixtures C01–Cnn in `tests/fixtures/tactics.json`: a tactic sequence with the hand-labelled contribution of every motif of the tactic side, plus tactic labels that must or must not appear. Hand labels come from the plain meaning, not from running the rule; the Captain reviews them | PostM2_EM1 §9 |
+| hand label | A fixture's expected value set by a person from the chess meaning, with a one-line reason, before the rule's output is seen. Where rule and hand label differ, the Captain decides which changes | PostM2_EM1 §9, §12 |
+| invariant check | Part of the F harness from PostM2_EM1: on every F report, recomputes each tactic judgement from the report's own evals (margin, threshold, forced, which lists carry contributions) | PostM2_EM1 §9 |
 | positive / near miss | A T fixture where the motif holds / a deliberately similar position where it must not (e.g. a fork whose forking piece can be taken) | M2 §9 |
 | constructed | A fixture position made up by hand rather than taken from a game | M2 §9 |
-| `motifs_include` | Key on an F fixture: listed motif instances must appear in the report (extras allowed) | M2 §9 |
+| `motifs_include` | Key on an F fixture: listed motif instances must appear in the report (extras allowed). From PostM2_EM1 an entry may also state its `contribution` | M2 §9, PostM2_EM1 §9 |
 | re-blessing | Re-deriving engine fixture expectations for a new Stockfish version; an explicit milestone task | AGENTS.md |
 
 ### 6.3 Tests, gates, builds
@@ -295,7 +321,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 | `tactics_oracle` | CTest (`unit`) running `tactics_motif_oracle`: detectors against the reference implementation on test and the T fixtures; zero mismatches required. Replaced `tactics_confirm` (engine-confirmed precision, removed 2026-10-20) | M2 §7.4 |
 | gate | Required checks. After a batch: build and affected tests. At milestone end: all tests in Release and ASan/UBSan, clang-format, clang-tidy, Ruff, basedpyright, ShellCheck, the smoke command | AGENTS.md |
 | Release / ASan build | `build/release` (optimised) and `build/asan` (debug with address and undefined-behaviour sanitisers) | AGENTS.md |
-| smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 | M2 §14 |
+| smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2 and PostM2_EM1: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 (M2), and from PostM2_EM1 a refutation that is a tactic with the fork `direct`, while the root (all lines at ES 1.0) is not a tactic | M2 §14, PostM2_EM1 §14 |
 | golden test | Compares rendered text with a stored expected file byte for byte | M2 §10 |
 | timing check | `standard` must finish within 12 s per F fixture in Release | M2 §14 |
 | usage guard | Background watcher that pauses agent work when a model subscription window nears its limit | AGENTS.md |
