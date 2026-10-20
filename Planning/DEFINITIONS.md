@@ -5,9 +5,8 @@ Where a word has an ordinary meaning, an ordinary chess meaning and a project me
 this file gives the project meaning. The plans stay authoritative; the last column
 points to the section that defines or decides each term.
 
-Status: updated 2026-10-20 at M2 checkpoint 2b, where the Captain split motifs from
-tactics (§4.5). M2 now measures motif recognition only; tactics are milestone
-PostM2_EM1.
+Status: updated 2026-10-20 at M2 close. At checkpoint 2b the Captain split motifs from
+tactics (§4.5): M2 measures motif recognition only; tactics are milestone PostM2_EM1.
 
 ## 1. Words that mean several things
 
@@ -163,7 +162,8 @@ Exact definitions: M2 §4. These sentences only orient.
 | `promotion` | The move promotes a pawn | measured |
 
 "Measured" = has a Lichess theme and is evaluated on the puzzle sample (§5).
-"Fixture-only" = no clean Lichess theme; checked only by T fixtures (§6.2).
+"Fixture-only" = no clean Lichess theme, so no recall is measured; checked by T fixtures
+(§6.2) and, like every tag, by the reference implementation (§5.7).
 
 ### 4.5 Motif, tactic and contribution (Captain, 2026-10-20)
 

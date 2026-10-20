@@ -195,7 +195,7 @@ in. Sketch:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "input": {"fen": "...", "move": "Nf3", "level": "club", "budget": "standard"},
   "engine": {"name": "Stockfish 19", "nodes": 0, "threads": 1, "reproducible": true},
   "position": {"side_to_move": "white", "in_check": false, "es_white": 0.54, "motifs": []},
