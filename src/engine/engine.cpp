@@ -50,8 +50,11 @@ void close_pair(std::array<int, 2>& fds) noexcept {
     close_fd(fds[1]);
 }
 
+// Close-on-exec from creation: with plain pipe() another thread's fork/exec (concurrent
+// Engine construction) could inherit these ends before FD_CLOEXEC was set, keeping a
+// foreign engine's pipe open and stalling its startup.
 void make_pipe(std::array<int, 2>& fds) {
-    if (::pipe(fds.data()) < 0) {
+    if (::pipe2(fds.data(), O_CLOEXEC) < 0) {
         throw_system_error("engine pipe");
     }
 }
@@ -246,11 +249,6 @@ struct Engine::Impl {
             make_pipe(child_input);
             make_pipe(child_output);
             make_pipe(exec_status);
-            const int descriptor_flags = ::fcntl(exec_status[1], F_GETFD);
-            if (descriptor_flags < 0 ||
-                ::fcntl(exec_status[1], F_SETFD, descriptor_flags | FD_CLOEXEC) < 0) {
-                throw_system_error("engine exec status pipe configuration");
-            }
         } catch (...) {
             close_pair(child_input);
             close_pair(child_output);
@@ -271,6 +269,10 @@ struct Engine::Impl {
                 ::dup2(child_output[1], STDOUT_FILENO) < 0) {
                 child_report_error(exec_status[1], errno);
             }
+            // dup2 onto the same descriptor keeps close-on-exec; clear it explicitly.
+            if (::fcntl(STDIN_FILENO, F_SETFD, 0) < 0 || ::fcntl(STDOUT_FILENO, F_SETFD, 0) < 0) {
+                child_report_error(exec_status[1], errno);
+            }
             const int null_fd = ::open("/dev/null", O_WRONLY);
             if (null_fd < 0 || ::dup2(null_fd, STDERR_FILENO) < 0) {
                 child_report_error(exec_status[1], errno);
@@ -278,13 +280,7 @@ struct Engine::Impl {
             if (null_fd > STDERR_FILENO) {
                 (void)::close(null_fd);
             }
-            const std::array<int, 5> descriptors{child_input[0], child_input[1], child_output[0],
-                                                 child_output[1], exec_status[0]};
-            for (const int descriptor : descriptors) {
-                if (descriptor > STDERR_FILENO && descriptor != exec_status[1]) {
-                    (void)::close(descriptor);
-                }
-            }
+            // All pipe ends are close-on-exec; exec closes them.
             std::array<char*, 2> arguments{const_cast<char*>(binary_path.c_str()), nullptr};
             ::execv(binary_path.c_str(), arguments.data());
             child_report_error(exec_status[1], errno);

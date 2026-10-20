@@ -68,6 +68,7 @@
       "title": "opponent threatens mate in one; asked move parries it but allows another mate",
       "source": "Korchnoi, Viktor - Karpov, Anatoly, Wch29 1978, before 39.Ra1",
       "args": ["--fen", "8/7R/2r5/8/P3n3/R7/3nk1PP/6K1 w - - 3 39", "--move", "Ra1"],
+      "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "black", "actor": "g1"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -137,6 +138,11 @@
       "title": "equal material threats; the fine move parries by capture",
       "source": "Alekhine, Alexander - Euwe, Max, The Netherlands 1927, before 31.Qxd3",
       "args": ["--fen", "6k1/2n2ppp/p3q3/1pB1p1P1/1Pr1P3/PQ1r3P/2PR2K1/8 w - - 0 31", "--move", "Qxd3"],
+      "motifs_include": {
+        "/asked_move/motifs": [{"tag": "fork", "side": "white", "actor": "d8"}],
+        "/asked_move/refutation/motifs": [{"tag": "fork", "side": "white", "actor": "d8"}],
+        "/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "g8"}]
+      },
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -182,6 +188,7 @@
       "title": "counterattack: own threat outweighs the opponent's",
       "source": "Euwe, Max - Keres, Paul, Wch18 1948, before 39...Qg3",
       "args": ["--fen", "8/6pk/7p/5p2/5Pqn/1P5P/P2Q2P1/2r2RK1 b - - 0 39", "--move", "Qg3"],
+      "motifs_include": {"/threats/black/motifs": [{"tag": "fork", "side": "black", "actor": "f3"}]},
       "equals": {
         "/position/side_to_move": "black",
         "/position/in_check": false,
@@ -203,6 +210,7 @@
       "title": "rook against pawns: null move unreliable, promotion threat",
       "source": "Korchnoi, Viktor - Karpov, Anatoly, Candidates' final 1974, before 58.a7",
       "args": ["--fen", "6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58", "--move", "a7"],
+      "motifs_include": {"/asked_move/motifs": [{"tag": "promotion", "side": "white", "actor": "a8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -326,6 +334,7 @@
       "title": "underpromotion by capture is the only fine move",
       "source": "De la Bourdonnais, Louis Mahe - McDonnell, Alexander, London m1 1834, annotator's line 34.Nb1 Kxg7 35.gxf7+ Qxg3, before 36.fxe8=N+",
       "args": ["--fen", "4r3/1p3Pk1/3p4/8/8/pPnn2q1/P7/KN4R1 w - - 0 36", "--move", "fxe8=N+"],
+      "motifs_include": {"/asked_move/motifs": [{"tag": "promotion", "side": "white", "actor": "e8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,

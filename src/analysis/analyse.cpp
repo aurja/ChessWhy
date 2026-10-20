@@ -1,4 +1,5 @@
 #include "chesswhy/analysis.hpp"
+#include "chesswhy/tactics.hpp"
 
 #include <cstddef>
 #include <optional>
@@ -52,6 +53,22 @@ constexpr int kParryMarginUnits = 60;
     }
     return result;
 }
+[[nodiscard]] std::vector<chess::Move> walked_moves(const chess::Board& root,
+                                                    std::span<const std::string> pv_uci) {
+    const auto plies = static_cast<std::size_t>(walked_plies(root, pv_uci));
+    std::vector<chess::Move> moves;
+    moves.reserve(plies);
+    chess::Board board = root;
+    for (std::size_t index = 0; index < plies; ++index) {
+        const auto move = detail::legal_move(board, pv_uci[index]);
+        if (move == chess::Move::NO_MOVE) {
+            break;
+        }
+        moves.push_back(move);
+        board.makeMove(move);
+    }
+    return moves;
+}
 
 [[nodiscard]] Threat make_threat(const chess::Board& root, std::span<const std::string> pv_uci,
                                  const engine::Line& line, Side side) {
@@ -60,6 +77,8 @@ constexpr int kParryMarginUnits = 60;
     result.root_fen = root.getFen();
     result.line_san = san_line(root, pv_uci);
     result.consequence = consequence(root, pv_uci, line);
+    const auto moves = walked_moves(root, pv_uci);
+    result.motifs = tactics::line_motifs(root, std::span<const chess::Move>(moves));
     return result;
 }
 
@@ -257,6 +276,8 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     result.in_multipv = in_multipv;
     result.gives_check = gives_check;
     result.line_san = san_line(root, line.pv_uci);
+    const auto moves = walked_moves(root, line.pv_uci);
+    result.motifs = tactics::line_motifs(root, std::span<const chess::Move>(moves));
     result.parries_threat = parry;
     result.creates_threat = std::move(creates_threat);
 
@@ -289,6 +310,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.position.in_check = in_check;
     report.position.terminal.reset();
     report.position.eval_white.reset();
+    report.position.motifs.clear();
     report.threats.reset();
     report.candidates.clear();
     report.fine_truncated = false;
@@ -298,6 +320,8 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         report.position.terminal = in_check ? Terminal::Checkmate : Terminal::Stalemate;
         return;
     }
+
+    report.position.motifs = tactics::position_motifs(board);
 
     const auto& budget = report.engine.nodes;
     engine::SearchRequest a_request;

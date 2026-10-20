@@ -36,8 +36,8 @@ target_compile_definitions(chesswhy_paths INTERFACE
     CHESSWHY_ASSETS_DIR="${CHESSWHY_ASSETS_DIR}"
     CHESSWHY_SOURCE_DIR="${PROJECT_SOURCE_DIR}")
 
-# ---- Modules (Planning/milestones/M1.md, Build layout) ----
-foreach(module IN ITEMS input engine openings report render analysis cli pgntool)
+# ---- Modules (Planning/milestones/M1.md and M2.md, Build layout) ----
+foreach(module IN ITEMS input engine openings report tactics render analysis cli pgntool)
     add_subdirectory("src/${module}")
     add_subdirectory("tests/${module}")
 endforeach()

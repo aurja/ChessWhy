@@ -1,6 +1,5 @@
 #include "chesswhy/render.hpp"
 
-#include <algorithm>
 #include <array>
 #include <fstream>
 #include <sstream>
@@ -43,13 +42,15 @@ TEST_CASE("rendered example reports match the golden text", "[unit]") {
     }
 }
 
-TEST_CASE("rendering is ASCII and ignores the requested explanation level", "[unit]") {
-    auto report = chesswhy::test_examples::pgn_opening();
+TEST_CASE("rendering motif rows and level-independent output", "[unit]") {
+    auto report = chesswhy::test_examples::normal_position();
     const std::string club_text = chesswhy::render::text(report);
     report.input.level = chesswhy::Level::Beginner;
     CHECK(chesswhy::render::text(report) == club_text);
-    CHECK(std::ranges::all_of(
-        club_text, [](char character) { return static_cast<unsigned char>(character) <= 0x7f; }));
+    CHECK(club_text.find("fork: N e5 → r c6, k g6 (ply 3) [rule]") != std::string::npos);
+    CHECK(club_text.find("hanging_piece: n d5, gain 3 (ply 1) [rule]") != std::string::npos);
+    CHECK(club_text.find("skewer: q f6 → R f1 (ply 1) [rule]") == std::string::npos);
+    CHECK(club_text.find("back_rank_weakness: k e8 (ply 0) [rule]") == std::string::npos);
 }
 
 TEST_CASE("position evaluation renders the mate score when available", "[unit]") {

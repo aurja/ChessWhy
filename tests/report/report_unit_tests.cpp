@@ -70,14 +70,14 @@ TEST_CASE("report JSON follows schema key order", "[unit]") {
                                                            "reproducible", "nodes",
                                                            "nodes_searched"});
     CHECK(keys(json["engine"]["nodes"]) == std::vector<std::string>{"A", "B", "C", "D", "E"});
-    CHECK(keys(json["position"]) ==
-          std::vector<std::string>{"fen", "side_to_move", "in_check", "terminal", "eval_white"});
+    CHECK(keys(json["position"]) == std::vector<std::string>{"fen", "side_to_move", "in_check",
+                                                             "terminal", "eval_white", "motifs"});
     CHECK(keys(json["position"]["eval_white"]) ==
           std::vector<std::string>{"source", "es", "cp", "mate"});
     CHECK(keys(json["threats"]) ==
           std::vector<std::string>{"white", "black", "null_move_reliable", "urgency"});
     CHECK(keys(json["threats"]["white"]) ==
-          std::vector<std::string>{"source", "side", "root_fen", "line", "consequence"});
+          std::vector<std::string>{"source", "side", "root_fen", "line", "consequence", "motifs"});
     CHECK(keys(json["threats"]["white"]["consequence"]) ==
           std::vector<std::string>{"source", "class", "mate_in", "material", "promotes", "plies"});
     CHECK(keys(json["threats"]["urgency"]) ==
@@ -85,15 +85,29 @@ TEST_CASE("report JSON follows schema key order", "[unit]") {
     CHECK(keys(json["candidates"][0]) ==
           std::vector<std::string>{"source", "san", "uci", "eval", "loss", "verdict", "in_multipv",
                                    "gives_check", "line", "parries_threat", "creates_threat",
-                                   "refutation"});
+                                   "refutation", "motifs"});
     CHECK(keys(json["candidates"][0]["creates_threat"]) ==
-          std::vector<std::string>{"source", "side", "root_fen", "line", "consequence"});
+          std::vector<std::string>{"source", "side", "root_fen", "line", "consequence", "motifs"});
     CHECK(keys(json["asked_move"]["parries_threat"]) ==
           std::vector<std::string>{"source", "value", "test"});
     CHECK(keys(json["opening"]) ==
           std::vector<std::string>{"source", "dataset", "current", "last_named"});
     CHECK(keys(pgn["opening"]["current"]) == std::vector<std::string>{"eco", "name"});
     CHECK(keys(pgn["opening"]["last_named"]) == std::vector<std::string>{"eco", "name", "ply"});
+}
+
+TEST_CASE("motif JSON uses the schema v2 shape", "[unit]") {
+    const auto json = chesswhy::to_json(chesswhy::test_examples::normal_position());
+
+    CHECK(json["schema_version"] == 2);
+    CHECK(
+        json["position"]["motifs"][0].dump() ==
+        R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3,"contribution":null})");
+    CHECK(json["threats"]["white"]["motifs"][0]["targets"].size() == 2);
+    CHECK(json["candidates"][0]["motifs"][0]["tag"] == "promotion");
+    CHECK(json["candidates"][0]["creates_threat"]["motifs"][0]["tag"] == "discovered_attack");
+    CHECK(json["asked_move"]["motifs"][0]["tag"] == "skewer");
+    CHECK(json["asked_move"]["refutation"]["motifs"][0]["gain"] == 3);
 }
 
 TEST_CASE("report scores and optional values are serialized", "[unit]") {

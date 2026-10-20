@@ -26,7 +26,8 @@ git-ignored `assets/`; never from system packages in tests.
 
 ChessWhy answers "why this move / why not that move" for one chess position.
 `Planning/PROJECT_VISION.md` is the source of truth for scope, method and
-decisions; read it by section.
+decisions; read it by section. `Planning/DEFINITIONS.md` is the glossary of
+project-specific terms (see Definitions below).
 
 - **Facts first, words last.** Chess content is computed in C++ (Stockfish
   searches and deterministic rules) and stored in the report. The language model
@@ -68,7 +69,8 @@ orchestrator runs the gates.
 1. Orchestrator reads only the vision/plan sections it needs, then freezes the
    milestone contract in `Planning/milestones/M<N>.md`: public headers, report
    schema changes, fixture positions (FEN + expected facts), acceptance
-   bullets, owned files per work package. Commit it.
+   bullets, owned files per work package. Add every new term the contract
+   introduces to `Planning/DEFINITIONS.md`. Commit both together.
 2. Spawn all independent work packages in one batch. Each brief contains: goal,
    owned files, contract paths, plan section as `path:start-end`, fixtures and
    non-goals. If the done-condition does not fit in a few bullets, split the
@@ -80,11 +82,31 @@ orchestrator runs the gates.
 5. Commit locally after each green batch.
 6. When the milestone looks complete: full gate, completion review, receipt in
    `Planning/receipts/M<N>.md`, plan checkboxes, `Planning/CURRENT_STATE.md`,
-   report to the Captain.
+   a pass over `Planning/DEFINITIONS.md` against the final plan, report to the
+   Captain.
 
 Start a fresh orchestrator session at each milestone, or once context passes
-roughly 150k tokens. The vision, milestone plan, receipts and todo list are the
-handoff.
+roughly 150k tokens. The vision, milestone plan, definitions, receipts and todo
+list are the handoff.
+
+## Definitions
+
+`Planning/DEFINITIONS.md` is the Captain's main tool for leading the project:
+she reasons and decides in its terms. Keep it current without exception.
+
+- The orchestrator owns it. Any commit that introduces, renames, redefines or
+  retires a project-specific term (plan, contract change, §15 row, receipt,
+  decision) updates `DEFINITIONS.md` in the same commit. No term reaches the
+  Captain in a message, plan or receipt before it is defined there.
+- A changed meaning is rewritten in place, with the date and the old meaning
+  named ("called X before <date>"), so old receipts stay readable.
+- Open questions that affect a definition are marked as open in its row.
+- Prefer project terms over generic ones where they differ ("engine-confirmed
+  precision", not "precision"); when a generic word must be used, use it in the
+  sense the file gives.
+- Workers do not edit it; they list new terms in their return message and the
+  orchestrator adds them.
+- Read it by section, like the other planning documents.
 
 ## Reviews
 
@@ -92,11 +114,15 @@ handoff.
   batch, not on work in progress. Documentation-only or mechanical milestones
   may skip it with the Captain's agreement.
 - One reviewer, one round. Scope: the milestone's frozen acceptance criteria
-  and the principles in Project stance.
+  and the principles in Project stance. A reviewer should **always** attempt
+  to identify and report the root causes of the issues it raises.
 - A blocker cites an acceptance row or principle and gives a concrete failing
   input (FEN, move, flags). Anything else is a scope proposal or an optional nit.
-- After fixes, one recheck limited to the reported blockers. Whatever remains
-  open goes to the Captain.
+- Fixers should **always** attempt to fix the root cause of each issue, never
+  the surface-level symptom. If the root cause can not be fixed, escalate to parent
+  agent for guidance.
+- After fixes, one recheck limited to the reported blockers. Whatever remains open
+  goes to the Captain.
 - If the same invariant fails twice, stop patching and bring the Captain a short
   design note.
 
@@ -109,7 +135,7 @@ before that, keep it out of the default targets.
 |When|Gate|
 |---|---|
 |After each batch|Build affected targets; run affected CTests in Release|
-|Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and clang-tidy on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; the milestone's smoke command once|
+|Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and `clang-tidy --quiet -p build/release` on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; the milestone's smoke command once|
 
 - CTest labels: `unit` (no engine, no model), `engine` (needs
   `assets/engines/stockfish`), `model` (needs a GGUF in `assets/models/`, opt-in).
@@ -117,6 +143,8 @@ before that, keep it out of the default targets.
 - Engine fixtures are pinned to the Stockfish 19 build in `assets/`; a new
   engine version means re-blessing fixtures as an explicit milestone task.
 - Report pass/fail summaries, not full logs. A skip is not a pass.
+- clang-tidy reports tens of thousands of suppressed warnings per unit from
+  libstdc++/glibc headers (not our code); `--quiet` hides that summary.
 
 ## Context hygiene
 
@@ -147,8 +175,7 @@ and resume that work when it exits 0.
 
 ## Git
 
-Local repository; no remote yet. Commit locally when meaningful progress is
-achieved; push once the Captain adds a remote. Merge/rebase/pull-request only
+Commit and push when meaningful progress is achieved. Merge/rebase/pull-request only
 when asked. Submodules are pinned: change a pin only as an explicit task and
 update `third_party/DEPENDENCIES.md`. Exclude unrelated and private local
 changes.

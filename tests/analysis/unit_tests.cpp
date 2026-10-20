@@ -60,6 +60,30 @@ TEST_CASE("null move reliability depends on side-to-move non-pawn material", "[a
     CHECK(chesswhy::analysis::null_move_prone(black_side));
 }
 
+TEST_CASE("walked plies follows the six-ply horizon and capture extension", "[analysis][unit]") {
+    const chess::Board root("7k/8/8/6br/7p/5N2/R7/K3Q3 w - - 0 1");
+    const std::array pv{std::string("a2a3"), std::string("h8g8"), std::string("a1b1"),
+                        std::string("g8h8"), std::string("a3a4"), std::string("h8g8"),
+                        std::string("a4h4"), std::string("h5h4"), std::string("f3h4"),
+                        std::string("g5h4"), std::string("e1h4")};
+    CHECK(chesswhy::analysis::walked_plies(root, pv) == chesswhy::analysis::kLinePlies);
+
+    const std::array quiet_seventh{std::string("a2a3"), std::string("h8g8"), std::string("a1b1"),
+                                   std::string("g8h8"), std::string("a3a4"), std::string("h8g8"),
+                                   std::string("e1e2")};
+    CHECK(chesswhy::analysis::walked_plies(root, quiet_seventh) ==
+          chesswhy::analysis::kHorizonPlies);
+}
+
+TEST_CASE("walked plies stops at illegal moves and the end of a short PV", "[analysis][unit]") {
+    const chess::Board root("k7/8/8/8/8/8/4R3/4K3 w - - 0 1");
+    const std::array illegal_pv{std::string("e2e3"), std::string("a8a7"), std::string("a1a8")};
+    CHECK(chesswhy::analysis::walked_plies(root, illegal_pv) == 2);
+
+    const std::array short_pv{std::string("e2e3")};
+    CHECK(chesswhy::analysis::walked_plies(root, short_pv) == 1);
+}
+
 TEST_CASE("quiet consequence is positional and a knight capture is material", "[analysis][unit]") {
     const chesswhy::engine::Line line;
     const chess::Board quiet_root("k7/8/8/8/8/8/4R3/4K3 w - - 0 1");

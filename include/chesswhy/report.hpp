@@ -1,5 +1,5 @@
-// Report data model, schema version 1. Frozen by Planning/milestones/M1.md.
-// JSON shape: schema/report.v1.schema.json. Every chess fact in the report is a field
+// Report data model, schema version 2. Frozen by Planning/milestones/M1.md and M2.md.
+// JSON shape: schema/report.v2.schema.json. Every chess fact in the report is a field
 // here; renderers and (from M4) the language model may only verbalise these fields.
 #pragma once
 
@@ -12,7 +12,7 @@
 
 namespace chesswhy {
 
-inline constexpr int kSchemaVersion = 1;
+inline constexpr int kSchemaVersion = 2;
 
 enum class Side : std::uint8_t { White, Black };
 enum class Budget : std::uint8_t { Quick, Standard, Deep };
@@ -23,6 +23,27 @@ enum class ConsequenceClass : std::uint8_t { Mate, Material, Promotion, Position
 enum class Verdict : std::uint8_t { Fine, Inaccuracy, Mistake, Blunder };
 enum class UrgencyRule : std::uint8_t { InCheck, Quiet, ConsequenceClass, Counterattack, Parry };
 enum class ParryTest : std::uint8_t { Searched, ThreatMoveIllegal, DeferredByCheck };
+// M2 §4, in table order: state motifs (§4.1), then move motifs (§4.2). The order is the
+// tie-break of M2 §5; do not reorder.
+enum class MotifTag : std::uint8_t {
+    HangingPiece,
+    PinAbsolute,
+    PinRelative,
+    BackRankWeakness,
+    OverloadedDefender,
+    TrappedPiece,
+    Fork,
+    Skewer,
+    DiscoveredCheck,
+    DiscoveredAttack,
+    DoubleCheck,
+    BackRankMate,
+    Promotion,
+};
+
+// A motif's role in the tactic of the line it is listed on (M2 D11, §5). Judged in
+// PostM2_EM1; M2 never sets it.
+enum class MotifContribution : std::uint8_t { Direct, Indirect, None };
 
 // Lower-case JSON spellings: "white", "standard", "consequence_class", ...
 [[nodiscard]] std::string to_string(Side side);
@@ -34,6 +55,8 @@ enum class ParryTest : std::uint8_t { Searched, ThreatMoveIllegal, DeferredByChe
 [[nodiscard]] std::string to_string(Verdict verdict);
 [[nodiscard]] std::string to_string(UrgencyRule rule);
 [[nodiscard]] std::string to_string(ParryTest test);
+[[nodiscard]] std::string to_string(MotifTag tag); // "hanging_piece", "pin_absolute", ...
+[[nodiscard]] std::string to_string(MotifContribution contribution); // "direct", "indirect", "none"
 // Provenance of a parry decision: "engine" for searched, "rule" for the legality tests.
 [[nodiscard]] const char* parry_source(ParryTest test);
 
@@ -75,12 +98,33 @@ struct Eval {
     std::optional<int> mate; // moves; positive = this side mates
 };
 
+// A piece standing on a square, as printed in a motif: {"square": "e5", "piece": "N"}.
+struct PieceOnSquare {
+    std::uint8_t square = 0; // 0..63, a1 = 0, b1 = 1, ..., h8 = 63
+    char piece = 'P';        // FEN letter; upper case White, lower case Black
+    bool operator==(const PieceOnSquare&) const = default;
+};
+
+// A tactical motif (M2 §4, §5): a pattern of one position. Source: rule. Identity for
+// "newly present" (M2 §5) is (tag, side, actor, targets); `ply`, `gain` and
+// `contribution` are not part of it.
+struct Motif {
+    MotifTag tag = MotifTag::HangingPiece;
+    Side side = Side::White; // X: the side the motif benefits
+    int ply = 0;             // 0: the line's root; k: the position after the k-th move of the line
+    PieceOnSquare actor;
+    std::vector<PieceOnSquare> targets; // order per M2 §5
+    std::optional<int> gain;            // pawn units, set iff tag is HangingPiece or TrappedPiece
+    std::optional<MotifContribution> contribution; // null: not judged (always in M2)
+};
+
 struct PositionInfo {
     std::string fen;
     Side side_to_move = Side::White;
     bool in_check = false;
     std::optional<Terminal> terminal; // set: no searches ran
     std::optional<Eval> eval_white;   // A's best line, White's point of view; null iff terminal
+    std::vector<Motif> motifs;        // state motifs at ply 0, both sides; empty if terminal
 };
 
 struct Consequence {
@@ -98,6 +142,7 @@ struct Threat {
     std::string root_fen;
     std::vector<std::string> line_san; // at most 10 plies
     Consequence consequence;
+    std::vector<Motif> motifs; // plies 1..consequence.plies of the line (M2 §5)
 };
 
 struct ParryInfo {
@@ -119,6 +164,7 @@ struct MoveAssessment {
     std::optional<Threat> creates_threat;    // search E; null iff gives_check, move ends the game,
                                              // or no legal move after the opponent's null move
     std::optional<Threat> refutation;        // opponent's reply line; set iff verdict != Fine
+    std::vector<Motif> motifs; // plies 1..walked_plies of `line_san` (M2 §5); ply 1 is this move
 };
 
 struct Urgency {

@@ -3,30 +3,11 @@
 #include <cstddef>
 #include <string>
 
+#include <chesswhy/tactics.hpp>
+
 #include "move_utils.hpp"
 
 namespace chesswhy::analysis {
-namespace {
-
-[[nodiscard]] int piece_value(chess::PieceType piece) noexcept {
-    switch (piece.internal()) {
-    case chess::PieceType::PAWN:
-        return 1;
-    case chess::PieceType::KNIGHT:
-    case chess::PieceType::BISHOP:
-        return 3;
-    case chess::PieceType::ROOK:
-        return 5;
-    case chess::PieceType::QUEEN:
-        return 9;
-    case chess::PieceType::KING:
-    case chess::PieceType::NONE:
-        return 0;
-    }
-    return 0;
-}
-
-} // namespace
 
 NodeBudget node_budget(Budget budget) {
     switch (budget) {
@@ -65,30 +46,44 @@ bool null_move_prone(const chess::Board& board) {
     return non_pawn_non_king.count() <= 1;
 }
 
+int walked_plies(const chess::Board& root, std::span<const std::string> pv_uci) {
+    chess::Board board = root;
+    constexpr auto max_plies = static_cast<std::size_t>(kLinePlies);
+    constexpr auto initial_plies = static_cast<std::size_t>(kHorizonPlies);
+    std::size_t plies = 0;
+
+    for (std::size_t index = 0; index < pv_uci.size() && index < max_plies; ++index) {
+        const auto move = detail::legal_move(board, pv_uci[index]);
+        if (move == chess::Move::NO_MOVE || (index >= initial_plies && !board.isCapture(move))) {
+            break;
+        }
+        board.makeMove(move);
+        ++plies;
+    }
+    return static_cast<int>(plies);
+}
+
 Consequence consequence(const chess::Board& root, std::span<const std::string> pv_uci,
                         const engine::Line& root_line) {
     Consequence result;
     chess::Board board = root;
     const auto threatening_side = root.sideToMove();
-    constexpr std::size_t max_plies = kHorizonPlies + kCaptureExtension;
-    constexpr std::size_t initial_plies = kHorizonPlies;
+    result.plies = walked_plies(root, pv_uci);
 
-    for (std::size_t index = 0; index < pv_uci.size() && index < max_plies; ++index) {
+    for (std::size_t index = 0; index < static_cast<std::size_t>(result.plies); ++index) {
         const auto move = detail::legal_move(board, pv_uci[index]);
         if (move == chess::Move::NO_MOVE) {
-            break;
-        }
-        if (index >= initial_plies && !board.isCapture(move)) {
             break;
         }
 
         const int mover_sign = board.sideToMove() == threatening_side ? 1 : -1;
         if (board.isCapture(move)) {
-            result.material += mover_sign * piece_value(board.getCapturing<chess::PieceType>(move));
+            result.material +=
+                mover_sign * tactics::piece_value(board.getCapturing<chess::PieceType>(move));
         }
         if (move.typeOf() == chess::Move::PROMOTION) {
-            const int promotion_delta =
-                piece_value(move.promotionType()) - piece_value(chess::PieceType::PAWN);
+            const int promotion_delta = tactics::piece_value(move.promotionType()) -
+                                        tactics::piece_value(chess::PieceType::PAWN);
             result.material += mover_sign * promotion_delta;
             if (board.sideToMove() == threatening_side) {
                 result.promotes = true;
@@ -96,7 +91,6 @@ Consequence consequence(const chess::Board& root, std::span<const std::string> p
         }
 
         board.makeMove(move);
-        ++result.plies;
     }
 
     if (root_line.mate.has_value() && *root_line.mate > 0) {

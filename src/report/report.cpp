@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -26,6 +27,42 @@ template <typename Enum>
     return value;
 }
 
+[[nodiscard]] Json serialize_piece_on_square(const PieceOnSquare& piece) {
+    Json value = Json::object();
+    std::string square(2, ' ');
+    square[0] = static_cast<char>('a' + (piece.square % 8));
+    square[1] = static_cast<char>('1' + (piece.square / 8));
+    value["square"] = std::move(square);
+    value["piece"] = std::string(1, piece.piece);
+    return value;
+}
+
+[[nodiscard]] Json serialize_motif(const Motif& motif) {
+    Json value = Json::object();
+    value["source"] = "rule";
+    value["tag"] = to_string(motif.tag);
+    value["side"] = to_string(motif.side);
+    value["ply"] = motif.ply;
+    value["actor"] = serialize_piece_on_square(motif.actor);
+    Json targets = Json::array();
+    for (const auto& target : motif.targets) {
+        targets.push_back(serialize_piece_on_square(target));
+    }
+    value["targets"] = std::move(targets);
+    value["gain"] = motif.gain ? Json(*motif.gain) : Json(nullptr);
+    value["contribution"] =
+        motif.contribution ? Json(to_string(*motif.contribution)) : Json(nullptr);
+    return value;
+}
+
+[[nodiscard]] Json serialize_motifs(const std::vector<Motif>& motifs) {
+    Json values = Json::array();
+    for (const auto& motif : motifs) {
+        values.push_back(serialize_motif(motif));
+    }
+    return values;
+}
+
 [[nodiscard]] Json serialize_consequence(const Consequence& consequence) {
     Json value = Json::object();
     value["source"] = "rule";
@@ -44,6 +81,7 @@ template <typename Enum>
     value["root_fen"] = threat.root_fen;
     value["line"] = threat.line_san;
     value["consequence"] = serialize_consequence(threat.consequence);
+    value["motifs"] = serialize_motifs(threat.motifs);
     return value;
 }
 
@@ -77,6 +115,7 @@ template <typename Enum>
     value["creates_threat"] =
         move.creates_threat ? serialize_threat(*move.creates_threat) : Json(nullptr);
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
+    value["motifs"] = serialize_motifs(move.motifs);
     return value;
 }
 
@@ -192,6 +231,50 @@ std::string to_string(ParryTest test) {
     throw std::invalid_argument(invalid_enum("ParryTest", test));
 }
 
+std::string to_string(MotifTag tag) {
+    switch (tag) {
+    case MotifTag::HangingPiece:
+        return "hanging_piece";
+    case MotifTag::PinAbsolute:
+        return "pin_absolute";
+    case MotifTag::PinRelative:
+        return "pin_relative";
+    case MotifTag::BackRankWeakness:
+        return "back_rank_weakness";
+    case MotifTag::OverloadedDefender:
+        return "overloaded_defender";
+    case MotifTag::TrappedPiece:
+        return "trapped_piece";
+    case MotifTag::Fork:
+        return "fork";
+    case MotifTag::Skewer:
+        return "skewer";
+    case MotifTag::DiscoveredCheck:
+        return "discovered_check";
+    case MotifTag::DiscoveredAttack:
+        return "discovered_attack";
+    case MotifTag::DoubleCheck:
+        return "double_check";
+    case MotifTag::BackRankMate:
+        return "back_rank_mate";
+    case MotifTag::Promotion:
+        return "promotion";
+    }
+    throw std::invalid_argument(invalid_enum("MotifTag", tag));
+}
+
+std::string to_string(MotifContribution contribution) {
+    switch (contribution) {
+    case MotifContribution::Direct:
+        return "direct";
+    case MotifContribution::Indirect:
+        return "indirect";
+    case MotifContribution::None:
+        return "none";
+    }
+    throw std::invalid_argument(invalid_enum("MotifContribution", contribution));
+}
+
 const char* parry_source(ParryTest test) {
     return test == ParryTest::Searched ? "engine" : "rule";
 }
@@ -234,6 +317,7 @@ nlohmann::ordered_json to_json(const Report& report) {
         report.position.terminal ? Json(to_string(*report.position.terminal)) : Json(nullptr);
     position["eval_white"] =
         report.position.eval_white ? serialize_eval(*report.position.eval_white) : Json(nullptr);
+    position["motifs"] = serialize_motifs(report.position.motifs);
     value["position"] = std::move(position);
 
     if (report.threats) {

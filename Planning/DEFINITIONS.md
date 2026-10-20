@@ -1,0 +1,301 @@
+# ChessWhy — Definitions
+
+Project-specific meanings of the words used in the plans, receipts and agent reports.
+Where a word has an ordinary meaning, an ordinary chess meaning and a project meaning,
+this file gives the project meaning. The plans stay authoritative; the last column
+points to the section that defines or decides each term.
+
+Status: updated 2026-10-20 at M2 close. At checkpoint 2b the Captain split motifs from
+tactics (§4.5): M2 measures motif recognition only; tactics are milestone PostM2_EM1.
+
+## 1. Words that mean several things
+
+Read these first. Each word is used in two or more senses in the plans.
+
+| Word | Senses in this project |
+|---|---|
+| target | (1) **Motif target**: a piece the motif acts on, e.g. the king and queen in a fork (§4.3). (2) **Metric target**: the frozen minimum value a measured number must reach for a test to pass, e.g. "recall target 0.95" (§5.6) |
+| precision | Used in four senses over time. (1) Until 2026-10-19: share of our puzzle predictions that Lichess also named, now called **Lichess agreement** (§5.4). (2) 2026-10-19 to 2026-10-20: **engine-confirmed precision**, share of reported motifs that Stockfish turns into a material win (§5.5); it measured whether a tactic *works*, not whether the pattern is *on the board*, and left M2 with the motif/tactic split. (3) Since 2026-10-20, for motifs: **motif recognition**, exact agreement with the definitions, checked against the reference implementation (§5.7). (4) The everyday sense, "how often a reported fact is right". The plans avoid the bare word |
+| line | A sequence of moves from a stated position. Engine lines are Stockfish's principal variations; a puzzle's line is its solution moves (§3.1) |
+| threat | Not the everyday "something attacks something". A threat is the line a side would play **if it were its move**, taken from an engine search, with its consequence (§3.3) |
+| gain | (1) A motif's `gain` field: an SEE value in pawns, only on `hanging_piece` and `trapped_piece` (§4.3). (2) The `material` of a consequence (§3.3). (3) A tactic's gain: how much better, in engine evaluation, its line is than the second-best move (§4.5). (4) "Hit-no-gain" in the former engine confirmation (§5.5) |
+| fine | A verdict: the move loses at most 0.03 expected score against the best move (§3.5). Not "good" or "best" |
+| hanging | Our `hanging_piece` is an SEE rule (X wins at least 3 pawns on the square), not the everyday "undefended" (§4.4) |
+| side | The side a fact is about. In analysis: `S` side to move, `O` opponent. In motifs: `X` the side that benefits, `Y` the other (§2) |
+| frozen | Changed only through a contract change approved by the Captain (§6.1) |
+| gate | A check that must pass for a batch or milestone to be accepted (§6.3) |
+
+## 2. Chess notation in the plans
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| FEN | Text form of one position (placement, side to move, castling, en passant, counters) | standard |
+| SAN / UCI move | `Nf3` / `g1f3`. The CLI accepts both; engine lines are UCI internally, SAN in reports | M1 §5 |
+| ply | One half-move. Ply 0 is the position itself; ply k is the position after k moves of a line | M2 §5 |
+| `S`, `O` | Side to move in the analysed position, and its opponent | vision §5 |
+| `X`, `Y` | For a motif: the side it benefits (its `side` field), and the other side | M2 §4 |
+| piece values | P 1, N 3, B 3, R 5, Q 9 pawn units; the king is never exchanged. One definition: `tactics::piece_value` | M1 §4.3, M2 §3 |
+| SEE | Static exchange evaluation: net pawns X wins by the best capture sequence on one square, without search, both sides free to stop; handles x-rays, pins and king captures. **Ignores check and every other square** | M2 §4 |
+| null move | Pass the move to the other side without moving (same placement, en passant cleared). Used to ask "what would the opponent do if it were their move" | vision §5.1 |
+| WDL, ES | Stockfish's win/draw/loss permille. Expected score `ES = W + D/2`, 0–1, from a stated side's view. All thresholds use ES, never centipawns | vision §5 |
+| es_units | ES stored as the integer `2W + D` (0–2000) so thresholds compare exactly; JSON prints es_units / 2000 | M1 §4 |
+| PV | Principal variation: the line Stockfish thinks best play follows | standard |
+| MultiPV K | Stockfish reports its K best first moves, each with a PV. K = 5 in search A | M1 §4.2 |
+| nodes | Positions Stockfish examines. Searches stop at a fixed node count, not a time, so results repeat | M1 §3 |
+| terminal | Checkmate or stalemate on the board: no search runs, and the board has no state motifs (at ply 0 or inside a line) | M1 §4.1, M2 §5 |
+
+## 3. Analysis (M1)
+
+### 3.1 Inputs, settings, provenance
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| report | The JSON document one query produces; everything the tool claims is a field of it. Versioned by `schema_version` (now 2) with a JSON Schema in `schema/` | vision §6, M2 §5 |
+| provenance | Every fact's source: `engine` (Stockfish search), `rule` (deterministic board rule), `book` (reference material, opening names), `games` (counts from game collections) | vision §2 |
+| facts first | Chess content is computed in C++ and stored in the report; the language model (M4) only puts report fields into words | vision §2 |
+| budget | `quick`, `standard` (default) or `deep`: fixed node counts per search kind | M1 §3 |
+| reproducible | Threads = 1, Hash 64 MB, fixed nodes, `ucinewgame` before each search: the same input gives a byte-identical report | M1 §3 |
+| rerun identity | The acceptance check that two fresh runs give byte-identical JSON | M1 §14 |
+| asked move | The move given with `--move`: the user's "why (not) this move?" | M1 §4.7 |
+| candidates | A's K best moves with their verdicts | M1 §4.7 |
+| level | `beginner`, `club`, `advanced`: audience of the M4 prose; no effect on analysis | vision §3 |
+
+### 3.2 Searches A–E
+
+| Search | From | Answers |
+|---|---|---|
+| A | current position, MultiPV 5 | best moves, `S`'s threat, `eval_white` |
+| B | null move (`O` to move) | `O`'s threat and its first move `t` |
+| C | current position, `searchmoves m` | the asked move when it is not among A's lines |
+| D(m) | after `m`, `searchmoves t` | does `m` parry `O`'s threat? |
+| E(m) | after `m`, null move | which threat `m` creates |
+
+Node counts per budget: M1 §3.
+
+### 3.3 Threats and consequences
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| threat | The line a side would play if it were its move: `S`'s threat is A's best line, `O`'s threat is B's line. "White's biggest problem" is Black's threat | vision §5.2, M1 §4.2 |
+| consequence | What a line achieves for the side playing it, computed by rule from the engine line: `class`, `mate_in`, `material`, `promotes`, `plies` | M1 §4.3 |
+| walked plies | How far the consequence rule follows a line: 6 plies, then on while the next move is a capture, up to 10. `walked_plies` in `analysis.hpp` | M1 §4.3, M2 §6 |
+| consequence class | `mate` (engine mate score for the side), else `material` (net gain ≥ 1 pawn over the walked plies), else `promotion`, else `positional` | M1 §4.3 |
+| rank | Class as a number: mate 4, material ≥ 3 → 3, material ≥ 1 → 2, promotion 1, positional 0 | M1 §4.3 |
+| `null_move_reliable` | False when `S` has at most one piece besides king and pawns (zugzwang-prone: passing would be an advantage, so B misleads); null when `S` is in check | M1 §4.4 |
+| parry test | Whether `m` stops `O`'s threat: by rule when `t` becomes illegal, otherwise by search D (the threat still works iff `O`'s ES stays within 0.03 of B's) | M1 §4.5 |
+| `parries_threat` | Result of the parry test for one move; null when `O`'s threat has rank < 2 | M1 §4.5 |
+| `creates_threat` | The threat `m` creates (search E); null when `m` gives check | M1 §4.7 |
+| refutation | For a move that is not fine: `O`'s best reply line after it, as a threat by `O` | M1 §4.7 |
+
+### 3.4 Urgency
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| urgency | Which side's threat matters more now (`more_urgent`) and by which rule | M1 §4.6 |
+| `in_check` | `S` is in check: answering it is the problem | M1 §4.6 |
+| `quiet` | Neither threat reaches rank 2 (material ≥ 1); the explanation leads with positional facts | M1 §4.6 |
+| `consequence_class` | Ranks differ: the higher rank wins | M1 §4.6 |
+| `counterattack` / `parry` | Equal ranks: if A's best move does not parry `O`'s threat, `S`'s threat is more urgent; otherwise `O`'s | M1 §4.6 |
+
+### 3.5 Verdicts
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| loss | `ES_S(best) − ES_S(m)`, at least 0 | M1 §4.7 |
+| verdict | fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder (loss in ES, scaled to Stockfish 19) | M1 §4.7 |
+| fine set | All moves with verdict fine: the answer to "what can I play here?" | vision §5.4 |
+| `fine_truncated` | All K of A's lines are fine, so more fine moves may exist than are listed | M1 §4.7 |
+
+## 4. Tactical motifs (M2)
+
+### 4.1 Kinds of facts
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| motif | A pattern of one position: the board at one ply of a line, plus the move that produced it where the tag needs it. Found by a deterministic rule; provenance `rule`. States that the pattern is on the board and claims no gain (Captain, 2026-10-20). Motifs never change verdicts, urgency or consequences (D7) | M2 D11, §4 |
+| motif tag | The motif's stable snake_case name, e.g. `fork`. 13 tags exist (§4.4) | M2 §4 |
+| motif instance | One concrete occurrence: tag + side + ply + actor + targets (+ gain, + contribution). One position can hold many | M2 §5 |
+| state motif | A pattern of the board alone (hanging piece, pins, back-rank weakness, overloaded defender, trapped piece). Computed for both sides | M2 §4.1 |
+| move motif | A pattern that also needs the move that produced the board (fork, skewer, discovered check/attack, double check, back-rank mate, promotion). Exists only at ply ≥ 1 | M2 §4.2 |
+| not detectors | Mate threat and promotion threat come from the engine's consequence, never from a motif rule | M2 §4.3 |
+
+### 4.2 Where motifs appear in the report
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| position motifs | `position.motifs`: state motifs of the current position (ply 0), both sides. In the JSON, not printed | M2 §5 |
+| line motifs | `motifs` on each threat, `creates_threat`, refutation and move line: motifs at plies 1 to the walked plies of that line | M2 §5 |
+| first-appearance rule | Inside a line, a state motif is listed at ply k only if it holds after ply k and did not hold after ply k−1 | M2 §5 |
+| line relevance | Former extra condition on `trapped_piece` (a later move of the line had to move or capture the piece). Removed 2026-10-20: it read later moves, which judges a line, not a board | M2 §8.1, §15 |
+| trade in progress | Exclusion for `hanging_piece` inside a line: the "hanging" piece just captured something worth at least as much, so it is a recapture, not a gift | M2 §4.1 |
+
+### 4.3 Fields of a motif
+
+| Field | Meaning |
+|---|---|
+| `side` | X, the side that benefits |
+| `ply` | Where in the line it holds (0 = the current position) |
+| `actor` | The piece that does it: the forking knight, the pinner, the hanging piece itself, the overloaded defender |
+| `targets` | The pieces it acts on, in a fixed order (M2 §5) |
+| `gain` | SEE value in pawns, only for `hanging_piece` and `trapped_piece`; null otherwise |
+| `contribution` | The motif's role in the tactic of the line it is listed on: `direct`, `indirect`, `none`, or null = not judged. Always null in M2; PostM2_EM1 fills it (§4.5) |
+
+### 4.4 The tags in plain words
+
+Exact definitions: M2 §4. These sentences only orient.
+
+| Tag | Plain meaning | Status |
+|---|---|---|
+| `hanging_piece` | X to move can win at least 3 pawns on the square of a Y minor or major piece (by SEE) | measured |
+| `pin_absolute` | An X slider, a Y piece, then the Y king on one line: the Y piece may not move off the line | measured (as `pin`) |
+| `pin_relative` | As above, but the rear piece is a more valuable Y piece that X would win material on if the front piece moved | measured (as `pin`) |
+| `back_rank_weakness` | Y king on its first rank, boxed in by its own pieces or X's attacks, and no Y rook or queen guards the rank | fixture-only |
+| `overloaded_defender` | One Y piece is the only reason two or more Y pieces are safe | fixture-only |
+| `trapped_piece` | A Y piece X can win on its square, and every move of it loses it too | measured |
+| `fork` | One X move attacks two or more Y pieces worth attacking, and the moved piece is safe | measured |
+| `skewer` | An X slider attacks a Y piece, behind which stands a less valuable Y piece X then wins | measured |
+| `discovered_check` | An X move unmasks check from another X piece | measured |
+| `discovered_attack` | An X move unmasks an attack from an X slider on a valuable or winnable Y piece (not check) | measured |
+| `double_check` | After the move, two X pieces give check | measured |
+| `back_rank_mate` | Mate on Y's first rank against a king boxed in by its own pieces | measured |
+| (`removal_of_defender`) | Removed from M2 on 2026-10-20: X captures a Y defender, then later in the line wins the piece it defended. It reads later moves, so it is a tactic-side label for PostM2_EM1 | — |
+| `promotion` | The move promotes a pawn | measured |
+
+"Measured" = has a Lichess theme and is evaluated on the puzzle sample (§5).
+"Fixture-only" = no clean Lichess theme, so no recall is measured; checked by T fixtures
+(§6.2) and, like every tag, by the reference implementation (§5.7).
+
+### 4.5 Motif, tactic and contribution (Captain, 2026-10-20)
+
+Decided at M2 checkpoint 2b (M2 D11–D13). Tactics and contribution are built in
+PostM2_EM1; their exact rules are frozen in that milestone's plan.
+
+| Term | Meaning | Where |
+|---|---|---|
+| tactic | A sequence of moves that gains in engine evaluation even when the opponent plays the best replies. Measured in evaluation, not material, so a sacrifice can be a tactic. The gain is measured against the **second-best move** (the only-move margin): along the engine's own best line the evaluation does not change, so the comparison point is the best alternative. Threshold: PostM2_EM1 | PostM2_EM1 |
+| only-move margin | ES of the best move minus ES of the second-best move, from search A's MultiPV lines | PostM2_EM1 |
+| motif recognition | Is the pattern on the board, and do we report it exactly when it is? Must be exact against the written definitions; checked by the T fixtures and the reference implementation (§5.7) | M2 §7.4 |
+| tactic recognition | Does the line gain against the second-best move, and do we label it a tactic exactly when it does? Mechanical from the engine, so exact by construction; tests check the computation | PostM2_EM1 |
+| contribution judgement | For each motif and tactic: **direct** (the motif is part of the tactic's move sequence), **indirect** (the motif helps without being in the sequence, e.g. a pin that stops a recapture), or **none**. The rule for "indirect" is open; measured against hand-labelled fixtures | PostM2_EM1 |
+| claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
+| PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic-side label. Seeded by the former engine-confirmation evaluator (commit `d5b703a`) | vision §11 |
+
+## 5. Measurement (M2)
+
+### 5.1 The puzzle data
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| Lichess puzzle database | Public CC0 export of Lichess puzzles: FEN, solution moves, themes, rating, plays, popularity. Pinned export of 2026-10-05 | M2 §7.1 |
+| theme | Lichess's label for what a puzzle is about (`fork`, `pin`, ...), assigned by lichess-puzzler and the community. A theme names the puzzle's **idea**, not every motif present on the board | M2 §7.3 |
+| eligible | Puzzles used for sampling: rating deviation ≤ 80, ≥ 1000 plays, popularity ≥ 80, solution ≤ 6 plies | M2 §7.1 |
+| root | The puzzle position after the opponent's first move (`Moves[0]`): where the solver starts | M2 §7.3 |
+| solver | The side to move at the root | M2 §7.3 |
+| solution line | `Moves[1..]`, the moves the puzzle expects | M2 §7.3 |
+| split | Two disjoint samples drawn by hashing puzzle IDs. **dev**: for tuning, local only. **test**: committed in `tests/fixtures/puzzles/test.csv`, measured only after tuning is finished, so its numbers are not fitted to it | M2 §7.2 |
+| background | The first 6,000 eligible puzzles of a split, regardless of theme: a fair picture of how often motifs occur | M2 §7.2 |
+| stratum | Per measured Lichess theme, 300 further puzzles that carry that theme | M2 §7.2 |
+| mapping | Which of our tags count for which Lichess theme (e.g. `pin` ← `pin_absolute` or `pin_relative`) | M2 §7.3 |
+| predicted | We "predict" a theme for a puzzle when an instance of a mapped tag with side = solver appears at the root or anywhere in the solution line | M2 §7.3 |
+
+### 5.2 Counting words
+
+| Term | Meaning |
+|---|---|
+| TP (true positive) | We predict the theme and Lichess names it |
+| FP (false positive) | We predict the theme, Lichess does not name it |
+| FN (false negative), miss | Lichess names the theme, we do not predict it |
+
+### 5.3 Recall
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| recall | On a theme's stratum: share of puzzles Lichess labels with it where we also predict it. "When Lichess says *fork*, do we find a fork for the solver?" Gated for the 10 measured themes. A Lichess theme names the motif behind the puzzle's tactic (a direct contribution, §4.5), so recall checks that our definitions catch what chess players mean by the word | M2 §7.3 |
+
+### 5.4 Lichess agreement
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| Lichess agreement | On background: TP / (TP + FP), the share of our predictions that Lichess also names. Low values mostly mean Lichess names one idea per puzzle while we list every motif (92% of `hanging_piece` "false positives" were pieces the solver does capture). Printed, never gated, never optimised. Called "precision" before 2026-10-19 | M2 §7.3, §15 |
+
+### 5.5 Engine confirmation (removed from M2 on 2026-10-20)
+
+Kept so old receipts and §15 rows stay readable. The evaluator is gone from the tree;
+PostM2_EM1 starts from commit `d5b703a`.
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| engine-confirmed precision | For a claim tag: share of sampled instances that Stockfish confirms. It answered "does this tactic win material in Stockfish's best line?", not "is the pattern on the board?" | former M2 §7.4 |
+| sample (N) | Per tag, N instances from background (default 200), chosen by hashing puzzle ID and instance, so the same instances are drawn every run | former M2 §7.4 |
+| board B | The position where the instance holds: the root after `ply` line moves | former M2 §7.4 |
+| tracked pieces | The instance's actor and targets that are Y pieces on B, followed as Y moves them | former M2 §7.4 |
+| hit | In Stockfish's line from B, X captures a tracked piece within the walked plies | former M2 §7.4 |
+| confirmed | Hit, and X ends ≥ 1 pawn ahead or mates (by the consequence rule). B already checkmate of Y also counts | former M2 §7.4 |
+| no-hit | Stockfish's line never captures a motif piece: the motif is not what the best line uses (it may be unreal, or the engine prefers something else) | former M2 §7.4 |
+| hit-no-gain | A motif piece is captured but X is not a pawn ahead: an even trade or the gain is given back | former M2 §7.4 |
+
+### 5.6 Calibration and targets
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| mean instances per puzzle | Average number of motif instances (all tags, both sides, root plus line) per background puzzle; a noise measure, lower is better at equal recall | M2 §7.3 |
+| calibration | Adjusting the conditions inside the §4 definitions on dev, so the report contains exactly what is measured. Tags, sample and mapping stay fixed | M2 §8.1 |
+| keep rule | A calibration change stayed only if it improved its tag's recall or confirmed precision without hurting the other by > 0.02, did not raise mean instances, and broke no frozen fixture. Calibration closed 2026-10-20 | M2 §8.1 |
+| target (metric) | The frozen minimum for a measured number. Proposed as test value − 0.03, rounded down to a multiple of 0.05. A target records today's level so later changes cannot silently lower it; it is not a judgement that the level is good enough | M2 §8.2 |
+| sampling noise | One standard error of a measured share: with 200 instances, a share near 0.7 is uncertain by about ±0.03; with 300 stratum puzzles, recall near 0.9 by about ±0.02. Fixed samples make reruns identical, but not closer to the true value | binomial estimate |
+| disagreement | A puzzle where our prediction and Lichess's theme differ (an FP or FN); written by `--disagreements` | M2 §7.3 |
+| audit | Hand review of the first 10 recall misses per measured tag, each classified (detector wrong, Lichess label doubtful, unclear). Reported in the receipt, not gating | M2 §8.3 |
+
+### 5.7 Reference implementation (motif recognition)
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| reference implementation, oracle | A second, deliberately plain implementation of the motif definitions in `tests/tactics/oracle/`, written from the plan text only, without reading the real detectors (`src/tactics/`). If both agree everywhere, the detectors do what the text says | M2 §7.4 |
+| mismatch | A position where the detectors' motif list and the reference's differ in any field. Each one is traced to its root: detector wrong, reference wrong, or plan text ambiguous (then the text is clarified) | M2 §7.4 |
+| compared positions | Every position of every `test.csv` puzzle (before and after each move, plus the whole line) and every T fixture. `tactics_oracle` passes only with zero mismatches | M2 §7.4 |
+
+## 6. Process and testing
+
+### 6.1 Planning and roles
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| vision | `Planning/PROJECT_VISION.md`: the source of truth for scope, method and decisions | AGENTS.md |
+| milestone (M0–M6, PostM2_EM1) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sits between M2 and M3 (§4.5) | vision §11 |
+| contract | The frozen parts of a milestone plan: headers, report schema, fixtures, acceptance, owned files. Workers implement against it and do not change it | AGENTS.md |
+| contract change | Any change to a frozen item after freezing; recorded as a row in the plan's last section ("§15 row" in M2) with date, change and reason | M2 §15 |
+| D1–D13 | The Captain's numbered decisions in M2: D1–D10 at the start, D11–D13 at checkpoint 2b (motif/tactic split, reference implementation, `removal_of_defender` removed) | M2 §1 |
+| checkpoint | A point where the Captain approves something before it is frozen (M2: fixtures; targets; merge) | M2 §12 |
+| work package (WP) | One worker's slice of a milestone: owned files, done-condition, non-goals | M2 §11 |
+| batch | WPs run at the same time; integrated and tested together | AGENTS.md |
+| orchestrator / Deputy | The main session: freezes contracts, slices work, integrates, runs gates, reports to the Captain | AGENTS.md |
+| worker, fixer, reviewer, scout | Subagents: implement one WP; fix one failing gate; review a finished milestone once; read-only search | AGENTS.md |
+| receipt | `Planning/receipts/M<N>.md`: what a milestone delivered and the evidence (tables, timings, gate results) | AGENTS.md |
+| blocker / scope proposal / nit | Review outcomes: a blocker cites a broken acceptance row or principle with a failing input; a scope proposal is new work for the Captain to decide; a nit is optional | AGENTS.md |
+
+### 6.2 Fixtures
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| fixture | A stored test case with expected results | — |
+| F fixtures | Engine fixtures in `tests/fixtures/positions.json` (F01–F20, F16 dropped): world-championship positions with expected threats, urgency, verdicts; pinned to Stockfish 19 at `standard`, robust at all budgets | M1 §9 |
+| U, E, parse fixtures | No engine judgement: U = opening names and PGN/ply input, E = error exit codes and messages, parse = FEN/move parsing | M1 §9 |
+| T fixtures | Motif unit fixtures T01–T41 in `tests/fixtures/motifs.json`: a position and line with instances that must (`includes`) or must not (`excludes`) be reported | M2 §9 |
+| positive / near miss | A T fixture where the motif holds / a deliberately similar position where it must not (e.g. a fork whose forking piece can be taken) | M2 §9 |
+| constructed | A fixture position made up by hand rather than taken from a game | M2 §9 |
+| `motifs_include` | Key on an F fixture: listed motif instances must appear in the report (extras allowed) | M2 §9 |
+| re-blessing | Re-deriving engine fixture expectations for a new Stockfish version; an explicit milestone task | AGENTS.md |
+
+### 6.3 Tests, gates, builds
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| CTest label | `unit`: no engine or model. `engine`: needs `assets/engines/stockfish`. `model`: needs a GGUF model, opt-in. Missing assets fail, never skip | AGENTS.md |
+| `tactics_puzzles` | CTest (`unit`) running `tactics_puzzle_eval` on test: recall and Lichess agreement | M2 §7.3 |
+| `tactics_oracle` | CTest (`unit`) running `tactics_motif_oracle`: detectors against the reference implementation on test and the T fixtures; zero mismatches required. Replaced `tactics_confirm` (engine-confirmed precision, removed 2026-10-20) | M2 §7.4 |
+| gate | Required checks. After a batch: build and affected tests. At milestone end: all tests in Release and ASan/UBSan, clang-format, clang-tidy, Ruff, basedpyright, ShellCheck, the smoke command | AGENTS.md |
+| Release / ASan build | `build/release` (optimised) and `build/asan` (debug with address and undefined-behaviour sanitisers) | AGENTS.md |
+| smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 | M2 §14 |
+| golden test | Compares rendered text with a stored expected file byte for byte | M2 §10 |
+| timing check | `standard` must finish within 12 s per F fixture in Release | M2 §14 |
+| usage guard | Background watcher that pauses agent work when a model subscription window nears its limit | AGENTS.md |

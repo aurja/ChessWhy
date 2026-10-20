@@ -137,11 +137,12 @@ moves first, had a forcing line):
 
 ### 5.5 Tactical motifs (M2)
 
-Rule detectors on the board and along report lines: hanging piece (static exchange
-evaluation), fork, pin (absolute/relative), skewer, discovered attack/check, double
-check, back-rank weakness, mate threat, overloaded defender, removal of the defender,
-trapped piece, promotion threat. Validated against the theme tags of the Lichess
-puzzle database (CC0); per-motif precision/recall targets are frozen in M2.
+Motifs are deterministic patterns of one position (plus the move that produced it where a tag
+needs it), with `rule` provenance; they state that the pattern is present and claim no gain. Mate
+and promotion threats come from engine consequences, not motif detectors. Overloaded defender and
+back-rank weakness are validated by fixtures; definitions are in M2 §4. Other measured motifs are
+validated against Lichess puzzle themes (CC0); per-motif recall targets are frozen in M2. Tactics
+and motif contribution are planned for PostM2_EM1, along with `removal_of_defender` as a tactic-side label.
 
 ### 5.6 Positional facts (M3)
 
@@ -194,21 +195,21 @@ in. Sketch:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "input": {"fen": "...", "move": "Nf3", "level": "club", "budget": "standard"},
   "engine": {"name": "Stockfish 19", "nodes": 0, "threads": 1, "reproducible": true},
-  "position": {"side_to_move": "white", "in_check": false, "es_white": 0.54},
+  "position": {"side_to_move": "white", "in_check": false, "es_white": 0.54, "motifs": []},
   "threats": {
-    "white": {"line": ["..."], "consequence": {"class": "material", "gain": 3}, "tags": []},
-    "black": {"line": ["..."], "consequence": {"class": "mate", "in": 2}, "tags": ["back_rank"]},
+    "white": {"line": ["..."], "consequence": {"class": "material", "gain": 3}, "tags": [], "motifs": []},
+    "black": {"line": ["..."], "consequence": {"class": "mate", "in": 2}, "tags": ["back_rank"], "motifs": []},
     "more_urgent": "black", "urgency_rule": "consequence_class", "null_move_reliable": true
   },
   "candidates": [
     {"move": "h3", "es": 0.53, "loss": 0.01, "verdict": "fine",
      "parries_threat": true, "creates_threat": null, "refutation": null,
-     "facts": [{"source": "rule", "tag": "luft", "detail": "..."}]}
+     "facts": [{"source": "rule", "tag": "luft", "detail": "..."}], "motifs": []}
   ],
-  "asked_move": {"move": "Nf3", "verdict": "blunder", "refutation": {"line": ["..."]}},
+  "asked_move": {"move": "Nf3", "verdict": "blunder", "refutation": {"line": ["..."], "motifs": []}},
   "opening": {"source": "book", "eco": "C50", "name": "Italian Game",
               "dataset": "lichess-org/chess-openings@a6189a3", "last_named_ply": 5},
   "games": {"source": "games", "table": "<sha256>", "by_source": [
@@ -287,7 +288,7 @@ model loaded; requests queue. No authentication, no multi-user features.
 | HTTP | cpp-httplib | v0.61.0 | MIT | M6 |
 | LLM runtime | llama.cpp (`libllama`) | b11712 | MIT | M4 |
 | Engine | Stockfish | 19 (official Linux universal build) | GPL-3.0 | separate process over UCI; never linked, copied or redistributed |
-| Tactics test data | Lichess puzzle DB | fetched, hash recorded | CC0 | M2 validation |
+| Tactics test data | Lichess puzzle DB; committed sample `tests/fixtures/puzzles/test.csv` | 2026-10-05 export `assets/data/lichess_db_puzzle.csv.zst`; source SHA-256 `76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d` | CC0 | 6,157,341 source puzzles; 1,326,623 eligible (`RatingDeviation ≤ 80`, `NbPlays ≥ 1000`, `Popularity ≥ 80`, ≤7 moves); sample 9,300 puzzles (9,301 CSV lines, ≈1.4 MB); M2 validation |
 | Opening names | lichess-org/chess-openings | commit `a6189a3` (2026-10-06) | CC0 | M1 `opening` field |
 | Opening statistics | Lichess broadcasts + Lichess Elite Database | months pinned in M3 | CC0 / derived from CC0 | M3 `games` table, built by our tool |
 
@@ -303,7 +304,8 @@ own plan with frozen acceptance criteria; the bullets below are the intent.
 |---|---|---|
 | M0 | Repository, pinned dependencies, assets, agent setup, this vision | builds of dependencies smoke-tested; assets verified |
 | M1 | CLI, FEN/PGN/ply input, SAN/UCI moves, UCI engine wrapper, searches A–E, threats, urgency, verdicts, opening names, report v1 + schema, template rendering | ~20 hand-checked fixture positions (check, mate threat, hanging piece, counterattack, quiet, zugzwang-prone, promotion, castling/en passant input); opening name found through a transposition; no name for an unnamed position; identical report on rerun; clear errors for bad FEN/PGN/move; `standard` ≤ ~12 s wall time |
-| M2 | Tactical motif detectors in the report | per-motif precision/recall on a fixed Lichess puzzle sample |
+| M2 | Tactical motif detectors in the report: patterns of one position, no claim of gain | exact motif recognition against the written definitions (reference implementation on a fixed Lichess puzzle sample); per-motif recall on that sample |
+| PostM2_EM1 | Tactic recognition: a line is a tactic when it gains in engine evaluation against the second-best move (only-move margin); per-motif contribution (direct, indirect, none); `removal_of_defender` as a tactic-side label | tactic labels follow mechanically from the engine lines; contribution judgements match hand-labelled fixtures |
 | M3 | Positional fact detectors and diffs; opening statistics table and builder | hand-labelled fixture positions, including book positions transcribed to FEN; per-source move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical |
 | M4 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; fact-check rejects seeded false statements |
 | M5 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve |

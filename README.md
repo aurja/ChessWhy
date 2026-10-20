@@ -1,6 +1,14 @@
 # ChessWhy
 
-ChessWhy answers why a move may be best or why a chosen move is good or bad for one chess position. Its chess facts come from Stockfish searches and deterministic rules, and each fact records its provenance. The current release renders a report without a language model; verbalisation is planned for M4.
+ChessWhy answers why a move may be best or why a chosen move is good or bad for one chess position.
+Its chess facts come from Stockfish searches and deterministic rules, and each fact records its
+provenance. It also reports tactical motifs: deterministic patterns of one position (and, where
+needed, the move that produced it), with `rule` provenance; a motif states that the pattern is
+present and claims no gain. Tactics—lines whose engine-evaluation gain under best replies is
+measured against the second-best move—come in PostM2_EM1. The current release renders a report
+without a language model; verbalisation is planned for M4.
+M2 motif definitions were written after consulting lichess-puzzler; the Lichess puzzle database
+(CC0) provides the theme tags used as the validation reference.
 
 ## Requirements and setup
 
@@ -22,7 +30,10 @@ cmake --preset release && cmake --build --preset release
 ctest --preset release
 ```
 
-CTest's `unit` label does not need an engine; `engine` tests need the fetched Stockfish asset. The `asan` preset builds with AddressSanitizer and UndefinedBehaviorSanitizer:
+CTest's `unit` label does not need an engine; `engine` tests need the fetched Stockfish asset.
+`tactics_unit_tests` checks the T fixtures in CTest's `unit` suite; `tactics_puzzles` measures
+recall, and `tactics_oracle` checks exact agreement with the independent reference implementation.
+The `asan` preset builds with AddressSanitizer and UndefinedBehaviorSanitizer:
 
 ```sh
 cmake --preset asan && cmake --build --preset asan

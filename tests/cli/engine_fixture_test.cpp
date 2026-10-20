@@ -200,6 +200,36 @@ void check_expectations(const Json& fixture, const Json& report,
             }
         }
     }
+    if (fixture.contains("motifs_include")) {
+        const auto& expectations = fixture.at("motifs_include");
+        for (auto expected_array = expectations.begin(); expected_array != expectations.end();
+             ++expected_array) {
+            const std::string& pointer = expected_array.key();
+            const Json* actual = find_pointer(report, pointer);
+            for (const auto& instance : expected_array.value()) {
+                const auto tag = instance.at("tag").get<std::string>();
+                const auto side = instance.at("side").get<std::string>();
+                const auto actor = instance.at("actor").get<std::string>();
+                const bool found =
+                    actual != nullptr && actual->is_array() &&
+                    std::ranges::any_of(*actual, [&](const Json& motif) {
+                        const Json* actor_square = find_pointer(motif, "/actor/square");
+                        return motif.is_object() && actor_square != nullptr &&
+                               *actor_square == actor && motif.value("tag", std::string{}) == tag &&
+                               motif.value("side", std::string{}) == side;
+                    });
+                std::string expectation = "motifs_include:";
+                expectation += pointer;
+                expectation += ':';
+                expectation += tag;
+                expectation += ':';
+                expectation += side;
+                expectation += ':';
+                expectation += actor;
+                check_value(found, id, expectation, instance, actual, failures);
+            }
+        }
+    }
 }
 
 } // namespace
