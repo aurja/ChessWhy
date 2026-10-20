@@ -2,8 +2,8 @@
 
 Updated 2026-10-20.
 
-- Milestone: **M2 complete on branch `m2`, awaiting checkpoint 3** (the Captain tries
-  the smoke command and approves merging `m2`). Receipt `Planning/receipts/M2.md`;
+- Milestone: **M2 complete, merged into `main`** (checkpoint 3 approved by the Captain
+  2026-10-20). Receipt `Planning/receipts/M2.md`;
   contract `Planning/milestones/M2.md` (changes §15). 13 motifs, report v2, recall
   targets met on test, reference implementation with 0 mismatches on test, dev and
   T fixtures; Release and ASan/UBSan CTests 93/93; slowest `standard` fixture 7.98 s.
