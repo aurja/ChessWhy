@@ -206,8 +206,8 @@ struct Statistics {
 
 [[nodiscard]] std::string square_name(std::uint8_t square) {
     std::string result(2, ' ');
-    result[0] = static_cast<char>('a' + square % 8);
-    result[1] = static_cast<char>('1' + square / 8);
+    result[0] = static_cast<char>('a' + (square % 8));
+    result[1] = static_cast<char>('1' + (square / 8));
     return result;
 }
 
@@ -382,8 +382,12 @@ void compare_lists(Statistics& statistics, std::ostream* mismatch_output,
         return;
     }
     ++statistics.mismatching_lists;
-    Mismatch mismatch{std::move(id),    std::move(ply), std::move(fen),
-                      std::move(moves), detector,       reference};
+    const Mismatch mismatch{.id = std::move(id),
+                            .ply = std::move(ply),
+                            .fen = std::move(fen),
+                            .moves = std::move(moves),
+                            .detector = detector,
+                            .reference = reference};
 
     bool any_tag_differs = false;
     for (std::size_t index = 0; index < kTags.size(); ++index) {
@@ -536,7 +540,10 @@ void print_statistics(std::string_view label, const Statistics& statistics) {
         return;
     }
     for (const auto& [name, record] : statistics.classes) {
-        const Mismatch& example = *record.example;
+        if (!record.example.has_value()) {
+            throw std::logic_error("mismatch class has no example");
+        }
+        const Mismatch& example = record.example.value();
         std::cout << "    " << name << ": " << record.count << "; example id=" << example.id
                   << " ply=" << example.ply << " FEN=" << example.fen
                   << " detector=" << list_string(example.detector)

@@ -70,7 +70,8 @@ public:
 }
 
 [[nodiscard]] PieceOnSquare printed_piece(const chess::Board& board, Square square) noexcept {
-    return {static_cast<std::uint8_t>(square.index()), fen_piece(board.at(square))};
+    return {.square = static_cast<std::uint8_t>(square.index()),
+            .piece = fen_piece(board.at(square))};
 }
 
 [[nodiscard]] bool is_slider(PieceType type) noexcept {
@@ -78,7 +79,9 @@ public:
 }
 
 [[nodiscard]] bool slider_matches(PieceType type, int df, int dr) noexcept {
-    const bool diagonal = df != 0 && dr != 0;
+    const int abs_file = df < 0 ? -df : df;
+    const int abs_rank = dr < 0 ? -dr : dr;
+    const bool diagonal = abs_file == abs_rank && abs_file != 0;
     const bool straight = (df == 0) != (dr == 0);
     return (diagonal && (type == PieceType::BISHOP || type == PieceType::QUEEN)) ||
            (straight && (type == PieceType::ROOK || type == PieceType::QUEEN));
@@ -105,18 +108,19 @@ public:
     if (!is_slider(piece.type()) || !slider_matches(piece.type(), df, dr)) {
         return false;
     }
-    const int step_file = (df > 0) - (df < 0);
-    const int step_rank = (dr > 0) - (dr < 0);
+    const int step_file = static_cast<int>(df > 0) - static_cast<int>(df < 0);
+    const int step_rank = static_cast<int>(dr > 0) - static_cast<int>(dr < 0);
     int file = from.file() + step_file;
     int rank = from.rank() + step_rank;
-    while (file != target.file() || rank != target.rank()) {
-        if (board.at(Square(file + rank * 8)) != Piece::NONE) {
+    while (file >= 0 && file < 8 && rank >= 0 && rank < 8 &&
+           (file != target.file() || rank != target.rank())) {
+        if (board.at(Square(file + (rank * 8))) != Piece::NONE) {
             return false;
         }
         file += step_file;
         rank += step_rank;
     }
-    return true;
+    return file == target.file() && rank == target.rank();
 }
 
 [[nodiscard]] bool aligned(Square a, Square b, Square c) noexcept {
@@ -138,24 +142,28 @@ public:
     const Square king = board.kingSq(side);
     const int df = from.file() - king.file();
     const int dr = from.rank() - king.rank();
-    if (!((df == 0 && dr != 0) || (dr == 0 && df != 0) || (df != 0 && (df == dr || df == -dr)))) {
+    if ((df == 0 && dr == 0) || (df != 0 && dr != 0 && df != dr && df != -dr)) {
         return false;
     }
-    const int step_file = (df > 0) - (df < 0);
-    const int step_rank = (dr > 0) - (dr < 0);
+    const int step_file = static_cast<int>(df > 0) - static_cast<int>(df < 0);
+    const int step_rank = static_cast<int>(dr > 0) - static_cast<int>(dr < 0);
     int file = king.file() + step_file;
     int rank = king.rank() + step_rank;
-    while (file != from.file() || rank != from.rank()) {
-        if (board.at(Square(file + rank * 8)) != Piece::NONE) {
+    while (file >= 0 && file < 8 && rank >= 0 && rank < 8 &&
+           (file != from.file() || rank != from.rank())) {
+        if (board.at(Square(file + (rank * 8))) != Piece::NONE) {
             return false;
         }
         file += step_file;
         rank += step_rank;
     }
+    if (file != from.file() || rank != from.rank()) {
+        return false;
+    }
     file += step_file;
     rank += step_rank;
     while (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
-        const Piece piece = board.at(Square(file + rank * 8));
+        const Piece piece = board.at(Square(file + (rank * 8)));
         if (piece != Piece::NONE) {
             return piece.color() != side && slider_matches(piece.type(), step_file, step_rank);
         }
@@ -264,7 +272,7 @@ void set_turn(chess::Board& board, Color side) {
 }
 
 [[nodiscard]] std::optional<int> captured_value(const chess::Board& before, Move move) {
-    const PieceType captured = before.getCapturing<PieceType>(move);
+    const auto captured = before.getCapturing<PieceType>(move);
     if (captured == PieceType::NONE) {
         return std::nullopt;
     }
@@ -332,7 +340,7 @@ void set_turn(chess::Board& board, Color side) {
                 int rank = slider_square.rank() + dr;
                 Square front;
                 while (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
-                    front = Square(file + rank * 8);
+                    front = Square(file + (rank * 8));
                     if (board.at(front) != Piece::NONE) {
                         break;
                     }
@@ -347,7 +355,7 @@ void set_turn(chess::Board& board, Color side) {
                 file += df;
                 rank += dr;
                 while (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
-                    const Square rear(file + rank * 8);
+                    const Square rear(file + (rank * 8));
                     if (board.at(rear) != Piece::NONE) {
                         const Piece rear_piece = board.at(rear);
                         if (rear_piece.color() == enemy && rear_piece.type() == PieceType::KING) {
@@ -381,10 +389,10 @@ void set_turn(chess::Board& board, Color side) {
             bool all_front_squares_held = true;
             for (int df = -1; df <= 1; ++df) {
                 const int file = king_square.file() + df;
-                if (file < 0 || file >= 8) {
+                if (file < 0 || file >= 8 || front_rank < 0 || front_rank >= 8) {
                     continue;
                 }
-                const Square square(file + front_rank * 8);
+                const Square square(file + (front_rank * 8));
                 const Piece piece = board.at(square);
                 if ((piece == Piece::NONE || piece.color() != enemy) &&
                     !board.isAttacked(square, side)) {
@@ -464,7 +472,7 @@ void set_turn(chess::Board& board, Color side) {
                     if (move.from() != square) {
                         continue;
                     }
-                    const PieceType captured = enemy_turn.getCapturing<PieceType>(move);
+                    const auto captured = enemy_turn.getCapturing<PieceType>(move);
                     if (captured == PieceType::KING) {
                         continue;
                     }
@@ -506,9 +514,6 @@ void set_turn(chess::Board& board, Color side) {
 [[nodiscard]] bool strict_between(Square first, Square second, Square candidate) noexcept {
     const int df = second.file() - first.file();
     const int dr = second.rank() - first.rank();
-    if (!((df == 0 && dr != 0) || (dr == 0 && df != 0) || (df != 0 && (df == dr || df == -dr)))) {
-        return false;
-    }
     if (!aligned(first, second, candidate) || candidate == first || candidate == second) {
         return false;
     }
@@ -570,7 +575,7 @@ void set_turn(chess::Board& board, Color side) {
             int rank = move.to().rank() + dr;
             Square front;
             while (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
-                front = Square(file + rank * 8);
+                front = Square(file + (rank * 8));
                 if (after.at(front) != Piece::NONE) {
                     break;
                 }
@@ -584,7 +589,7 @@ void set_turn(chess::Board& board, Color side) {
             file += df;
             rank += dr;
             while (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
-                const Square rear(file + rank * 8);
+                const Square rear(file + (rank * 8));
                 if (after.at(rear) != Piece::NONE) {
                     const Piece front_piece = after.at(front);
                     const Piece rear_piece = after.at(rear);
@@ -660,10 +665,10 @@ void set_turn(chess::Board& board, Color side) {
         const int mate_front_rank = mate_king.rank() + (enemy == Color::WHITE ? 1 : -1);
         for (int file_offset = -1; file_offset <= 1; ++file_offset) {
             const int file = mate_king.file() + file_offset;
-            if (file < 0 || file >= 8) {
+            if (file < 0 || file >= 8 || mate_front_rank < 0 || mate_front_rank >= 8) {
                 continue;
             }
-            const Piece front_piece = after.at(Square(file + mate_front_rank * 8));
+            const Piece front_piece = after.at(Square(file + (mate_front_rank * 8)));
             if (front_piece == Piece::NONE || front_piece.color() != enemy) {
                 back_rank_mate_shape = false;
                 break;
