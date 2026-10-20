@@ -102,7 +102,7 @@ TEST_CASE("motif JSON uses the schema v2 shape", "[unit]") {
     CHECK(json["schema_version"] == 2);
     CHECK(
         json["position"]["motifs"][0].dump() ==
-        R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3})");
+        R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3,"contribution":null})");
     CHECK(json["threats"]["white"]["motifs"][0]["targets"].size() == 2);
     CHECK(json["candidates"][0]["motifs"][0]["tag"] == "promotion");
     CHECK(json["candidates"][0]["creates_threat"]["motifs"][0]["tag"] == "discovered_attack");

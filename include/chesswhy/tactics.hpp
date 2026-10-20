@@ -32,7 +32,7 @@ namespace chesswhy::tactics {
 // Motifs at plies 1..line.size() of `line` played from `root` (M2 §5): the move motifs
 // (§4.2) of each move, for its mover, and the state motifs (§4.1, both sides) that hold
 // after ply k but not after ply k-1 (ply 0 = `root`). A motif at ply k reads only the
-// board after ply k and the move that produced it, never later moves. `line` holds legal
+// boards before and after ply k and move k itself, never later moves. `line` holds legal
 // moves, already cut to the walked plies by the caller. Ordered per M2 §5.
 [[nodiscard]] std::vector<Motif> line_motifs(const chess::Board& root,
                                              std::span<const chess::Move> line);

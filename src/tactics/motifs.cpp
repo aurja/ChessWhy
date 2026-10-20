@@ -376,30 +376,6 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
     return false;
 }
 
-[[nodiscard]] bool has_later_actor_activity(chess::Square actor, std::size_t ply_index,
-                                            const std::vector<chess::Board>& positions,
-                                            std::span<const chess::Move> line) {
-    for (std::size_t later = ply_index + 1; later < line.size(); ++later) {
-        const chess::Move move = line[later];
-        if (move.from() == actor) {
-            return true;
-        }
-
-        const chess::Board& before = positions[later];
-        if (!before.isCapture(move)) {
-            continue;
-        }
-        chess::Square captured_square = move.to();
-        if (move.typeOf() == chess::Move::ENPASSANT) {
-            captured_square = move.to().ep_square();
-        }
-        if (captured_square == actor) {
-            return true;
-        }
-    }
-    return false;
-}
-
 void append_fork(const chess::Board& after, chess::Square actor, chess::Color side, int ply,
                  std::vector<Motif>& motifs) {
     const auto attacker_type = after.at<chess::PieceType>(actor);
@@ -562,50 +538,8 @@ void append_back_rank_mates(const chess::Board& after, chess::Color side, int pl
     }
 }
 
-void append_removal_of_defender(const chess::Board& before, const chess::Board& after,
-                                const chess::Move& move, const std::vector<chess::Board>& positions,
-                                std::span<const chess::Move> line, std::size_t ply_index,
-                                chess::Color side, std::vector<Motif>& motifs) {
-    chess::Square defender = move.to();
-    if (move.typeOf() == chess::Move::ENPASSANT) {
-        defender = move.to().ep_square();
-    }
-    if (!before.isCapture(move) || before.at(defender) == chess::Piece::NONE ||
-        before.at(defender).color() == side ||
-        before.at<chess::PieceType>(defender) == chess::PieceType::KING) {
-        return;
-    }
-    const chess::Color enemy = ~side;
-    const chess::Bitboard targets = before.us(enemy) & ~before.pieces(chess::PieceType::KING);
-    const chess::Square actor = move.to();
-    for (const chess::Square target : squares(targets.getBits())) {
-        if (target == defender || see(before, target, side) > 0 ||
-            detail::see_without_piece(before, target, side, defender) < 1) {
-            continue;
-        }
-        bool captured_later = false;
-        for (std::size_t later = ply_index + 1; later < line.size(); ++later) {
-            const chess::Move future = line[later];
-            const chess::Board& future_before = positions[later];
-            if (future_before.sideToMove() == side && future.to() == target &&
-                future_before.isCapture(future) && future.typeOf() != chess::Move::ENPASSANT &&
-                see(future_before, target, side) >= 1) {
-                captured_later = true;
-                break;
-            }
-        }
-        if (captured_later) {
-            Motif motif = make_motif(after, MotifTag::RemovalOfDefender, side,
-                                     static_cast<int>(ply_index + 1), actor);
-            motif.targets = {report_piece(before, defender), report_piece(before, target)};
-            motifs.push_back(std::move(motif));
-        }
-    }
-}
-
 void append_move_motifs(const chess::Board& before, const chess::Board& after,
-                        const chess::Move& move, const std::vector<chess::Board>& positions,
-                        std::span<const chess::Move> line, std::size_t ply_index,
+                        const chess::Move& move, std::size_t ply_index,
                         std::vector<Motif>& motifs) {
     const chess::Color side = before.sideToMove();
     const chess::Square from = move.from();
@@ -639,7 +573,6 @@ void append_move_motifs(const chess::Board& before, const chess::Board& after,
                                     static_cast<int>(ply_index + 1), actor, {king}));
     }
     append_back_rank_mates(after, side, static_cast<int>(ply_index + 1), checking_pieces, motifs);
-    append_removal_of_defender(before, after, move, positions, line, ply_index, side, motifs);
     if (move.typeOf() == chess::Move::PROMOTION) {
         motifs.push_back(
             make_motif(after, MotifTag::Promotion, side, static_cast<int>(ply_index + 1), actor));
@@ -655,24 +588,16 @@ std::vector<Motif> position_motifs(const chess::Board& board) {
 }
 
 std::vector<Motif> line_motifs(const chess::Board& root, std::span<const chess::Move> line) {
-    std::vector<chess::Board> positions;
-    positions.reserve(line.size() + 1);
-    positions.push_back(root);
-    for (const chess::Move move : line) {
-        chess::Board next = positions.back();
-        next.makeMove(move);
-        positions.push_back(std::move(next));
-    }
-
     std::vector<Motif> motifs;
-    std::vector<Motif> previous_state = state_motifs(positions.front());
+    chess::Board before = root;
+    std::vector<Motif> previous_state = state_motifs(before);
     for (std::size_t ply = 0; ply < line.size(); ++ply) {
-        const chess::Board& before = positions[ply];
-        const chess::Board& after = positions[ply + 1];
-        append_move_motifs(before, after, line[ply], positions, line, ply, motifs);
+        const chess::Move move = line[ply];
+        chess::Board after = before;
+        after.makeMove(move);
+        append_move_motifs(before, after, move, ply, motifs);
 
         std::optional<RecentCapture> last_capture;
-        const chess::Move move = line[ply];
         if (before.isCapture(move)) {
             chess::Square captured_square = move.to();
             if (move.typeOf() == chess::Move::ENPASSANT) {
@@ -688,16 +613,14 @@ std::vector<Motif> line_motifs(const chess::Board& root, std::span<const chess::
                 std::ranges::any_of(previous_state, [&motif](const Motif& previous) {
                     return same_identity(previous, motif);
                 });
-            // Broader filtering breaks T40 and sharply reduces pin recall on dev.
-            if (already_present || (motif.tag == MotifTag::TrappedPiece &&
-                                    !has_later_actor_activity(chess::Square(motif.actor.square),
-                                                              ply, positions, line))) {
+            if (already_present) {
                 continue;
             }
             motif.ply = static_cast<int>(ply + 1);
             motifs.push_back(std::move(motif));
         }
         previous_state = std::move(current_state);
+        before = std::move(after);
     }
     std::ranges::sort(motifs, motif_less);
     return motifs;

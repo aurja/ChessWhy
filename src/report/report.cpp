@@ -50,6 +50,8 @@ template <typename Enum>
     }
     value["targets"] = std::move(targets);
     value["gain"] = motif.gain ? Json(*motif.gain) : Json(nullptr);
+    value["contribution"] =
+        motif.contribution ? Json(to_string(*motif.contribution)) : Json(nullptr);
     return value;
 }
 
@@ -255,12 +257,22 @@ std::string to_string(MotifTag tag) {
         return "double_check";
     case MotifTag::BackRankMate:
         return "back_rank_mate";
-    case MotifTag::RemovalOfDefender:
-        return "removal_of_defender";
     case MotifTag::Promotion:
         return "promotion";
     }
     throw std::invalid_argument(invalid_enum("MotifTag", tag));
+}
+
+std::string to_string(MotifContribution contribution) {
+    switch (contribution) {
+    case MotifContribution::Direct:
+        return "direct";
+    case MotifContribution::Indirect:
+        return "indirect";
+    case MotifContribution::None:
+        return "none";
+    }
+    throw std::invalid_argument(invalid_enum("MotifContribution", contribution));
 }
 
 const char* parry_source(ParryTest test) {

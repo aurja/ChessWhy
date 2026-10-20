@@ -103,7 +103,6 @@ line_motifs_from(std::string_view fen, std::initializer_list<std::string_view> u
         MotifTag::DiscoveredAttack,
         MotifTag::DoubleCheck,
         MotifTag::BackRankMate,
-        MotifTag::RemovalOfDefender,
         MotifTag::Promotion,
     };
     const std::string tag = value.get<std::string>();
@@ -408,23 +407,11 @@ TEST_CASE("castling rook checks are not discoveries or solo double checks", "[un
     }));
 }
 
-TEST_CASE("move motifs detect back-rank mate, defender removal, and promotion", "[unit]") {
+TEST_CASE("move motifs detect back-rank mate and promotion", "[unit]") {
     const auto mate = line_motifs_from("7k/6pp/8/8/8/8/8/R6K w - - 0 1", {"a1a8"});
     expect_motif(mate, MotifTag::BackRankMate, Side::White, "a8", 'R', {{"h8", 'k'}});
     const auto luft = line_motifs_from("7k/6p1/7p/8/8/8/8/R6K w - - 0 1", {"a1a8"});
     CHECK(find_motif(luft, MotifTag::BackRankMate, Side::White, "a8") == nullptr);
-
-    const auto removal =
-        line_motifs_from("7k/8/4p3/3n4/2B5/8/8/K3R3 w - - 0 1", {"e1e6", "h8g8", "c4d5"});
-    expect_motif(removal, MotifTag::RemovalOfDefender, Side::White, "e6", 'R',
-                 {{"e6", 'p'}, {"d5", 'n'}});
-    CHECK(find_motif(line_motifs_from("7k/8/4p3/3n4/2B5/8/8/K3R3 w - - 0 1", {"e1e6", "h8g8"}),
-                     MotifTag::RemovalOfDefender, Side::White, "e6") == nullptr);
-    const auto unprofitable_removal =
-        line_motifs_from("r1r3k1/5pp1/q4n1p/p2p4/1b1Q4/3NP1B1/1P3PPP/R1R3K1 b kq - 1 23",
-                         {"c8c4", "c1c4", "d5c4", "d3b4", "a5b4", "a1a6"});
-    CHECK(find_motif(unprofitable_removal, MotifTag::RemovalOfDefender, Side::White, "c4") ==
-          nullptr);
 
     const auto promotion = line_motifs_from("7k/P7/8/8/8/8/8/4K3 w - - 0 1", {"a7a8q"});
     expect_motif(promotion, MotifTag::Promotion, Side::White, "a8", 'Q');
@@ -445,17 +432,6 @@ TEST_CASE("a state motif is reported only on the ply it first appears", "[unit]"
         }
     }
     CHECK(pin_plies == std::vector<int>{1});
-}
-
-TEST_CASE("trapped-piece line motifs require later actor activity", "[unit]") {
-    constexpr std::string_view fen = "k6n/8/8/8/8/8/2B5/4K1RR w - - 0 1";
-    const auto ignored = line_motifs_from(fen, {"g1f1", "a8b8"});
-    CHECK(find_motif(ignored, MotifTag::TrappedPiece, Side::White, "h8") == nullptr);
-
-    const auto retained = line_motifs_from(fen, {"g1f1", "h8f7"});
-    const Motif* trapped = find_motif(retained, MotifTag::TrappedPiece, Side::White, "h8");
-    REQUIRE(trapped != nullptr);
-    CHECK(trapped->ply == 1);
 }
 
 TEST_CASE("motif fixtures exercise every frozen include and exclude", "[unit]") {
