@@ -26,7 +26,8 @@ git-ignored `assets/`; never from system packages in tests.
 
 ChessWhy answers "why this move / why not that move" for one chess position.
 `Planning/PROJECT_VISION.md` is the source of truth for scope, method and
-decisions; read it by section.
+decisions; read it by section. `Planning/DEFINITIONS.md` is the glossary of
+project-specific terms (see Definitions below).
 
 - **Facts first, words last.** Chess content is computed in C++ (Stockfish
   searches and deterministic rules) and stored in the report. The language model
@@ -68,7 +69,8 @@ orchestrator runs the gates.
 1. Orchestrator reads only the vision/plan sections it needs, then freezes the
    milestone contract in `Planning/milestones/M<N>.md`: public headers, report
    schema changes, fixture positions (FEN + expected facts), acceptance
-   bullets, owned files per work package. Commit it.
+   bullets, owned files per work package. Add every new term the contract
+   introduces to `Planning/DEFINITIONS.md`. Commit both together.
 2. Spawn all independent work packages in one batch. Each brief contains: goal,
    owned files, contract paths, plan section as `path:start-end`, fixtures and
    non-goals. If the done-condition does not fit in a few bullets, split the
@@ -80,11 +82,31 @@ orchestrator runs the gates.
 5. Commit locally after each green batch.
 6. When the milestone looks complete: full gate, completion review, receipt in
    `Planning/receipts/M<N>.md`, plan checkboxes, `Planning/CURRENT_STATE.md`,
-   report to the Captain.
+   a pass over `Planning/DEFINITIONS.md` against the final plan, report to the
+   Captain.
 
 Start a fresh orchestrator session at each milestone, or once context passes
-roughly 150k tokens. The vision, milestone plan, receipts and todo list are the
-handoff.
+roughly 150k tokens. The vision, milestone plan, definitions, receipts and todo
+list are the handoff.
+
+## Definitions
+
+`Planning/DEFINITIONS.md` is the Captain's main tool for leading the project:
+she reasons and decides in its terms. Keep it current without exception.
+
+- The orchestrator owns it. Any commit that introduces, renames, redefines or
+  retires a project-specific term (plan, contract change, §15 row, receipt,
+  decision) updates `DEFINITIONS.md` in the same commit. No term reaches the
+  Captain in a message, plan or receipt before it is defined there.
+- A changed meaning is rewritten in place, with the date and the old meaning
+  named ("called X before <date>"), so old receipts stay readable.
+- Open questions that affect a definition are marked as open in its row.
+- Prefer project terms over generic ones where they differ ("engine-confirmed
+  precision", not "precision"); when a generic word must be used, use it in the
+  sense the file gives.
+- Workers do not edit it; they list new terms in their return message and the
+  orchestrator adds them.
+- Read it by section, like the other planning documents.
 
 ## Reviews
 

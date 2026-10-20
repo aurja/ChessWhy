@@ -6,7 +6,9 @@ this file gives the project meaning. The plans stay authoritative; the last colu
 points to the section that defines or decides each term.
 
 Status: written 2026-10-20, during M2 checkpoint 2. The Captain's decision on what
-"precision" gates is still open; see §5.4 and §5.5.
+"precision" gates is still open; see §5.4 and §5.5. On 2026-10-20 she proposed
+separating motifs from tactics (§4.6); those terms are under discussion, not in a plan
+yet.
 
 ## 1. Words that mean several things
 
@@ -172,6 +174,18 @@ Introduced 2026-10-19/20; the scope of "claim" is the open question of checkpoin
 | claim tag | A tag whose name, in chess vocabulary, says X **wins material**. Its engine-confirmed precision is gated. Currently: `hanging_piece`, `fork`, `skewer`, `removal_of_defender`, `trapped_piece` | M2 §7.4 |
 | presence tag | A tag that only says the **pattern is on the board**. Gated by recall and fixtures only; report text never says it wins material. Currently: `pin_relative`, `discovered_attack` (Captain, 2026-10-20) | M2 §7.4, §15 |
 | rule fact | A tag that is exactly true or false by board rules (`discovered_check`, `double_check`, `promotion`, `back_rank_mate`, `pin_absolute`); checked by unit tests and fixtures | M2 §7.4 |
+
+### 4.6 Motif, tactic and contribution (proposed by the Captain, 2026-10-20; open)
+
+Not yet in any plan. Open points are named in each row.
+
+| Term | Meaning | Status |
+|---|---|---|
+| motif | A pattern on one given position (FEN). Today's "move motifs" (§4.1) become patterns of the position after the move | proposed |
+| tactic | A sequence of moves that leads to a measurable gain in engine evaluation even when the opponent plays the best replies. Measured in evaluation, not material, so a sacrifice can be a tactic | proposed; **open**: the baseline the gain is measured against (along the engine's best line the evaluation does not change, so "gain" needs a comparison point) |
+| motif recognition | Does the pattern exist on the board, and do we report it exactly when it does? Expected: 100% against the motif definitions | proposed |
+| tactic recognition | Does the sequence give the gain under best replies, and do we label it a tactic exactly when it does? Mechanical from the engine, so 100% by construction once "gain" is defined | proposed |
+| contribution judgement | For each motif and tactic: **direct** (the motif is part of the tactic's move sequence), **indirect** (the motif helps without being in the sequence, e.g. a pin that stops a recapture), or **none** | proposed; **open**: the rule or test that decides "indirect" |
 
 ## 5. Measurement (M2)
 
