@@ -7,7 +7,7 @@ gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 **Snapshot:** 2026-10-21, commit `a4b6292` plus the uncommitted F21–F24 and
 C01–C16 fixtures: 107 CTests (80 `unit`, 27 `engine`, no `model` yet). Release
 run: all pass except `tactic fixtures exercise contributions and labels` (the
-seven C-fixture mismatches in FIXTURES.md §6).
+six C-fixture mismatches in FIXTURES.md §6; C01 fixed 2026-10-21).
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -106,12 +106,12 @@ Rules that turn engine numbers into report facts; no engine runs.
 | move motifs detect back-rank mate and promotion | unit | Back-rank mate and queen promotion |
 | motif fixtures exercise every frozen include and exclude | unit | T fixtures: every include found, no exclude found |
 | contributions mark move motifs and later motif-piece activity direct | unit | Contribution rule: `direct` |
-| contribution indirect attacks use pseudo-attacks and skip castling | unit | Contribution rule: `indirect` |
+| contribution indirect attacks use pseudo-attacks and skip castling | unit | Contribution rule: `indirect`; an indirect hit from an earlier move survives a later move to an unattacked square (C01's line) |
 | contribution none covers Y-side, ply-n and ply-zero motifs | unit | Contribution rule: `none` cases |
 | contributions treat castling and en passant as piece activity | unit | Special moves count as piece activity |
 | removal-of-defender labels revive T33 and reject T34 | unit | The two former T fixtures as label tests |
 | removal-of-defender labels reject near misses | unit | Similar positions that must not get the label |
-| tactic fixtures exercise contributions and labels | unit | C fixtures: every hand-labelled contribution and label. **Fails today** on C01, C08, C09, C10, C12, C13, C14 |
+| tactic fixtures exercise contributions and labels | unit | C fixtures: every hand-labelled contribution and label. **Fails today** on C08, C09, C10, C12, C13, C14 (C01 fixed 2026-10-21: the rule overwrote an earlier indirect hit) |
 
 Program tests:
 

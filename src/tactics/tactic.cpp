@@ -141,7 +141,7 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
                 direct = motif_has_square(motif, captured_square(move));
             }
             if (!direct && before.sideToMove() == tactic_side && !castling) {
-                indirect = motif_attacks(before, motif, move.to());
+                indirect = indirect || motif_attacks(before, motif, move.to());
             }
         }
 

@@ -836,6 +836,27 @@ TEST_CASE("contribution indirect attacks use pseudo-attacks and skip castling", 
         CHECK(motifs[0].contribution == chesswhy::MotifContribution::Indirect);
     }
 
+    SECTION("an earlier indirect hit survives a later unattacked destination") {
+        const chess::Board root(
+            "rn1qk2r/ppp2ppp/5n2/3P2B1/1b2p1b1/2N5/PP3PPP/R2QKBNR w KQkq - 1 8");
+        chess::Board board = root;
+        const std::vector<chess::Move> line =
+            parse_line(board, {"d1a4", "b8c6", "d5c6", "b4c3", "b2c3"});
+        const auto all_motifs = chesswhy::tactics::line_motifs(root, line);
+        const auto pin = std::ranges::find_if(all_motifs, [](const Motif& motif) {
+            return motif.tag == MotifTag::PinRelative && motif.side == Side::White &&
+                   motif.ply == 1 &&
+                   motif.actor.square == static_cast<std::uint8_t>(square("a4").index()) &&
+                   motif.targets.size() == 2 &&
+                   motif.targets[0].square == static_cast<std::uint8_t>(square("a7").index()) &&
+                   motif.targets[1].square == static_cast<std::uint8_t>(square("a8").index());
+        });
+        REQUIRE(pin != all_motifs.end());
+        std::vector<Motif> motifs{*pin};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Indirect);
+    }
+
     SECTION("a castling move never contributes indirectly") {
         const chess::Board root("4k3/8/8/8/8/5B2/8/4K2R w K - 0 1");
         chess::Board board = root;
