@@ -1,11 +1,17 @@
 #!/usr/bin/env python3
-"""Poll OMP usage buckets and guard provider subscription limits.
+"""Guard provider subscription limits using the usage data OMP already fetched.
+
+Reads OMP's usage cache (``agent.db`` table ``cache``) read-only. Running OMP
+sessions refresh that cache every few minutes and from rate-limit response
+headers; the guard itself never calls a usage API, so it cannot be throttled
+and cannot discard OMP's last good report.
 
 Usage: usage_guard.py (--watch | --wait | --status) --provider ID
        [--threshold F] [--interval S]
 
-Exit codes: 0 (ok/clear), 1 (fetch error in --status), 2 (usage error),
-3 (blocked/fired), 130 (interrupted).
+Exit codes: 0 (ok/clear), 1 (cache unreadable: at once in --status, after
+3 consecutive failures in --watch/--wait), 2 (usage error), 3 (blocked/fired),
+130 (interrupted).
 """
 
 from __future__ import annotations
@@ -13,13 +19,24 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import subprocess
+import os
+import re
+import sqlite3
 import sys
 import time
-from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import Any, cast
+
+REPORT_KEY_PREFIX = "usage_cache:report:"
+# Key tail after the prefix: optional cache version, then the provider ID.
+REPORT_KEY_PROVIDER = re.compile(r"(?:\d+:)?(?P<provider>[^:]+):")
+# OMP serves a last good report for 24 h after its fetchedAt; older is gone.
+LAST_GOOD_MAX_AGE_MS = 24 * 60 * 60 * 1000
+# OMP sessions refresh every 5 min; three missed refreshes mark data stale.
+STALE_AFTER_S = 15 * 60
+MAX_CONSECUTIVE_ERRORS = 3
 
 
 @dataclass(frozen=True)
@@ -27,6 +44,7 @@ class WindowResult:
     name: str
     used_fraction: float | None
     resets_at_ms: float | None
+    reset: bool
     exhausted: bool
 
 
@@ -35,11 +53,12 @@ class AccountResult:
     provider: str
     index: int
     windows: list[WindowResult]
+    age_s: float | None
     blocked: bool
 
 
 class UsageFetchError(Exception):
-    """Raised when OMP usage cannot be fetched or decoded."""
+    """Raised when OMP's usage cache cannot be read or holds no usable report."""
 
 
 def _as_dict(value: object) -> dict[str, Any]:
@@ -71,9 +90,13 @@ def _used_fraction(amount: dict[str, Any]) -> float | None:
 
 
 def evaluate_reports(
-    reports: object, threshold: float, provider: str
+    reports: object, threshold: float, provider: str, now_ms: float
 ) -> tuple[list[AccountResult], bool]:
-    """Evaluate usage reports; malformed optional fields are treated as absent."""
+    """Evaluate usage reports; malformed optional fields are treated as absent.
+
+    A window whose reset time has passed is never exhausted: its cached usage
+    predates the reset.
+    """
     report_items = reports if isinstance(reports, list) else []
     accounts: list[AccountResult] = []
 
@@ -101,7 +124,8 @@ def evaluate_reports(
             fraction = _used_fraction(amount)
             remaining = _finite_number(amount.get("remaining"))
             resets_at_ms = _finite_number(raw_window.get("resetsAt"))
-            exhausted = (
+            reset = resets_at_ms is not None and resets_at_ms <= now_ms
+            exhausted = not reset and (
                 limit_reached
                 or (fraction is not None and fraction >= threshold)
                 or remaining == 0
@@ -111,16 +135,22 @@ def evaluate_reports(
                     name=name,
                     used_fraction=fraction,
                     resets_at_ms=resets_at_ms,
+                    reset=reset,
                     exhausted=exhausted,
                 )
             )
 
-        blocked = limit_reached or any(window.exhausted for window in windows)
+        fetched_at_ms = _finite_number(report.get("fetchedAt"))
+        age_s = None if fetched_at_ms is None else (now_ms - fetched_at_ms) / 1000
+        blocked = any(window.exhausted for window in windows) or (
+            limit_reached and not windows
+        )
         accounts.append(
             AccountResult(
                 provider=account_provider,
                 index=index,
                 windows=windows,
+                age_s=age_s,
                 blocked=blocked,
             )
         )
@@ -156,51 +186,58 @@ def _parser() -> argparse.ArgumentParser:
     modes.add_argument("--status", action="store_true", help="show usage once")
     parser.add_argument("--provider", required=True, help="OMP usage provider ID")
     parser.add_argument("--threshold", type=_parse_threshold, default=0.90)
-    parser.add_argument("--interval", type=_parse_interval, default=180.0)
+    parser.add_argument("--interval", type=_parse_interval, default=300.0)
     return parser
 
 
-def _run_omp(arguments: Sequence[str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        ["omp", *arguments],
-        capture_output=True,
-        check=False,
-        text=True,
-        timeout=90,
-    )
+def _agent_db_path() -> Path:
+    agent_dir = os.environ.get("PI_CODING_AGENT_DIR")
+    base = Path(agent_dir).expanduser() if agent_dir else Path.home() / ".omp/agent"
+    return base / "agent.db"
 
 
-def fetch_reports(provider: str) -> list[object]:
-    """Invalidate OMP's cache and fetch one provider's current reports."""
+def read_reports(provider: str, now_ms: float) -> list[object]:
+    """Return the provider's cached OMP usage reports that OMP would still serve."""
+    path = _agent_db_path()
+    if not path.is_file():
+        raise UsageFetchError(f"omp usage cache not found at {path}")
     try:
-        _run_omp(["usage", "invalidate", "--provider", provider])
-    except (OSError, subprocess.TimeoutExpired, UnicodeError):
-        pass
-
-    try:
-        result = _run_omp(["usage", "--json", "--provider", provider])
-    except subprocess.TimeoutExpired:
-        raise UsageFetchError("omp usage timed out after 90 seconds") from None
-    except (OSError, UnicodeError) as error:
-        raise UsageFetchError(f"could not run omp usage: {error}") from None
-
-    if result.returncode != 0:
-        detail = result.stderr.strip()
-        suffix = f": {detail}" if detail else ""
+        connection = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True, timeout=10)
+        try:
+            rows = connection.execute(
+                "SELECT key, value FROM cache WHERE key LIKE ? ORDER BY key",
+                (f"{REPORT_KEY_PREFIX}%",),
+            ).fetchall()
+        finally:
+            connection.close()
+    except sqlite3.Error as error:
         raise UsageFetchError(
-            f"omp usage exited with status {result.returncode}{suffix}"
+            f"could not read omp usage cache {path}: {error}"
+        ) from None
+
+    reports: list[object] = []
+    for key, value in rows:
+        if not isinstance(key, str) or not key.startswith(REPORT_KEY_PREFIX):
+            continue
+        match = REPORT_KEY_PROVIDER.match(key, len(REPORT_KEY_PREFIX))
+        if match is None or match["provider"] != provider:
+            continue
+        try:
+            entry = _as_dict(json.loads(value))
+        except (TypeError, json.JSONDecodeError):
+            continue
+        report = _as_dict(entry.get("value"))
+        fetched_at_ms = _finite_number(report.get("fetchedAt"))
+        if fetched_at_ms is None or now_ms - fetched_at_ms > LAST_GOOD_MAX_AGE_MS:
+            continue
+        reports.append(report)
+
+    if not reports:
+        raise UsageFetchError(
+            f"omp usage cache holds no report for provider {provider} "
+            "from the last 24 h (is an omp session running?)"
         )
-
-    try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError as error:
-        raise UsageFetchError(f"omp usage returned invalid JSON: {error.msg}") from None
-
-    response = _as_dict(payload)
-    raw_reports = response.get("reports")
-    if not isinstance(raw_reports, list) or not raw_reports:
-        raise UsageFetchError(f"omp returned zero reports for provider {provider}")
-    return cast(list[object], raw_reports)
+    return reports
 
 
 def _fraction_text(fraction: float | None) -> str:
@@ -217,16 +254,33 @@ def _local_iso_time(timestamp_ms: float | None) -> str:
     return local_time.isoformat(timespec="seconds")
 
 
+def _age_text(accounts: list[AccountResult]) -> str:
+    ages = [account.age_s for account in accounts if account.age_s is not None]
+    if not ages:
+        return "age=unknown stale"
+    oldest = max(ages)
+    stale = " stale" if oldest > STALE_AFTER_S else ""
+    return f"age={oldest:.0f}s{stale}"
+
+
+def _window_state(window: WindowResult) -> str:
+    if window.reset:
+        return "reset"
+    return "blocked" if window.exhausted else "ok"
+
+
 def _print_status(accounts: list[AccountResult], provider: str, blocked: bool) -> None:
     for account in accounts:
         for window in account.windows:
-            state = "blocked" if window.exhausted else "ok"
             print(
                 f"{account.provider} {window.name} "
                 f"{_fraction_text(window.used_fraction)} "
-                f"{_local_iso_time(window.resets_at_ms)} {state}"
+                f"{_local_iso_time(window.resets_at_ms)} {_window_state(window)}"
             )
-    print(f"provider={provider} state={'blocked' if blocked else 'ok'}")
+    print(
+        f"provider={provider} state={'blocked' if blocked else 'ok'} "
+        f"{_age_text(accounts)}"
+    )
 
 
 def _heartbeat(
@@ -234,15 +288,17 @@ def _heartbeat(
     state: str,
     accounts: list[AccountResult] | None = None,
 ) -> None:
-    summaries: dict[str, str] = {}
+    parts = [provider, state]
     if accounts is not None:
+        summaries: dict[str, str] = {}
         for account in accounts:
             for window in account.windows:
-                summaries.setdefault(window.name, _fraction_text(window.used_fraction))
-    summary = " ".join(f"{name}={fraction}" for name, fraction in summaries.items())
-    suffix = f" {summary}" if summary else ""
+                text = "reset" if window.reset else _fraction_text(window.used_fraction)
+                summaries.setdefault(window.name, text)
+        parts.extend(f"{name}={text}" for name, text in summaries.items())
+        parts.append(_age_text(accounts))
     timestamp = datetime.now().astimezone().strftime("%H:%M:%S")
-    print(f"[{timestamp}] {provider} {state}{suffix}", flush=True)
+    print(f"[{timestamp}] {' '.join(parts)}", flush=True)
 
 
 def _blocking_descriptions(accounts: list[AccountResult]) -> list[str]:
@@ -278,64 +334,63 @@ def _wait_delay(accounts: list[AccountResult], interval: float) -> float:
 
 
 def _run_status(provider: str, threshold: float) -> int:
+    now_ms = time.time() * 1000
     try:
-        reports = fetch_reports(provider)
+        reports = read_reports(provider, now_ms)
     except UsageFetchError as error:
         print(f"usage guard: {error}", file=sys.stderr)
         return 1
-    accounts, blocked = evaluate_reports(reports, threshold, provider)
+    accounts, blocked = evaluate_reports(reports, threshold, provider, now_ms)
     _print_status(accounts, provider, blocked)
     return 3 if blocked else 0
 
 
-def _run_watch(provider: str, threshold: float, interval: float) -> int:
+def _run_loop(provider: str, threshold: float, interval: float, wait: bool) -> int:
+    """--watch (wait=False) exits 3 when blocked; --wait exits 0 when clear."""
+    errors = 0
     while True:
+        now_ms = time.time() * 1000
         try:
-            reports = fetch_reports(provider)
+            reports = read_reports(provider, now_ms)
         except UsageFetchError as error:
-            _heartbeat(provider, "fetch-error")
+            errors += 1
+            _heartbeat(provider, "read-error")
+            if errors >= MAX_CONSECUTIVE_ERRORS:
+                print(
+                    f"USAGE GUARD BLIND provider={provider} "
+                    f"after {errors} consecutive read errors: {error}",
+                    flush=True,
+                )
+                return 1
             print(
-                f"usage guard warning: {error}; retrying", file=sys.stderr, flush=True
+                f"usage guard warning: {error}; "
+                f"retrying ({errors}/{MAX_CONSECUTIVE_ERRORS})",
+                file=sys.stderr,
+                flush=True,
             )
             time.sleep(interval)
             continue
+        errors = 0
 
-        accounts, blocked = evaluate_reports(reports, threshold, provider)
+        accounts, blocked = evaluate_reports(reports, threshold, provider, now_ms)
         _heartbeat(provider, "blocked" if blocked else "ok", accounts)
-        if blocked:
+        if wait and not blocked:
+            print(f"USAGE GUARD CLEAR provider={provider}", flush=True)
+            return 0
+        if not wait and blocked:
             details = "; ".join(_blocking_descriptions(accounts))
             print(f"USAGE GUARD FIRED provider={provider} {details}", flush=True)
             return 3
-        time.sleep(interval)
-
-
-def _run_wait(provider: str, threshold: float, interval: float) -> int:
-    while True:
-        try:
-            reports = fetch_reports(provider)
-        except UsageFetchError as error:
-            _heartbeat(provider, "fetch-error")
-            print(
-                f"usage guard warning: {error}; retrying", file=sys.stderr, flush=True
-            )
-            time.sleep(interval)
-            continue
-
-        accounts, blocked = evaluate_reports(reports, threshold, provider)
-        _heartbeat(provider, "blocked" if blocked else "ok", accounts)
-        if not blocked:
-            print(f"USAGE GUARD CLEAR provider={provider}", flush=True)
-            return 0
-        time.sleep(_wait_delay(accounts, interval))
+        time.sleep(_wait_delay(accounts, interval) if wait else interval)
 
 
 def main() -> int:
     arguments = _parser().parse_args()
     if arguments.status:
         return _run_status(arguments.provider, arguments.threshold)
-    if arguments.watch:
-        return _run_watch(arguments.provider, arguments.threshold, arguments.interval)
-    return _run_wait(arguments.provider, arguments.threshold, arguments.interval)
+    return _run_loop(
+        arguments.provider, arguments.threshold, arguments.interval, arguments.wait
+    )
 
 
 if __name__ == "__main__":

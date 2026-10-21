@@ -182,8 +182,13 @@ The Anthropic and OpenAI subscriptions are separate usage buckets (5-hour and
 7-day windows). Run one background watcher per provider in use:
 `python3 .omp/usage_guard.py --watch --provider anthropic` and
 `python3 .omp/usage_guard.py --watch --provider openai-codex`
-(`--status` prints the current windows). A watcher exits 3 with a
-`USAGE GUARD FIRED` line when a window reaches the threshold (default 90%).
+(`--status` prints the current windows). The guard makes no API calls: every
+300 s it reads the usage that running omp sessions already fetched (omp's
+usage cache in `agent.db`); `age=…` shows how old that data is and `stale`
+marks data older than 15 minutes. A watcher exits 3 with a
+`USAGE GUARD FIRED` line when a window reaches the threshold (default 90%),
+and exits 1 with `USAGE GUARD BLIND` after three consecutive failed reads;
+restart it once an omp session has refreshed usage.
 When one fires, stop only work that runs on that provider: let running gates
 finish, commit a checkpoint, run
 `python3 .omp/usage_guard.py --wait --provider <provider>` in the background,
