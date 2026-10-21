@@ -227,7 +227,9 @@ under 300 words. Batch 1: WP-B1, WP-B2 (with M3a's batch 1 and WP-R). Batch 2: W
 | WP-B1 reader + table | `src/input/pgn.cpp`, `tests/input/*` (reader tests only), `src/games/*`, `tests/games/*`, `tools/fetch_assets.sh`; in `include/chesswhy/games.hpp` only the `kTable` value | `PgnReader` per §6; §4 in `build_table` and `chesswhy-games`; `Table::load`/`find`; `fetch_assets.sh games` downloads, verifies, builds, verifies; tests of §9 except F rows; full table built once, its SHA-256 reported and pinned in `kTable` | report, render, analysis |
 | WP-B2 oracle | `tools/count_games.py` | independent §4 counter written from this plan without reading WP-B1's code; same output format; Ruff and basedpyright clean | C++ |
 
-WP-R and WP-I (M3a §11) carry §5, §7 and §8.
+WP-R and WP-I (M3a §11) carry §5, §7 and §8. WP-I also adds the §9 F rows to
+`tests/fixtures/positions.json`, with values read from the pinned table, not from report
+output.
 
 ## 11. Captain's checkpoints
 
@@ -262,3 +264,4 @@ under each candidate.
 
 | Date | Change | Reason |
 |---|---|---|
+| 2026-10-21 | WP-I adds the §9 F rows to `positions.json` | Their counts come from the pinned table, which exists only after batch 1; M3a §11 lists fixture edits as a WP-I non-goal, so this row makes the exception explicit |
