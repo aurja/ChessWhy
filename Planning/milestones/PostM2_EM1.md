@@ -152,11 +152,12 @@ Added 2026-10-21 (Captain, §15). A Y piece is held in place by what X could do 
 left. State motif, computed for both sides like M2 §4.1; source `rule`; fixture-only (no
 Lichess mapping).
 
-On board B (not terminal, Y not in check), let Bx = B with X to move (B itself, or B
-after a null move when Y is to move). For each Y non-king piece p, let B−p = Bx with p
+On board B (not terminal, neither king in check), let Bx = B with X to move (B itself, or
+B after a null move when Y is to move). For each Y non-king piece p, let B−p = Bx with p
 removed (a removed rook also clears its castling right; a removed pawn that can be
 captured en passant also clears the en passant square). Skip p when the Y king is
-attacked on B−p (p is absolutely pinned; `pin_absolute` reports it). p is restricted
+attacked on B−p (p is absolutely pinned; `pin_absolute` reports it) or the X king is
+attacked on B−p (removing p discovers check on X; p is not held in place). p is restricted
 when removing it enables at least one **threat**, of these kinds, in this order:
 
 | Kind | Enabled on B−p, not on Bx |
@@ -441,3 +442,4 @@ contribution `direct`.
 | 2026-10-21 | §10: the four restricted-movement tags print `restricted movement (…)` instead of the tag; `overloaded_defender` detection unchanged | Captain: shared wording, not a merged tag. "(overloaded defender)" instead of "(overloaded: guards …)" so the targets are not printed twice |
 | 2026-10-21 | §9: `pin_tactical` exempt from the C fixtures' exact set; corpus tests sample it (oracle every 16th puzzle row; puzzle eval off) | Captain: chosen C instances only (~71 X-side instances on C01–C16); no speed budget, corpus tests sample |
 | 2026-10-21 | §4.5: removing a pawn that can be captured en passant also clears the en passant square on B−p; T54 | Orchestrator, milestone gate: the ASan/Debug oracle run aborted in chess-library (en passant move with no pawn to capture) in the reference implementation; the detector already cleared the square. Same reasoning as the castling right: B−p must be a consistent board |
+| 2026-10-21 | §4.5: skip B when either king is in check (before: only Y's); skip p when the X king is attacked on B−p; T55, T56 | Captain, milestone gate. The ASan/Debug oracle run aborted in chess-library's move generator (three checkers) in the detector on puzzle pPHqU: X was already in double check on B and removing p opened a third line. Threats of a side that must answer check, or of a p that would give discovered check by moving, are not a restriction |
