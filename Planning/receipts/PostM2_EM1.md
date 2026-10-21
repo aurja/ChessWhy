@@ -115,5 +115,5 @@ row put a `capture` threat on the captured piece's square, which is wrong for en
 was fixed and the recheck found it resolved. One nit (T range in this receipt) was also
 fixed.
 
-Open for the Captain: checkpoint 3, trying the smoke command and approving the merge of
-`postm2-em1` into `main`.
+Checkpoint 3 (2026-10-21): the Captain approved the merge; `postm2-em1` merged into
+`main` (`d4c18a3`).

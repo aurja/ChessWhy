@@ -197,7 +197,7 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 | `removal_of_defender` | Tactic label: an X capture takes a Y piece d that alone kept another Y piece t safe (SEE 0 with d, ≥ 1 without), and a later X capture on t's square wins it. Actor: the capturing piece; targets: d, t. Outside the motif reference implementation | PostM2_EM1 §4.4 |
 | restricted movement | Report wording (Captain, 2026-10-21) shared by the four tags that hold a Y piece in place: "restricted movement (absolute pin)", "(relative pin)", "(overloaded defender)" and "(tactic: Nd5-f4 fork)" for `pin_tactical` (actor, threat square, threat kind). Wording only: the JSON keeps the tags. An open proposal before 2026-10-21's freeze | PostM2_EM1 §10 |
 | claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
-| PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label. Plan `Planning/milestones/PostM2_EM1.md`, branch `postm2-em1`. Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
+| PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label, `pin_tactical`. Plan `Planning/milestones/PostM2_EM1.md`, receipt `Planning/receipts/PostM2_EM1.md`; complete, merged into `main` 2026-10-21 (branch `postm2-em1`). Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
 
 ## 5. Measurement (M2)
 

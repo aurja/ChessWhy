@@ -2,14 +2,16 @@
 
 Updated 2026-10-21.
 
-- Milestone: **PostM2_EM1 implemented on branch `postm2-em1`, awaiting checkpoint 3**
-  (the Captain tries the smoke command and approves the merge). Receipt
-  `Planning/receipts/PostM2_EM1.md`; contract `Planning/milestones/PostM2_EM1.md`
-  (changes §15). Tactic judgement (margin ≥ 0.13 over the next-best first move, search
-  R), contributions `direct`/`indirect`/`none`, `removal_of_defender` tactic label,
-  report v3, new state motif `pin_tactical` with `threat` (14 motif tags), shared
-  "restricted movement" wording. Release CTests 111/111; slowest `standard` F fixture
-  5.87 s; `tactics_oracle` 0 mismatches (about 30 s in Release).
+- Milestone: **PostM2_EM1 complete, merged into `main`** (Captain, checkpoint 3,
+  2026-10-21). Receipt `Planning/receipts/PostM2_EM1.md`; contract
+  `Planning/milestones/PostM2_EM1.md` (changes §15). Tactic judgement (margin ≥ 0.13 over
+  the next-best first move, search R), contributions `direct`/`indirect`/`none`,
+  `removal_of_defender` tactic label, report v3, new state motif `pin_tactical` with
+  `threat` (14 motif tags), shared "restricted movement" wording. Release and ASan/UBSan
+  CTests 111/111; slowest `standard` F fixture 5.87 s; `tactics_oracle` 0 mismatches
+  (about 23 s in Release).
+- Next milestone per vision §11: M3 (positional fact detectors and diffs; opening
+  statistics). Not yet planned.
 - Definitions: `Planning/definitions/` (TERMINOLOGY, FIXTURES with boards, TESTS), kept
   current by the orchestrator.
 - Scope proposals still open from the M2 recall-miss audit: forks by a capturable piece,
