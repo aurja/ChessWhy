@@ -1,15 +1,22 @@
-# ChessWhy — Terminology
+# ChessWhy — Definitions
 
 Project-specific meanings of the words used in the plans, receipts and agent reports.
 Where a word has an ordinary meaning, an ordinary chess meaning and a project meaning,
 this file gives the project meaning. The plans stay authoritative; the last column
 points to the section that defines or decides each term.
 
+One of the five DBC files (§7): the concepts that use these terms are drawn in
+[CONCEPTS.md](CONCEPTS.md) and placed in the source by [CODE.md](CODE.md); fixtures and
+tests are listed in [FIXTURES.md](FIXTURES.md) and [TESTS.md](TESTS.md).
+
 Status: updated 2026-10-20 at M2 close. At checkpoint 2b the Captain split motifs from
 tactics (§4.5): M2 measures motif recognition only; tactics are milestone PostM2_EM1.
 Updated 2026-10-20 with the frozen PostM2_EM1 plan (§3.2, §4.5, §5.8, §6).
 Moved 2026-10-21 from `Planning/DEFINITIONS.md` (title "Definitions") to
 `Planning/definitions/TERMINOLOGY.md`, beside `FIXTURES.md` and `TESTS.md` (§6.1).
+Moved again 2026-10-21 to `Planning/DBC/DEFINITIONS.md` (title "Definitions"), beside
+`CONCEPTS.md` and `CODE.md` (§7). Section headings no longer name milestones; the
+"Defined in" columns still point to the plan sections that decided each term.
 
 ## 1. Words that mean several things
 
@@ -28,6 +35,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | side | The side a fact is about. In analysis: `S` side to move, `O` opponent. In motifs: `X` the side that benefits, `Y` the other (§2) |
 | frozen | Changed only through a contract change approved by the Captain (§6.1) |
 | gate | A check that must pass for a batch or milestone to be accepted (§6.3) |
+| level | (1) **Audience level**: beginner, club or advanced, chosen by the user; changes only the wording of the explanation, never the analysis (§3.1). (2) **Diagram level**: L1, L2 or L3 in CONCEPTS.md (§7) |
 
 ## 2. Chess notation in the plans
 
@@ -35,6 +43,8 @@ Read these first. Each word is used in two or more senses in the plans.
 |---|---|---|
 | FEN | Text form of one position (placement, side to move, castling, en passant, counters) | standard |
 | SAN / UCI move | `Nf3` / `g1f3`. The CLI accepts both; engine lines are UCI internally, SAN in reports | M1 §5 |
+| UCI (protocol) | Universal Chess Interface: the text protocol ChessWhy uses to talk to Stockfish, which runs as a separate process and is never linked | vision §4 |
+| PGN | Text form of a game. ChessWhy reads the mainline only; comments, NAGs and variations are skipped | M1 §5 |
 | ply | One half-move. Ply 0 is the position itself; ply k is the position after k moves of a line | M2 §5 |
 | `S`, `O` | Side to move in the analysed position, and its opponent | vision §5 |
 | `X`, `Y` | For a motif or tactic label: the side it benefits (its `side` field), and the other side. For a judged line (PostM2_EM1): X is the side playing it, the **tactic side** (`S` for the root line, `O` for a refutation) | M2 §4, PostM2_EM1 §4 |
@@ -48,7 +58,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | nodes | Positions Stockfish examines. Searches stop at a fixed node count, not a time, so results repeat | M1 §3 |
 | terminal | Checkmate or stalemate on the board: no search runs, and the board has no state motifs (at ply 0 or inside a line) | M1 §4.1, M2 §5 |
 
-## 3. Analysis (M1)
+## 3. Analysis
 
 ### 3.1 Inputs, settings, provenance
 
@@ -63,6 +73,14 @@ Read these first. Each word is used in two or more senses in the plans.
 | asked move | The move given with `--move`: the user's "why (not) this move?" | M1 §4.7 |
 | candidates | A's K best moves with their verdicts | M1 §4.7 |
 | level | `beginner`, `club`, `advanced`: audience of the M4 prose; no effect on analysis | vision §3 |
+| command line | `chesswhy` with flags (`--fen` or `--pgn` with `--game`/`--ply`, `--move`, `--budget`, `--level`, `--json`, `--no-llm`): how a question arrives today | M1 §6 |
+| local HTTP API | Planned: the CLI inputs as JSON over HTTP, bound to `127.0.0.1` only, with engine and model kept loaded between requests. Consumer details are an open decision | vision §9 |
+| analysed position | The one position a report is about: the FEN, or the PGN game's position after `--ply` half-moves (default: its final position) | M1 §5 |
+| game mainline | For PGN input: the game's positions from its start to the analysed position, used only to find the last named position | M1 §4.8, §5 |
+| input error | Input that cannot be used (bad flag, invalid FEN, illegal or ambiguous move, missing game or ply): one `chesswhy: error:` line, exit 2, no report | M1 §5, §6 |
+| fact | One claim about the position, stored as a report field with its provenance before any words are written | vision §2 |
+| report schema | The versioned JSON Schema in `schema/` that every report must satisfy; `schema_version` names it | vision §6 |
+| JSON output | The report printed as JSON (`--json`), for programs and for checking; without `--json` the output is template rendering | M1 §6 |
 
 ### 3.2 Searches A–E, R
 
@@ -112,7 +130,7 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 | fine set | All moves with verdict fine: the answer to "what can I play here?" | vision §5.4 |
 | `fine_truncated` | All K of A's lines are fine, so more fine moves may exist than are listed | M1 §4.7 |
 
-## 4. Tactical motifs (M2)
+## 4. Tactical motifs
 
 ### 4.1 Kinds of facts
 
@@ -199,7 +217,7 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 | claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
 | PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label, `pin_tactical`. Plan `Planning/milestones/PostM2_EM1.md`, receipt `Planning/receipts/PostM2_EM1.md`; complete, merged into `main` 2026-10-21 (branch `postm2-em1`). Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
 
-## 5. Measurement (M2)
+## 5. Measurement
 
 ### 5.1 The puzzle data
 
@@ -273,7 +291,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 | mismatch | A position where the detectors' motif list and the reference's differ in any field. Each one is traced to its root: detector wrong, reference wrong, or plan text ambiguous (then the text is clarified) | M2 §7.4 |
 | compared positions | Every position of every `test.csv` puzzle (before and after each move, plus the whole line) and every T fixture. `pin_tactical` is compared only on the **sample**: puzzles whose 0-based CSV row index is divisible by 16, and every T fixture (Captain, 2026-10-21: it costs about 18 ms per board). `tactics_oracle` passes only with zero mismatches | M2 §7.4, PostM2_EM1 §9 |
 
-### 5.8 Puzzle check (PostM2_EM1, not gating)
+### 5.8 Puzzle check (not gating)
 
 | Term | Meaning | Defined in |
 |---|---|---|
@@ -300,7 +318,6 @@ PostM2_EM1 starts from commit `d5b703a`.
 | worker, fixer, reviewer, scout | Subagents: implement one WP; fix one failing gate; review a finished milestone once; read-only search | AGENTS.md |
 | receipt | `Planning/receipts/M<N>.md`: what a milestone delivered and the evidence (tables, timings, gate results) | AGENTS.md |
 | blocker / scope proposal / nit | Review outcomes: a blocker cites a broken acceptance row or principle with a failing input; a scope proposal is new work for the Captain to decide; a nit is optional | AGENTS.md |
-| TERMINOLOGY.md / FIXTURES.md / TESTS.md | The three files in `Planning/definitions/`: this glossary; every fixture with its board, claim, current result ("Codebase today") and a Comments column where agents raise fixture problems; every CTest with its label and what it checks. Orchestrator-owned; called `Planning/DEFINITIONS.md` (glossary only) before 2026-10-21 | AGENTS.md |
 
 ### 6.2 Fixtures
 
@@ -331,3 +348,44 @@ PostM2_EM1 starts from commit `d5b703a`.
 | golden test | Compares rendered text with a stored expected file byte for byte | M2 §10 |
 | timing check | `standard` must finish within 12 s per F fixture in Release | M2 §14 |
 | usage guard | Background watcher that pauses agent work when a model subscription window nears its limit | AGENTS.md |
+
+## 7. Driven by Concepts
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| DBC (Driven by Concepts) | How the project is led: the Captain decides at the level of concepts in CONCEPTS.md; code, tests and fixtures are mapped to those concepts, and a drift check keeps the map honest. Named by the Captain 2026-10-21 | AGENTS.md |
+| DBC files | The five files in `Planning/DBC/`: CONCEPTS.md, CODE.md, DEFINITIONS.md, FIXTURES.md and TESTS.md, each linking to the other four. Orchestrator-owned. The folder was `Planning/definitions/` (glossary, fixtures, tests) before 2026-10-21 | AGENTS.md |
+| CONCEPTS.md | The concept map: mermaid diagrams at three diagram levels, each with a node table (meaning, terms, status). Holds no code; the Captain's edits to it are directives | CONCEPTS.md |
+| CODE.md | Places every built concept node in the source: files and functions, classes, structs or constants, never line numbers | CODE.md |
+| DEFINITIONS.md | This glossary. Called TERMINOLOGY.md (in `Planning/definitions/`) on 2026-10-21 before the DBC move, and `Planning/DEFINITIONS.md` before that | AGENTS.md |
+| FIXTURES.md | Every fixture with its board, claim, current result ("Codebase today"), the concept nodes each set checks, and a Comments column where agents raise fixture problems | AGENTS.md |
+| TESTS.md | Every CTest with its label, what it checks and the concept nodes it checks | AGENTS.md |
+| concept node | One idea in a CONCEPTS.md diagram: a node ID, a meaning, the defined terms it uses and a node status | CONCEPTS.md |
+| node ID | The CamelCase name of a concept node, unique in CONCEPTS.md; CODE.md, TESTS.md and FIXTURES.md refer to nodes by it | CONCEPTS.md |
+| diagram level | L1: the whole project. L2: one diagram per L1 node. L3: a small diagram for an L2 node that is a rule with steps | CONCEPTS.md |
+| node status | `implemented` (built), `partial` (some of its parts built), `planned` (nothing built), `external` (see below) | CONCEPTS.md |
+| owned node / external node | Every node ID belongs to exactly one diagram, where it is owned. Another diagram may show it again as an external node, for context only | CONCEPTS.md |
+| drift | Any disagreement inside the DBC files or between them and the code: a built node with no code, a code reference that no longer exists, an undefined term, a test or fixture that names no concept, a status that contradicts the diagram below it, a broken link | AGENTS.md |
+| drift check | `python3 tools/check_dbc.py`: reports every drift with file and line; run after each batch and at every gate | AGENTS.md |
+
+## 8. Positional facts, reference knowledge and explanation
+
+Mostly planned; [CONCEPTS.md](CONCEPTS.md) marks what is built.
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| positional fact | Planned: a lasting feature computed by rule (pawn structure, king safety, piece activity, space and development, material imbalance), reported as a before/after change along a line and used only when tied to a line or verdict | vision §5.6 |
+| position key | Piece placement, side to move, castling rights and an en-passant square only when a legal capture exists; move counters ignored, so transpositions match | vision §5.7, M1 §4.8 |
+| opening name | Name and ECO code of a position in the pinned opening dataset; `book` provenance; never guessed for an unnamed position | vision §5.7, M1 §4.8 |
+| last named position | For PGN input: the last position on the game mainline (up to and including the analysed position) that has an opening name, with its ply | M1 §4.8 |
+| game-count table | Planned: a position → move-count table built offline from pinned game collections, each source and platform kept apart, with a recorded table id | vision §5.7 |
+| game counts | Planned: per source and position, the number of games, results and the count for each move played; `games` provenance; every figure names its source and platform and is never phrased as move quality | vision §2, §5.7 |
+| book corpus | Planned: the Captain's local books as text, kept out of the repository | vision §8 |
+| book index | Planned: a BM25 search index over page or paragraph chunks of the book corpus, kept out of the repository | vision §8 |
+| concept tag | Planned: a motif or positional tag from the report, widened by a checked-in keyword map, used as the book query | vision §8 |
+| book passage | Planned: one to three short excerpts from the book index, cited by book and page, offered as general advice and never as analysis of the position | vision §8 |
+| explanation | The text a reader gets for one report: template rendering today; later language-model prose that passed the fact check | vision §7 |
+| template rendering | Fixed sentences filled from report fields, adding no claim: the readable output today, the `--no-llm` output, and the fallback when prose fails the fact check | vision §7.3 |
+| fact sheet | Planned: a compact text form of the report (not raw JSON) given to the language model with a level-specific prompt | vision §7.2 |
+| language model | Planned: a local GGUF model run through llama.cpp (linked as a library) that turns the fact sheet into prose for the chosen level; decides no chess content | vision §7.1 |
+| fact check | Planned: every move, square and piece in the prose must be in the report, and opening names and game counts must match it exactly; one regeneration, then template rendering with a notice | vision §7.3 |

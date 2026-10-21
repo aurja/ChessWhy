@@ -1,8 +1,9 @@
 # ChessWhy — Fixtures
 
-Every fixture the tests use, with its board, what it claims and what the code
-reports today. Terms are defined in [TERMINOLOGY.md](TERMINOLOGY.md) (§6.2 for
-the fixture kinds); the tests that read each set are in [TESTS.md](TESTS.md).
+Every fixture the tests use, with its board, what it claims, what the code
+reports today and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their
+code is in [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md)
+(§6.2 for the fixture kinds); the tests that read each set are in [TESTS.md](TESTS.md).
 
 **Snapshot:** 2026-10-21, PostM2_EM1 milestone gate (commit `b4fbb30`, after batch 3,
 `pin_tactical`). Release build, Stockfish 19 from `assets/`, `Threads=1`. F reports now
@@ -30,11 +31,13 @@ Burnett, used under their BSD licence option.
 
 **Reading the "Codebase today" column.** ES is the expected score for the side
 to move (1 = win, 0.5 = draw, 0 = loss) unless the cell says "White ES". "Tactic"
-and "margin" are the tactic judgement of TERMINOLOGY §4.5; contributions are
+and "margin" are the tactic judgement of DEFINITIONS §4.5; contributions are
 `direct`, `indirect` or `none`. Plies count positions: ply 0 is the start
 position, ply 1 the position after the first move of the line.
 
 ## 1. F fixtures — full reports (`tests/fixtures/positions.json`, `engine_fixtures`)
+
+**Concepts:** `EngineFixtures`, `Urgency`, `ParryTest`, `Verdict`, `TacticJudgement`, `StateMotif`, `MoveMotif`, `TacticalPin`, `InputFixtures`, `OpeningNames`, `SearchB`
 
 Run end to end through the CLI with the engine by `cli_fixture_<ID>`. Each
 fixture also pins exact report fields (`equals`), required fine moves, motifs
@@ -71,6 +74,8 @@ which is a load effect, not a wrong result.
 
 ## 2. U fixtures — opening names (`positions.json`, `unit_fixtures`)
 
+**Concepts:** `InputFixtures`, `GameMainline`, `PositionKey`, `OpeningNames`, `LastNamed`
+
 Read by `PGN unit fixtures preserve mainline positions` and `PGN opening
 fixtures describe current and last named positions`.
 
@@ -84,6 +89,8 @@ fixtures describe current and last named positions`.
 | U06 | <img src="boards/U06.svg" width="200" alt="U06"> | `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1` | **start position is unnamed**<br>Current: unnamed; last named: none | Matches. | |
 
 ## 3. E fixtures — input errors (`positions.json`, `error_fixtures`)
+
+**Concepts:** `InputFixtures`, `InputError`, `FenInput`, `PgnInput`, `AskedMove`, `CommandLine`, `StockfishProcess`, `OpeningNames`
 
 Read by `CLI error fixtures return the required status and one diagnostic`;
 E01–E11 also by `input error fixtures report the required function-level fragments`. Exit 2 is a
@@ -113,6 +120,8 @@ files in `tests/fixtures/`.
 
 ## 4. Parse fixtures — move notation (`positions.json`, `parse_fixtures`)
 
+**Concepts:** `InputFixtures`, `FenInput`, `AskedMove`
+
 These entries have no IDs in the JSON; P01–P13 is their order in the file, used
 here only so comments can name them. Each says a SAN or UCI move in the position
 resolves to the given UCI move. Read by `all move parsing fixtures resolve to
@@ -136,6 +145,8 @@ moves`.
 | P13 | `6k1/1q3ppp/8/8/5n2/8/5PPP/4R1K1 w - - 0 1` | `Re8` → `e1e8` | Matches. | |
 
 ## 5. T fixtures — motif recognition (`tests/fixtures/motifs.json`)
+
+**Concepts:** `MotifFixtures`, `StateMotif`, `MoveMotif`, `FirstAppearance`, `StaticExchange`, `TacticalPin`, `TpKings`, `TpNewThreat`
 
 Each lists motif instances the detectors must report and instances they must not
 report, on the position and along the line. Read by `motif fixtures exercise
@@ -206,8 +217,10 @@ actor → p, then the threat's targets, then the threat ("fork on f4").
 
 ## 6. C fixtures — tactic contributions and labels (`tests/fixtures/tactics.json`)
 
+**Concepts:** `ContributionFixtures`, `Contribution`, `CoDirect`, `CoIndirect`, `CoNotUsed`, `TacticLabel`, `TacticSequence`, `TacticalPin`, `StateMotif`, `MoveMotif`
+
 Hand-labelled tactic lines: for each motif on the line, whether it contributed to
-the tactic (TERMINOLOGY §4.5), plus required or forbidden tactic labels. Read by
+the tactic (DEFINITIONS §4.5), plus required or forbidden tactic labels. Read by
 `tactic fixtures exercise contributions and labels`, which passes on all of them
 (since 2026-10-21, after the Captain's checkpoint 2 decisions; PostM2_EM1 §15).
 
@@ -232,10 +245,12 @@ the tactic (TERMINOLOGY §4.5), plus required or forbidden tactic labels. Read b
 
 ## 7. Data files
 
+**Concepts:** `InputFixtures`, `GameMainline`, `PgnInput`, `OpeningNames`, `PuzzleSample`, `MotifFixtures`, `ContributionFixtures`, `ReferenceImplementation`
+
 | File | Content | Read by | Comments |
 |---|---|---|---|
 | `tests/fixtures/two_games.pgn` | Two short games | F15, E09, E10, E12, PGN input tests | |
 | `tests/fixtures/three_games.pgn` | Three games; game 3 has an illegal second move | U fixtures, E08, PGN input tests | |
 | `tests/fixtures/annotated.pgn` | Five games with comments, NAGs and headers | PGN reader tests, `pgntool` tests | |
 | `tests/fixtures/fen_tag.pgn` | A game starting from a `FEN`/`SetUp` tag | U04 | |
-| `tests/fixtures/puzzles/test.csv` | The committed **test** split of the Lichess puzzle sample: 9,300 puzzles from the 2026-10-05 Lichess export (CC0), columns `PuzzleId, FEN, Moves, Themes, Stratum`, see TERMINOLOGY §5.1 | `tactics_puzzles` (recall, Lichess agreement), `tactics_oracle` | |
+| `tests/fixtures/puzzles/test.csv` | The committed **test** split of the Lichess puzzle sample: 9,300 puzzles from the 2026-10-05 Lichess export (CC0), columns `PuzzleId, FEN, Moves, Themes, Stratum`, see DEFINITIONS §5.1 | `tactics_puzzles` (recall, Lichess agreement), `tactics_oracle` | |

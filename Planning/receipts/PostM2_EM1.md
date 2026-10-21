@@ -2,7 +2,7 @@
 
 Date: 2026-10-21. Machine: `debian-home` (i7-8565U, 15 GiB, Debian 13). Branch
 `postm2-em1`. Contract: `Planning/milestones/PostM2_EM1.md` (acceptance §14, contract
-changes §15). Terms: `Planning/definitions/TERMINOLOGY.md`.
+changes §15). Terms: `Planning/definitions/TERMINOLOGY.md` (now `Planning/DBC/DEFINITIONS.md`).
 
 ## Delivered
 
@@ -31,8 +31,9 @@ changes §15). Terms: `Planning/definitions/TERMINOLOGY.md`.
 - **Reference implementation** of §4.5 in `tests/tactics/oracle/`, written from the plan
   text without reading the detector; `tactics_oracle` compares `threat` and samples
   `pin_tactical` on every 16th puzzle and on every T fixture.
-- **Definitions**: `Planning/definitions/` (TERMINOLOGY, FIXTURES with rendered boards,
-  TESTS) created during the milestone and kept current.
+- **Definitions**: `Planning/definitions/` (now `Planning/DBC/`; TERMINOLOGY, now
+  DEFINITIONS, FIXTURES with rendered boards, TESTS) created during the milestone and kept
+  current.
 
 ## Verification
 

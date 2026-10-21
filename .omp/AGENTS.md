@@ -26,10 +26,14 @@ git-ignored `assets/`; never from system packages in tests.
 
 ChessWhy answers "why this move / why not that move" for one chess position.
 `Planning/PROJECT_VISION.md` is the source of truth for scope, method and
-decisions; read it by section. `Planning/definitions/` holds the Captain's
-reference set: `TERMINOLOGY.md` (glossary of project-specific terms),
-`FIXTURES.md` (every fixture with its board, claim and current result) and
-`TESTS.md` (every test and what it checks); see Definitions below.
+decisions; read it by section. ChessWhy is **DBC (Driven by Concepts)**:
+`Planning/DBC/` holds the Captain's reference set, five files that link to each
+other: `CONCEPTS.md` (concept diagrams L1–L3, no code), `CODE.md` (concept
+node → files and functions), `DEFINITIONS.md` (glossary of project-specific
+terms), `FIXTURES.md` (every fixture with its board, claim, current result and
+concept nodes) and `TESTS.md` (every test, what it checks and its concept
+nodes); see DBC below. Where CONCEPTS and the vision disagree, the vision wins
+until the Captain resolves it.
 
 - **Facts first, words last.** Chess content is computed in C++ (Stockfish
   searches and deterministic rules) and stored in the report. The language model
@@ -71,57 +75,84 @@ orchestrator runs the gates.
 1. Orchestrator reads only the vision/plan sections it needs, then freezes the
    milestone contract in `Planning/milestones/M<N>.md`: public headers, report
    schema changes, fixture positions (FEN + expected facts), acceptance
-   bullets, owned files per work package. Add every new term the contract
-   introduces to `Planning/definitions/TERMINOLOGY.md`, and every new fixture to
-   `FIXTURES.md`. Commit them together.
+   bullets, owned files per work package. In the same commit: new and changed
+   concepts drawn in `Planning/DBC/CONCEPTS.md` with status `planned` (or a
+   built node turned `partial`), every new term in `DEFINITIONS.md`, every new
+   fixture in `FIXTURES.md`; `tools/check_dbc.py` passes. Show the Captain the
+   changed diagrams before spawning work.
 2. Spawn all independent work packages in one batch. Each brief contains: goal,
-   owned files, contract paths, plan section as `path:start-end`, fixtures and
-   non-goals. If the done-condition does not fit in a few bullets, split the
-   package.
-3. Workers return under 300 words: files changed, what works, known gaps.
+   owned files, contract paths, plan section as `path:start-end`, the concept
+   node IDs the package builds, fixtures and non-goals. If the done-condition
+   does not fit in a few bullets, split the package.
+3. Workers return under 300 words: files changed, what works, known gaps, and
+   concept impact (nodes built, code that fits no node, new terms).
 4. After the batch, the orchestrator builds and runs the affected tests once.
    Failures go to one fixer task with the log. The orchestrator steps in only
    when the failure shows the contract itself is wrong.
-5. Commit locally after each green batch.
+5. After each green batch, bring the DBC files in line (see DBC below), run
+   `python3 tools/check_dbc.py` until it reports no drift, then commit locally.
 6. When the milestone looks complete: full gate, completion review, receipt in
    `Planning/receipts/M<N>.md`, plan checkboxes, `Planning/CURRENT_STATE.md`,
-   a pass over `Planning/definitions/` (terminology against the final plan,
-   "Codebase today" in `FIXTURES.md`, test list in `TESTS.md`), report to the
-   Captain.
+   a pass over `Planning/DBC/` (diagrams and statuses against what was built,
+   terminology against the final plan, "Codebase today" in `FIXTURES.md`, test
+   list in `TESTS.md`), report to the Captain.
 
 Start a fresh orchestrator session at each milestone, or once context passes
 roughly 150k tokens. The vision, milestone plan, definitions, receipts and todo
 list are the handoff.
 
-## Definitions
+## DBC (Driven by Concepts)
 
-`Planning/definitions/` is the Captain's main tool for leading the project:
-she reasons and decides in its terms. Keep it current without exception.
+`Planning/DBC/` is the Captain's main tool for leading the project: she
+reasons and decides in its concepts and terms. Keep it current without
+exception.
 
-- `TERMINOLOGY.md` is the glossary. `FIXTURES.md` lists every fixture with its
-  board, what it claims, what the code reports today, and a Comments column.
-  `TESTS.md` lists every CTest with its label and what it checks.
-- The orchestrator owns all three. Any commit that introduces, renames,
-  redefines or retires a project-specific term (plan, contract change, §15 row,
-  receipt, decision) updates `TERMINOLOGY.md` in the same commit; any commit
-  that adds, changes or drops a fixture or a test updates `FIXTURES.md` or
-  `TESTS.md` in the same commit. No term reaches the Captain in a message, plan
-  or receipt before it is defined there.
+- `CONCEPTS.md` draws the project as mermaid flowcharts: L1 the whole project,
+  one L2 diagram per L1 node, small L3 diagrams for L2 nodes that are rules
+  with steps. Each diagram has a node table (node ID, meaning, terms, status).
+  No code, file names or milestone names. The Captain's edits to it are
+  directives: turn them into a plan or contract change; never revert them.
+- `CODE.md` maps every `implemented` or `partial` L2 node (L3 optional) to
+  files and functions, classes, structs or constants. Never line numbers.
+- `DEFINITIONS.md` is the glossary. `FIXTURES.md` lists every fixture with its
+  board, what it claims, what the code reports today, its concept nodes and a
+  Comments column. `TESTS.md` lists every CTest with its label, what it checks
+  and its concept nodes.
+- The format rules (node IDs, statuses, mermaid subset, table columns) are the
+  ones `tools/check_dbc.py` enforces; its docstring lists them.
+- The orchestrator owns all five files. After every implementation batch:
+  1. Flip each node the batch built from `planned` to `partial` or
+     `implemented`; add or split nodes for concepts the batch made real.
+  2. Add or fix `CODE.md` rows for every changed node; drop rows whose code
+     moved or went away.
+  3. Give every new test row and fixture section its concept node IDs.
+  4. Run `python3 tools/check_dbc.py`; fix the DBC files (never the checker's
+     rules) until it passes. A rule that looks wrong goes to the Captain.
+- Any commit that introduces, renames, redefines or retires a project-specific
+  term (plan, contract change, §15 row, receipt, decision) updates
+  `DEFINITIONS.md` in the same commit; any commit that adds, changes or drops
+  a fixture or a test updates `FIXTURES.md` or `TESTS.md` in the same commit;
+  any commit that changes what a concept node means or where it lives updates
+  `CONCEPTS.md` or `CODE.md` in the same commit. No term reaches the Captain in
+  a message, plan or receipt before it is defined there.
+- Node IDs are stable: renaming one is a change of meaning (below), and every
+  reference in `CODE.md`, `TESTS.md` and `FIXTURES.md` moves in the same commit.
 - Regenerate fixture boards with `.venv/bin/python tools/render_fixture_boards.py`
   after any fixture change. In `FIXTURES.md`, "Codebase today" holds the facts
   a human needs (best move, verdicts, tactic judgement, contributing motifs,
   test result), not report fields copied for the language model.
 - Any agent that finds a problem with a fixture adds a dated, signed note to
   its Comments cell in `FIXTURES.md`; that is the only edit workers make in
-  `Planning/definitions/`.
+  `Planning/DBC/`.
 - A changed meaning is rewritten in place, with the date and the old meaning
   named ("called X before <date>"), so old receipts stay readable.
 - Open questions that affect a definition are marked as open in its row.
 - Prefer project terms over generic ones where they differ ("engine-confirmed
   precision", not "precision"); when a generic word must be used, use it in the
   sense the file gives.
-- Workers do not edit `TERMINOLOGY.md`; they list new terms in their return
-  message and the orchestrator adds them.
+- Workers do not edit `CONCEPTS.md`, `CODE.md` or `DEFINITIONS.md`; they report
+  concept impact and new terms in their return message and the orchestrator
+  adds them.
 - Read these files by section, like the other planning documents.
 
 ## Reviews
@@ -150,8 +181,8 @@ before that, keep it out of the default targets.
 
 |When|Gate|
 |---|---|
-|After each batch|Build affected targets; run affected CTests in Release|
-|Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and `clang-tidy --quiet -p build/release` on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; the milestone's smoke command once|
+|After each batch|Build affected targets; run affected CTests in Release; `python3 tools/check_dbc.py`|
+|Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and `clang-tidy --quiet -p build/release` on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; `python3 tools/check_dbc.py`; the milestone's smoke command once|
 
 - CTest labels: `unit` (no engine, no model), `engine` (needs
   `assets/engines/stockfish`), `model` (needs a GGUF in `assets/models/`, opt-in).

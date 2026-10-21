@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render one SVG board per fixture position for Planning/definitions/FIXTURES.md.
+"""Render one SVG board per fixture position for Planning/DBC/FIXTURES.md.
 
 Development-only. Uses python-chess (GPL-3.0-or-later) from the git-ignored .venv/;
 ChessWhy never links or ships it. The piece drawings in the SVGs are Colin M.L.
@@ -7,7 +7,7 @@ Burnett's, used under the BSD option of their GFDL/BSD/GPL triple license.
 
     .venv/bin/python tools/render_fixture_boards.py
 
-Writes Planning/definitions/boards/<ID>.svg for every F, U, T and C fixture, White at
+Writes Planning/DBC/boards/<ID>.svg for every F, U, T and C fixture, White at
 the bottom, with an arrow for the fixture's asked move (F) or first line move (T, C).
 """
 
@@ -23,7 +23,7 @@ import chess.svg
 
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures"
-OUT = ROOT / "Planning" / "definitions" / "boards"
+OUT = ROOT / "Planning" / "DBC" / "boards"
 BOARD_PX = 240
 
 Json = dict[str, object]
