@@ -12,13 +12,20 @@ one legal move is marked forced (`rule`). On a tactic line every motif gets a co
 (`direct`, `indirect` or `none`), and the rule label `removal_of_defender` marks a capture that
 takes away a piece's only defender. The current release renders a report without a language
 model; verbalisation is planned for M4.
+Positional facts in `position.positional` describe pawn structure, king safety, pieces, space/development
+and material; per-line `positional` entries record features appearing or disappearing, with `rule`
+provenance. Lichess broadcast counts use `games` provenance and never judge a move: text reports show
+`games: 262026 games ... [games]` under a position and `games: played in N of M games [games]` under
+a candidate. Reports credit the source as `Lichess broadcast database, database.lichess.org`
+under CC BY-SA 4.0.
+
 M2 motif definitions were written after consulting lichess-puzzler, and `removal_of_defender`
 follows its `capturing_defender` theme; the Lichess puzzle database (CC0) provides the theme tags
 used as the validation reference.
 
 ## Requirements and setup
 
-A C++ compiler (g++ 14 or clang 19), CMake 3.25 or newer, and Ninja are required to build. Python 3 and the development requirements are needed for the report-schema tests.
+A C++ compiler (g++ 14 or clang 19), CMake 3.25 or newer, and Ninja are required to build. Python 3 and the development requirements are needed for the report-schema and `games_oracle` tests.
 
 ```sh
 git submodule update --init --recursive
@@ -27,19 +34,27 @@ python3 -m venv .venv
 .venv/bin/pip install -r tools/requirements-dev.txt
 ```
 
-The asset command fetches Stockfish and the opening tables. On Debian, if creating the virtual environment fails because `venv` is unavailable, install `python3-venv` first.
+The asset command fetches Stockfish and opening tables. After building, run
+`tools/fetch_assets.sh games` to fetch the 81 monthly broadcast PGNs and build the game-count table
+(about 167 s). On Debian, if creating the virtual environment fails because `venv` is unavailable,
+install `python3-venv` first.
 
 ## Build and test
 
 ```sh
 cmake --preset release && cmake --build --preset release
+tools/fetch_assets.sh games
 ctest --preset release
 ```
 
-CTest's `unit` label does not need an engine; `engine` tests need the fetched Stockfish asset.
-`tactics_unit_tests` checks the T fixtures (motifs) and C fixtures (hand-labelled contributions and
-tactic labels) in CTest's `unit` suite; `tactics_puzzles` measures recall, and `tactics_oracle`
-checks exact agreement with the independent reference implementation.
+CTest's `unit` label does not need an engine; `engine` tests need the fetched Stockfish asset; `games`
+needs the broadcast months. `tactics_unit_tests` checks the T fixtures (motifs) and C fixtures
+(hand-labelled contributions and tactic labels) in CTest's `unit` suite; `tactics_puzzles` measures
+recall, and `tactics_oracle` checks exact agreement with the independent reference implementation.
+`positional_oracle` compares detectors with an independent reference on 53,378 puzzle boards; P
+fixtures are in `tests/fixtures/positional.json`, and engine fixtures F25–F30 cover positional facts.
+`games_oracle` independently rebuilds the table with `tools/count_games.py` and requires byte-identical
+output.
 The `asan` preset builds with AddressSanitizer and UndefinedBehaviorSanitizer:
 
 ```sh
@@ -56,6 +71,9 @@ build/release/chesswhy --fen "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1
 ```
 
 Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves from the game's start, with 0 denoting the initial position. Before White's move N, use ply `2(N−1)`; before Black's move N, use ply `2N−1`. `--move` accepts SAN or UCI; `--json` selects JSON output, and budgets are `quick`, `standard` (default), or `deep`.
+`--games FILE` selects the broadcast-count table (default
+`assets/data/games/lichess_broadcast_2200.tsv`). A missing or invalid table fails with exit 3 and one
+`chesswhy: error: ...` line.
 
 ```sh
 build/release/chesswhy --pgn tests/fixtures/two_games.pgn --game 1 --ply 2 --json --budget quick

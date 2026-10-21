@@ -90,7 +90,9 @@ class PrefixVisitor(chess.pgn.BaseVisitor[ParsedGame]):
         self.headers[tagname] = tagvalue
 
     @override
-    def begin_parse_san(self, board: chess.Board, san: str) -> chess.pgn.SkipType | None:
+    def begin_parse_san(
+        self, board: chess.Board, san: str
+    ) -> chess.pgn.SkipType | None:
         normalized = MOVE_NUMBER_PREFIX.sub("", san, count=1)
         if (
             not normalized
@@ -193,9 +195,9 @@ def exclusion_reason(game: ParsedGame) -> ExclusionReason | None:
         return "variant"
     if "FEN" in headers or "SetUp" in headers:
         return "setup"
-    if not is_rating_at_least(headers.get("WhiteElo"), RATING_FLOOR) or not is_rating_at_least(
-        headers.get("BlackElo"), RATING_FLOOR
-    ):
+    if not is_rating_at_least(
+        headers.get("WhiteElo"), RATING_FLOOR
+    ) or not is_rating_at_least(headers.get("BlackElo"), RATING_FLOOR):
         return "rating"
     if headers.get("Result") not in ("1-0", "0-1", "1/2-1/2"):
         return "result"
@@ -264,9 +266,13 @@ def read_path(path: Path, counter: GameCounter) -> None:
 
 def write_table(counter: GameCounter, months: str, output: TextIO) -> int:
     kept_keys = sorted(
-        key for key, counts in counter.positions.items() if counts.games >= counter.min_games
+        key
+        for key, counts in counter.positions.items()
+        if counts.games >= counter.min_games
     )
-    excluded = " ".join(f"{name}={counter.excluded[name]}" for name in EXCLUSION_REASONS)
+    excluded = " ".join(
+        f"{name}={counter.excluded[name]}" for name in EXCLUSION_REASONS
+    )
     header = (
         f"# source {SOURCE_ID}\n"
         f"# platform {PLATFORM}\n"
@@ -305,15 +311,15 @@ def main() -> int:
                 encoding="utf-8", errors="replace"
             )
             read_games(sys.stdin, counter)
-        cast(TextIOWrapper, sys.stdout).reconfigure(
-            encoding="utf-8", newline="\n"
-        )
+        cast(TextIOWrapper, sys.stdout).reconfigure(encoding="utf-8", newline="\n")
         positions = write_table(counter, args.months, sys.stdout)
     except (OSError, UnicodeError) as error:
         print(f"count_games.py: {error}", file=sys.stderr)
         return 2
 
-    excluded = " ".join(f"{name}={counter.excluded[name]}" for name in EXCLUSION_REASONS)
+    excluded = " ".join(
+        f"{name}={counter.excluded[name]}" for name in EXCLUSION_REASONS
+    )
     print(f"games read: {counter.games_read}", file=sys.stderr)
     print(f"excluded: {excluded}", file=sys.stderr)
     print(f"games kept: {counter.games_kept}", file=sys.stderr)

@@ -97,7 +97,9 @@ def main() -> None:
     for fixture in load_list("tactics.json", "fixtures"):
         write_board(cast(str, fixture["id"]), *line_fixture(fixture))
     for fixture in load_list("positional.json", "features"):
-        write_board(cast(str, fixture["id"]), chess.Board(cast(str, fixture["fen"])), None)
+        write_board(
+            cast(str, fixture["id"]), chess.Board(cast(str, fixture["fen"])), None
+        )
     for fixture in load_list("positional.json", "lines"):
         write_board(cast(str, fixture["id"]), *line_fixture(fixture))
 
