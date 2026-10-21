@@ -17,7 +17,7 @@ their source and platform, and are never phrased as move quality.
 | B2 | Broken games | Deputy's call: a game with an illegal or unreadable move within the ply limit is skipped whole and counted. Moves after the ply limit are not read, so a relay error late in a game (most of them are king moves in the endgame) does not cost the game |
 | B3 | Games relayed twice | Not de-duplicated (Deputy's call) |
 | B4 | Online events relayed as broadcasts | Not filtered; the source definition says the platform is "over the board" for most games and may include online relays (Deputy's call) |
-| B5 | Ply limit and minimum game count | **Open** (§4.2): 40 plies and 5 games, from the pilot |
+| B5 | Ply limit and minimum game count | **Open** (§4.2): 40 plies and 5 games, recommended from the pilot (2026-10-21, all 81 months: 1,263,913 games read, 268,056 kept). Positions kept for L × N: L=30: 113,705 (N=5), 52,946 (N=10); L=40: 117,568 (N=2: 473,633; N=10: 53,889); L=60: 118,042. Past ply 40 almost no position reaches 5 games (85 positions first reached at ply 40) |
 
 ## 2. Contract files
 
@@ -98,7 +98,8 @@ the same input gives the same bytes.
 ### 4.4 Pinning
 
 - `tools/fetch_assets.sh` lists the 81 month files with the SHA-256 published in
-  `https://database.lichess.org/broadcast/sha256sums.txt` on 2026-10-21 and fails on any
+  `https://database.lichess.org/broadcast/sha256sums.txt` on 2026-10-21, keeps them in
+  `assets/data/games/broadcast/` (the `games` tests read them there) and fails on any
   mismatch. If Lichess re-exports a month, re-pinning is an explicit task.
 - The table's SHA-256 is pinned in `fetch_assets.sh` and in `games::kTable`
   (`"lichess_broadcast_2200@<first 12 hex digits>"`) after the first full build, as a §13
