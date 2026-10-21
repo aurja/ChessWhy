@@ -751,7 +751,7 @@ namespace {
 
 } // namespace
 
-TEST_CASE("contributions mark move motifs and later motif-piece activity direct", "[unit]") {
+TEST_CASE("contributions mark move motifs and X captures direct", "[unit]") {
     SECTION("a move motif is direct on its producing ply") {
         const chess::Board root("6k1/8/6q1/5N2/1B6/8/8/K7 w - - 0 1");
         chess::Board board = root;
@@ -766,7 +766,7 @@ TEST_CASE("contributions mark move motifs and later motif-piece activity direct"
         CHECK(judged[0].contribution == chesswhy::MotifContribution::Direct);
     }
 
-    SECTION("a later capture of a target is direct") {
+    SECTION("an X capture of a target is direct") {
         const chess::Board root("7k/8/8/2n5/8/8/8/K1R5 w - - 0 1");
         chess::Board board = root;
         const std::vector<chess::Move> line = parse_line(board, {"c1c5"});
@@ -776,36 +776,48 @@ TEST_CASE("contributions mark move motifs and later motif-piece activity direct"
         CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
     }
 
-    SECTION("a later move of the actor is direct, before indirect classification") {
-        const chess::Board root("7k/8/8/8/8/8/8/K7 w - - 0 1");
+    SECTION("an X capture makes an earlier indirect contribution direct") {
+        const chess::Board root("7k/8/8/4n3/8/8/1N6/K3R3 w - - 0 1");
         chess::Board board = root;
-        const std::vector<chess::Move> line = parse_line(board, {"a1b1"});
+        const std::vector<chess::Move> line = parse_line(board, {"b2c4", "h8g8", "e1e5"});
         std::vector<Motif> motifs{
-            test_motif(MotifTag::HangingPiece, Side::White, 0, "a1", 'K')};
-        chesswhy::tactics::judge_contributions(root, line, motifs);
-        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
-    }
-
-    SECTION("later direct use wins over an earlier indirect move") {
-        const chess::Board root("7k/8/8/8/8/8/8/KNR5 w - - 0 1");
-        chess::Board board = root;
-        const std::vector<chess::Move> line = parse_line(board, {"b1c3", "h8g8", "c1c2"});
-        std::vector<Motif> motifs{
-            test_motif(MotifTag::HangingPiece, Side::White, 0, "c1", 'R')};
+            test_motif(MotifTag::PinRelative, Side::White, 0, "e1", 'R', {{"e5", 'n'}})};
         chesswhy::tactics::judge_contributions(root, line, motifs);
         CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
     }
 }
 
-TEST_CASE("contributions treat castling and en passant as piece activity", "[unit]") {
-    SECTION("castling directly moves its rook") {
-        const chess::Board root("4k3/8/8/8/8/8/8/4K2R w K - 0 1");
+TEST_CASE("motif-piece movement is not direct and blocks later indirect attribution", "[unit]") {
+    SECTION("an X actor moving while capturing a non-motif piece is not direct") {
+        const chess::Board root("7k/8/8/4n3/8/8/1Np5/K1R5 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"c1c2", "h8g8", "b2c4"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::PinRelative, Side::White, 0, "c1", 'R', {{"e5", 'n'}})};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::None);
+    }
+
+    SECTION("a Y target moving is not direct and blocks later indirect attribution") {
+        const chess::Board root("7k/8/8/4n2P/8/8/8/KR6 w - - 0 1");
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, {"a1a2", "e5f7", "h5h6"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::PinRelative, Side::White, 0, "b1", 'R', {{"e5", 'n'}})};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::None);
+    }
+}
+
+TEST_CASE("contributions count X captures, not castling movement, as direct", "[unit]") {
+    SECTION("castling does not make a motif rook direct") {
+        const chess::Board root("4k2r/8/8/8/8/8/8/4K2R w K - 0 1");
         chess::Board board = root;
         const std::vector<chess::Move> line = parse_line(board, {"e1g1"});
         std::vector<Motif> motifs{
-            test_motif(MotifTag::HangingPiece, Side::White, 0, "h1", 'R')};
+            test_motif(MotifTag::HangingPiece, Side::White, 0, "h1", 'R', {{"h8", 'r'}})};
         chesswhy::tactics::judge_contributions(root, line, motifs);
-        CHECK(motifs[0].contribution == chesswhy::MotifContribution::Direct);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::None);
     }
 
     SECTION("en passant directly captures the passed pawn") {
@@ -820,8 +832,8 @@ TEST_CASE("contributions treat castling and en passant as piece activity", "[uni
     }
 }
 
-TEST_CASE("contribution indirect attacks use pseudo-attacks and skip castling", "[unit]") {
-    SECTION("a pinned motif piece still attacks the destination") {
+TEST_CASE("indirect contributions require an intact Y motif attacker", "[unit]") {
+    SECTION("a pinned Y motif piece still attacks the destination") {
         const chess::Board root("4k3/4n3/8/8/8/8/8/K3RR2 w - - 0 1");
         const auto all_motifs = chesswhy::tactics::position_motifs(root);
         const auto pin = std::ranges::find_if(all_motifs, [](const Motif& motif) {
@@ -836,7 +848,7 @@ TEST_CASE("contribution indirect attacks use pseudo-attacks and skip castling", 
         CHECK(motifs[0].contribution == chesswhy::MotifContribution::Indirect);
     }
 
-    SECTION("an earlier indirect hit survives a later unattacked destination") {
+    SECTION("the C01 queen's own attack is not indirect") {
         const chess::Board root(
             "rn1qk2r/ppp2ppp/5n2/3P2B1/1b2p1b1/2N5/PP3PPP/R2QKBNR w KQkq - 1 8");
         chess::Board board = root;
@@ -854,15 +866,27 @@ TEST_CASE("contribution indirect attacks use pseudo-attacks and skip castling", 
         REQUIRE(pin != all_motifs.end());
         std::vector<Motif> motifs{*pin};
         chesswhy::tactics::judge_contributions(root, line, motifs);
+        CHECK(motifs[0].contribution == chesswhy::MotifContribution::None);
+    }
+
+    SECTION("the C01 line accumulates an earlier indirect hit from a Y target") {
+        const chess::Board root(
+            "rn1qk2r/ppp2ppp/5n2/3P2B1/1b2p1b1/2N5/PP3PPP/R2QKBNR w KQkq - 1 8");
+        chess::Board board = root;
+        const std::vector<chess::Move> line =
+            parse_line(board, {"d1a4", "b8c6", "d5c6", "b4c3", "b2c3"});
+        std::vector<Motif> motifs{
+            test_motif(MotifTag::PinRelative, Side::White, 1, "a4", 'Q', {{"b7", 'p'}})};
+        chesswhy::tactics::judge_contributions(root, line, motifs);
         CHECK(motifs[0].contribution == chesswhy::MotifContribution::Indirect);
     }
 
-    SECTION("a castling move never contributes indirectly") {
-        const chess::Board root("4k3/8/8/8/8/5B2/8/4K2R w K - 0 1");
+    SECTION("a castling move is excluded from indirect classification") {
+        const chess::Board root("4k2r/8/8/8/8/5B2/8/4K2R w K - 0 1");
         chess::Board board = root;
         const std::vector<chess::Move> line = parse_line(board, {"e1g1"});
         std::vector<Motif> motifs{
-            test_motif(MotifTag::HangingPiece, Side::White, 0, "f3", 'B')};
+            test_motif(MotifTag::HangingPiece, Side::White, 0, "f3", 'B', {{"h8", 'r'}})};
         chesswhy::tactics::judge_contributions(root, line, motifs);
         CHECK(motifs[0].contribution == chesswhy::MotifContribution::None);
     }

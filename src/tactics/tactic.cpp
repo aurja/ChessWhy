@@ -1,5 +1,7 @@
 #include "chesswhy/tactics.hpp"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <utility>
@@ -56,29 +58,45 @@ namespace {
     }
 }
 
-[[nodiscard]] bool motif_has_square(const Motif& motif, chess::Square square) {
-    if (motif.actor.square == static_cast<std::uint8_t>(square.index())) {
-        return true;
-    }
-    for (const PieceOnSquare& target : motif.targets) {
-        if (target.square == static_cast<std::uint8_t>(square.index())) {
-            return true;
+struct TrackedPiece {
+    chess::Square square = chess::Square::NO_SQ;
+    chess::Color color = chess::Color::NONE;
+    bool present = false;
+};
+
+using TrackedPieces = std::array<TrackedPiece, 64>;
+
+void add_tracked_piece(const chess::Board& board, std::uint8_t square_index,
+                       TrackedPieces& pieces, std::size_t& count) {
+    const chess::Square square(square_index);
+    for (std::size_t index = 0; index < count; ++index) {
+        if (pieces[index].square == square) {
+            return;
         }
     }
-    return false;
+    const chess::Piece piece = board.at(square);
+    if (piece != chess::Piece::NONE && count < pieces.size()) {
+        pieces[count++] = TrackedPiece{.square = square, .color = piece.color(), .present = true};
+    }
 }
 
-[[nodiscard]] bool motif_attacks(const chess::Board& board, const Motif& motif,
-                                 chess::Square destination) {
-    const auto is_attacking_piece = [&board, destination](const PieceOnSquare& piece) {
-        const chess::Square origin(piece.square);
-        return board.at(origin) != chess::Piece::NONE && attacks_square(board, origin, destination);
-    };
-    if (is_attacking_piece(motif.actor)) {
-        return true;
+[[nodiscard]] std::size_t tracked_piece_at(const TrackedPieces& pieces, std::size_t count,
+                                           chess::Square square) {
+    for (std::size_t index = 0; index < count; ++index) {
+        if (pieces[index].present && pieces[index].square == square) {
+            return index;
+        }
     }
-    for (const PieceOnSquare& target : motif.targets) {
-        if (is_attacking_piece(target)) {
+    return count;
+}
+
+[[nodiscard]] bool motif_attacks(const chess::Board& board, const TrackedPieces& pieces,
+                                 std::size_t count, chess::Color side,
+                                 chess::Square destination) {
+    for (std::size_t index = 0; index < count; ++index) {
+        const TrackedPiece& piece = pieces[index];
+        if (piece.present && piece.color == side &&
+            attacks_square(board, piece.square, destination)) {
             return true;
         }
     }
@@ -129,19 +147,69 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
         }
 
         const std::size_t ply = static_cast<std::size_t>(motif.ply);
+        const chess::Board& motif_position = positions[ply];
+        TrackedPieces pieces{};
+        std::size_t piece_count = 0;
+        add_tracked_piece(motif_position, motif.actor.square, pieces, piece_count);
+        for (const PieceOnSquare& target : motif.targets) {
+            add_tracked_piece(motif_position, target.square, pieces, piece_count);
+        }
+
         bool direct = is_move_motif(motif.tag) && ply > 0;
         bool indirect = false;
+        bool motif_piece_activity = false;
+        const chess::Color enemy = ~tactic_side;
         for (std::size_t move_index = ply; !direct && move_index < line.size(); ++move_index) {
             const chess::Board& before = positions[move_index];
             const chess::Move move = line[move_index];
             const bool castling = move.typeOf() == chess::Move::CASTLING;
-            direct = motif_has_square(motif, move.from()) ||
-                     (castling && motif_has_square(motif, move.to()));
-            if (!direct && before.isCapture(move)) {
-                direct = motif_has_square(motif, captured_square(move));
+            const bool capture = before.isCapture(move);
+            const chess::Square captured = captured_square(move);
+            const bool x_move = before.sideToMove() == tactic_side;
+
+            if (x_move && capture) {
+                const std::size_t captured_index = tracked_piece_at(pieces, piece_count, captured);
+                direct = captured_index < piece_count && pieces[captured_index].color == enemy;
             }
-            if (!direct && before.sideToMove() == tactic_side && !castling) {
-                indirect = indirect || motif_attacks(before, motif, move.to());
+            if (direct) {
+                break;
+            }
+
+            const bool touched_piece =
+                tracked_piece_at(pieces, piece_count, move.from()) < piece_count ||
+                (castling && tracked_piece_at(pieces, piece_count, move.to()) < piece_count) ||
+                (capture && tracked_piece_at(pieces, piece_count, captured) < piece_count);
+            if (!motif_piece_activity && !touched_piece && x_move && !castling) {
+                indirect = indirect ||
+                           motif_attacks(before, pieces, piece_count, enemy, move.to());
+            }
+            motif_piece_activity = motif_piece_activity || touched_piece;
+
+            if (capture) {
+                const std::size_t captured_index = tracked_piece_at(pieces, piece_count, captured);
+                if (captured_index < piece_count) {
+                    pieces[captured_index].present = false;
+                }
+            }
+            if (castling) {
+                const bool king_side = move.to() > move.from();
+                const std::size_t king_index =
+                    tracked_piece_at(pieces, piece_count, move.from());
+                const std::size_t rook_index =
+                    tracked_piece_at(pieces, piece_count, move.to());
+                if (king_index < piece_count) {
+                    pieces[king_index].square =
+                        chess::Square::castling_king_square(king_side, before.sideToMove());
+                }
+                if (rook_index < piece_count) {
+                    pieces[rook_index].square =
+                        chess::Square::castling_rook_square(king_side, before.sideToMove());
+                }
+            } else {
+                const std::size_t moved_index = tracked_piece_at(pieces, piece_count, move.from());
+                if (moved_index < piece_count) {
+                    pieces[moved_index].square = move.to();
+                }
             }
         }
 

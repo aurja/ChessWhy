@@ -4,10 +4,9 @@ Every CTest in the build, grouped by test program, with its label and what it
 checks. Terms are defined in [TERMINOLOGY.md](TERMINOLOGY.md) (§6.3 for labels,
 gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-21, commit `a4b6292` plus the uncommitted F21–F24 and
-C01–C16 fixtures: 107 CTests (80 `unit`, 27 `engine`, no `model` yet). Release
-run: all pass except `tactic fixtures exercise contributions and labels` (the
-six C-fixture mismatches in FIXTURES.md §6; C01 fixed 2026-10-21).
+**Snapshot:** 2026-10-21, after the PostM2_EM1 checkpoint 2 rule change: 108 CTests
+(81 `unit`, 27 `engine`, no `model` yet). `tactics_unit_tests` passes in Release and
+ASan/UBSan (23 test cases); the full Release run is next at the milestone gate.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -105,13 +104,14 @@ Rules that turn engine numbers into report facts; no engine runs.
 | castling rook checks are not discoveries or solo double checks | unit | A castling rook giving check is not a discovery |
 | move motifs detect back-rank mate and promotion | unit | Back-rank mate and queen promotion |
 | motif fixtures exercise every frozen include and exclude | unit | T fixtures: every include found, no exclude found |
-| contributions mark move motifs and later motif-piece activity direct | unit | Contribution rule: `direct` |
-| contribution indirect attacks use pseudo-attacks and skip castling | unit | Contribution rule: `indirect`; an indirect hit from an earlier move survives a later move to an unattacked square (C01's line) |
+| contributions mark move motifs and X captures direct | unit | Contribution rule: `direct` = a move motif, or a later capture by the tactic side of one of the motif's defending-side pieces; the defender's own moves do not count |
+| indirect contributions require an intact Y motif attacker | unit | Contribution rule: `indirect` = a defending-side piece of the motif attacks where the tactic side lands, pins ignored; an earlier hit survives a later move to an unattacked square (C01's line) |
 | contribution none covers Y-side, ply-n and ply-zero motifs | unit | Contribution rule: `none` cases |
-| contributions treat castling and en passant as piece activity | unit | Special moves count as piece activity |
+| contributions count X captures, not castling movement, as direct | unit | En passant capture of a motif pawn is direct; castling the motif's rook is not |
+| motif-piece movement is not direct and blocks later indirect attribution | unit | The tactic side moving its own motif piece (e.g. the pinner) is not direct, and once any motif piece has moved or been captured, later moves cannot make it indirect |
 | removal-of-defender labels revive T33 and reject T34 | unit | The two former T fixtures as label tests |
 | removal-of-defender labels reject near misses | unit | Similar positions that must not get the label |
-| tactic fixtures exercise contributions and labels | unit | C fixtures: every hand-labelled contribution and label. **Fails today** on C08, C09, C10, C12, C13, C14 (C01 fixed 2026-10-21: the rule overwrote an earlier indirect hit) |
+| tactic fixtures exercise contributions and labels | unit | C fixtures: every hand-labelled contribution and label |
 
 Program tests:
 

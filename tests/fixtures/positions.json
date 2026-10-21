@@ -37,7 +37,8 @@
         "/threats/urgency/more_urgent": "white",
         "/threats/urgency/rule": "in_check",
         "/asked_move/san": "Kh5",
-        "/asked_move/verdict": "fine"
+        "/asked_move/verdict": "fine",
+        "/candidates/0/tactic/forced": true
       },
       "fine_includes": ["Kh5"]
     },
@@ -407,6 +408,62 @@
         "/asked_move/line": ["Kh8", "Qg7#"]
       },
       "fine_includes": ["Kh8"]
+    },
+    {
+      "id": "F21",
+      "title": "only-move capture of the exposed queen with check",
+      "source": "constructed: knight captures the exposed queen with check",
+      "args": ["--fen", "4k3/8/5q2/3N4/8/8/8/4K3 w - - 0 1"],
+      "equals": {
+        "/candidates/0/tactic/is_tactic": true
+      }
+    },
+    {
+      "id": "F22",
+      "title": "refutation fork wins the queen after the quiet pawn move",
+      "source": "constructed: PostM2_EM1 smoke position",
+      "args": ["--fen", "k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1", "--move", "c3"],
+      "equals": {
+        "/candidates/0/tactic/is_tactic": false,
+        "/asked_move/refutation/tactic/is_tactic": true
+      },
+      "motifs_include": {
+        "/asked_move/refutation/motifs": [
+          {
+            "tag": "fork",
+            "side": "black",
+            "ply": 1,
+            "actor": "f3",
+            "contribution": "direct"
+          }
+        ]
+      }
+    },
+    {
+      "id": "F23",
+      "title": "decisive mate-in-one position is saturated",
+      "source": "constructed: mate-in-one versus mate-in-two saturation",
+      "args": ["--fen", "8/7k/5K2/6Q1/8/8/8/8 w - - 0 1"],
+      "equals": {
+        "/candidates/0/tactic/is_tactic": false,
+        "/candidates/0/eval/es": 1.0,
+        "/candidates/1/eval/es": 1.0
+      }
+    },
+    {
+      "id": "F24",
+      "title": "four equally winning mate-in-one moves",
+      "source": "constructed: four legal queen mates",
+      "args": ["--fen", "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"],
+      "equals": {
+        "/candidates/0/tactic/is_tactic": false,
+        "/candidates/0/eval/es": 1.0,
+        "/candidates/1/eval/es": 1.0
+      },
+      "line_prefix": {
+        "/candidates/0/line": ["Qg7#"],
+        "/candidates/1/line": ["Qf8#"]
+      }
     }
   ],
   "unit_fixtures": [

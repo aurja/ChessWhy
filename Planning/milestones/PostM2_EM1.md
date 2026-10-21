@@ -112,18 +112,20 @@ squares on Pₖ:
 
 1. side(μ) ≠ X → `none`.
 2. **direct** iff μ is a move motif (M2 §4.2; produced by mvₖ, a move of the sequence),
-   or some mvⱼ with k < j ≤ n moves or captures a piece of μ (castling moves its rook; en
-   passant captures the passed pawn).
+   or some X move mvⱼ with k < j ≤ n captures a Y piece of μ (en passant captures the
+   passed pawn). Y's moves, and X moves that only move an X piece of μ, do not count.
 3. **indirect** iff not direct, and some X move mvⱼ with k < j ≤ n, not castling, has a
-   destination square that a piece of μ attacks on Pⱼ₋₁. Attacks are the piece's
+   destination square that a **Y** piece of μ attacks on Pⱼ₋₁, while no move
+   mvₖ₊₁ … mvⱼ has moved or captured any piece of μ. Attacks are the piece's
    pseudo-attacks with Pⱼ₋₁'s occupancy, pins ignored (a pinned piece still "would
-   defend"). Pieces of μ have not moved by then, or rule 2 would hold.
+   defend").
 4. Otherwise `none`.
 
-Plain meaning (for hand labelling, M2 D11): direct = the tactic's moves use the motif;
-indirect = the motif helps without its pieces moving (a pin that stops a recapture, an
-overloaded defender that cannot cover both squares, a piece guarding a landing square);
-none = the tactic would work the same without it.
+Plain meaning (for hand labelling, M2 D11; tightened 2026-10-21, §15): direct = the
+tactic's moves make the motif or capture its pieces; indirect = the motif stops a Y piece
+from answering an X move (a pin that stops a recapture, an overloaded defender that
+cannot cover both squares); none = the tactic would work the same without it. An X
+piece of the motif guarding a square is that piece's own work, not the motif's.
 
 ### 4.4 `removal_of_defender` (tactic label)
 
@@ -257,10 +259,10 @@ at checkpoint 2, decided by the Captain per mismatch, each with a §15 row.
   targets, contribution}` (exact set: a missing or extra X motif fails). Label entries
   are `{tag, side, ply, actor, targets}`; any field may be omitted in `labels_exclude`.
   Squares as names; exact format in the file's `comment`.
-- Coverage, at least: 6 fixtures whose key motif is `direct`; 6 with an `indirect` motif
-  (pin stopping a recapture ×2, overloaded defender ×2, guard of a landing square ×1,
-  one free choice); 4 with a `none` motif; `removal_of_defender` 3 positives and 3 near
-  misses (T33, T34 revived among them). IDs C01–Cnn.
+- Coverage, at least: 6 fixtures whose key motif is `direct`; 3 with an `indirect` motif
+  (pin stopping a recapture ×2, one free choice); 4 with a `none` motif;
+  `removal_of_defender` 3 positives and 3 near misses (T33, T34 revived among them).
+  IDs C01–Cnn. (Reduced 2026-10-21, §15.)
 - **Hand labels**: WP4 labels from the plain meaning in §4.3, one-line reason per label,
   without running or reading the rule implementation. Lines must be tactics: a Lichess
   puzzle solution (CC0, puzzle ID as source) or a line checked by WP4 at `standard` to
@@ -357,3 +359,6 @@ contribution `direct`.
 | 2026-10-20 | JSON key `engine.nodes.R`, not `r` | Existing node keys are `A`–`E`; the C++ field stays `NodeBudget::r` |
 | 2026-10-20 | No `tests/tactics/CMakeLists.txt` change; `tactics.json` has a per-entry `reason` and a per-fixture `margin` (null for puzzles) | The unit test builds fixture paths from `CHESSWHY_SOURCE_DIR`; reasons and margin checks (§9) need a place in the file |
 | 2026-10-20 | An asked move that is `candidates[0]` copies its motifs with their contributions together with its `tactic`; §4.2's root-tactic lists include that copy | Same line, same judgement; §4.2 named only `candidates[0]`, and the invariant check needs one answer |
+| 2026-10-21 | §9: indirect coverage 3 (pin stopping a recapture ×2, free choice ×1); the overloaded-defender ×2 and landing-square-guard ×1 cases dropped | Captain, checkpoint 1: an indirect overload is rare and beyond players below titled level (a 50k-puzzle scan found none); a landing-square guard by an X piece is not the motif's work (C01 decision below) |
+| 2026-10-21 | §4.3 rule 2: only X moves count, and only captures of a Y piece of μ; rule 3: only Y pieces of μ, and only while no piece of μ has moved or been captured | Captain, checkpoint 2. Y replies made pins direct (C10 Kxh7; C12, C13, C14 king and pawn moves); X moving its own pinner without capturing made a pin direct (C16 Re2, C09 Qxh4); the X pinner's own guard made a pin indirect (C01 Qa4 on c6) |
+| 2026-10-21 | C fixture hand labels: C01 pin a4→a7,a8 `none`; C09 pin g5→g3,g2 `none` and `removal_of_defender` required; C08 `removal_of_defender` required; C16 pin e1→e5,e8 `none` | Captain, checkpoint 2. C08, C09: Lichess tags both `capturingDefender`, and the captured piece is a defender by SEE |
