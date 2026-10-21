@@ -1,2 +1,4 @@
-# Owned by WP-A1 (Planning/milestones/M3a.md §11): positional_unit_tests (label unit),
-# which also runs the P fixtures in tests/fixtures/positional.json.
+add_executable(positional_unit_tests positional_unit_tests.cpp)
+target_link_libraries(positional_unit_tests PRIVATE chesswhy_positional chesswhy_report
+    Catch2::Catch2WithMain chesswhy_warnings chesswhy_paths)
+catch_discover_tests(positional_unit_tests TEST_PREFIX positional_unit_ PROPERTIES LABELS unit)

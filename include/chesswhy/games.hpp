@@ -19,7 +19,7 @@ namespace chesswhy::games {
 
 // Table name and the first 12 hex digits of the built table's SHA-256 (M3b §4.4). Set
 // once by the first full build, recorded as an M3b §13 row; until then the marker below.
-inline constexpr const char* kTable = "lichess_broadcast_2200@<pinned>";
+inline constexpr const char* kTable = "lichess_broadcast_2200@e0cb7fab3212";
 
 inline constexpr int kRatingFloor = 2200; // both WhiteElo and BlackElo at or above
 inline constexpr int kMaxPly = 40;        // L, ply limit (M3b §4.2, B5)

@@ -74,6 +74,93 @@ template <typename Enum>
     return values;
 }
 
+void serialize_positional_feature_fields(Json& value, const PositionalFeature& feature) {
+    value["tag"] = to_string(feature.tag);
+    value["side"] = to_string(feature.side);
+    Json pieces = Json::array();
+    for (const auto& piece : feature.pieces) {
+        pieces.push_back(serialize_piece_on_square(piece));
+    }
+    value["pieces"] = std::move(pieces);
+    if (feature.file) {
+        value["file"] = std::string(1, static_cast<char>('a' + *feature.file));
+    } else {
+        value["file"] = nullptr;
+    }
+    value["value"] = feature.value ? Json(*feature.value) : Json(nullptr);
+}
+
+[[nodiscard]] Json serialize_positional_feature(const PositionalFeature& feature) {
+    Json value = Json::object();
+    value["source"] = "rule";
+    serialize_positional_feature_fields(value, feature);
+    return value;
+}
+
+[[nodiscard]] Json serialize_positional_features(const std::vector<PositionalFeature>& features) {
+    Json values = Json::array();
+    for (const auto& feature : features) {
+        values.push_back(serialize_positional_feature(feature));
+    }
+    return values;
+}
+
+[[nodiscard]] Json serialize_positional_change(const PositionalChange& change) {
+    Json value = Json::object();
+    value["source"] = "rule";
+    value["ply"] = change.ply;
+    value["change"] = to_string(change.change);
+    value["holds_at_end"] = change.holds_at_end;
+    serialize_positional_feature_fields(value, change.feature);
+    return value;
+}
+
+[[nodiscard]] Json serialize_positional_changes(const std::vector<PositionalChange>& changes) {
+    Json values = Json::array();
+    for (const auto& change : changes) {
+        values.push_back(serialize_positional_change(change));
+    }
+    return values;
+}
+
+[[nodiscard]] Json serialize_game_source(const GameSourceCounts& source) {
+    Json value = Json::object();
+    value["id"] = source.id;
+    value["table"] = source.table;
+    value["platform"] = source.platform;
+    value["players"] = source.players;
+    value["months"] = source.months;
+    value["credit"] = source.credit;
+    value["max_ply"] = source.max_ply;
+    value["min_games"] = source.min_games;
+    value["found"] = source.found;
+    value["games"] = source.games ? Json(*source.games) : Json(nullptr);
+    value["white"] = source.white ? Json(*source.white) : Json(nullptr);
+    value["draws"] = source.draws ? Json(*source.draws) : Json(nullptr);
+    value["black"] = source.black ? Json(*source.black) : Json(nullptr);
+    Json moves = Json::array();
+    for (const auto& move : source.moves) {
+        Json item = Json::object();
+        item["san"] = move.san;
+        item["uci"] = move.uci;
+        item["games"] = move.games;
+        moves.push_back(std::move(item));
+    }
+    value["moves"] = std::move(moves);
+    return value;
+}
+
+[[nodiscard]] Json serialize_games(const GamesInfo& games) {
+    Json value = Json::object();
+    value["source"] = "games";
+    Json by_source = Json::array();
+    for (const auto& source : games.by_source) {
+        by_source.push_back(serialize_game_source(source));
+    }
+    value["by_source"] = std::move(by_source);
+    return value;
+}
+
 [[nodiscard]] Json serialize_tactic_label(const TacticLabel& label) {
     Json value = Json::object();
     value["source"] = "rule";
@@ -172,6 +259,7 @@ template <typename Enum>
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
     value["motifs"] = serialize_motifs(move.motifs);
     value["tactic"] = serialize_optional_tactic(move.tactic);
+    value["positional"] = serialize_positional_changes(move.positional);
     return value;
 }
 
@@ -473,6 +561,7 @@ nlohmann::ordered_json to_json(const Report& report) {
     position["eval_white"] =
         report.position.eval_white ? serialize_eval(*report.position.eval_white) : Json(nullptr);
     position["motifs"] = serialize_motifs(report.position.motifs);
+    position["positional"] = serialize_positional_features(report.position.positional);
     value["position"] = std::move(position);
 
     if (report.threats) {
@@ -520,6 +609,7 @@ nlohmann::ordered_json to_json(const Report& report) {
         opening["last_named"] = nullptr;
     }
     value["opening"] = std::move(opening);
+    value["games"] = serialize_games(report.games);
     return value;
 }
 

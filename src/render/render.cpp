@@ -164,9 +164,79 @@ void write_threat(std::ostringstream& output, const std::string& label,
     write_consequence(output, label + " consequence", threat->consequence);
 }
 
+void write_positional_changes(std::ostringstream& output,
+                              const std::vector<PositionalChange>& changes) {
+    for (const auto& change : changes) {
+        const PositionalFeature& feature = change.feature;
+        output << (change.change == PositionalChangeKind::Appears ? '+' : '-') << ' '
+               << to_string(feature.tag) << ": " << to_string(feature.side);
+        if (feature.value) {
+            output << ' ' << *feature.value;
+        }
+        if (feature.file) {
+            output << ", " << static_cast<char>('a' + *feature.file) << " file";
+        }
+        if (!feature.pieces.empty()) {
+            output << ": ";
+            for (std::size_t index = 0; index < feature.pieces.size(); ++index) {
+                if (index != 0) {
+                    output << ", ";
+                }
+                output << feature.pieces[index].piece << ' ';
+                write_square(output, feature.pieces[index].square);
+            }
+        }
+        output << " (ply " << change.ply;
+        if (!change.holds_at_end) {
+            output << ", not at end";
+        }
+        output << ") [rule]\n";
+    }
+}
+
+void write_game_move_counts(std::ostringstream& output, const MoveAssessment& move,
+                            const GamesInfo& games) {
+    for (const auto& source : games.by_source) {
+        if (!source.found) {
+            continue;
+        }
+        const GameMoveCount* move_count = nullptr;
+        for (const auto& candidate : source.moves) {
+            if (candidate.uci == move.uci) {
+                move_count = &candidate;
+                break;
+            }
+        }
+        if (move_count) {
+            output << "games: played in " << move_count->games << " of " << source.games.value()
+                   << " games [games]\n";
+        } else {
+            output << "games: not played in these games [games]\n";
+        }
+    }
+}
+
+void write_games_summary(std::ostringstream& output, const GamesInfo& games) {
+    for (const auto& source : games.by_source) {
+        if (!source.found) {
+            output << "games: position not in the table (it keeps positions reached in at least "
+                   << source.min_games << " games within the first " << source.max_ply
+                   << " plies) [games]\n";
+            continue;
+        }
+        output << "games: " << source.games.value() << " games, " << source.players
+               << " (platform: " << source.platform << "; source: " << source.credit
+               << "; months: " << source.months << "): White won " << source.white.value()
+               << ", draws " << source.draws.value() << ", Black won " << source.black.value()
+               << " [games]\n";
+    }
+}
+
 void write_move_details(std::ostringstream& output, const std::string& label,
-                        const MoveAssessment& move) {
+                        const MoveAssessment& move, const GamesInfo& games) {
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
+    write_positional_changes(output, move.positional);
+    write_game_move_counts(output, move, games);
     write_tactic(output, move.tactic);
     if (move.verdict == Verdict::Fine) {
         write_motifs(output, move.motifs);
@@ -259,14 +329,14 @@ std::string text(const Report& report) {
         output << label << ": " << candidate.san << " (" << candidate.uci << "), "
                << to_string(candidate.verdict) << ", loss=" << std::fixed << std::setprecision(1)
                << static_cast<double>(candidate.loss_units) / 20.0 << "% [engine]\n";
-        write_move_details(output, label, candidate);
+        write_move_details(output, label, candidate, report.games);
     }
 
     if (report.asked_move) {
         output << "Asked move: " << report.asked_move->san << " (" << report.asked_move->uci
                << "), " << to_string(report.asked_move->verdict)
                << ", in_multipv: " << boolean(report.asked_move->in_multipv) << " [engine]\n";
-        write_move_details(output, "Asked move", *report.asked_move);
+        write_move_details(output, "Asked move", *report.asked_move, report.games);
     } else {
         output << "Asked move: null [rule]\n";
     }
@@ -285,6 +355,7 @@ std::string text(const Report& report) {
     } else {
         output << "Last named opening: null [book]\n";
     }
+    write_games_summary(output, report.games);
     return output.str();
 }
 

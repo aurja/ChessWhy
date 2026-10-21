@@ -94,6 +94,16 @@ inline constexpr const char* kAfterE4E5 =
     report.position.fen = fen;
     report.position.side_to_move = side;
     report.opening.dataset = kDataset;
+    GameSourceCounts game_source;
+    game_source.id = "lichess_broadcast";
+    game_source.table = "lichess_broadcast_2200@0123456789ab";
+    game_source.platform = "over the board (may include online events relayed as broadcasts)";
+    game_source.players = "both rated 2200 or more";
+    game_source.months = "2020-01..2026-09";
+    game_source.credit = "Lichess broadcast database, database.lichess.org, CC BY-SA 4.0";
+    game_source.max_ply = 40;
+    game_source.min_games = 5;
+    report.games.by_source.push_back(std::move(game_source));
     return report;
 }
 
@@ -144,6 +154,12 @@ inline constexpr const char* kAfterE4E5 =
     report.position.motifs.push_back(
         motif(MotifTag::BackRankWeakness, Side::White, 0, piece_on_square('e', 8, 'k')));
 
+    report.position.positional.push_back(PositionalFeature{.tag = PositionalTag::BishopPair,
+                                                           .side = Side::White,
+                                                           .pieces = {},
+                                                           .file = std::nullopt,
+                                                           .value = std::nullopt});
+
     Threats threats;
     threats.white =
         threat(Side::White, "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR w KQkq - 3 3",
@@ -160,7 +176,24 @@ inline constexpr const char* kAfterE4E5 =
     threats.urgency = {.more_urgent = Side::White, .rule = UrgencyRule::ConsequenceClass};
     report.threats = std::move(threats);
 
+    GameSourceCounts& game_source = report.games.by_source.front();
+    game_source.found = true;
+    game_source.games = 1840;
+    game_source.white = 640;
+    game_source.draws = 790;
+    game_source.black = 410;
+    game_source.moves.push_back(GameMoveCount{.san = "Nf6", .uci = "g8f6", .games = 1140});
+
     report.candidates.push_back(move("d6", "d7d6", {"d6"}, 1234, kF03));
+    report.candidates.back().positional.push_back(
+        PositionalChange{.ply = 1,
+                         .change = PositionalChangeKind::Appears,
+                         .holds_at_end = true,
+                         .feature = PositionalFeature{.tag = PositionalTag::MobilityLead,
+                                                      .side = Side::White,
+                                                      .pieces = {},
+                                                      .file = std::nullopt,
+                                                      .value = 12}});
     report.candidates.back().motifs.push_back(
         motif(MotifTag::Promotion, Side::Black, 1, piece_on_square('e', 8, 'Q')));
     if (auto& creates_threat = report.candidates.back().creates_threat; creates_threat) {
@@ -193,6 +226,25 @@ inline constexpr const char* kAfterE4E5 =
                               consequence(ConsequenceClass::Mate, 0, 1, false, 1));
     asked.refutation->motifs.push_back(
         motif(MotifTag::HangingPiece, Side::White, 1, piece_on_square('d', 5, 'n'), {}, 3));
+    asked.positional.push_back(
+        PositionalChange{.ply = 1,
+                         .change = PositionalChangeKind::Disappears,
+                         .holds_at_end = false,
+                         .feature = PositionalFeature{.tag = PositionalTag::CastlingKingside,
+                                                      .side = Side::White,
+                                                      .pieces = {},
+                                                      .file = std::nullopt,
+                                                      .value = std::nullopt}});
+    asked.positional.push_back(
+        PositionalChange{.ply = 2,
+                         .change = PositionalChangeKind::Appears,
+                         .holds_at_end = true,
+                         .feature = PositionalFeature{
+                             .tag = PositionalTag::DoubledPawns,
+                             .side = Side::Black,
+                             .pieces = {piece_on_square('c', 6, 'p'), piece_on_square('c', 7, 'p')},
+                             .file = 2,
+                             .value = std::nullopt}});
     report.asked_move = std::move(asked);
     return report;
 }

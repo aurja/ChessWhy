@@ -32,6 +32,8 @@ Engine tests need `assets/engines/stockfish` and fail without it.
 | load_pgn selects requested annotated mainline positions | unit | Game and ply selection in `annotated.pgn` | `PgnInput`, `GameMainline` |
 | load_pgn stops before errors in later games | unit | A broken later game does not stop reading an earlier one | `PgnInput`, `GameMainline`, `InputError` |
 | negative PGN ply is rejected | unit | `--ply` below zero is an input error | `PgnInput`, `InputError` |
+| streaming PGN reader reports a broken game and continues | unit | `PgnReader`: a game with an illegal move comes back with its error and the next game is read | `PgnInput`, `GtLegal` |
+| streaming PGN reader skips moves after its ply limit | unit | `PgnReader` with `max_plies`: moves past the limit are never parsed, so an illegal move there is no error | `PgnInput`, `GtLegal` |
 
 ## 2. Engine — `tests/engine/`
 
@@ -133,14 +135,14 @@ Program tests:
 | report_JSON follows schema key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
 | report_enum values use the schema spellings | unit | Nine report enums serialise to the schema's strings | `ReportSchema`, `JsonOutput` |
 | report_scores and optional values are serialized | unit | ES, cp, mate and nulls | `ExpectedScore`, `ReportSchema`, `JsonOutput` |
-| report_motif JSON uses the schema v3 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) | `ReportSchema`, `StateMotif`, `TacticalPin`, `JsonOutput` |
-| report_tactic judgements and motif contributions serialize in report v3 | unit | Tactic judgement, labels and contributions | `ReportSchema`, `TacticJudgement`, `TacticLabel`, `Contribution` |
+| report_motif JSON uses the schema v4 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) | `ReportSchema`, `StateMotif`, `TacticalPin`, `JsonOutput` |
+| report_tactic judgements and motif contributions serialize in report v4 | unit | Tactic judgement, labels and contributions | `ReportSchema`, `TacticJudgement`, `TacticLabel`, `Contribution` |
 
 Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
-| `report_schema_examples` | `report_schema_examples` (`write_examples.cpp`) | unit | Writes eight example reports (terminal checkmate, side in check, normal, PGN opening, tactic with labels, forced, negative margin, refutation) | `ReportDocument`, `JsonOutput`, `ReportSchema` |
+| `report_schema_examples` | `report_schema_examples` (`write_examples.cpp`) | unit | Writes eight example reports (terminal checkmate, side in check, normal, PGN opening, tactic with labels, forced, negative margin, refutation); they carry positional features and changes and a games source, found and not found | `ReportDocument`, `JsonOutput`, `ReportSchema`, `GameCounts` |
 | `report_schema_unit` | `tools/validate_report.py` | unit | Those eight examples validate against `schema/report.v4.schema.json` | `ReportSchema` |
 
 ## 7. Render — `tests/render/render_unit_tests.cpp` (`render_unit_tests`)
@@ -153,6 +155,7 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | render_position evaluation renders the mate score when available | unit | The mate score is shown alongside ES | `TemplateRendering`, `ExpectedScore` |
 | render_motif rows and level-independent output | unit | Motif rows; output does not change with `--level` where it should not | `ExplanationText`, `StateMotif`, `TacticalPin`, `TemplateRendering` |
 | render_tactic judgements, labels and contributions render from report fields | unit | Tactic text uses only report fields; pins, overloaded defenders and `pin_tactical` print as "restricted movement (absolute pin / relative pin / overloaded defender / tactic: Nd5-f4 fork)" | `TacticJudgement`, `TacticLabel`, `Contribution`, `RestrictedMovement` |
+| render_positional and game facts render only from report fields | unit | Positional change rows (`+`/`−`, ply, `not at end`, value) under each line, `position.positional` not printed; the games row after the opening (found or not in the table) and the per-move row; no ranking words | `TemplateRendering`, `TiedToLine`, `GameCounts` |
 
 ## 8. CLI — `tests/cli/`
 
@@ -184,3 +187,46 @@ Developer tool that lists PGN moves or games as TSV; compared with `tests/pgntoo
 | pgntool selects a single game regardless of flag order | unit | `--game N` | `PgnInput`, `GameMainline`, `CommandLine` |
 | pgntool reports argument and input errors without stdout | unit | Missing file, game out of range: message on stderr only | `CommandLine`, `InputError`, `PgnInput` |
 | pgntool help takes precedence anywhere in the arguments | unit | `--help` wins | `CommandLine` |
+
+## 10. Positional — `tests/positional/`
+
+`positional_unit_tests.cpp` (`positional_unit_tests`):
+
+| Test | Label | Checks | Concepts |
+|---|---|---|---|
+| pawn structure handles edge files and both relative directions | unit | Isolated, doubled and island rules on the a and h files, for both colours | `PawnStructure` |
+| passed pawns, connected runs, backward pawns and chains follow their boundaries | unit | Passed, connected passed, backward and chain rules at their rank and file limits | `PawnStructure` |
+| castling, king-zone attackers and rook captures are tracked | unit | Castling rights, including a right lost when the rook is captured; king-zone attackers | `KingSafety` |
+| king files use both edges and relative shield ranks | unit | King files clipped at the board edge; shield gap only for a king on relative rank 1 or 2 | `KingSafety` |
+| piece features use their square, file, and colour rules | unit | Bishop pair, rooks on open, half-open and seventh-rank files, outposts, bad bishops | `PieceActivity` |
+| mobility, space, and development leads include thresholds but not one below | unit | Each lead at its threshold and one below | `SpaceDevelopment` |
+| positional identity follows each tag's identity column | unit | `same_identity` for every tag | `PcCompare`, `PcSame` |
+| line changes compare identities and hold at the final position | unit | Appears and disappears per ply, `holds_at_end`, ordering | `PositionalChange`, `PcAppears`, `PcDisappears`, `PcEnd`, `PcHolds`, `PcUndone` |
+| promotions, en passant and identity persistence are reflected along a line | unit | A promoted piece, an en-passant capture, and a feature whose pieces or value change keeping its identity | `PositionalChange`, `PcBoards`, `PcSame` |
+| positional P fixtures exercise every include and exclude | unit | P fixtures: every hand-labelled feature and change reported, every excluded one absent | `PositionalFixtures`, `PawnStructure`, `KingSafety`, `PieceActivity`, `SpaceDevelopment`, `MaterialBalance`, `PositionalChange` |
+| positional fixture matching handles locally constructed rows | unit | The fixture matcher itself on rows built in the test | `PositionalFixtures` |
+
+Program tests (`tests/positional/oracle/`):
+
+| Test | Program | Label | Checks | Concepts |
+|---|---|---|---|---|
+| `positional_reference_self_check` | `positional_reference_self_check` (`reference_self_check.cpp`) | unit | The independent reference on its own hand cases for every rule group | `PositionalReference` |
+| `positional_oracle` | `positional_oracle` (`positional_oracle.cpp`, `reference.cpp`) | unit | Detectors against the independent reference on every board of every test-sample puzzle line (53,378 boards, 9,300 lines): features, line changes and the mobility, space and development counts; passes only with zero mismatches; prints the per-tag board counts | `PositionalReference`, `PuzzleSample`, `PcFeatures` |
+
+## 11. Games — `tests/games/`
+
+`games_unit_tests.cpp` (`games_unit_tests`):
+
+| Test | Label | Checks | Concepts |
+|---|---|---|---|
+| games table counts first-failing exclusions in contract order | unit | Each exclusion reason (variant, setup, rating, result, illegal) counted once, by the first rule a game fails | `GtStandard`, `GtRating`, `GtResult`, `GtLegal`, `GtExcluded` |
+| repeated positions contribute only their first occurrence per game | unit | A position repeated within a game counts once | `GtCount` |
+| games table respects ply limit and excludes N-minus-one positions | unit | No position after ply 40; a position with N−1 games is dropped | `GtLegal`, `GtKeep`, `GtDropped` |
+| minimum-count boundary, move tie ordering, and table lookup round trip | unit | N games kept; ties in move order; `Table::find` hit and miss after `build_table` | `GtKeep`, `GtRow`, `GameTable`, `GameCounts` |
+| games table loader rejects malformed headers, rows, and ordering | unit | `Table::load` errors | `GameTable` |
+
+Program tests:
+
+| Test | Program | Label | Checks | Concepts |
+|---|---|---|---|---|
+| `games_oracle` | `chesswhy-games`, `tools/count_games.py` (`oracle.cmake`) | games | Both tools on the 2020-07 and 2022-08 months with N = 2 write byte-identical tables | `GamesOracle`, `GameTable`, `BroadcastMonths` |

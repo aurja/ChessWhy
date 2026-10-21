@@ -57,8 +57,7 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class Positional planned
-    class Question,Reference,Explanation,Proof partial
+    class Question,Positional,Reference,Explanation,Proof partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -69,7 +68,7 @@ flowchart LR
 | `Verdicts` | How much each candidate or asked move loses against the best, and why: parry, new threat, refutation | verdict, loss, fine set | implemented |
 | `Motifs` | Patterns on the board, found by rules, on the position and along engine lines; they claim no gain | motif | implemented |
 | `Tactics` | Whether a line wins against the best alternative, and which motifs and labels make it work | tactic, contribution judgement, tactic label | implemented |
-| `Positional` | Pawn structure, king safety, piece activity and other lasting features, reported as changes along lines | positional fact | planned |
+| `Positional` | Pawn structure, king safety, piece activity and other lasting features, reported as changes along lines | positional fact | partial |
 | `Reference` | Knowledge from outside the engine: opening names, game counts, book passages | provenance, opening name, game counts, book passage | partial |
 | `Report` | The one document holding every fact, each with its provenance; nothing is claimed outside it | report, provenance, facts first | implemented |
 | `Explanation` | The words a reader gets: template text today, language-model prose checked against the report later | explanation, template rendering | partial |
@@ -362,22 +361,23 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,WalkedPlies external
-    class PawnStructure,NamedStructures,KingSafety,PieceActivity,SpaceDevelopment,MaterialBalance,Imbalances,PositionalChange,TiedToLine planned
+    class NamedStructures,Imbalances planned
+    class PositionalChange,TiedToLine partial
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
 | `AnalysedPosition` | See Question | — | external |
 | `WalkedPlies` | See Threats and urgency | — | external |
-| `PawnStructure` | Isolated, doubled, backward, passed and connected passed pawns, pawn islands, pawn chains. Since 2026-10-21; before, it also held named structures (now `NamedStructures`) | positional fact, `isolated_pawn`, `doubled_pawns`, `backward_pawn`, `passed_pawn`, `connected_passed_pawns`, `pawn_islands`, `pawn_chain` | planned |
+| `PawnStructure` | Isolated, doubled, backward, passed and connected passed pawns, pawn islands, pawn chains. Since 2026-10-21; before, it also held named structures (now `NamedStructures`) | positional fact, `isolated_pawn`, `doubled_pawns`, `backward_pawn`, `passed_pawn`, `connected_passed_pawns`, `pawn_islands`, `pawn_chain` | implemented |
 | `NamedStructures` | Named pawn-structure families (isolated queen's pawn, hanging pawns, Carlsbad and the like); deferred on 2026-10-21, part of `PawnStructure` before | positional fact | planned |
-| `KingSafety` | Castling rights, gaps in the king's pawn shield, open and half-open files next to the king, enemy pieces attacking the squares around it | positional fact, king files, `castling_kingside`, `king_shield_gap`, `open_file_near_king`, `half_open_file_near_king`, `king_zone_attacker` | planned |
-| `PieceActivity` | Bishop pair, rooks on open or half-open files or the seventh rank, outposts, bad bishops. Mobility moved to `SpaceDevelopment` on 2026-10-21 | positional fact, `bishop_pair`, `rook_open_file`, `rook_half_open_file`, `rook_seventh`, `outpost`, `bad_bishop` | planned |
-| `SpaceDevelopment` | A side ahead in mobility, space or development by at least the lead threshold (mobility was under `PieceActivity` before 2026-10-21) | mobility, space, undeveloped, lead threshold | planned |
-| `MaterialBalance` | Who is ahead in material and by how much, and an exchange up. Called `MaterialImbalance` before 2026-10-21, when it meant which pieces each side has beyond the count (now `Imbalances`) | `material_ahead`, `exchange_up` | planned |
+| `KingSafety` | Castling rights, gaps in the king's pawn shield, open and half-open files next to the king, enemy pieces attacking the squares around it | positional fact, king files, `castling_kingside`, `king_shield_gap`, `open_file_near_king`, `half_open_file_near_king`, `king_zone_attacker` | implemented |
+| `PieceActivity` | Bishop pair, rooks on open or half-open files or the seventh rank, outposts, bad bishops. Mobility moved to `SpaceDevelopment` on 2026-10-21 | positional fact, `bishop_pair`, `rook_open_file`, `rook_half_open_file`, `rook_seventh`, `outpost`, `bad_bishop` | implemented |
+| `SpaceDevelopment` | A side ahead in mobility, space or development by at least the lead threshold (mobility was under `PieceActivity` before 2026-10-21) | mobility, space, undeveloped, lead threshold | implemented |
+| `MaterialBalance` | Who is ahead in material and by how much, and an exchange up. Called `MaterialImbalance` before 2026-10-21, when it meant which pieces each side has beyond the count (now `Imbalances`) | `material_ahead`, `exchange_up` | implemented |
 | `Imbalances` | Which pieces each side has beyond the material count (two minor pieces against a rook and the like); deferred on 2026-10-21 | positional fact | planned |
-| `PositionalChange` | A positional feature that appears or disappears along a line, judged by its identity, and whether that still holds at the end | positional change, feature identity, `holds_at_end` | planned |
-| `TiedToLine` | A positional fact enters the explanation only when a line or verdict changes it | positional fact | planned |
+| `PositionalChange` | A positional feature that appears or disappears along a line, judged by its identity, and whether that still holds at the end | positional change, feature identity, `holds_at_end` | partial |
+| `TiedToLine` | A positional fact enters the explanation only when a line or verdict changes it | positional fact | partial |
 
 ### L2 · Reference knowledge (`Reference`)
 
@@ -407,7 +407,8 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,GameMainline external
-    class BroadcastMonths,GameTable,GameCounts,BookCorpus,BookIndex,ConceptTags,BookPassages planned
+    class BookCorpus,BookIndex,ConceptTags,BookPassages planned
+    class GameCounts partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -417,9 +418,9 @@ flowchart LR
 | `PositionKey` | Placement, side to move, castling and a usable en-passant square, so transpositions match | position key | implemented |
 | `OpeningNames` | The name and ECO code of a named position; never guessed for an unnamed one | opening name | implemented |
 | `LastNamed` | For a game: the last named position on the mainline, up to and including the analysed one | last named position | implemented |
-| `BroadcastMonths` | Monthly files of strong over-the-board games relayed by Lichess, each pinned by its checksum | broadcast month | planned |
-| `GameTable` | Position-to-move counts built offline from the pinned games, each source kept apart, with a recorded table id | game-count table, table id, rating floor, ply limit, minimum game count | planned |
-| `GameCounts` | How often players chose each move in the analysed position, with results, per source and platform; never a judgement of the move | game counts | planned |
+| `BroadcastMonths` | Monthly files of strong over-the-board games relayed by Lichess, each pinned by its checksum | broadcast month | implemented |
+| `GameTable` | Position-to-move counts built offline from the pinned games, each source kept apart, with a recorded table id | game-count table, table id, rating floor, ply limit, minimum game count | implemented |
+| `GameCounts` | How often players chose each move in the analysed position, with results, per source and platform; never a judgement of the move | game counts | partial |
 | `BookCorpus` | The Captain's local books as text, kept out of the repository | book corpus | planned |
 | `BookIndex` | A search index over book chunks | book index | planned |
 | `ConceptTags` | The report's motif and positional tags, widened by a keyword map, used as the book query | concept tag | planned |
@@ -539,7 +540,7 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class Question,Motifs,Tactics,Report,Positional,Reference external
-    class PositionalFixtures,PositionalReference,GamesOracle planned
+    class PositionalFixtures partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -558,9 +559,9 @@ flowchart LR
 | `Recall` | When Lichess names a theme, how often we find it for the solver; held above frozen targets | recall, target (metric) | implemented |
 | `Positional` | See L1 | — | external |
 | `Reference` | See L1 | — | external |
-| `PositionalFixtures` | Positions where a positional feature must or must not be reported, and lines where a change must or must not be | P fixtures, `positional_include` | planned |
-| `PositionalReference` | A second, plain implementation of the positional definitions; both must agree on every puzzle board | `positional_oracle` | planned |
-| `GamesOracle` | A second, independent counter that rebuilds the game-count table from the same games; both tables must be identical | `games_oracle` | planned |
+| `PositionalFixtures` | Positions where a positional feature must or must not be reported, and lines where a change must or must not be | P fixtures, `positional_include` | partial |
+| `PositionalReference` | A second, plain implementation of the positional definitions; both must agree on every puzzle board | `positional_oracle` | implemented |
+| `GamesOracle` | A second, independent counter that rebuilds the game-count table from the same games; both tables must be identical | `games_oracle` | implemented |
 
 ## Level 3
 
@@ -818,20 +819,20 @@ flowchart TD
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class PcBoards,PcFeatures,PcCompare,PcAppears,PcDisappears,PcSame,PcEnd,PcHolds,PcUndone planned
+    class PcBoards partial
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
-| `PcBoards` | The boards a line passes through, as far as the walked plies reach | walked plies | planned |
-| `PcFeatures` | Every positional feature on each of those boards, for both sides | positional feature | planned |
-| `PcCompare` | Compares each ply's features with the ply before by identity | feature identity | planned |
-| `PcAppears` | A feature that was not there one ply earlier | positional change | planned |
-| `PcDisappears` | A feature that is gone one ply later | positional change | planned |
-| `PcSame` | The same feature on both boards, even if its pieces or value differ (a lead that grows). Where the identity holds the number (pawn islands, material ahead), a new number is a disappearance plus an appearance | feature identity | planned |
-| `PcEnd` | Looks at the last walked board | `holds_at_end` | planned |
-| `PcHolds` | The change survives the line | `holds_at_end` | planned |
-| `PcUndone` | The change is reversed before the line ends | `holds_at_end` | planned |
+| `PcBoards` | The boards a line passes through, as far as the walked plies reach | walked plies | partial |
+| `PcFeatures` | Every positional feature on each of those boards, for both sides | positional feature | implemented |
+| `PcCompare` | Compares each ply's features with the ply before by identity | feature identity | implemented |
+| `PcAppears` | A feature that was not there one ply earlier | positional change | implemented |
+| `PcDisappears` | A feature that is gone one ply later | positional change | implemented |
+| `PcSame` | The same feature on both boards, even if its pieces or value differ (a lead that grows). Where the identity holds the number (pawn islands, material ahead), a new number is a disappearance plus an appearance | feature identity | implemented |
+| `PcEnd` | Looks at the last walked board | `holds_at_end` | implemented |
+| `PcHolds` | The change survives the line | `holds_at_end` | implemented |
+| `PcUndone` | The change is reversed before the line ends | `holds_at_end` | implemented |
 
 ### L3 · Game-count table (`GameTable`)
 
@@ -859,18 +860,17 @@ flowchart TD
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class GtGame,GtStandard,GtRating,GtResult,GtLegal,GtExcluded,GtCount,GtKeep,GtRow,GtDropped planned
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
-| `GtGame` | One game of the pinned monthly files | broadcast month | planned |
-| `GtStandard` | No variant and no custom start position | excluded game | planned |
-| `GtRating` | Both players have a rating, at 2200 or above | rating floor | planned |
-| `GtResult` | A win, a loss or a draw, not an unfinished game | excluded game | planned |
-| `GtLegal` | The moves read so far replay legally; moves after the ply limit are never read | broken game, ply limit | planned |
-| `GtExcluded` | The game adds nothing; its reason is counted in the table's header | excluded game | planned |
-| `GtCount` | A position repeated within one game counts once | game counts | planned |
-| `GtKeep` | Rare positions are left out to keep the table small | minimum game count | planned |
-| `GtRow` | The row the report reads for the analysed position | game-count table | planned |
-| `GtDropped` | Too rare to be kept; the report says the position is not in the table | minimum game count | planned |
+| `GtGame` | One game of the pinned monthly files | broadcast month | implemented |
+| `GtStandard` | No variant and no custom start position | excluded game | implemented |
+| `GtRating` | Both players have a rating, at 2200 or above | rating floor | implemented |
+| `GtResult` | A win, a loss or a draw, not an unfinished game | excluded game | implemented |
+| `GtLegal` | The moves read so far replay legally; moves after the ply limit are never read | broken game, ply limit | implemented |
+| `GtExcluded` | The game adds nothing; its reason is counted in the table's header | excluded game | implemented |
+| `GtCount` | A position repeated within one game counts once | game counts | implemented |
+| `GtKeep` | Rare positions are left out to keep the table small | minimum game count | implemented |
+| `GtRow` | The row the report reads for the analysed position | game-count table | implemented |
+| `GtDropped` | Too rare to be kept; the report says the position is not in the table | minimum game count | implemented |
