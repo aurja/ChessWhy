@@ -306,7 +306,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | vision | `Planning/PROJECT_VISION.md`: the source of truth for scope, method and decisions | AGENTS.md |
-| milestone (M0–M6, PostM2_EM1) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sits between M2 and M3 (§4.5); M3 waits until it closes (E1) | vision §11 |
+| milestone (M0–M6, PostM2_EM1, M3a, M3b) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sat between M2 and M3 (§4.5). M3 is split (Captain, 2026-10-21) into **M3a** (positional facts) and **M3b** (opening statistics), planned and built in parallel | vision §11 |
 | contract | The frozen parts of a milestone plan: headers, report schema, fixtures, acceptance, owned files. Workers implement against it and do not change it | AGENTS.md |
 | contract change | Any change to a frozen item after freezing; recorded as a row in the plan's last section ("§15 row" in M2) with date, change and reason | M2 §15 |
 | D1–D13 | The Captain's numbered decisions in M2: D1–D10 at the start, D11–D13 at checkpoint 2b (motif/tactic split, reference implementation, `removal_of_defender` removed) | M2 §1 |
@@ -378,8 +378,9 @@ Mostly planned; [CONCEPTS.md](CONCEPTS.md) marks what is built.
 | position key | Piece placement, side to move, castling rights and an en-passant square only when a legal capture exists; move counters ignored, so transpositions match | vision §5.7, M1 §4.8 |
 | opening name | Name and ECO code of a position in the pinned opening dataset; `book` provenance; never guessed for an unnamed position | vision §5.7, M1 §4.8 |
 | last named position | For PGN input: the last position on the game mainline (up to and including the analysed position) that has an opening name, with its ply | M1 §4.8 |
-| game-count table | Planned: a position → move-count table built offline from pinned game collections, each source and platform kept apart, with a recorded table id | vision §5.7 |
+| game-count table | Planned: a position → move-count table built offline from pinned game collections, each source and platform kept apart, with a recorded table id. One source since 2026-10-21: Lichess broadcasts, both players 2200+ | vision §5.7 |
 | game counts | Planned: per source and position, the number of games, results and the count for each move played; `games` provenance; every figure names its source and platform and is never phrased as move quality | vision §2, §5.7 |
+| rating floor | Planned: the minimum rating both players of a game must have (`WhiteElo` and `BlackElo` tags) for the game to enter the game-count table; games without both tags are left out. 2200 (Captain, 2026-10-21) | vision §5.7 |
 | book corpus | Planned: the Captain's local books as text, kept out of the repository | vision §8 |
 | book index | Planned: a BM25 search index over page or paragraph chunks of the book corpus, kept out of the repository | vision §8 |
 | concept tag | Planned: a motif or positional tag from the report, widened by a checked-in keyword map, used as the book query | vision §8 |

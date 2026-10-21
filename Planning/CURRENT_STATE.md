@@ -10,8 +10,14 @@ Updated 2026-10-21.
   `threat` (14 motif tags), shared "restricted movement" wording. Release and ASan/UBSan
   CTests 111/111; slowest `standard` F fixture 5.87 s; `tactics_oracle` 0 mismatches
   (about 23 s in Release).
-- Next milestone per vision §11: M3 (positional fact detectors and diffs; opening
-  statistics). Not yet planned.
+- Next: M3, split by the Captain (2026-10-21) into **M3a** (positional facts) and **M3b**
+  (opening statistics), planned together and built in parallel. Contracts not yet drafted.
+  Decided: M3a scope = pawn-structure basics, king safety, pieces, space, development lead,
+  material balance (named structure families and Silman's imbalances later). M3b source =
+  Lichess broadcasts only, both players 2200+, January 2020 onward (online Lichess Elite
+  dropped; broadcast license is CC BY-SA 4.0, was recorded as CC0). Minimum game count
+  and ply limit: frozen after a pilot build (proposed 5 and 40). Still open: where M3a
+  measures before/after changes along a line.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept
   diagrams; first version approved as the current baseline, Captain reviewing), CODE (concept → source), DEFINITIONS
   (glossary, was `Planning/definitions/TERMINOLOGY.md`), FIXTURES with boards and TESTS,

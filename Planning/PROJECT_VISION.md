@@ -151,7 +151,7 @@ legal move is **forced** (`rule`). On a tactic line each motif gets a contributi
 `indirect` or `none`; provenance `rule`), and the tactic label `removal_of_defender` (after lichess-puzzler's
 `capturing_defender`) marks a capture of a piece's only defender followed by winning the piece.
 
-### 5.6 Positional facts (M3)
+### 5.6 Positional facts (M3a)
 
 Rule detectors, reported as before/after diffs along the relevant lines:
 
@@ -165,7 +165,12 @@ Rule detectors, reported as before/after diffs along the relevant lines:
 Positional facts enter the explanation only when tied to a line or verdict, so the text
 does not list every feature of the board.
 
-### 5.7 Opening names (M1) and game statistics (M3)
+M3a builds the pawn-structure basics, king safety, pieces, space, development lead and
+the material balance. Named structure families and Silman's imbalances wait for a later
+milestone (Captain, 2026-10-21): their boundaries are fuzzy, and a wrong label would
+still carry `rule` provenance.
+
+### 5.7 Opening names (M1) and game statistics (M3b)
 
 - **Lookup key**: the position (piece placement, side to move, castling rights, en
   passant square only when a legal capture exists), so transpositions match. Move
@@ -176,21 +181,22 @@ does not list every feature of the board.
   a named one. For PGN input it also gives the last named position on the mainline.
   No name is ever guessed for an unnamed position.
 - **Statistics (M3, `games`)**: a position → move-count table built offline by our own
-  C++ tool from pinned monthly files of two sources, kept apart and labelled by
-  platform:
+  C++ tool from pinned monthly files of one source (Captain, 2026-10-21; before that
+  date the plan also had the online Lichess Elite Database, dropped because fast online
+  games say little about considered opening choices, and the set has no stated license
+  and no files after November 2025):
 
   | Source id | Platform label | Content | License |
   |---|---|---|---|
-  | `lichess_broadcast` | over the board | official Lichess broadcasts of real tournaments | CC0 (Lichess export header) |
-  | `lichess_elite` | online, Lichess | Lichess Elite Database: 2500+ vs 2300+, no bullet | filtered from CC0 Lichess exports; no license stated by the compiler |
+  | `lichess_broadcast` | over the board, both players 2200+ | official Lichess broadcasts of real tournaments, January 2020 to the latest month at freeze; only games whose `WhiteElo` and `BlackElo` are both 2200 or more | CC BY-SA 4.0 (Lichess database page, broadcasts section) |
 
-  Per source and position: game count, White wins / draws / Black wins, and the
-  count for each move played. Sources are never merged into one number; every figure
-  names its source and platform ("Bc4: 1,140 of 1,840 over-the-board games;
-  9,212 of 15,003 online Lichess Elite games"). The table covers positions up to a
-  fixed ply limit, and drops rare positions below a minimum game count. Both
-  thresholds, the input months and the table's SHA-256 are frozen in the M3 plan,
-  and the report records the table id so reruns stay reproducible.
+  Per position: game count, White wins / draws / Black wins, and the count for each
+  move played. Every figure names its source and platform ("Bc4: 1,140 of 1,840
+  over-the-board games between players rated 2200+"). The table covers positions up to
+  a fixed ply limit, and drops rare positions below a minimum game count. Both
+  thresholds, the rating floor, the input months and the table's SHA-256 are frozen in
+  the M3 plan, and the report records the table id so reruns stay reproducible. The
+  table stays in git-ignored `assets/`; the report credits the source.
 - **Use**: game counts describe what players chose, never whether it is good;
   the verdict stays with the engine (§5.4). Counts are reported for the candidate
   moves and the asked move, plus "not in the table" when a move is absent.
@@ -222,9 +228,8 @@ in. Sketch:
   "opening": {"source": "book", "eco": "C50", "name": "Italian Game",
               "dataset": "lichess-org/chess-openings@a6189a3", "last_named_ply": 5},
   "games": {"source": "games", "table": "<sha256>", "by_source": [
-    {"id": "lichess_broadcast", "platform": "over the board", "games": 1840,
-     "white": 640, "draw": 790, "black": 410, "moves": [{"move": "Bc4", "games": 1140}]},
-    {"id": "lichess_elite", "platform": "online, Lichess", "games": 15003, "...": "..."}]},
+    {"id": "lichess_broadcast", "platform": "over the board, both players 2200+", "games": 1840,
+     "white": 640, "draw": 790, "black": 410, "moves": [{"move": "Bc4", "games": 1140}]}]},
   "book": [{"book": "<author>, <title>", "page": 123, "excerpt": "..."}]
 }
 ```
@@ -299,7 +304,7 @@ model loaded; requests queue. No authentication, no multi-user features.
 | Engine | Stockfish | 19 (official Linux universal build) | GPL-3.0 | separate process over UCI; never linked, copied or redistributed |
 | Tactics test data | Lichess puzzle DB; committed sample `tests/fixtures/puzzles/test.csv` | 2026-10-05 export `assets/data/lichess_db_puzzle.csv.zst`; source SHA-256 `76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d` | CC0 | 6,157,341 source puzzles; 1,326,623 eligible (`RatingDeviation ≤ 80`, `NbPlays ≥ 1000`, `Popularity ≥ 80`, ≤7 moves); sample 9,300 puzzles (9,301 CSV lines, ≈1.4 MB); M2 validation |
 | Opening names | lichess-org/chess-openings | commit `a6189a3` (2026-10-06) | CC0 | M1 `opening` field |
-| Opening statistics | Lichess broadcasts + Lichess Elite Database | months pinned in M3 | CC0 / derived from CC0 | M3 `games` table, built by our tool |
+| Opening statistics | Lichess broadcasts, both players 2200+ | months pinned in M3 | CC BY-SA 4.0 | M3 `games` table, built by our tool |
 
 Dependencies are git submodules under `third_party/`; engine, models and datasets are
 fetched by `tools/fetch_assets.sh` into git-ignored `assets/` with SHA-256 checks.
@@ -315,7 +320,8 @@ own plan with frozen acceptance criteria; the bullets below are the intent.
 | M1 | CLI, FEN/PGN/ply input, SAN/UCI moves, UCI engine wrapper, searches A–E, threats, urgency, verdicts, opening names, report v1 + schema, template rendering | ~20 hand-checked fixture positions (check, mate threat, hanging piece, counterattack, quiet, zugzwang-prone, promotion, castling/en passant input); opening name found through a transposition; no name for an unnamed position; identical report on rerun; clear errors for bad FEN/PGN/move; `standard` ≤ ~12 s wall time |
 | M2 | Tactical motif detectors in the report: patterns of one position, no claim of gain | exact motif recognition against the written definitions (reference implementation on a fixed Lichess puzzle sample); per-motif recall on that sample |
 | PostM2_EM1 | Tactic recognition: a line is a tactic when it gains in engine evaluation against the second-best move (only-move margin); per-motif contribution (direct, indirect, none); `removal_of_defender` as a tactic-side label; tactical pin (`pin_tactical`) and "restricted movement" wording | tactic labels follow mechanically from the engine lines; contribution judgements match hand-labelled fixtures — complete, merged into `main` 2026-10-21 (receipt `Planning/receipts/PostM2_EM1.md`) |
-| M3 | Positional fact detectors and diffs; opening statistics table and builder | hand-labelled fixture positions, including book positions transcribed to FEN; per-source move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical |
+| M3a | Positional fact detectors and diffs: pawn structure, king safety, pieces, space, development lead, material balance (Captain, 2026-10-21: named structure families and Silman's imbalances move to a later milestone) | hand-labelled fixture positions, including book positions transcribed to FEN |
+| M3b | Opening statistics table and builder (Lichess broadcasts, both players 2200+); built in parallel with M3a | move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical |
 | M4 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; fact-check rejects seeded false statements |
 | M5 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve |
 | M6 | Local HTTP API | CLI and API return identical reports for the fixture set |
@@ -347,7 +353,7 @@ tablebases; our own evaluation function.
 | Prior code | ChessPGNAnalyzer is not a port source; ChessWhy starts clean |
 | License | MIT for ChessWhy's own code; dependencies keep their licenses; Stockfish (GPL-3.0) runs as a separate, separately fetched process |
 | Verdict thresholds | fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder (ES loss, M1) |
-| Openings | names in M1 (lichess chess-openings); per-platform game statistics in M3 (Lichess broadcasts over the board + Lichess Elite online, never merged); Wikibooks prose is an M5 maybe |
+| Openings | names in M1 (lichess chess-openings); game statistics in M3 from Lichess broadcasts over the board, both players 2200+ (online Lichess Elite dropped 2026-10-21); Wikibooks prose is an M5 maybe |
 
 Open for the Captain: default model (M4), HTTP consumer details (M6).
 
