@@ -118,12 +118,20 @@ TEST_CASE("motif JSON uses the schema v3 shape", "[unit]") {
     CHECK(json["schema_version"] == 3);
     CHECK(
         json["position"]["motifs"][0].dump() ==
-        R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3,"contribution":null})");
+        R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3,"threat":null,"contribution":null})");
     CHECK(json["threats"]["white"]["motifs"][0]["targets"].size() == 2);
     CHECK(json["candidates"][0]["motifs"][0]["tag"] == "promotion");
     CHECK(json["candidates"][0]["creates_threat"]["motifs"][0]["tag"] == "discovered_attack");
     CHECK(json["asked_move"]["motifs"][0]["tag"] == "skewer");
     CHECK(json["asked_move"]["refutation"]["motifs"][0]["gain"] == 3);
+    const auto pin = chesswhy::to_json(chesswhy::test_examples::tactic_with_labels())
+                         ["candidates"][0]["motifs"][4];
+    CHECK(keys(pin) == std::vector<std::string>{"source", "tag", "side", "ply", "actor",
+                                                "targets", "gain", "threat", "contribution"});
+    CHECK(keys(pin["threat"]) == std::vector<std::string>{"kind", "square"});
+    CHECK(pin["tag"] == "pin_tactical");
+    CHECK(pin["threat"]["kind"] == "fork");
+    CHECK(pin["threat"]["square"] == "f4");
 }
 
 TEST_CASE("tactic judgements and motif contributions serialize in report v3", "[unit]") {

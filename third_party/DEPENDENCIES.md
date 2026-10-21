@@ -36,4 +36,4 @@ update this table.
 
 | Reference | Pin | License | Use |
 |---|---|---|---|
-| lichess-puzzler | commit `608cf7f2b2a2a02682736ff176b454a30b398e01` | AGPL-3.0 | motif definitions consulted; puzzle themes used as the validation reference |
+| lichess-puzzler | commit `608cf7f2b2a2a02682736ff176b454a30b398e01` | AGPL-3.0 | motif definitions consulted; puzzle themes used as the validation reference; `removal_of_defender` after `capturing_defender`. No code used |

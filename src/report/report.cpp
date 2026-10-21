@@ -37,6 +37,17 @@ template <typename Enum>
     return value;
 }
 
+[[nodiscard]] Json serialize_motif_threat(const MotifThreat& threat) {
+    Json value = Json::object();
+    value["kind"] = to_string(threat.kind);
+    std::string square(2, ' ');
+    square[0] = static_cast<char>('a' + (threat.square % 8));
+    square[1] = static_cast<char>('1' + (threat.square / 8));
+    value["square"] = std::move(square);
+    return value;
+}
+
+
 [[nodiscard]] Json serialize_motif(const Motif& motif) {
     Json value = Json::object();
     value["source"] = "rule";
@@ -50,6 +61,7 @@ template <typename Enum>
     }
     value["targets"] = std::move(targets);
     value["gain"] = motif.gain ? Json(*motif.gain) : Json(nullptr);
+    value["threat"] = motif.threat ? serialize_motif_threat(*motif.threat) : Json(nullptr);
     value["contribution"] =
         motif.contribution ? Json(to_string(*motif.contribution)) : Json(nullptr);
     return value;

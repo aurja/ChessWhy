@@ -32,6 +32,7 @@ namespace {
     case MotifTag::BackRankWeakness:
     case MotifTag::OverloadedDefender:
     case MotifTag::TrappedPiece:
+    case MotifTag::PinTactical:
         return false;
     }
     return false;

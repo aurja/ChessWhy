@@ -30,9 +30,47 @@ void write_square(std::ostringstream& output, std::uint8_t square) {
     output << static_cast<char>('a' + (square % 8)) << static_cast<char>('1' + (square / 8));
 }
 
+void write_motif_label(std::ostringstream& output, const Motif& motif) {
+    switch (motif.tag) {
+    case MotifTag::PinAbsolute:
+        output << "restricted movement (absolute pin)";
+        return;
+    case MotifTag::PinRelative:
+        output << "restricted movement (relative pin)";
+        return;
+    case MotifTag::OverloadedDefender:
+        output << "restricted movement (overloaded defender)";
+        return;
+    case MotifTag::PinTactical: {
+        const MotifThreat& threat = motif.threat.value();
+        char actor_piece = motif.actor.piece;
+        if (actor_piece >= 'a' && actor_piece <= 'z') {
+            actor_piece = static_cast<char>(actor_piece - ('a' - 'A'));
+        }
+        std::string kind = to_string(threat.kind);
+        for (char& character : kind) {
+            if (character == '_') {
+                character = ' ';
+            }
+        }
+        output << "restricted movement (tactic: " << actor_piece;
+        write_square(output, motif.actor.square);
+        output << '-';
+        write_square(output, threat.square);
+        output << ' ' << kind << ')';
+        return;
+    }
+    default:
+        output << to_string(motif.tag);
+        return;
+    }
+}
+
+
 void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs) {
     for (const auto& motif : motifs) {
-        output << to_string(motif.tag) << ": " << motif.actor.piece << ' ';
+        write_motif_label(output, motif);
+        output << ": " << motif.actor.piece << ' ';
         write_square(output, motif.actor.square);
         if (!motif.targets.empty()) {
             output << " → ";

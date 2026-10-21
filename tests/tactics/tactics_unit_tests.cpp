@@ -98,6 +98,7 @@ line_motifs_from(std::string_view fen, std::initializer_list<std::string_view> u
         MotifTag::BackRankWeakness,
         MotifTag::OverloadedDefender,
         MotifTag::TrappedPiece,
+        MotifTag::PinTactical,
         MotifTag::Fork,
         MotifTag::Skewer,
         MotifTag::DiscoveredCheck,
@@ -110,10 +111,27 @@ line_motifs_from(std::string_view fen, std::initializer_list<std::string_view> u
     return std::ranges::any_of(
         tags, [tag](MotifTag candidate) { return chesswhy::to_string(candidate) == tag; });
 }
+[[nodiscard]] bool valid_fixture_threat(const json& value) {
+    if (!value.is_object() || value.size() != 2 || !value.contains("kind") ||
+        !value["kind"].is_string() || !value.contains("square") ||
+        !square_name_is_valid(value["square"])) {
+        return false;
+    }
+    constexpr std::array kinds{
+        chesswhy::ThreatKind::Fork,          chesswhy::ThreatKind::Skewer,
+        chesswhy::ThreatKind::DiscoveredCheck, chesswhy::ThreatKind::DiscoveredAttack,
+        chesswhy::ThreatKind::DoubleCheck,    chesswhy::ThreatKind::BackRankMate,
+        chesswhy::ThreatKind::Promotion,      chesswhy::ThreatKind::Checkmate,
+        chesswhy::ThreatKind::Capture};
+    const std::string kind = value["kind"].get<std::string>();
+    return std::ranges::any_of(kinds, [kind](chesswhy::ThreatKind candidate) {
+        return chesswhy::to_string(candidate) == kind;
+    });
+}
 
 [[nodiscard]] bool valid_fixture_instance_field(std::string_view field) {
     return field == "tag" || field == "side" || field == "ply" || field == "actor" ||
-           field == "targets";
+           field == "targets" || field == "threat";
 }
 
 [[nodiscard]] bool fixture_instance_matches(const Motif& motif, const json& expected,
@@ -155,6 +173,13 @@ line_motifs_from(std::string_view fen, std::initializer_list<std::string_view> u
             }
         }
     }
+    if (expected.contains("threat")) {
+        if (!valid_fixture_threat(expected["threat"]) || !motif.threat ||
+            expected["threat"]["kind"] != chesswhy::to_string(motif.threat->kind) ||
+            expected["threat"]["square"] != square_name(motif.threat->square)) {
+            return false;
+        }
+    }
     return true;
 }
 
@@ -179,6 +204,12 @@ void validate_fixture_instance(const json& expected, bool include) {
         for (const auto& target : expected["targets"]) {
             REQUIRE(square_name_is_valid(target));
         }
+        if (expected["tag"] == chesswhy::to_string(MotifTag::PinTactical)) {
+            REQUIRE(expected.contains("threat"));
+        }
+        if (expected.contains("threat")) {
+            REQUIRE(valid_fixture_threat(expected["threat"]));
+        }
     } else {
         if (expected.contains("tag")) {
             REQUIRE(valid_fixture_tag(expected["tag"]));
@@ -199,6 +230,9 @@ void validate_fixture_instance(const json& expected, bool include) {
             for (const auto& target : expected["targets"]) {
                 REQUIRE(square_name_is_valid(target));
             }
+        }
+        if (expected.contains("threat")) {
+            REQUIRE(valid_fixture_threat(expected["threat"]));
         }
     }
 }
@@ -475,6 +509,125 @@ TEST_CASE("a state motif is reported only on the ply it first appears", "[unit]"
     CHECK(pin_plies == std::vector<int>{1});
 }
 
+TEST_CASE("pin tactical options and threat ordering are honored", "[unit]") {
+    using chesswhy::ThreatKind;
+    using chesswhy::tactics::MotifOptions;
+    using chesswhy::tactics::position_motifs;
+
+    const chess::Board rook_blocks_promotion("r3k3/P7/8/8/8/8/8/7K w q - 0 1");
+    const auto rook_case = position_motifs(rook_blocks_promotion);
+    const auto rook_pin = std::ranges::find_if(rook_case, [](const Motif& motif) {
+        return motif.tag == MotifTag::PinTactical && motif.side == Side::White &&
+               motif.actor.square == static_cast<std::uint8_t>(square("a7").index()) &&
+               motif.threat == chesswhy::MotifThreat{
+                                   .kind = ThreatKind::Promotion,
+                                   .square = static_cast<std::uint8_t>(square("a8").index())};
+    });
+    REQUIRE(rook_pin != rook_case.end());
+    CHECK(rook_pin->targets ==
+          std::vector<PieceOnSquare>{PieceOnSquare{
+              .square = static_cast<std::uint8_t>(square("a8").index()), .piece = 'r'}});
+
+    const chess::Board discovery("k7/8/p7/8/N7/8/8/R6K w - - 0 1");
+    const auto enabled = position_motifs(discovery);
+    CHECK(std::ranges::any_of(enabled, [](const Motif& motif) {
+        return motif.tag == MotifTag::PinTactical;
+    }));
+    const auto disabled = position_motifs(discovery, MotifOptions{.pin_tactical = false});
+    CHECK(std::ranges::none_of(disabled, [](const Motif& motif) {
+        return motif.tag == MotifTag::PinTactical;
+    }));
+    chess::Board line_board = discovery;
+    const std::vector<chess::Move> discovery_line = parse_line(line_board, {"a1a2"});
+    const auto disabled_line = chesswhy::tactics::line_motifs(
+        discovery, discovery_line, MotifOptions{.pin_tactical = false});
+    CHECK(std::ranges::none_of(disabled_line, [](const Motif& motif) {
+        return motif.tag == MotifTag::PinTactical;
+    }));
+
+    std::vector<const Motif*> ordered;
+    for (const Motif& motif : enabled) {
+        if (motif.tag == MotifTag::PinTactical &&
+            motif.actor.square == static_cast<std::uint8_t>(square("a4").index()) &&
+            motif.targets.size() == 2 &&
+            motif.targets[0].square == static_cast<std::uint8_t>(square("a6").index()) &&
+            motif.targets[1].square == static_cast<std::uint8_t>(square("a8").index())) {
+            ordered.push_back(&motif);
+        }
+    }
+    REQUIRE(ordered.size() == 2);
+    CHECK(ordered[0]->threat->kind == ThreatKind::DiscoveredCheck);
+    CHECK(ordered[0]->threat->square == static_cast<std::uint8_t>(square("b2").index()));
+    CHECK(ordered[1]->threat->kind == ThreatKind::DoubleCheck);
+    CHECK(ordered[1]->threat->square == static_cast<std::uint8_t>(square("b6").index()));
+}
+
+TEST_CASE("pin tactical capture threats identify en passant landing squares", "[unit]") {
+    using chesswhy::ThreatKind;
+    using chesswhy::tactics::position_motifs;
+    using chesswhy::tactics::see;
+
+    const chess::Board board("7k/8/8/3pP3/8/3n4/8/K2R4 w - d6 0 1");
+    CHECK(see(board, square("d5"), chess::Color::WHITE) == 0);
+    const chess::Board without_blocker("7k/8/8/3pP3/8/8/8/K2R4 w - d6 0 1");
+    CHECK(see(without_blocker, square("d5"), chess::Color::WHITE) >= 1);
+
+    const auto motifs = position_motifs(board);
+    const auto capture = std::ranges::find_if(motifs, [](const Motif& motif) {
+        return motif.tag == MotifTag::PinTactical && motif.side == Side::White &&
+               motif.actor.square == static_cast<std::uint8_t>(square("e5").index()) &&
+               motif.threat ==
+                   chesswhy::MotifThreat{
+                       .kind = ThreatKind::Capture,
+                       .square = static_cast<std::uint8_t>(square("d6").index())};
+    });
+    REQUIRE(capture != motifs.end());
+    CHECK(capture->targets ==
+          std::vector<PieceOnSquare>{
+              PieceOnSquare{.square = static_cast<std::uint8_t>(square("d3").index()), .piece = 'n'},
+              PieceOnSquare{.square = static_cast<std::uint8_t>(square("d5").index()), .piece = 'p'}});
+}
+
+TEST_CASE("pin tactical identity includes its threat", "[unit]") {
+    using chesswhy::ThreatKind;
+    const chess::Board root("k7/8/p7/8/Nb6/8/R7/4K3 b - - 0 1");
+    chess::Board after = root;
+    const std::vector<chess::Move> line = parse_line(after, {"b4f8"});
+    const auto unblocked_line =
+        line_motifs_from("k7/8/8/8/Nb6/8/R7/4K3 w - - 0 1", {"a4c3"});
+    expect_motif(unblocked_line, MotifTag::DiscoveredCheck, Side::White, "a2", 'R',
+                 {{"a8", 'k'}});
+    const auto previous = chesswhy::tactics::position_motifs(root);
+    const auto walked = chesswhy::tactics::line_motifs(root, line);
+    const auto same_actor_and_targets = [](const Motif& motif) {
+        return motif.tag == MotifTag::PinTactical && motif.side == Side::White &&
+               motif.actor.square == static_cast<std::uint8_t>(square("a4").index()) &&
+               motif.targets ==
+                   std::vector<PieceOnSquare>{
+                       PieceOnSquare{.square = static_cast<std::uint8_t>(square("a6").index()),
+                                     .piece = 'p'},
+                       PieceOnSquare{.square = static_cast<std::uint8_t>(square("a8").index()),
+                                     .piece = 'k'}};
+    };
+    const auto before = std::ranges::find_if(previous, [&](const Motif& motif) {
+        return same_actor_and_targets(motif) &&
+               motif.threat ==
+                   chesswhy::MotifThreat{
+                       .kind = ThreatKind::DiscoveredCheck,
+                       .square = static_cast<std::uint8_t>(square("c3").index())};
+    });
+    REQUIRE(before != previous.end());
+    const auto current = std::ranges::find_if(walked, [&](const Motif& motif) {
+        return same_actor_and_targets(motif) &&
+               motif.threat ==
+                   chesswhy::MotifThreat{
+                       .kind = ThreatKind::DiscoveredCheck,
+                       .square = static_cast<std::uint8_t>(square("b2").index())} &&
+               motif.ply == 1;
+    });
+    CHECK(current != walked.end());
+}
+
 TEST_CASE("motif fixtures exercise every frozen include and exclude", "[unit]") {
     const auto path =
         std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests" / "fixtures" / "motifs.json";
@@ -581,13 +734,19 @@ namespace {
     for (const PieceOnSquare& target : motif.targets) {
         targets.push_back(square_name(target.square));
     }
-    return {{"tag", chesswhy::to_string(motif.tag)},
-            {"side", chesswhy::to_string(motif.side)},
-            {"ply", motif.ply},
-            {"actor", square_name(motif.actor.square)},
-            {"targets", std::move(targets)},
-            {"contribution", motif.contribution ? json(chesswhy::to_string(*motif.contribution))
-                                                : json(nullptr)}};
+    json instance{{"tag", chesswhy::to_string(motif.tag)},
+                  {"side", chesswhy::to_string(motif.side)},
+                  {"ply", motif.ply},
+                  {"actor", square_name(motif.actor.square)},
+                  {"targets", std::move(targets)},
+                  {"contribution", motif.contribution
+                                       ? json(chesswhy::to_string(*motif.contribution))
+                                       : json(nullptr)}};
+    if (motif.threat) {
+        instance["threat"] = {{"kind", chesswhy::to_string(motif.threat->kind)},
+                              {"square", square_name(motif.threat->square)}};
+    }
+    return instance;
 }
 
 [[nodiscard]] json label_fixture_instance(const chesswhy::TacticLabel& label) {
@@ -603,7 +762,8 @@ namespace {
 }
 
 [[nodiscard]] bool valid_contribution_fixture_instance(const json& expected) {
-    if (!expected.is_object() || expected.size() != 7 ||
+    if (!expected.is_object() ||
+        expected.size() != (expected.contains("threat") ? 8U : 7U) ||
         !expected.contains("tag") || !valid_fixture_tag(expected["tag"]) ||
         !expected.contains("side") || !expected["side"].is_string() ||
         !(expected["side"] == "white" || expected["side"] == "black") ||
@@ -613,6 +773,11 @@ namespace {
         !expected["targets"].is_array() || !expected.contains("contribution") ||
         !expected["contribution"].is_string() || !expected.contains("reason") ||
         !expected["reason"].is_string()) {
+        return false;
+    }
+    if ((expected["tag"] == chesswhy::to_string(MotifTag::PinTactical)) !=
+            expected.contains("threat") ||
+        (expected.contains("threat") && !valid_fixture_threat(expected["threat"]))) {
         return false;
     }
     const std::string contribution = expected["contribution"].get<std::string>();
@@ -675,6 +840,12 @@ namespace {
         expected["actor"].get<std::string>() != square_name(motif.actor.square) ||
         expected["contribution"] != chesswhy::to_string(*motif.contribution) ||
         expected["targets"].size() != motif.targets.size()) {
+        return false;
+    }
+    if (expected.contains("threat") &&
+        (!motif.threat ||
+         expected["threat"]["kind"] != chesswhy::to_string(motif.threat->kind) ||
+         expected["threat"]["square"] != square_name(motif.threat->square))) {
         return false;
     }
     for (std::size_t index = 0; index < motif.targets.size(); ++index) {
@@ -1037,6 +1208,9 @@ TEST_CASE("tactic fixtures exercise contributions and labels", "[unit]") {
                                     << contribution_fixture_instance(motif).dump());
                     CHECK(motif.contribution == chesswhy::MotifContribution::None);
                 }
+                continue;
+            }
+            if (motif.tag == MotifTag::PinTactical) {
                 continue;
             }
             if (!matched[index]) {

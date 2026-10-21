@@ -424,9 +424,11 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
             starting_position.makeMove(move);
         }
 
-        std::vector<Motif> motifs = chesswhy::tactics::position_motifs(root);
+        std::vector<Motif> motifs = chesswhy::tactics::position_motifs(
+            root, chesswhy::tactics::MotifOptions{.pin_tactical = false});
         auto line_motif_instances = chesswhy::tactics::line_motifs(
-            root, std::span<const chess::Move>(line_moves.data(), line_move_count));
+            root, std::span<const chess::Move>(line_moves.data(), line_move_count),
+            chesswhy::tactics::MotifOptions{.pin_tactical = false});
         motifs.insert(motifs.end(), line_motif_instances.begin(), line_motif_instances.end());
         chesswhy::tactics::judge_contributions(
             root, std::span<const chess::Move>(line_moves.data(), line_move_count), motifs);

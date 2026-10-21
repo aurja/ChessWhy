@@ -103,7 +103,7 @@ Rules that turn engine numbers into report facts; no engine runs.
 | move motifs detect discoveries and double check | unit | Discovered attack and check, double check |
 | castling rook checks are not discoveries or solo double checks | unit | A castling rook giving check is not a discovery |
 | move motifs detect back-rank mate and promotion | unit | Back-rank mate and queen promotion |
-| motif fixtures exercise every frozen include and exclude | unit | T fixtures: every include found, no exclude found |
+| motif fixtures exercise every frozen include and exclude | unit | T fixtures: every include found (with `threat` for `pin_tactical`), no exclude found |
 | contributions mark move motifs and X captures direct | unit | Contribution rule: `direct` = a move motif, or a later capture by the tactic side of one of the motif's defending-side pieces; the defender's own moves do not count |
 | indirect contributions require an intact Y motif attacker | unit | Contribution rule: `indirect` = a defending-side piece of the motif attacks where the tactic side lands, pins ignored; an earlier hit survives a later move to an unattacked square (C01's line) |
 | contribution none covers Y-side, ply-n and ply-zero motifs | unit | Contribution rule: `none` cases |
@@ -111,14 +111,17 @@ Rules that turn engine numbers into report facts; no engine runs.
 | motif-piece movement is not direct and blocks later indirect attribution | unit | The tactic side moving its own motif piece (e.g. the pinner) is not direct, and once any motif piece has moved or been captured, later moves cannot make it indirect |
 | removal-of-defender labels revive T33 and reject T34 | unit | The two former T fixtures as label tests |
 | removal-of-defender labels reject near misses | unit | Similar positions that must not get the label |
-| tactic fixtures exercise contributions and labels | unit | C fixtures: every hand-labelled contribution and label |
+| tactic fixtures exercise contributions and labels | unit | C fixtures: every hand-labelled contribution and label; `pin_tactical` is checked only where an entry lists it (with `threat`), not in the exact set |
+| pin tactical options and threat ordering are honored | unit | `MotifOptions{.pin_tactical = false}` yields no `pin_tactical` (position and line); order by threat kind, then square (T48's board); a rook that still holds a castling right can be the restricted piece |
+| pin tactical capture threats identify en passant landing squares | unit | A `capture` threat by en passant records the landing square as `threat.square` |
+| pin tactical identity includes its threat | unit | In `line_motifs`, the same actor and targets with a different threat is a new instance |
 
 Program tests:
 
 | Test | Program | Label | Checks |
 |---|---|---|---|
-| `tactics_puzzles` | `tactics_puzzle_eval` (`puzzle_eval.cpp`) | unit | On the test puzzle sample: recall per measured tag must meet its frozen M2 target; also prints the recall table, Lichess agreement and the `removal_of_defender` line (not gated) |
-| `tactics_oracle` | `tactics_motif_oracle` (`motif_oracle.cpp`, `oracle/reference.cpp`) | unit | Detectors against the independent reference implementation on every puzzle position and every T fixture; passes only with zero mismatches |
+| `tactics_puzzles` | `tactics_puzzle_eval` (`puzzle_eval.cpp`) | unit | On the test puzzle sample (with `pin_tactical` switched off): recall per measured tag must meet its frozen M2 target; also prints the recall table, Lichess agreement and the `removal_of_defender` line (not gated) |
+| `tactics_oracle` | `tactics_motif_oracle` (`motif_oracle.cpp`, `oracle/reference.cpp`) | unit | Detectors against the independent reference implementation on every puzzle position and every T fixture; passes only with zero mismatches. `pin_tactical` is compared on every 16th puzzle (0-based data row index divisible by 16; 582 puzzles) and on every T fixture |
 
 ## 6. Report — `tests/report/`
 
@@ -129,7 +132,7 @@ Program tests:
 | report_JSON follows schema key order | unit | Keys come out in schema order (stable diffs, reproducible reports) |
 | report_enum values use the schema spellings | unit | Nine report enums serialise to the schema's strings |
 | report_scores and optional values are serialized | unit | ES, cp, mate and nulls |
-| report_motif JSON uses the schema v3 shape | unit | Motif objects |
+| report_motif JSON uses the schema v3 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) |
 | report_tactic judgements and motif contributions serialize in report v3 | unit | Tactic judgement, labels and contributions |
 
 Program tests:
@@ -148,7 +151,7 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | render_example reports match the golden text | unit | The eight example reports render byte for byte as the golden files |
 | render_position evaluation renders the mate score when available | unit | The mate score is shown alongside ES |
 | render_motif rows and level-independent output | unit | Motif rows; output does not change with `--level` where it should not |
-| render_tactic judgements, labels and contributions render from report fields | unit | Tactic text uses only report fields |
+| render_tactic judgements, labels and contributions render from report fields | unit | Tactic text uses only report fields; pins, overloaded defenders and `pin_tactical` print as "restricted movement (absolute pin / relative pin / overloaded defender / tactic: Nd5-f4 fork)" |
 
 ## 8. CLI — `tests/cli/`
 

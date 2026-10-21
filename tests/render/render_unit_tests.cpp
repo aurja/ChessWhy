@@ -63,6 +63,14 @@ TEST_CASE("tactic judgements, labels and contributions render from report fields
           std::string::npos);
     CHECK(tactic_text.find("fork: n f3 → K e1, Q d4 (ply 1, direct) [rule]") !=
           std::string::npos);
+    CHECK(tactic_text.find("restricted movement (absolute pin): R e1 → n e5, k e8 (ply 0) "
+                           "[rule]") != std::string::npos);
+    CHECK(tactic_text.find("restricted movement (relative pin): B b1 → n c2, q e4 (ply 0) "
+                           "[rule]") != std::string::npos);
+    CHECK(tactic_text.find("restricted movement (overloaded defender): n d5 → R e4, Q c4 "
+                           "(ply 1) [rule]") != std::string::npos);
+    CHECK(tactic_text.find("restricted movement (tactic: Nd5-f4 fork): n d5 → "
+                           "P g3, Q e2, K g2 (ply 1, direct) [rule]") != std::string::npos);
     CHECK(tactic_text.find("back_rank_weakness: k e8") == std::string::npos);
     const auto asked_copy_report = chesswhy::test_examples::tactic_with_asked_move();
     const std::string asked_copy_text = chesswhy::render::text(asked_copy_report);

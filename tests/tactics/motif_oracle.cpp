@@ -30,13 +30,14 @@ using chesswhy::Motif;
 using chesswhy::MotifTag;
 using Json = nlohmann::json;
 
-constexpr std::array<MotifTag, 13> kTags{
+constexpr std::array<MotifTag, 14> kTags{
     MotifTag::HangingPiece,
     MotifTag::PinAbsolute,
     MotifTag::PinRelative,
     MotifTag::BackRankWeakness,
     MotifTag::OverloadedDefender,
     MotifTag::TrappedPiece,
+    MotifTag::PinTactical,
     MotifTag::Fork,
     MotifTag::Skewer,
     MotifTag::DiscoveredCheck,
@@ -70,6 +71,8 @@ struct ClassRecord {
 struct Statistics {
     std::size_t compared = 0;
     std::size_t mismatching_lists = 0;
+    std::size_t sampled_puzzles = 0;
+    std::size_t pin_tactical_instances_compared = 0;
     std::array<std::size_t, kTags.size()> mismatches_by_tag{};
     std::map<std::string, ClassRecord> classes;
 };
@@ -220,7 +223,7 @@ struct Statistics {
     return left.tag == right.tag && left.side == right.side && left.ply == right.ply &&
            same_piece(left.actor, right.actor) && left.targets.size() == right.targets.size() &&
            std::ranges::equal(left.targets, right.targets, same_piece) && left.gain == right.gain &&
-           left.contribution == right.contribution;
+           left.threat == right.threat && left.contribution == right.contribution;
 }
 
 [[nodiscard]] bool same_list(const std::vector<Motif>& left, const std::vector<Motif>& right) {
@@ -238,7 +241,14 @@ struct Statistics {
         }
         output << square_name(motif.targets[index].square) << ':' << motif.targets[index].piece;
     }
-    output << "],gain=";
+    output << "],threat=";
+    if (motif.threat.has_value()) {
+        output << chesswhy::to_string(motif.threat->kind) << ':'
+               << square_name(motif.threat->square);
+    } else {
+        output << "null";
+    }
+    output << ",gain=";
     if (motif.gain.has_value()) {
         output << *motif.gain;
     } else {
@@ -364,6 +374,10 @@ void classify_tag_mismatch(Statistics& statistics, MotifTag tag, const std::vect
             add_class(statistics, prefix + "contribution", mismatch);
             found_field_difference = true;
         }
+        if (left.threat != right.threat) {
+            add_class(statistics, prefix + "threat", mismatch);
+            found_field_difference = true;
+        }
     }
     if (detector.size() == reference.size() &&
         std::ranges::is_permutation(detector, reference, same_motif)) {
@@ -377,6 +391,9 @@ void compare_lists(Statistics& statistics, std::ostream* mismatch_output,
                    std::size_t mismatch_limit, std::size_t& mismatch_rows, std::string id,
                    std::string ply, std::string fen, std::string moves,
                    const std::vector<Motif>& detector, const std::vector<Motif>& reference) {
+    statistics.pin_tactical_instances_compared +=
+        for_tag(detector, MotifTag::PinTactical).size() +
+        for_tag(reference, MotifTag::PinTactical).size();
     ++statistics.compared;
     if (same_list(detector, reference)) {
         return;
@@ -416,7 +433,8 @@ void compare_lists(Statistics& statistics, std::ostream* mismatch_output,
 void process_position(const std::string& id, const std::string& fen,
                       std::span<const std::string_view> uci_moves, const std::string& moves_text,
                       Statistics& statistics, std::ostream* mismatch_output,
-                      std::size_t mismatch_limit, std::size_t& mismatch_rows) {
+                      std::size_t mismatch_limit, std::size_t& mismatch_rows,
+                      bool include_pin_tactical) {
     chess::Board root;
     if (!root.setFen(fen)) {
         throw std::invalid_argument("invalid FEN");
@@ -424,18 +442,23 @@ void process_position(const std::string& id, const std::string& fen,
     chess::Board walked = root;
     const std::vector<chess::Move> moves = parse_line(walked, uci_moves);
     walked = root;
+    const chesswhy::tactics::MotifOptions motif_options{
+        .pin_tactical = include_pin_tactical};
     for (std::size_t ply = 0; ply <= moves.size(); ++ply) {
-        const std::vector<Motif> detector = chesswhy::tactics::position_motifs(walked);
-        const std::vector<Motif> reference = chesswhy::oracle::reference_position_motifs(walked);
+        const std::vector<Motif> detector =
+            chesswhy::tactics::position_motifs(walked, motif_options);
+        const std::vector<Motif> reference =
+            chesswhy::oracle::reference_position_motifs(walked, motif_options);
         compare_lists(statistics, mismatch_output, mismatch_limit, mismatch_rows, id,
                       std::to_string(ply), walked.getFen(), moves_text, detector, reference);
         if (ply < moves.size()) {
             walked.makeMove(moves[ply]);
         }
     }
-    const std::vector<Motif> detector = chesswhy::tactics::line_motifs(root, moves);
-    const std::vector<Motif> reference =
-        chesswhy::oracle::reference_line_motifs(root, std::span<const chess::Move>(moves));
+    const std::vector<Motif> detector =
+        chesswhy::tactics::line_motifs(root, moves, motif_options);
+    const std::vector<Motif> reference = chesswhy::oracle::reference_line_motifs(
+        root, std::span<const chess::Move>(moves), motif_options);
     compare_lists(statistics, mismatch_output, mismatch_limit, mismatch_rows, id, "line",
                   root.getFen(), moves_text, detector, reference);
 }
@@ -459,6 +482,7 @@ void process_csv(const std::string& path, Statistics& statistics, std::ostream* 
     }
 
     std::size_t line_number = 1;
+    std::size_t puzzle_index = 0;
     while (std::getline(input, line)) {
         ++line_number;
         if (!line.empty() && line.back() == '\r') {
@@ -470,8 +494,13 @@ void process_csv(const std::string& path, Statistics& statistics, std::ostream* 
                 throw std::invalid_argument("expected five CSV fields and a non-empty PuzzleId");
             }
             const std::vector<std::string_view> tokens = words(fields[2]);
+            const bool include_pin_tactical = puzzle_index % 16 == 0;
+            if (include_pin_tactical) {
+                ++statistics.sampled_puzzles;
+            }
             process_position(fields[0], fields[1], tokens, fields[2], statistics, mismatch_output,
-                             mismatch_limit, mismatch_rows);
+                             mismatch_limit, mismatch_rows, include_pin_tactical);
+            ++puzzle_index;
         } catch (const std::exception& error) {
             throw std::runtime_error("CSV row " + std::to_string(line_number) + ": " +
                                      error.what());
@@ -520,7 +549,7 @@ void process_fixtures(const std::string& path, Statistics& statistics,
         }
         try {
             process_position(id, fen, tokens, moves, statistics, mismatch_output, mismatch_limit,
-                             mismatch_rows);
+                             mismatch_rows, true);
         } catch (const std::exception& error) {
             throw std::runtime_error(id + ": " + error.what());
         }
@@ -529,7 +558,10 @@ void process_fixtures(const std::string& path, Statistics& statistics,
 
 void print_statistics(std::string_view label, const Statistics& statistics) {
     std::cout << label << ": lists compared=" << statistics.compared
-              << ", mismatching lists=" << statistics.mismatching_lists << '\n';
+              << ", mismatching lists=" << statistics.mismatching_lists
+              << ", sampled puzzles=" << statistics.sampled_puzzles
+              << ", pin_tactical instances compared (detector+reference)="
+              << statistics.pin_tactical_instances_compared << '\n';
     for (std::size_t index = 0; index < kTags.size(); ++index) {
         std::cout << "  " << tag_name(kTags[index]) << ": " << statistics.mismatches_by_tag[index]
                   << '\n';

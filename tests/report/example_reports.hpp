@@ -256,6 +256,24 @@ inline constexpr const char* kAfterE4E5 =
     best.motifs.push_back(motif(MotifTag::Fork, Side::Black, 1, piece_on_square('f', 3, 'n'),
                                 {piece_on_square('e', 1, 'K'), piece_on_square('d', 4, 'Q')}));
     best.motifs.back().contribution = MotifContribution::Direct;
+    best.motifs.push_back(motif(MotifTag::PinAbsolute, Side::White, 0,
+                                piece_on_square('e', 1, 'R'),
+                                {piece_on_square('e', 5, 'n'), piece_on_square('e', 8, 'k')}));
+    best.motifs.push_back(motif(MotifTag::PinRelative, Side::White, 0,
+                                piece_on_square('b', 1, 'B'),
+                                {piece_on_square('c', 2, 'n'), piece_on_square('e', 4, 'q')}));
+    best.motifs.push_back(motif(MotifTag::OverloadedDefender, Side::Black, 1,
+                                piece_on_square('d', 5, 'n'),
+                                {piece_on_square('e', 4, 'R'), piece_on_square('c', 4, 'Q')}));
+    best.motifs.push_back(motif(MotifTag::PinTactical, Side::Black, 1,
+                                piece_on_square('d', 5, 'n'),
+                                {piece_on_square('g', 3, 'P'), piece_on_square('e', 2, 'Q'),
+                                 piece_on_square('g', 2, 'K')}));
+    best.motifs.back().threat = MotifThreat{
+        .kind = ThreatKind::Fork,
+        .square = piece_on_square('f', 4, 'P').square,
+    };
+    best.motifs.back().contribution = MotifContribution::Direct;
     TacticJudgement tactic;
     tactic.alternative = TacticAlternative{
         .san = "g6",
