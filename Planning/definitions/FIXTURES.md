@@ -144,7 +144,7 @@ implementation by `tactics_oracle` (zero mismatches today). Piece letters are
 the piece on the actor square at that ply; pawns have none. T33 and T34 left this file
 in M2 when `removal_of_defender` stopped being a motif (IDs not reused); their
 positions now live in the test `removal-of-defender labels revive T33 and reject T34`.
-T42–T53 freeze `pin_tactical` (PostM2_EM1 §4.5, "tactical pin" below), written as
+T42–T54 freeze `pin_tactical` (PostM2_EM1 §4.5, "tactical pin" below), written as
 actor → p, then the threat's targets, then the threat ("fork on f4").
 
 | ID | Board | Position | Fixture claims | Codebase today | Comments |
@@ -200,6 +200,7 @@ actor → p, then the threat's targets, then the threat ("fork on f4").
 | T51 | <img src="boards/T51.svg" width="200" alt="T51"> | `r6k/P7/8/8/8/8/8/7K w - - 0 1`<br><sub>constructed</sub> | **rook blocks the promotion square**<br>Must report: tactical pin a7 → a8, promotion on a8 (white, ply 0)<br>Must not report: tactical pin (black, ply 0) | Matches: every listed instance reported, none of the excluded ones. | |
 | T52 | <img src="boards/T52.svg" width="200" alt="T52"> | `7k/8/5K2/8/6p1/8/8/6Q1 w - - 0 1`<br><sub>constructed</sub> | **pawn blocks a queen mate on g7**<br>Must report: tactical pin Qg1 → g4, h8, checkmate on g7 (white, ply 0)<br>Must not report: tactical pin (black, ply 0) | Matches: every listed instance reported, none of the excluded ones. | |
 | T53 | <img src="boards/T53.svg" width="200" alt="T53"> | `7k/p7/8/8/8/8/8/K6R b - - 0 1`<br><sub>constructed</sub> | **no pin_tactical for X while Y is in check**<br>Must not report: tactical pin (white or black, ply 0) | Matches: none of the excluded ones. | |
+| T54 | <img src="boards/T54.svg" width="200" alt="T54"> | `4k3/8/8/8/3pP3/8/8/4K3 b - e3 0 1`<br><sub>constructed</sub> | **removing the pawn that just made a double step clears en passant**<br>Must not report: tactical pin (white or black, ply 0). Guards the §4.5 rule that B−p has no en passant square once the double-stepped pawn is removed (an ASan/Debug build aborts otherwise) | Matches: none of the excluded ones. | |
 
 ## 6. C fixtures — tactic contributions and labels (`tests/fixtures/tactics.json`)
 

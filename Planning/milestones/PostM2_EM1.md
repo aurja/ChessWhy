@@ -154,7 +154,8 @@ Lichess mapping).
 
 On board B (not terminal, Y not in check), let Bx = B with X to move (B itself, or B
 after a null move when Y is to move). For each Y non-king piece p, let B−p = Bx with p
-removed (a removed rook also clears its castling right). Skip p when the Y king is
+removed (a removed rook also clears its castling right; a removed pawn that can be
+captured en passant also clears the en passant square). Skip p when the Y king is
 attacked on B−p (p is absolutely pinned; `pin_absolute` reports it). p is restricted
 when removing it enables at least one **threat**, of these kinds, in this order:
 
@@ -439,3 +440,4 @@ contribution `direct`.
 | 2026-10-21 | §4.5: new state motif `pin_tactical` (restricted movement through a threat that removing the Y piece enables; nine threat kinds, empty guarded squares included); `Motif.threat` (§5, §6) and motif identity includes `threat`; `MotifOptions` | Captain: comprehensive analysis first, conciseness later. Prototype on 9,300 puzzles: +9.6 reported motifs per puzzle (M2 tags 3.7), 17.8 ms per board |
 | 2026-10-21 | §10: the four restricted-movement tags print `restricted movement (…)` instead of the tag; `overloaded_defender` detection unchanged | Captain: shared wording, not a merged tag. "(overloaded defender)" instead of "(overloaded: guards …)" so the targets are not printed twice |
 | 2026-10-21 | §9: `pin_tactical` exempt from the C fixtures' exact set; corpus tests sample it (oracle every 16th puzzle row; puzzle eval off) | Captain: chosen C instances only (~71 X-side instances on C01–C16); no speed budget, corpus tests sample |
+| 2026-10-21 | §4.5: removing a pawn that can be captured en passant also clears the en passant square on B−p; T54 | Orchestrator, milestone gate: the ASan/Debug oracle run aborted in chess-library (en passant move with no pawn to capture) in the reference implementation; the detector already cleared the square. Same reasoning as the castling right: B−p must be a consistent board |

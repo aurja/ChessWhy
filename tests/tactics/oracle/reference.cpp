@@ -43,6 +43,7 @@ public:
     }
     void erase_for_pin(Square square) {
         const Piece piece = at(square);
+        bool metadata_changed = false;
         if (piece.type() == PieceType::ROOK &&
             square.rank() == (piece.color() == Color::WHITE ? chess::Rank::underlying::RANK_1
                                                             : chess::Rank::underlying::RANK_8)) {
@@ -51,10 +52,19 @@ public:
             for (const auto castle : sides) {
                 if (castlingRights().getRookFile(piece.color(), castle) == square.file()) {
                     cr_.clear(piece.color(), castle);
+                    metadata_changed = true;
                 }
             }
         }
+        if (piece.type() == PieceType::PAWN && ep_sq_ != Square::NO_SQ &&
+            ep_sq_.ep_square() == square) {
+            ep_sq_ = Square::NO_SQ;
+            metadata_changed = true;
+        }
         erase(square);
+        if (metadata_changed) {
+            key_ = zobrist();
+        }
     }
     void relocate(Square from, Square to) {
         const Piece moving = at(from);
