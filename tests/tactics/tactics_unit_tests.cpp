@@ -597,39 +597,37 @@ TEST_CASE("pin tactical capture threats identify en passant landing squares", "[
 }
 
 TEST_CASE("pin tactical identity includes its threat", "[unit]") {
-    using chesswhy::ThreatKind;
-    const chess::Board root("k7/8/p7/8/Nb6/8/R7/4K3 b - - 0 1");
+    const chess::Board root("7k/6pp/8/8/2B5/8/Q7/1R2K3 w - - 0 1");
+    CHECK_FALSE(root.isAttacked(root.kingSq(chess::Color::WHITE), chess::Color::BLACK));
+    CHECK_FALSE(root.isAttacked(root.kingSq(chess::Color::BLACK), chess::Color::WHITE));
     chess::Board after = root;
-    const std::vector<chess::Move> line = parse_line(after, {"b4f8"});
+    const std::vector<chess::Move> line = parse_line(after, {"b1a1"});
     const auto unblocked_line = line_motifs_from("k7/8/8/8/Nb6/8/R7/4K3 w - - 0 1", {"a4c3"});
     expect_motif(unblocked_line, MotifTag::DiscoveredCheck, Side::White, "a2", 'R', {{"a8", 'k'}});
     const auto previous = chesswhy::tactics::position_motifs(root);
     const auto walked = chesswhy::tactics::line_motifs(root, line);
     const auto same_actor_and_targets = [](const Motif& motif) {
         return motif.tag == MotifTag::PinTactical && motif.side == Side::White &&
-               motif.actor.square == static_cast<std::uint8_t>(square("a4").index()) &&
+               motif.actor.square == static_cast<std::uint8_t>(square("a2").index()) &&
                motif.targets ==
                    std::vector<PieceOnSquare>{
-                       PieceOnSquare{.square = static_cast<std::uint8_t>(square("a6").index()),
+                       PieceOnSquare{.square = static_cast<std::uint8_t>(square("g7").index()),
                                      .piece = 'p'},
-                       PieceOnSquare{.square = static_cast<std::uint8_t>(square("a8").index()),
+                       PieceOnSquare{.square = static_cast<std::uint8_t>(square("h8").index()),
                                      .piece = 'k'}};
     };
     const auto before = std::ranges::find_if(previous, [&](const Motif& motif) {
-        return same_actor_and_targets(motif) &&
-               motif.threat ==
-                   chesswhy::MotifThreat{.kind = ThreatKind::DiscoveredCheck,
-                                         .square = static_cast<std::uint8_t>(square("c3").index())};
+        return same_actor_and_targets(motif) && motif.threat &&
+               motif.threat->square == static_cast<std::uint8_t>(square("a1").index());
     });
     REQUIRE(before != previous.end());
     const auto current = std::ranges::find_if(walked, [&](const Motif& motif) {
-        return same_actor_and_targets(motif) &&
-               motif.threat == chesswhy::MotifThreat{.kind = ThreatKind::DiscoveredCheck,
-                                                     .square = static_cast<std::uint8_t>(
-                                                         square("b2").index())} &&
+        return same_actor_and_targets(motif) && motif.threat &&
+               motif.threat->square == static_cast<std::uint8_t>(square("b2").index()) &&
                motif.ply == 1;
     });
-    CHECK(current != walked.end());
+    REQUIRE(current != walked.end());
+    CHECK(before->threat != current->threat);
 }
 
 TEST_CASE("motif fixtures exercise every frozen include and exclude", "[unit]") {

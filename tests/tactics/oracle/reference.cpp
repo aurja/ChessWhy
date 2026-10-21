@@ -772,7 +772,8 @@ struct MoveOutcome {
 [[nodiscard]] std::vector<Motif> pin_tactical_motifs(const chess::Board& board, Color side,
                                                      int ply) {
     const Color enemy = other(side);
-    if (board.isAttacked(board.kingSq(enemy), side)) {
+    if (board.isAttacked(board.kingSq(enemy), side) ||
+        board.isAttacked(board.kingSq(side), enemy)) {
         return {};
     }
 
@@ -818,7 +819,8 @@ struct MoveOutcome {
 
         EditableBoard without_piece(side_to_move);
         without_piece.erase_for_pin(pinned_square);
-        if (without_piece.isAttacked(without_piece.kingSq(enemy), side)) {
+        if (without_piece.isAttacked(without_piece.kingSq(enemy), side) ||
+            without_piece.isAttacked(without_piece.kingSq(side), enemy)) {
             continue;
         }
 

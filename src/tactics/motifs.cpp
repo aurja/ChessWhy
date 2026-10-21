@@ -773,14 +773,13 @@ public:
 }
 
 void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) {
-    if (!chess::movegen::anylegalmoves(board)) {
+    if (board.isAttacked(board.kingSq(chess::Color::WHITE), chess::Color::BLACK) ||
+        board.isAttacked(board.kingSq(chess::Color::BLACK), chess::Color::WHITE) ||
+        !chess::movegen::anylegalmoves(board)) {
         return;
     }
     for (const chess::Color side : {chess::Color::WHITE, chess::Color::BLACK}) {
         const chess::Color enemy = ~side;
-        if (board.isAttacked(board.kingSq(enemy), side)) {
-            continue;
-        }
 
         chess::Board bx = board;
         if (bx.sideToMove() != side) {
@@ -807,7 +806,8 @@ void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) 
             board.us(enemy) & ~board.pieces(chess::PieceType::KING);
         for (const chess::Square p : squares(enemy_pieces.getBits())) {
             const chess::Board minus_p = board_without(bx, p);
-            if (minus_p.isAttacked(minus_p.kingSq(enemy), side)) {
+            if (minus_p.isAttacked(minus_p.kingSq(enemy), side) ||
+                minus_p.isAttacked(minus_p.kingSq(side), enemy)) {
                 continue;
             }
 

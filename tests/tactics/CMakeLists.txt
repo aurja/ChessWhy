@@ -27,4 +27,5 @@ target_link_libraries(tactics_motif_oracle PRIVATE chesswhy_tactics chesswhy_rep
 add_test(NAME tactics_oracle
     COMMAND tactics_motif_oracle "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
     --fixtures "${PROJECT_SOURCE_DIR}/tests/fixtures/motifs.json")
-set_tests_properties(tactics_oracle PROPERTIES LABELS unit)
+# pin_tactical (PostM2_EM1 §4.5) makes the ASan/UBSan run take about 25 min.
+set_tests_properties(tactics_oracle PROPERTIES LABELS unit TIMEOUT 3600)

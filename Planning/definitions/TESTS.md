@@ -4,9 +4,9 @@ Every CTest in the build, grouped by test program, with its label and what it
 checks. Terms are defined in [TERMINOLOGY.md](TERMINOLOGY.md) (§6.3 for labels,
 gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-21, after the PostM2_EM1 checkpoint 2 rule change: 108 CTests
-(81 `unit`, 27 `engine`, no `model` yet). `tactics_unit_tests` passes in Release and
-ASan/UBSan (23 test cases); the full Release run is next at the milestone gate.
+**Snapshot:** 2026-10-21, PostM2_EM1 milestone gate (after batch 3, `pin_tactical`): 111
+CTests (84 `unit`, 27 `engine`, no `model` yet), all passing in Release;
+`tactics_unit_tests` has 26 test cases.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -114,14 +114,14 @@ Rules that turn engine numbers into report facts; no engine runs.
 | tactic fixtures exercise contributions and labels | unit | C fixtures: every hand-labelled contribution and label; `pin_tactical` is checked only where an entry lists it (with `threat`), not in the exact set |
 | pin tactical options and threat ordering are honored | unit | `MotifOptions{.pin_tactical = false}` yields no `pin_tactical` (position and line); order by threat kind, then square (T48's board); a rook that still holds a castling right can be the restricted piece |
 | pin tactical capture threats identify en passant landing squares | unit | A `capture` threat by en passant records the landing square as `threat.square` |
-| pin tactical identity includes its threat | unit | In `line_motifs`, the same actor and targets with a different threat is a new instance |
+| pin tactical identity includes its threat | unit | On a legal root with neither king in check, the same actor and targets (Qa2 → g7, h8) with a different threat square (a1 at ply 0, b2 after Rb1-a1) is a new instance in `line_motifs` |
 
 Program tests:
 
 | Test | Program | Label | Checks |
 |---|---|---|---|
 | `tactics_puzzles` | `tactics_puzzle_eval` (`puzzle_eval.cpp`) | unit | On the test puzzle sample (with `pin_tactical` switched off): recall per measured tag must meet its frozen M2 target; also prints the recall table, Lichess agreement and the `removal_of_defender` line (not gated) |
-| `tactics_oracle` | `tactics_motif_oracle` (`motif_oracle.cpp`, `oracle/reference.cpp`) | unit | Detectors against the independent reference implementation on every puzzle position and every T fixture; passes only with zero mismatches. `pin_tactical` is compared on every 16th puzzle (0-based data row index divisible by 16; 582 puzzles) and on every T fixture |
+| `tactics_oracle` | `tactics_motif_oracle` (`motif_oracle.cpp`, `oracle/reference.cpp`) | unit | Detectors against the independent reference implementation on every puzzle position and every T fixture; passes only with zero mismatches. `pin_tactical` is compared on every 16th puzzle (0-based data row index divisible by 16; 582 puzzles) and on every T fixture. CTest `TIMEOUT 3600` (about 24 min under ASan/UBSan) |
 
 ## 6. Report — `tests/report/`
 
