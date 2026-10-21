@@ -9,7 +9,8 @@ ChessWhy is a DBC project (Driven by Concepts): the Captain leads it through thi
 change she makes to a diagram is a directive; the orchestrator turns it into plans and
 code, then brings the map back in line with what was built.
 
-**Status:** first draft by the Deputy, 2026-10-21, for the Captain to correct.
+**Status:** first version by the Deputy, 2026-10-21; describes the project as built and
+carries the Captain's prior approval. Her later edits are directives.
 
 ## How to read the diagrams
 

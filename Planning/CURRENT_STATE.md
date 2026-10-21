@@ -13,7 +13,7 @@ Updated 2026-10-21.
 - Next milestone per vision §11: M3 (positional fact detectors and diffs; opening
   statistics). Not yet planned.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept
-  diagrams, first draft for the Captain to correct), CODE (concept → source), DEFINITIONS
+  diagrams; first version approved as the current baseline, Captain reviewing), CODE (concept → source), DEFINITIONS
   (glossary, was `Planning/definitions/TERMINOLOGY.md`), FIXTURES with boards and TESTS,
   kept current by the orchestrator; drift check `python3 tools/check_dbc.py`.
 - Scope proposals still open from the M2 recall-miss audit: forks by a capturable piece,
