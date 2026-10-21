@@ -187,8 +187,8 @@ The Anthropic and OpenAI subscriptions are separate usage buckets (5-hour and
 usage cache in `agent.db`); `age=…` shows how old that data is and `stale`
 marks data older than 15 minutes. A watcher exits 3 with a
 `USAGE GUARD FIRED` line when a window reaches the threshold (default 90%),
-and exits 1 with `USAGE GUARD BLIND` after three consecutive failed reads;
-restart it once an omp session has refreshed usage.
+and exits 1 with `USAGE GUARD BLIND` after three consecutive failed reads. If
+omp changed its cache format, fix `.omp/usage_guard.py` to match.
 When one fires, stop only work that runs on that provider: let running gates
 finish, commit a checkpoint, run
 `python3 .omp/usage_guard.py --wait --provider <provider>` in the background,

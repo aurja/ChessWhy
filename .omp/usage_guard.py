@@ -6,6 +6,18 @@ sessions refresh that cache every few minutes and from rate-limit response
 headers; the guard itself never calls a usage API, so it cannot be throttled
 and cannot discard OMP's last good report.
 
+Cache format this script expects (OMP 18.12; not a public OMP interface):
+  file   $PI_CODING_AGENT_DIR/agent.db, default ~/.omp/agent/agent.db
+  table  cache(key TEXT, value TEXT, expires_at INTEGER)
+  key    usage_cache:report:[<cache version>:]<provider>:<base url>:<auth>|<account>
+  value  {"value": {"provider", "fetchedAt": ms, "metadata": {"limitReached"},
+          "limits": [{"id", "window": {"id", "resetsAt": ms},
+                      "amount": {"usedFraction" | "used"+"limit", "remaining"}}]}}
+If OMP changes it, the guard fails loudly (exit 1) and prints what it read.
+Inspect the real cache (sqlite3 -readonly on the file above) and adapt the
+constants below and read_reports() / evaluate_reports(), then update this
+block. Never fix it by calling the usage API.
+
 Usage: usage_guard.py (--watch | --wait | --status) --provider ID
        [--threshold F] [--interval S]
 
@@ -29,9 +41,19 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 
+CACHE_TABLE = "cache"
+USAGE_KEY_PREFIX = "usage_cache:"
 REPORT_KEY_PREFIX = "usage_cache:report:"
 # Key tail after the prefix: optional cache version, then the provider ID.
 REPORT_KEY_PROVIDER = re.compile(r"(?:\d+:)?(?P<provider>[^:]+):")
+EXPECTED_VALUE = (
+    '{"value": {"fetchedAt": ms, "limits": [{"window": {"id", "resetsAt"}, '
+    '"amount": {"usedFraction"}}]}}'
+)
+REPAIR_HINT = (
+    "omp's usage cache format may have changed: edit .omp/usage_guard.py to "
+    "match it (expected format in its docstring)."
+)
 # OMP serves a last good report for 24 h after its fetchedAt; older is gone.
 LAST_GOOD_MAX_AGE_MS = 24 * 60 * 60 * 1000
 # OMP sessions refresh every 5 min; three missed refreshes mark data stale.
@@ -196,48 +218,105 @@ def _agent_db_path() -> Path:
     return base / "agent.db"
 
 
+def _key_pattern(provider: str) -> str:
+    return f"{REPORT_KEY_PREFIX}[<n>:]{provider}:…"
+
+
+def read_source(provider: str) -> str:
+    """Describe where and what the guard reads, for failure messages."""
+    return (
+        f"read {_agent_db_path()} table {CACHE_TABLE} key {_key_pattern(provider)} "
+        f"expecting value {EXPECTED_VALUE}"
+    )
+
+
+def _has_usable_limit(report: dict[str, Any]) -> bool:
+    limits = report.get("limits")
+    if not isinstance(limits, list):
+        return False
+    return any(
+        _used_fraction(_as_dict(_as_dict(limit).get("amount"))) is not None
+        for limit in cast(list[object], limits)
+    )
+
+
 def read_reports(provider: str, now_ms: float) -> list[object]:
-    """Return the provider's cached OMP usage reports that OMP would still serve."""
+    """Return the provider's cached OMP usage reports that OMP would still serve.
+
+    Raises UsageFetchError naming the file, table and key, and what was found
+    instead, when no usable report exists or a matching entry has an
+    unexpected shape.
+    """
     path = _agent_db_path()
     if not path.is_file():
-        raise UsageFetchError(f"omp usage cache not found at {path}")
+        raise UsageFetchError(
+            f"{path} does not exist (omp's agent dir moved? set PI_CODING_AGENT_DIR)"
+        )
     try:
         connection = sqlite3.connect(f"{path.as_uri()}?mode=ro", uri=True, timeout=10)
         try:
-            rows = connection.execute(
-                "SELECT key, value FROM cache WHERE key LIKE ? ORDER BY key",
-                (f"{REPORT_KEY_PREFIX}%",),
-            ).fetchall()
+            rows = cast(
+                list[tuple[object, object]],
+                connection.execute(
+                    f"SELECT key, value FROM {CACHE_TABLE} WHERE key LIKE ? ORDER BY key",
+                    (f"{USAGE_KEY_PREFIX}%",),
+                ).fetchall(),
+            )
         finally:
             connection.close()
     except sqlite3.Error as error:
         raise UsageFetchError(
-            f"could not read omp usage cache {path}: {error}"
+            f"could not query table {CACHE_TABLE} in {path}: {error}"
         ) from None
 
     reports: list[object] = []
+    malformed: list[str] = []
+    newest_old_ms: float | None = None
+    families: set[str] = set()
     for key, value in rows:
-        if not isinstance(key, str) or not key.startswith(REPORT_KEY_PREFIX):
+        if not isinstance(key, str):
+            continue
+        families.add(key.split("|", 1)[0])
+        if not key.startswith(REPORT_KEY_PREFIX):
             continue
         match = REPORT_KEY_PROVIDER.match(key, len(REPORT_KEY_PREFIX))
         if match is None or match["provider"] != provider:
             continue
         try:
-            entry = _as_dict(json.loads(value))
-        except (TypeError, json.JSONDecodeError):
-            continue
+            entry = _as_dict(json.loads(value) if isinstance(value, str) else None)
+        except json.JSONDecodeError:
+            entry = {}
         report = _as_dict(entry.get("value"))
         fetched_at_ms = _finite_number(report.get("fetchedAt"))
-        if fetched_at_ms is None or now_ms - fetched_at_ms > LAST_GOOD_MAX_AGE_MS:
+        if fetched_at_ms is None or not _has_usable_limit(report):
+            malformed.append(key.split("|", 1)[0])
+            continue
+        if now_ms - fetched_at_ms > LAST_GOOD_MAX_AGE_MS:
+            newest_old_ms = max(fetched_at_ms, newest_old_ms or fetched_at_ms)
             continue
         reports.append(report)
 
-    if not reports:
+    if malformed:
         raise UsageFetchError(
-            f"omp usage cache holds no report for provider {provider} "
-            "from the last 24 h (is an omp session running?)"
+            f"{len(malformed)} entr{'y' if len(malformed) == 1 else 'ies'} "
+            f"in {path} table {CACHE_TABLE} match {_key_pattern(provider)} "
+            f"but lack value.fetchedAt or a limit with a used fraction "
+            f"(first: {malformed[0]}); the value format changed"
         )
-    return reports
+    if reports:
+        return reports
+    if newest_old_ms is not None:
+        raise UsageFetchError(
+            f"newest {provider} report in {path} was fetched "
+            f"{_local_iso_time(newest_old_ms)}, over 24 h ago; "
+            "start an omp session so it refreshes usage"
+        )
+    present = ", ".join(sorted(families)) or "none"
+    raise UsageFetchError(
+        f"no key in {path} table {CACHE_TABLE} matches {_key_pattern(provider)}; "
+        f"{USAGE_KEY_PREFIX}* keys present: {present} "
+        "(no omp session has fetched usage yet, or the key format changed)"
+    )
 
 
 def _fraction_text(fraction: float | None) -> str:
@@ -339,6 +418,8 @@ def _run_status(provider: str, threshold: float) -> int:
         reports = read_reports(provider, now_ms)
     except UsageFetchError as error:
         print(f"usage guard: {error}", file=sys.stderr)
+        print(f"usage guard: {read_source(provider)}", file=sys.stderr)
+        print(f"usage guard: {REPAIR_HINT}", file=sys.stderr)
         return 1
     accounts, blocked = evaluate_reports(reports, threshold, provider, now_ms)
     _print_status(accounts, provider, blocked)
@@ -361,6 +442,8 @@ def _run_loop(provider: str, threshold: float, interval: float, wait: bool) -> i
                     f"after {errors} consecutive read errors: {error}",
                     flush=True,
                 )
+                print(f"usage guard: {read_source(provider)}", flush=True)
+                print(f"usage guard: {REPAIR_HINT}", flush=True)
                 return 1
             print(
                 f"usage guard warning: {error}; "
