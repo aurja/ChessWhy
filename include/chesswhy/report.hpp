@@ -1,6 +1,7 @@
-// Report data model, schema version 3. Frozen by Planning/milestones/M1.md, M2.md and
-// PostM2_EM1.md. JSON shape: schema/report.v3.schema.json. Every chess fact in the report is a
-// field here; renderers and (from M4) the language model may only verbalise these fields.
+// Report data model, schema version 4. Frozen by Planning/milestones/M1.md, M2.md,
+// PostM2_EM1.md, M3a.md and M3b.md. JSON shape: schema/report.v4.schema.json. Every chess
+// fact in the report is a field here; renderers and (from M4) the language model may only
+// verbalise these fields.
 #pragma once
 
 #include <cstdint>
@@ -12,7 +13,7 @@
 
 namespace chesswhy {
 
-inline constexpr int kSchemaVersion = 3;
+inline constexpr int kSchemaVersion = 4;
 
 enum class Side : std::uint8_t { White, Black };
 enum class Budget : std::uint8_t { Quick, Standard, Deep };
@@ -63,6 +64,38 @@ enum class ThreatKind : std::uint8_t {
 // Tactic-side labels (PostM2_EM1 §4.4): reported only on tactic lines; not motifs.
 enum class TacticLabelTag : std::uint8_t { RemovalOfDefender };
 
+// M3a §4, in table order (§4.6): pawn structure, king safety, pieces, space and
+// development, material. The order is the feature order's first key; do not reorder.
+enum class PositionalTag : std::uint8_t {
+    IsolatedPawn,
+    DoubledPawns,
+    BackwardPawn,
+    PassedPawn,
+    ConnectedPassedPawns,
+    PawnIslands,
+    PawnChain,
+    CastlingKingside,
+    CastlingQueenside,
+    KingShieldGap,
+    OpenFileNearKing,
+    HalfOpenFileNearKing,
+    KingZoneAttacker,
+    BishopPair,
+    RookOpenFile,
+    RookHalfOpenFile,
+    RookSeventh,
+    Outpost,
+    BadBishop,
+    MobilityLead,
+    SpaceLead,
+    DevelopmentLead,
+    MaterialAhead,
+    ExchangeUp,
+};
+
+// M3a §5: a feature that appears or disappears along a line.
+enum class PositionalChangeKind : std::uint8_t { Appears, Disappears };
+
 // Lower-case JSON spellings: "white", "standard", "consequence_class", ...
 [[nodiscard]] std::string to_string(Side side);
 [[nodiscard]] std::string to_string(Budget budget);
@@ -77,6 +110,8 @@ enum class TacticLabelTag : std::uint8_t { RemovalOfDefender };
 [[nodiscard]] std::string to_string(MotifContribution contribution); // "direct", "indirect", "none"
 [[nodiscard]] std::string to_string(ThreatKind kind);    // "fork", ..., "checkmate", "capture"
 [[nodiscard]] std::string to_string(TacticLabelTag tag); // "removal_of_defender"
+[[nodiscard]] std::string to_string(PositionalTag tag);  // "isolated_pawn", ...
+[[nodiscard]] std::string to_string(PositionalChangeKind kind); // "appears", "disappears"
 // Provenance of a parry decision: "engine" for searched, "rule" for the legality tests.
 [[nodiscard]] const char* parry_source(ParryTest test);
 
@@ -173,6 +208,24 @@ struct TacticJudgement {
     std::vector<TacticLabel> labels;              // empty unless is_tactic
 };
 
+// A positional feature of one board (M3a §4). Source: rule. Identity per the tag's
+// Identity column (M3a §4), always including tag and side.
+struct PositionalFeature {
+    PositionalTag tag = PositionalTag::IsolatedPawn;
+    Side side = Side::White;           // owner X (M3a §4 section headings)
+    std::vector<PieceOnSquare> pieces; // order per the tag's pieces column
+    std::optional<std::uint8_t> file;  // 0 = a ... 7 = h
+    std::optional<int> value;          // set iff the tag has a value column entry
+};
+
+// A feature appearing or disappearing along a line (M3a §5). Source: rule.
+struct PositionalChange {
+    int ply = 0; // 1..walked plies; appears: as on P_k, disappears: as on P_k-1
+    PositionalChangeKind change = PositionalChangeKind::Appears;
+    bool holds_at_end = false;
+    PositionalFeature feature;
+};
+
 struct PositionInfo {
     std::string fen;
     Side side_to_move = Side::White;
@@ -180,6 +233,8 @@ struct PositionInfo {
     std::optional<Terminal> terminal; // set: no searches ran
     std::optional<Eval> eval_white;   // A's best line, White's point of view; null iff terminal
     std::vector<Motif> motifs;        // state motifs at ply 0, both sides; empty if terminal
+    std::vector<PositionalFeature> positional; // M3a §4 features at ply 0, both sides, §4.6
+                                               // order; also set for terminal positions
 };
 
 struct Consequence {
@@ -223,6 +278,7 @@ struct MoveAssessment {
     std::vector<Motif> motifs; // plies 1..walked_plies of `line_san` (M2 §5); ply 1 is this move
     std::optional<TacticJudgement>
         tactic; // set only on candidates[0] and the asked move copying it
+    std::vector<PositionalChange> positional; // M3a §5 over plies 1..walked_plies of line_san
 };
 
 struct Urgency {
@@ -255,6 +311,35 @@ struct OpeningInfo {
         last_named; // PGN input only: last named position on the mainline up to the ply
 };
 
+// M3b §5: game counts of one source for the analysed position. Source: games. Strings
+// and limits come from the table's header lines; `table` is games::kTable.
+struct GameMoveCount {
+    std::string san; // from the analysed position
+    std::string uci;
+    int games = 0;
+};
+
+struct GameSourceCounts {
+    std::string id;       // "lichess_broadcast"
+    std::string table;    // games::kTable
+    std::string platform; // "over the board (may include online events relayed as broadcasts)"
+    std::string players;  // "both rated 2200 or more"
+    std::string months;   // "2020-01..2026-09"
+    std::string credit;   // "Lichess broadcast database, database.lichess.org, CC BY-SA 4.0"
+    int max_ply = 0;
+    int min_games = 0;
+    bool found = false;
+    std::optional<int> games;         // null iff !found
+    std::optional<int> white;         // null iff !found
+    std::optional<int> draws;         // null iff !found
+    std::optional<int> black;         // null iff !found
+    std::vector<GameMoveCount> moves; // table order; empty iff !found
+};
+
+struct GamesInfo {
+    std::vector<GameSourceCounts> by_source; // one entry today
+};
+
 struct Report {
     int schema_version = kSchemaVersion;
     InputInfo input;
@@ -265,6 +350,7 @@ struct Report {
     bool fine_truncated = false;            // all K candidates are fine: more fine moves may exist
     std::optional<MoveAssessment> asked_move;
     OpeningInfo opening;
+    GamesInfo games; // after opening; always set, also for terminal positions
 };
 
 // Serialisation (src/report). Key order follows the schema (ordered_json keeps insertion

@@ -14,7 +14,7 @@ set_tests_properties(report_schema_examples PROPERTIES
 
 add_test(NAME report_schema_unit
     COMMAND "${CHESSWHY_PYTHON}" "${PROJECT_SOURCE_DIR}/tools/validate_report.py"
-        "${PROJECT_SOURCE_DIR}/schema/report.v3.schema.json"
+        "${PROJECT_SOURCE_DIR}/schema/report.v4.schema.json"
         "${report_examples_dir}/terminal_checkmate.json"
         "${report_examples_dir}/side_in_check.json"
         "${report_examples_dir}/normal_position.json"

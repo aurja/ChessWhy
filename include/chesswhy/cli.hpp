@@ -1,4 +1,4 @@
-// Command line. Frozen by Planning/milestones/M1.md §CLI.
+// Command line. Frozen by Planning/milestones/M1.md §CLI; --games by M3b §7.
 #pragma once
 
 #include "chesswhy/report.hpp"
@@ -29,6 +29,7 @@ struct Options {
     int threads = 1;
     std::filesystem::path engine;   // default: <assets>/engines/stockfish
     std::filesystem::path openings; // default: <assets>/data/openings
+    std::filesystem::path games;    // default: <assets>/data/games/lichess_broadcast_2200.tsv
     bool help = false;
 };
 

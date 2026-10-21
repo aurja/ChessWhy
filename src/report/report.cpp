@@ -365,6 +365,70 @@ std::string to_string(TacticLabelTag tag) {
     throw std::invalid_argument(invalid_enum("TacticLabelTag", tag));
 }
 
+std::string to_string(PositionalTag tag) {
+    switch (tag) {
+    case PositionalTag::IsolatedPawn:
+        return "isolated_pawn";
+    case PositionalTag::DoubledPawns:
+        return "doubled_pawns";
+    case PositionalTag::BackwardPawn:
+        return "backward_pawn";
+    case PositionalTag::PassedPawn:
+        return "passed_pawn";
+    case PositionalTag::ConnectedPassedPawns:
+        return "connected_passed_pawns";
+    case PositionalTag::PawnIslands:
+        return "pawn_islands";
+    case PositionalTag::PawnChain:
+        return "pawn_chain";
+    case PositionalTag::CastlingKingside:
+        return "castling_kingside";
+    case PositionalTag::CastlingQueenside:
+        return "castling_queenside";
+    case PositionalTag::KingShieldGap:
+        return "king_shield_gap";
+    case PositionalTag::OpenFileNearKing:
+        return "open_file_near_king";
+    case PositionalTag::HalfOpenFileNearKing:
+        return "half_open_file_near_king";
+    case PositionalTag::KingZoneAttacker:
+        return "king_zone_attacker";
+    case PositionalTag::BishopPair:
+        return "bishop_pair";
+    case PositionalTag::RookOpenFile:
+        return "rook_open_file";
+    case PositionalTag::RookHalfOpenFile:
+        return "rook_half_open_file";
+    case PositionalTag::RookSeventh:
+        return "rook_seventh";
+    case PositionalTag::Outpost:
+        return "outpost";
+    case PositionalTag::BadBishop:
+        return "bad_bishop";
+    case PositionalTag::MobilityLead:
+        return "mobility_lead";
+    case PositionalTag::SpaceLead:
+        return "space_lead";
+    case PositionalTag::DevelopmentLead:
+        return "development_lead";
+    case PositionalTag::MaterialAhead:
+        return "material_ahead";
+    case PositionalTag::ExchangeUp:
+        return "exchange_up";
+    }
+    throw std::invalid_argument(invalid_enum("PositionalTag", tag));
+}
+
+std::string to_string(PositionalChangeKind kind) {
+    switch (kind) {
+    case PositionalChangeKind::Appears:
+        return "appears";
+    case PositionalChangeKind::Disappears:
+        return "disappears";
+    }
+    throw std::invalid_argument(invalid_enum("PositionalChangeKind", kind));
+}
+
 const char* parry_source(ParryTest test) {
     return test == ParryTest::Searched ? "engine" : "rule";
 }

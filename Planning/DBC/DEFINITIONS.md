@@ -388,8 +388,8 @@ Mostly planned; [CONCEPTS.md](CONCEPTS.md) marks what is built.
 | broadcast month | One pinned monthly file of the Lichess broadcast database (`lichess_db_broadcast_YYYY-MM.pgn.zst`), checked against the SHA-256 Lichess published on 2026-10-21 | M3b §4.4 |
 | excluded game | A game left out of the game-count table, counted under the first failing reason: `variant` (not standard chess), `setup` (custom start position), `rating` (below the rating floor or no rating), `result` (unfinished), `illegal` (an unreadable or illegal move within the ply limit) | M3b §4.1 |
 | broken game | A game whose moves cannot be replayed legally, usually a relay error. Excluded only when the error falls within the ply limit (reason `illegal`); later errors are never read | M3b §1 B2 |
-| ply limit | How deep into each game positions are counted for the game-count table: positions after 0 to L−1 half-moves, with the move played from them. L = 40 (open until the Captain approves) | M3b §4.2 |
-| minimum game count | The number of counted games a position needs to be kept in the game-count table. N = 5 (open until the Captain approves) | M3b §4.2 |
+| ply limit | How deep into each game positions are counted for the game-count table: positions after 0 to L−1 half-moves, with the move played from them. L = 40 (Captain, 2026-10-21) | M3b §4.2 |
+| minimum game count | The number of counted games a position needs to be kept in the game-count table. N = 5 (Captain, 2026-10-21) | M3b §4.2 |
 | table id | `games::kTable`: the table's name with the first 12 hex digits of its SHA-256, recorded in every report, like the opening dataset's commit | M3b §4.4 |
 | `chesswhy-games` | The offline tool that reads PGN text on standard input and writes the game-count table (§4 of M3b); run by `tools/fetch_assets.sh games` | M3b §3 |
 | book corpus | Planned: the Captain's local books as text, kept out of the repository | vision §8 |

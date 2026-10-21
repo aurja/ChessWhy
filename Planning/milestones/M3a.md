@@ -1,8 +1,8 @@
 # M3a — Positional facts
 
-Status: **draft** (2026-10-21). Frozen on branch `m3` once the Captain approves the
-changed diagrams and the open choices in §1. Planned together with M3b
-(`Planning/milestones/M3b.md`) and built in parallel with it; both share report v4.
+Status: **frozen** (2026-10-21, Captain approved the changed diagrams, P4 and P5).
+Planned together with M3b (`Planning/milestones/M3b.md`) and built in parallel with it;
+both share report v4.
 
 Intent: the report states lasting features of the position (pawn structure, king safety,
 piece activity, space, development, material) and, for every candidate line and the asked
@@ -17,8 +17,8 @@ call is added.
 | P1 | Scope | Option B (2026-10-21): pawn structure, king safety, piece activity, space and development leads, material balance (§4). Named structure families and imbalances beyond material are deferred |
 | P2 | Where changes are measured | Option C (2026-10-21): every ply of a line within its walked plies, each change flagged with whether it still holds at the end (§5) |
 | P3 | Lines read | Candidate lines and the asked move's line (which contains its refutation); threat lines are not read |
-| P4 | Lead thresholds | **Open** (§4.4): mobility 10, space 3, development 2, measured on broadcast games |
-| P5 | Judgement-laden definitions | **Open** (§4.7): passed pawns counted on the front pawn of a file only; chains of at least 3 pawns; bad bishop rule; backward pawn rule; pawn shield squares |
+| P4 | Lead thresholds | Captain, 2026-10-21 (§4.4): mobility 10, space 3, development 2, measured on broadcast games |
+| P5 | Judgement-laden definitions | Captain, 2026-10-21 (§4.7, as drafted): passed pawns counted on the front pawn of a file only; chains of at least 3 pawns; bad bishop rule; backward pawn rule; pawn shield squares |
 
 ## 2. Contract files
 
@@ -30,7 +30,9 @@ Created by the orchestrator in the contract commit, before batch 1:
 | `include/chesswhy/report.hpp` | §7 structs, `kSchemaVersion = 4` (shared with M3b) |
 | `src/report/report.cpp` | `to_string(PositionalTag)`, `to_string(PositionalChangeKind)` only |
 | `schema/report.v4.schema.json` | §6 plus M3b §5; replaces `report.v3.schema.json` |
-| `src/positional/CMakeLists.txt`, `tests/positional/CMakeLists.txt` | new module `positional` in the top-level module list |
+| `CMakeLists.txt` | modules `positional` and `games` in the module list; `tests/positional/oracle` added as its own directory |
+| `src/positional/CMakeLists.txt`, `tests/positional/CMakeLists.txt`, `tests/positional/oracle/CMakeLists.txt` | owner notes only, so the tree configures while the workers run; WP-A1 and WP-A2 write the targets (§11) |
+| `tests/report/CMakeLists.txt`, `tests/cli/CMakeLists.txt` | schema path changed to v4 |
 | `tests/fixtures/positional.json` | empty skeleton (§8) |
 
 ## 3. Scope
@@ -306,8 +308,8 @@ under 300 words. Batch 1: WP-A1, WP-A2, WP-A3, WP-R (shared with M3b). Batch 2: 
 
 | WP | Owned files | Done when | Non-goals |
 |---|---|---|---|
-| WP-A1 detectors | `src/positional/*`, `tests/positional/positional_unit_tests.cpp` | §4–§5 implemented; unit tests at each rule's boundary (relative ranks for both colours, edge files, promoted pieces, en passant, castling-rights loss by a rook capture); P fixture harness; P fixtures pass once frozen (before that, own cases) | report, render, analysis |
-| WP-A2 reference | `tests/positional/oracle/*`, `tests/positional/positional_oracle.cpp` | independent §4–§5 reference written from this plan without reading WP-A1's code; `positional_oracle` per §8; §9 counts printed; zero mismatches once WP-A1 lands | detector |
+| WP-A1 detectors | `src/positional/*`, `tests/positional/CMakeLists.txt`, `tests/positional/positional_unit_tests.cpp` | §4–§5 implemented; unit tests at each rule's boundary (relative ranks for both colours, edge files, promoted pieces, en passant, castling-rights loss by a rook capture); P fixture harness; P fixtures pass once frozen (before that, own cases) | report, render, analysis |
+| WP-A2 reference | `tests/positional/oracle/*` (sources, `positional_oracle.cpp` and the `positional_oracle` target) | independent §4–§5 reference written from this plan without reading WP-A1's code; `positional_oracle` per §8; §9 counts printed; zero mismatches once WP-A1 lands | detector |
 | WP-A3 fixtures | `tests/fixtures/positional.json` (proposal), new rows in `tests/fixtures/positions.json` (proposal), throwaway scripts under `build/` | P fixtures and F rows per §8, each label with a reason; then the Captain's review | code; running WP-A1's rules |
 | WP-R report + render (M3a and M3b) | `src/report/*` (except the contract's `to_string`), `src/render/*`, `tests/report/*`, `tests/render/*` and goldens, `tools/validate_report.py` | `to_json` emits v4 (§6 and M3b §5) and validates for hand-built reports; template per §10 and M3b §8 with golden tests | analysis, CLI |
 | WP-I analysis + CLI (M3a and M3b) | `src/analysis/*`, `src/cli/*`, `tests/analysis/*`, `tests/cli/*` | `position.positional` and `MoveAssessment.positional` filled per §5; M3b §7 wiring; F harness `positional_include` and M3b's `games` rows; all F fixtures, rerun identity and timing pass | rule logic, fixture edits |

@@ -141,7 +141,7 @@ Program tests:
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
 | `report_schema_examples` | `report_schema_examples` (`write_examples.cpp`) | unit | Writes eight example reports (terminal checkmate, side in check, normal, PGN opening, tactic with labels, forced, negative margin, refutation) | `ReportDocument`, `JsonOutput`, `ReportSchema` |
-| `report_schema_unit` | `tools/validate_report.py` | unit | Those eight examples validate against `schema/report.v3.schema.json` | `ReportSchema` |
+| `report_schema_unit` | `tools/validate_report.py` | unit | Those eight examples validate against `schema/report.v4.schema.json` | `ReportSchema` |
 
 ## 7. Render — `tests/render/render_unit_tests.cpp` (`render_unit_tests`)
 
@@ -170,7 +170,7 @@ Program tests:
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
 | `cli_fixture_F01` … `cli_fixture_F24` (one per F fixture, F16 absent: 23 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture and checks its `equals` fields, `fine_includes`, `motifs_include` and `line_prefix`; runs the invariant check on every tactic judgement; with `CHESSWHY_CHECK_TIMING` on, fails above 12 s; saves the report for `report_schema` | `EngineFixtures`, `Verdict`, `TacticJudgement`, `StateMotif` |
-| `report_schema` | `tools/validate_report.py` | engine | Every saved F report validates against `schema/report.v3.schema.json`; runs after all `cli_fixture_*` tests | `ReportSchema`, `EngineFixtures` |
+| `report_schema` | `tools/validate_report.py` | engine | Every saved F report validates against `schema/report.v4.schema.json`; runs after all `cli_fixture_*` tests | `ReportSchema`, `EngineFixtures` |
 | `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12 (JSON) and a text report for a fixed position (`Nf6` after 3.Qh5) are byte-identical across two runs | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput` |
 
 ## 9. pgntool — `tests/pgntool/pgntool_unit_tests.cpp` (`pgntool_unit_tests`)

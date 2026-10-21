@@ -1,8 +1,8 @@
 # M3b — Opening statistics
 
-Status: **draft** (2026-10-21). Frozen on branch `m3` once the Captain approves the
-changed diagrams and the open choices in §1. Planned together with M3a
-(`Planning/milestones/M3a.md`) and built in parallel with it; both share report v4.
+Status: **frozen** (2026-10-21, Captain approved the changed diagrams and B5).
+Planned together with M3a (`Planning/milestones/M3a.md`) and built in parallel with it;
+both share report v4.
 
 Intent: for the analysed position, the report states how often strong players reached it
 over the board and which moves they chose, with results, from a pinned game-count table
@@ -17,7 +17,7 @@ their source and platform, and are never phrased as move quality.
 | B2 | Broken games | Deputy's call: a game with an illegal or unreadable move within the ply limit is skipped whole and counted. Moves after the ply limit are not read, so a relay error late in a game (most of them are king moves in the endgame) does not cost the game |
 | B3 | Games relayed twice | Not de-duplicated (Deputy's call) |
 | B4 | Online events relayed as broadcasts | Not filtered; the source definition says the platform is "over the board" for most games and may include online relays (Deputy's call) |
-| B5 | Ply limit and minimum game count | **Open** (§4.2): 40 plies and 5 games, recommended from the pilot (2026-10-21, all 81 months: 1,263,913 games read, 268,056 kept). Positions kept for L × N: L=30: 113,705 (N=5), 52,946 (N=10); L=40: 117,568 (N=2: 473,633; N=10: 53,889); L=60: 118,042. Past ply 40 almost no position reaches 5 games (85 positions first reached at ply 40) |
+| B5 | Ply limit and minimum game count | Captain, 2026-10-21 (§4.2): 40 plies and 5 games, from the pilot (all 81 months: 1,263,913 games read, 268,056 kept). Positions kept for L × N: L=30: 113,705 (N=5), 52,946 (N=10); L=40: 117,568 (N=2: 473,633; N=10: 53,889); L=60: 118,042. Past ply 40 almost no position reaches 5 games (85 positions first reached at ply 40) |
 
 ## 2. Contract files
 
@@ -30,7 +30,7 @@ Created by the orchestrator in the contract commit, before batch 1:
 | `include/chesswhy/report.hpp` | §6 structs (shared with M3a) |
 | `include/chesswhy/cli.hpp` | `Options::games` |
 | `schema/report.v4.schema.json` | §5 plus M3a §6 |
-| `src/games/CMakeLists.txt`, `tests/games/CMakeLists.txt` | new module `games` in the top-level module list; executable `chesswhy-games` |
+| `src/games/CMakeLists.txt`, `tests/games/CMakeLists.txt` | owner notes only, so the tree configures while the workers run; WP-B1 writes the targets (library `chesswhy_games`, executable `chesswhy-games`, `games_unit_tests`, `games_oracle`). The module list change is in M3a §2 |
 
 ## 3. Scope
 
@@ -60,7 +60,7 @@ failing reason, in this order:
 
 ### 4.2 What is counted
 
-L = **ply limit** (40, open B5), N = **minimum game count** (5, open B5).
+L = **ply limit** (40, B5), N = **minimum game count** (5, B5).
 
 - For each kept game and each k = 0 … L−1 for which the game has a move k+1: the
   position Pₖ (key `openings::position_key`) with the move played from it. A position
@@ -224,7 +224,7 @@ under 300 words. Batch 1: WP-B1, WP-B2 (with M3a's batch 1 and WP-R). Batch 2: W
 
 | WP | Owned files | Done when | Non-goals |
 |---|---|---|---|
-| WP-B1 reader + table | `src/input/pgn.cpp`, `tests/input/*` (reader tests only), `src/games/*`, `tests/games/*`, `tools/fetch_assets.sh` | `PgnReader` per §6; §4 in `build_table` and `chesswhy-games`; `Table::load`/`find`; `fetch_assets.sh games` downloads, verifies, builds, verifies; tests of §9 except F rows; full table built once and its SHA-256 reported | report, render, analysis |
+| WP-B1 reader + table | `src/input/pgn.cpp`, `tests/input/*` (reader tests only), `src/games/*`, `tests/games/*`, `tools/fetch_assets.sh`; in `include/chesswhy/games.hpp` only the `kTable` value | `PgnReader` per §6; §4 in `build_table` and `chesswhy-games`; `Table::load`/`find`; `fetch_assets.sh games` downloads, verifies, builds, verifies; tests of §9 except F rows; full table built once, its SHA-256 reported and pinned in `kTable` | report, render, analysis |
 | WP-B2 oracle | `tools/count_games.py` | independent §4 counter written from this plan without reading WP-B1's code; same output format; Ruff and basedpyright clean | C++ |
 
 WP-R and WP-I (M3a §11) carry §5, §7 and §8.
