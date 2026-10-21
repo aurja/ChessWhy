@@ -26,9 +26,17 @@ namespace chesswhy::tactics {
 // attack it. Ignores whose turn it is; never negative.
 [[nodiscard]] int see(const chess::Board& board, chess::Square square, chess::Color side);
 
-// State motifs (M2 §4.1) of `board`, for both sides, all with ply 0, ordered per M2 §5.
-// Empty when the side to move is checkmated or stalemated.
-[[nodiscard]] std::vector<Motif> position_motifs(const chess::Board& board);
+// Which motifs the detectors compute. The analysis uses the default (all). `pin_tactical`
+// (PostM2_EM1 §4.5) costs milliseconds per board, so the puzzle-corpus tests switch it off
+// outside their sample.
+struct MotifOptions {
+    bool pin_tactical = true;
+};
+
+// State motifs (M2 §4.1, PostM2_EM1 §4.5) of `board`, for both sides, all with ply 0,
+// ordered per M2 §5. Empty when the side to move is checkmated or stalemated.
+[[nodiscard]] std::vector<Motif> position_motifs(const chess::Board& board,
+                                                 MotifOptions options = {});
 
 // Motifs at plies 1..line.size() of `line` played from `root` (M2 §5): the move motifs
 // (§4.2) of each move, for its mover, and the state motifs (§4.1, both sides) that hold
@@ -36,7 +44,8 @@ namespace chesswhy::tactics {
 // boards before and after ply k and move k itself, never later moves. `line` holds legal
 // moves, already cut to the walked plies by the caller. Ordered per M2 §5.
 [[nodiscard]] std::vector<Motif> line_motifs(const chess::Board& root,
-                                             std::span<const chess::Move> line);
+                                             std::span<const chess::Move> line,
+                                             MotifOptions options = {});
 
 // Tactic labels (PostM2_EM1 §4.4) of the tactic sequence `line` played from `root`, for the
 // side to move at `root` (X). `line` holds legal moves, already cut to the walked plies.

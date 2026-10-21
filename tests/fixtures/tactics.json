@@ -4,6 +4,7 @@
     "Each fixture: id, title, source (Lichess puzzle ID 'lichess:<id>' (CC0), '<game>, before <move>' via chesswhy-pgn, or 'constructed'), fen, line_uci, margin, contributions, labels_include, labels_exclude.",
     "line_uci: a tactic sequence from fen (X = the side to move at fen), already cut to its walked plies (M1 §4.3). margin: null for a Lichess puzzle solution; otherwise the only-move margin (ES, X's view) WP4 measured at budget standard, >= 0.13.",
     "contributions: every X-side motif of position_motifs(fen) (ply 0) and line_motifs(fen, line_uci) (ply >= 1), each {tag, side, ply, actor, targets, contribution, reason}; a missing or extra X-side motif fails. contribution: 'direct'|'indirect'|'none', hand-labelled from the plain meaning of §4.3; reason: one line.",
+    "pin_tactical (§4.5) is exempt from the exact set (Captain, 2026-10-21): its entries also carry threat {kind, square}, are checked only where listed, and unlisted pin_tactical motifs neither fail nor match.",
     "Motif fields as in motifs.json: tag (report spelling), side ('white'|'black'), ply, actor (square, e.g. 'e5'), targets (squares, in the order the motif reports them).",
     "labels_include: each entry {tag, side, ply, actor, targets, reason} must appear in tactic_labels(fen, line_uci) with exactly these fields (reason excepted). labels_exclude: no label may match; omitted fields match anything.",
     "Proposed by PostM2_EM1 WP4; frozen after the Captain's review (§12, checkpoint 1); labels change only at checkpoint 2."
@@ -146,6 +147,8 @@
       "contributions": [
         {"tag":"pin_absolute","side":"black","ply":0,"actor":"g5","targets":["g3","g2"],"contribution":"none","reason":"Qxh4 dissolves this pin; the g3 pawn is held by the threat Nxf4+, not by the queen (Captain, checkpoint 2)."},
         {"tag":"overloaded_defender","side":"black","ply":0,"actor":"g3","targets":["f4","h4"],"contribution":"direct","reason":"Qxh4 takes the rook target and Nxf4 wins the pawn target."},
+        {"tag":"pin_tactical","side":"black","ply":0,"actor":"d5","targets":["h4","e2","g2"],"threat":{"kind":"fork","square":"f4"},"contribution":"direct","reason":"The h4 rook guards f4 against the Nf4 fork; Qxh4 captures it."},
+        {"tag":"pin_tactical","side":"black","ply":1,"actor":"d5","targets":["g3","e2","g2"],"threat":{"kind":"fork","square":"f4"},"contribution":"direct","reason":"The g3 pawn guards f4 against the Nf4 fork; Nxe2 later captures the forked queen."},
         {"tag":"fork","side":"black","ply":3,"actor":"f4","targets":["e2","g2"],"contribution":"direct","reason":"Nxf4+ forks the queen and king."},
         {"tag":"hanging_piece","side":"black","ply":4,"actor":"e2","targets":[],"contribution":"direct","reason":"Nxe2 takes the hanging queen."}
       ],

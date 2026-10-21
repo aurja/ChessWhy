@@ -23,8 +23,8 @@ enum class ConsequenceClass : std::uint8_t { Mate, Material, Promotion, Position
 enum class Verdict : std::uint8_t { Fine, Inaccuracy, Mistake, Blunder };
 enum class UrgencyRule : std::uint8_t { InCheck, Quiet, ConsequenceClass, Counterattack, Parry };
 enum class ParryTest : std::uint8_t { Searched, ThreatMoveIllegal, DeferredByCheck };
-// M2 §4, in table order: state motifs (§4.1), then move motifs (§4.2). The order is the
-// tie-break of M2 §5; do not reorder.
+// M2 §4, in table order: state motifs (§4.1, then PostM2_EM1 §4.5 `pin_tactical`), then
+// move motifs (§4.2). The order is the tie-break of M2 §5; do not reorder.
 enum class MotifTag : std::uint8_t {
     HangingPiece,
     PinAbsolute,
@@ -32,6 +32,7 @@ enum class MotifTag : std::uint8_t {
     BackRankWeakness,
     OverloadedDefender,
     TrappedPiece,
+    PinTactical,
     Fork,
     Skewer,
     DiscoveredCheck,
@@ -44,6 +45,20 @@ enum class MotifTag : std::uint8_t {
 // A motif's role in the tactic of the line it is listed on (M2 D11, §5; PostM2_EM1 §4.3).
 // Set only on the motif lists of tactic lines (PostM2_EM1 §4.2); null elsewhere.
 enum class MotifContribution : std::uint8_t { Direct, Indirect, None };
+
+// What a `pin_tactical` motif's restricted piece holds off (PostM2_EM1 §4.5), in the
+// order of that table; also the motif order's tie-break after the actor and targets.
+enum class ThreatKind : std::uint8_t {
+    Fork,
+    Skewer,
+    DiscoveredCheck,
+    DiscoveredAttack,
+    DoubleCheck,
+    BackRankMate,
+    Promotion,
+    Checkmate,
+    Capture,
+};
 
 // Tactic-side labels (PostM2_EM1 §4.4): reported only on tactic lines; not motifs.
 enum class TacticLabelTag : std::uint8_t { RemovalOfDefender };
@@ -60,6 +75,7 @@ enum class TacticLabelTag : std::uint8_t { RemovalOfDefender };
 [[nodiscard]] std::string to_string(ParryTest test);
 [[nodiscard]] std::string to_string(MotifTag tag); // "hanging_piece", "pin_absolute", ...
 [[nodiscard]] std::string to_string(MotifContribution contribution); // "direct", "indirect", "none"
+[[nodiscard]] std::string to_string(ThreatKind kind); // "fork", ..., "checkmate", "capture"
 [[nodiscard]] std::string to_string(TacticLabelTag tag); // "removal_of_defender"
 // Provenance of a parry decision: "engine" for searched, "rule" for the legality tests.
 [[nodiscard]] const char* parry_source(ParryTest test);
@@ -110,16 +126,25 @@ struct PieceOnSquare {
     bool operator==(const PieceOnSquare&) const = default;
 };
 
+// The threat behind a `pin_tactical` motif (PostM2_EM1 §4.5): X's move from the motif's
+// actor square to `square` would make a threat of `kind` once the restricted piece left.
+struct MotifThreat {
+    ThreatKind kind = ThreatKind::Fork;
+    std::uint8_t square = 0; // b, 0 = a1 ... 63 = h8
+    bool operator==(const MotifThreat&) const = default;
+};
+
 // A tactical motif (M2 §4, §5): a pattern of one position. Source: rule. Identity for
-// "newly present" (M2 §5) is (tag, side, actor, targets); `ply`, `gain` and
+// "newly present" (M2 §5) is (tag, side, actor, targets, threat); `ply`, `gain` and
 // `contribution` are not part of it.
 struct Motif {
     MotifTag tag = MotifTag::HangingPiece;
     Side side = Side::White; // X: the side the motif benefits
     int ply = 0;             // 0: the line's root; k: the position after the k-th move of the line
     PieceOnSquare actor;
-    std::vector<PieceOnSquare> targets; // order per M2 §5
+    std::vector<PieceOnSquare> targets; // order per M2 §5 (PostM2_EM1 §4.5 for PinTactical)
     std::optional<int> gain;            // pawn units, set iff tag is HangingPiece or TrappedPiece
+    std::optional<MotifThreat> threat;  // set iff tag is PinTactical
     std::optional<MotifContribution> contribution; // null: not judged (PostM2_EM1 §4.2)
 };
 

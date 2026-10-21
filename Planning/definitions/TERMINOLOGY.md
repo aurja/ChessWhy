@@ -119,9 +119,9 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 | Term | Meaning | Defined in |
 |---|---|---|
 | motif | A pattern of one position: the board at one ply of a line, plus the move that produced it where the tag needs it. Found by a deterministic rule; provenance `rule`. States that the pattern is on the board and claims no gain (Captain, 2026-10-20). Motifs never change verdicts, urgency or consequences (D7) | M2 D11, §4 |
-| motif tag | The motif's stable snake_case name, e.g. `fork`. 13 tags exist (§4.4) | M2 §4 |
-| motif instance | One concrete occurrence: tag + side + ply + actor + targets (+ gain, + contribution). One position can hold many | M2 §5 |
-| state motif | A pattern of the board alone (hanging piece, pins, back-rank weakness, overloaded defender, trapped piece). Computed for both sides | M2 §4.1 |
+| motif tag | The motif's stable snake_case name, e.g. `fork`. 14 tags exist (§4.4): M2's 13, plus `pin_tactical` from PostM2_EM1 | M2 §4, PostM2_EM1 §4.5 |
+| motif instance | One concrete occurrence: tag + side + ply + actor + targets (+ gain, + threat, + contribution). One position can hold many. Its **identity** (used by the first-appearance rule) is tag, side, actor, targets and threat (threat added 2026-10-21; before, tag, side, actor, targets) | M2 §5, PostM2_EM1 §4.5 |
+| state motif | A pattern of the board alone (hanging piece, pins, back-rank weakness, overloaded defender, trapped piece, tactical pin). Computed for both sides | M2 §4.1, PostM2_EM1 §4.5 |
 | move motif | A pattern that also needs the move that produced the board (fork, skewer, discovered check/attack, double check, back-rank mate, promotion). Exists only at ply ≥ 1 | M2 §4.2 |
 | not detectors | Mate threat and promotion threat come from the engine's consequence, never from a motif rule | M2 §4.3 |
 
@@ -144,6 +144,7 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 | `actor` | The piece that does it: the forking knight, the pinner, the hanging piece itself, the overloaded defender |
 | `targets` | The pieces it acts on, in a fixed order (M2 §5) |
 | `gain` | SEE value in pawns, only for `hanging_piece` and `trapped_piece`; null otherwise |
+| `threat` | Only on `pin_tactical`: `{kind, square}`, the kind of threat that removing the restricted piece would enable and the square b where X's threatening move lands (for `capture`: the captured piece's square); null otherwise (§4.4, `pin_tactical`) |
 | `contribution` | The motif's role in the tactic of the line it is listed on: `direct`, `indirect`, `none`, or null = not judged. Always null in M2; from PostM2_EM1 set on every motif of a tactic line, null elsewhere (§4.5) |
 
 ### 4.4 The tags in plain words
@@ -158,6 +159,7 @@ Exact definitions: M2 §4. These sentences only orient.
 | `back_rank_weakness` | Y king on its first rank, boxed in by its own pieces or X's attacks, and no Y rook or queen guards the rank | fixture-only |
 | `overloaded_defender` | One Y piece is the only reason two or more Y pieces are safe | fixture-only |
 | `trapped_piece` | A Y piece X can win on its square, and every move of it loses it too | measured |
+| `pin_tactical` | A Y piece p is held in place by a threat: if p were gone, an X move would make a fork, skewer, discovered check or attack, double check, back-rank mate, promotion or checkmate that it does not make now, or X would win a Y piece by SEE that it cannot win now. Includes p guarding an empty square. Actor: the X piece that would move; targets: p, then the threat's targets; `threat` names the kind and square. Called "tactical pin" in conversation (not a chess-literature term) | fixture-only |
 | `fork` | One X move attacks two or more Y pieces worth attacking, and the moved piece is safe | measured |
 | `skewer` | An X slider attacks a Y piece, behind which stands a less valuable Y piece X then wins | measured |
 | `discovered_check` | An X move unmasks check from another X piece | measured |
@@ -193,7 +195,7 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 | contribution judgement | For each motif on a tactic line, by rule: motifs of the other side → **none**; **direct** if it is a move motif or a later move of the tactic side captures one of its pieces of the other side; **indirect** if not direct, a piece of the other side in the motif attacks (pins ignored) the destination of a later move of the tactic side, and none of the motif's pieces has moved or been captured by then; else **none**. Plain sense: direct = the tactic's moves make it or capture its pieces; indirect = it stops the defender answering a move (a pin that stops a recapture, an overloaded defender); none = the tactic works without it. Since 2026-10-21; before, any later move by either side that moved or captured a motif piece made it direct, and any motif piece (including the tactic side's own) attacking a destination made it indirect. "Indirect" was open before 2026-10-20. Measured against hand-labelled C fixtures (§6.2) | PostM2_EM1 §4.3, §15 |
 | tactic label | A rule fact about a tactic line that reads later moves, so it is not a motif. Its fields match a motif's (`tag`, `side`, `ply`, `actor`, `targets`), without `gain` and `contribution`. One tag: `removal_of_defender` | PostM2_EM1 §4.4 |
 | `removal_of_defender` | Tactic label: an X capture takes a Y piece d that alone kept another Y piece t safe (SEE 0 with d, ≥ 1 without), and a later X capture on t's square wins it. Actor: the capturing piece; targets: d, t. Outside the motif reference implementation | PostM2_EM1 §4.4 |
-| restricted movement; tactical pin | **Open proposal (Captain, 2026-10-21), not in any plan yet.** A pin is any motif that restricts how a piece may move because of what would follow. Besides the line pins (`pin_absolute`, `pin_relative`), a piece can be held by a threat: in C09 the g3 pawn may not leave g3 because Nd5 would answer with Nxf4+ (a "tactical pin", a colloquial name not used in chess literature). Proposed report wording: "restricted movement (absolute pin)", "restricted movement (relative pin)", "restricted movement (tactic: line)" | C09 |
+| restricted movement | Report wording (Captain, 2026-10-21) shared by the four tags that hold a Y piece in place: "restricted movement (absolute pin)", "(relative pin)", "(overloaded defender)" and "(tactic: Nd5-f4 fork)" for `pin_tactical` (actor, threat square, threat kind). Wording only: the JSON keeps the tags. An open proposal before 2026-10-21's freeze | PostM2_EM1 §10 |
 | claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
 | PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label. Plan `Planning/milestones/PostM2_EM1.md`, branch `postm2-em1`. Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
 
@@ -269,7 +271,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 |---|---|---|
 | reference implementation, oracle | A second, deliberately plain implementation of the motif definitions in `tests/tactics/oracle/`, written from the plan text only, without reading the real detectors (`src/tactics/`). If both agree everywhere, the detectors do what the text says | M2 §7.4 |
 | mismatch | A position where the detectors' motif list and the reference's differ in any field. Each one is traced to its root: detector wrong, reference wrong, or plan text ambiguous (then the text is clarified) | M2 §7.4 |
-| compared positions | Every position of every `test.csv` puzzle (before and after each move, plus the whole line) and every T fixture. `tactics_oracle` passes only with zero mismatches | M2 §7.4 |
+| compared positions | Every position of every `test.csv` puzzle (before and after each move, plus the whole line) and every T fixture. `pin_tactical` is compared only on the **sample**: puzzles whose 0-based CSV row index is divisible by 16, and every T fixture (Captain, 2026-10-21: it costs about 18 ms per board). `tactics_oracle` passes only with zero mismatches | M2 §7.4, PostM2_EM1 §9 |
 
 ### 5.8 Puzzle check (PostM2_EM1, not gating)
 
@@ -307,8 +309,8 @@ PostM2_EM1 starts from commit `d5b703a`.
 | fixture | A stored test case with expected results; all are listed in `FIXTURES.md` | — |
 | F fixtures | Engine fixtures in `tests/fixtures/positions.json` (F01–F20, F16 dropped; PostM2_EM1 adds F21 onward): world-championship positions with expected threats, urgency, verdicts and, from PostM2_EM1, tactic judgements; pinned to Stockfish 19 at `standard`, robust at all budgets | M1 §9, PostM2_EM1 §9 |
 | U, E, parse fixtures | No engine judgement: U = opening names and PGN/ply input, E = error exit codes and messages, parse = FEN/move parsing | M1 §9 |
-| T fixtures | Motif unit fixtures T01–T41 in `tests/fixtures/motifs.json`: a position and line with instances that must (`includes`) or must not (`excludes`) be reported | M2 §9 |
-| C fixtures | Contribution unit fixtures C01–Cnn in `tests/fixtures/tactics.json`: a tactic sequence with the hand-labelled contribution of every motif of the tactic side, plus tactic labels that must or must not appear. Hand labels come from the plain meaning, not from running the rule; the Captain reviews them | PostM2_EM1 §9 |
+| T fixtures | Motif unit fixtures in `tests/fixtures/motifs.json` (T01–T41 from M2; T42 onward for `pin_tactical`, PostM2_EM1): a position and line with instances that must (`includes`) or must not (`excludes`) be reported. A `pin_tactical` include also states its `threat` | M2 §9, PostM2_EM1 §9 |
+| C fixtures | Contribution unit fixtures C01–Cnn in `tests/fixtures/tactics.json`: a tactic sequence with the hand-labelled contribution of every motif of the tactic side (except `pin_tactical`, listed only for chosen instances, Captain 2026-10-21), plus tactic labels that must or must not appear. Hand labels come from the plain meaning, not from running the rule; the Captain reviews them | PostM2_EM1 §9 |
 | hand label | A fixture's expected value set by a person from the chess meaning, with a one-line reason, before the rule's output is seen. Where rule and hand label differ, the Captain decides which changes | PostM2_EM1 §9, §12 |
 | invariant check | Part of the F harness from PostM2_EM1: on every F report, recomputes each tactic judgement from the report's own evals (margin, threshold, forced, which lists carry contributions) | PostM2_EM1 §9 |
 | positive / near miss | A T fixture where the motif holds / a deliberately similar position where it must not (e.g. a fork whose forking piece can be taken) | M2 §9 |
@@ -321,8 +323,8 @@ PostM2_EM1 starts from commit `d5b703a`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | CTest label | `unit`: no engine or model. `engine`: needs `assets/engines/stockfish`. `model`: needs a GGUF model, opt-in. Missing assets fail, never skip | AGENTS.md |
-| `tactics_puzzles` | CTest (`unit`) running `tactics_puzzle_eval` on test: recall and Lichess agreement | M2 §7.3 |
-| `tactics_oracle` | CTest (`unit`) running `tactics_motif_oracle`: detectors against the reference implementation on test and the T fixtures; zero mismatches required. Replaced `tactics_confirm` (engine-confirmed precision, removed 2026-10-20) | M2 §7.4 |
+| `tactics_puzzles` | CTest (`unit`) running `tactics_puzzle_eval` on test: recall and Lichess agreement; `pin_tactical` switched off (no theme maps to it) | M2 §7.3, PostM2_EM1 §9 |
+| `tactics_oracle` | CTest (`unit`) running `tactics_motif_oracle`: detectors against the reference implementation on test and the T fixtures (`pin_tactical` on the sample only, see compared positions); zero mismatches required. Replaced `tactics_confirm` (engine-confirmed precision, removed 2026-10-20) | M2 §7.4, PostM2_EM1 §9 |
 | gate | Required checks. After a batch: build and affected tests. At milestone end: all tests in Release and ASan/UBSan, clang-format, clang-tidy, Ruff, basedpyright, ShellCheck, the smoke command | AGENTS.md |
 | Release / ASan build | `build/release` (optimised) and `build/asan` (debug with address and undefined-behaviour sanitisers) | AGENTS.md |
 | smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2 and PostM2_EM1: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 (M2), and from PostM2_EM1 a refutation that is a tactic with the fork `direct`, while the root (all lines at ES 1.0) is not a tactic | M2 §14, PostM2_EM1 §14 |

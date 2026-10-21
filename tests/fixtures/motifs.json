@@ -1,11 +1,11 @@
 {
   "comment": [
-    "Motif unit fixtures T01-Tnn (Planning/milestones/M2.md §9). Label unit; no engine.",
-    "Each fixture: id, title, source ('<game>, before <move>' from the Captain's PGN via chesswhy-pgn, or 'constructed'), fen, line_uci (moves from fen; may be empty), includes, excludes.",
-    "An instance: tag (report spelling), side ('white'|'black', the side the motif benefits), ply (0 = fen, k = after the k-th move of line_uci), actor (square, e.g. 'e5'), targets (squares, in the order the motif reports them).",
-    "includes: each instance must appear in position_motifs(fen) (ply 0) or line_motifs(fen, line_uci) (ply >= 1) with exactly these fields.",
+    "Motif unit fixtures T01-Tnn (Planning/milestones/M2.md §9; T42 onward PostM2_EM1.md §9). Label unit; no engine.",
+    "Each fixture: id, title, source ('<game>, before <move>' from the Captain's PGN via chesswhy-pgn, 'lichess:<id>' (CC0), or 'constructed'), fen, line_uci (moves from fen; may be empty), includes, excludes.",
+    "An instance: tag (report spelling), side ('white'|'black', the side the motif benefits), ply (0 = fen, k = after the k-th move of line_uci), actor (square, e.g. 'e5'), targets (squares, in the order the motif reports them); pin_tactical includes also give threat {kind, square}.",
+    "includes: each instance must appear in position_motifs(fen) (ply 0) or line_motifs(fen, line_uci) (ply >= 1) with exactly these fields (threat compared when given).",
     "excludes: no instance may match; omitted fields match anything (e.g. {tag, side, ply} forbids every such motif at that ply).",
-    "Proposed by M2 WP5; frozen after the Captain's review (M2 §12, checkpoint 1)."
+    "T01-T41 proposed by M2 WP5 and frozen after the Captain's review (M2 §12, checkpoint 1); T42-T53 (pin_tactical) frozen with the PostM2_EM1 batch 3 contract (2026-10-21)."
   ],
   "motif_fixtures": [
     {
@@ -364,6 +364,126 @@
       "line_uci": ["e1c1"],
       "includes": [],
       "excludes": [{"tag": "discovered_check", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T42",
+      "title": "C09 fork restriction, plus capture threats",
+      "source": "lichess:obWQv",
+      "fen": "2r3k1/p4pp1/Pp2pn1p/3nN1q1/3P1P1R/3B2P1/1P2Q1KP/8 b - - 0 30",
+      "line_uci": ["g5h4"],
+      "includes": [
+        {"tag": "pin_tactical", "side": "black", "ply": 0, "actor": "d5", "targets": ["h4", "e2", "g2"], "threat": {"kind": "fork", "square": "f4"}},
+        {"tag": "pin_tactical", "side": "black", "ply": 0, "actor": "d5", "targets": ["h4", "f4"], "threat": {"kind": "capture", "square": "f4"}},
+        {"tag": "pin_tactical", "side": "black", "ply": 1, "actor": "d5", "targets": ["g3", "e2", "g2"], "threat": {"kind": "fork", "square": "f4"}},
+        {"tag": "pin_tactical", "side": "black", "ply": 1, "actor": "d5", "targets": ["g3", "f4"], "threat": {"kind": "capture", "square": "f4"}},
+        {"tag": "pin_tactical", "side": "black", "ply": 1, "actor": "h4", "targets": ["f4", "d4"], "threat": {"kind": "capture", "square": "d4"}}
+      ],
+      "excludes": [{"tag": "pin_tactical", "side": "white", "ply": 0}, {"tag": "pin_tactical", "side": "white", "ply": 1}]
+    },
+    {
+      "id": "T43",
+      "title": "fork already exists with the pawn on the board",
+      "source": "constructed",
+      "fen": "8/7p/6k1/3N4/8/8/4q3/K7 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "pin_tactical", "side": "white", "ply": 0}, {"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T44",
+      "title": "absolutely pinned pawn blocks a fork route but is skipped",
+      "source": "constructed",
+      "fen": "8/6k1/8/8/Q2p3b/8/K7/B7 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "pin_tactical", "side": "white", "ply": 0}, {"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T45",
+      "title": "second pawn still guards the fork square",
+      "source": "constructed",
+      "fen": "8/8/6k1/3Np1p1/8/8/4q3/K7 w - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "pin_tactical", "side": "white", "ply": 0}, {"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T46",
+      "title": "Y to move: the pawn on g5 still holds the fork square for X",
+      "source": "constructed",
+      "fen": "8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "d5", "targets": ["g5", "e2", "g6"], "threat": {"kind": "fork", "square": "f4"}}],
+      "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T47",
+      "title": "pawn blocks a rook skewer on the a-file",
+      "source": "constructed",
+      "fen": "q7/8/k7/8/p7/8/7K/1R6 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "b1", "targets": ["a4", "a6", "a8"], "threat": {"kind": "skewer", "square": "a1"}}],
+      "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T48",
+      "title": "pawn blocks discovered and double check",
+      "source": "constructed",
+      "fen": "k7/8/p7/8/N7/8/8/R6K w - - 0 1",
+      "line_uci": [],
+      "includes": [
+        {"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "a4", "targets": ["a6", "a8"], "threat": {"kind": "discovered_check", "square": "b2"}},
+        {"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "a4", "targets": ["a6", "a8"], "threat": {"kind": "double_check", "square": "b6"}}
+      ],
+      "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T49",
+      "title": "pawn blocks a discovered attack on the queen",
+      "source": "constructed",
+      "fen": "q6k/8/p7/8/N7/8/7K/R7 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "a4", "targets": ["a6", "a8"], "threat": {"kind": "discovered_attack", "square": "b2"}}],
+      "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T50",
+      "title": "pawn blocks a back-rank mate on h8",
+      "source": "constructed",
+      "fen": "4k3/1N1ppp2/4N3/8/7p/8/8/K6R w - - 0 1",
+      "line_uci": [],
+      "includes": [
+        {"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "h1", "targets": ["h4", "e8"], "threat": {"kind": "back_rank_mate", "square": "h8"}},
+        {"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "h1", "targets": ["h4", "e8"], "threat": {"kind": "checkmate", "square": "h8"}}
+      ],
+      "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T51",
+      "title": "rook blocks the promotion square",
+      "source": "constructed",
+      "fen": "r6k/P7/8/8/8/8/8/7K w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "a7", "targets": ["a8"], "threat": {"kind": "promotion", "square": "a8"}}],
+      "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T52",
+      "title": "pawn blocks a queen mate on g7",
+      "source": "constructed",
+      "fen": "7k/8/5K2/8/6p1/8/8/6Q1 w - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "g1", "targets": ["g4", "h8"], "threat": {"kind": "checkmate", "square": "g7"}}],
+      "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
+    },
+    {
+      "id": "T53",
+      "title": "no pin_tactical for X while Y is in check",
+      "source": "constructed",
+      "fen": "7k/p7/8/8/8/8/8/K6R b - - 0 1",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [{"tag": "pin_tactical", "side": "white", "ply": 0}, {"tag": "pin_tactical", "side": "black", "ply": 0}]
     }
   ]
 }

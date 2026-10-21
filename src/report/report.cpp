@@ -291,6 +291,8 @@ std::string to_string(MotifTag tag) {
         return "overloaded_defender";
     case MotifTag::TrappedPiece:
         return "trapped_piece";
+    case MotifTag::PinTactical:
+        return "pin_tactical";
     case MotifTag::Fork:
         return "fork";
     case MotifTag::Skewer:
@@ -319,6 +321,30 @@ std::string to_string(MotifContribution contribution) {
         return "none";
     }
     throw std::invalid_argument(invalid_enum("MotifContribution", contribution));
+}
+
+std::string to_string(ThreatKind kind) {
+    switch (kind) {
+    case ThreatKind::Fork:
+        return "fork";
+    case ThreatKind::Skewer:
+        return "skewer";
+    case ThreatKind::DiscoveredCheck:
+        return "discovered_check";
+    case ThreatKind::DiscoveredAttack:
+        return "discovered_attack";
+    case ThreatKind::DoubleCheck:
+        return "double_check";
+    case ThreatKind::BackRankMate:
+        return "back_rank_mate";
+    case ThreatKind::Promotion:
+        return "promotion";
+    case ThreatKind::Checkmate:
+        return "checkmate";
+    case ThreatKind::Capture:
+        return "capture";
+    }
+    throw std::invalid_argument(invalid_enum("ThreatKind", kind));
 }
 
 std::string to_string(TacticLabelTag tag) {

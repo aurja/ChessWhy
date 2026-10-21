@@ -217,22 +217,43 @@
     "motif": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain", "contribution"],
+      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain", "threat", "contribution"],
       "properties": {
         "source": {"const": "rule"},
         "tag": {"enum": ["hanging_piece", "pin_absolute", "pin_relative", "back_rank_weakness",
-                         "overloaded_defender", "trapped_piece", "fork", "skewer", "discovered_check",
-                         "discovered_attack", "double_check", "back_rank_mate", "promotion"]},
+                         "overloaded_defender", "trapped_piece", "pin_tactical", "fork", "skewer",
+                         "discovered_check", "discovered_attack", "double_check", "back_rank_mate",
+                         "promotion"]},
         "side": {"$ref": "#/$defs/side"},
         "ply": {"type": "integer", "minimum": 0},
         "actor": {"$ref": "#/$defs/piece_on_square"},
         "targets": {"type": "array", "items": {"$ref": "#/$defs/piece_on_square"}},
         "gain": {"type": ["integer", "null"], "minimum": 1},
+        "threat": {"oneOf": [{"$ref": "#/$defs/motif_threat"}, {"type": "null"}]},
         "contribution": {"enum": ["direct", "indirect", "none", null]}
       },
-      "if": {"properties": {"tag": {"enum": ["hanging_piece", "trapped_piece"]}}},
-      "then": {"properties": {"gain": {"type": "integer"}}},
-      "else": {"properties": {"gain": {"type": "null"}}}
+      "allOf": [
+        {
+          "if": {"properties": {"tag": {"enum": ["hanging_piece", "trapped_piece"]}}},
+          "then": {"properties": {"gain": {"type": "integer"}}},
+          "else": {"properties": {"gain": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"tag": {"const": "pin_tactical"}}},
+          "then": {"properties": {"threat": {"$ref": "#/$defs/motif_threat"}, "targets": {"minItems": 1}}},
+          "else": {"properties": {"threat": {"type": "null"}}}
+        }
+      ]
+    },
+    "motif_threat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "square"],
+      "properties": {
+        "kind": {"enum": ["fork", "skewer", "discovered_check", "discovered_attack", "double_check",
+                          "back_rank_mate", "promotion", "checkmate", "capture"]},
+        "square": {"type": "string", "pattern": "^[a-h][1-8]$"}
+      }
     },
     "motifs": {"type": "array", "items": {"$ref": "#/$defs/motif"}},
     "tactic_label": {

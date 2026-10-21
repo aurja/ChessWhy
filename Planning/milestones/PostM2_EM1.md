@@ -145,12 +145,44 @@ credit). Seed implementation: `5cc9582^:src/tactics/motifs.cpp`
 (`append_removal_of_defender`); seed fixtures: T33, T34 in
 `2e4104e^:tests/fixtures/motifs.json`.
 
-### 4.5 Not in scope
+### 4.5 `pin_tactical` (state motif)
+
+Added 2026-10-21 (Captain, §15). A Y piece is held in place by what X could do if it
+left. State motif, computed for both sides like M2 §4.1; source `rule`; fixture-only (no
+Lichess mapping).
+
+On board B (not terminal, Y not in check), let Bx = B with X to move (B itself, or B
+after a null move when Y is to move). For each Y non-king piece p, let B−p = Bx with p
+removed (a removed rook also clears its castling right). Skip p when the Y king is
+attacked on B−p (p is absolutely pinned; `pin_absolute` reports it). p is restricted
+when removing it enables at least one **threat**, of these kinds, in this order:
+
+| Kind | Enabled on B−p, not on Bx |
+|---|---|
+| `fork`, `skewer`, `discovered_check`, `discovered_attack`, `double_check`, `back_rank_mate`, `promotion` | X's legal move m = a→b on B−p produces this M2 §4.2 move motif (side X); on Bx, m is illegal or does not produce a motif of this tag |
+| `checkmate` | X's legal move m on B−p gives checkmate; on Bx, m is illegal or does not |
+| `capture` | A Y non-king piece t ≠ p with `see(Bx, t, X) ≤ 0` and `see(B−p, t, X) ≥ 1`; m = X's legal capture of t on B−p by the least valuable piece (lowest square among equals); no legal capture, no threat |
+
+A threat counts whether p guarded b, guarded a piece, or blocked a line: empty guarded
+squares are included. One motif per (a, p, kind), with the lowest b:
+
+- actor: a, the X piece making m;
+- targets: p, then the threat's targets on B−p (the move motif's targets in M2 §5
+  order; `checkmate`: the Y king; `capture`: t; `promotion`: none);
+- `threat`: `{kind, square: b}`. Set iff the tag is `pin_tactical`.
+
+Identity (M2 §5) adds `threat` for every tag (null equals null). Order: M2 §5, with
+`pin_tactical` after `trapped_piece`, then threat kind in the order above, then b.
+Reference implementation in `tests/tactics/oracle/reference.cpp`; `tactics_oracle` stays
+at zero mismatches.
+
+### 4.6 Not in scope
 
 Threat tactics (B and E lines), tactics by moves other than the best, multi-move
 "quiet" tactic detection beyond the margin, tactic names (a tactic is not called a fork
-etc.; motifs and their contributions carry that), new motif tags, the recall-miss scope
-proposals from the M2 audit.
+etc.; motifs and their contributions carry that), motif tags other than `pin_tactical`,
+trimming motif lists for the reader (comprehensive first, Captain 2026-10-21), the
+recall-miss scope proposals from the M2 audit.
 
 ## 5. Report v3
 
@@ -182,6 +214,10 @@ proposals from the M2 audit.
   `$defs/eval` format. `margin` = margin units / 2000, printed like `es`. `labels` empty
   unless `is_tactic`.
 - `Motif.contribution`: filled per §4.2–4.3; format unchanged from v2.
+- `Motif.tag` adds `pin_tactical` (§4.5). New required, nullable key `Motif.threat`
+  (after `gain`): `{"kind": "fork", "square": "f4"}` iff the tag is `pin_tactical`, null
+  otherwise. Kinds: `fork`, `skewer`, `discovered_check`, `discovered_attack`,
+  `double_check`, `back_rank_mate`, `promotion`, `checkmate`, `capture`.
 - Nothing else changes; every v2 field keeps its meaning.
 
 ## 6. Headers
@@ -213,6 +249,12 @@ struct TacticJudgement {                                 // §4.1
 // Threat:         std::optional<TacticJudgement> tactic;  // set only on judged refutations
 // MoveAssessment: std::optional<TacticJudgement> tactic;  // set only on candidates[0] (and its copy)
 // kSchemaVersion = 3
+// MotifTag: PinTactical after TrappedPiece (§4.5)
+enum class ThreatKind : std::uint8_t { Fork, Skewer, DiscoveredCheck, DiscoveredAttack,
+                                       DoubleCheck, BackRankMate, Promotion, Checkmate, Capture };
+[[nodiscard]] std::string to_string(ThreatKind kind);   // "fork", ..., "capture"
+struct MotifThreat { ThreatKind kind; std::uint8_t square; };  // b
+// Motif: std::optional<MotifThreat> threat;   // set iff PinTactical; part of identity
 
 // tactics.hpp (pure, provenance rule)
 // §4.4 labels for the side to move at `root`; `line` already cut to the walked plies.
@@ -221,6 +263,9 @@ struct TacticJudgement {                                 // §4.1
 // §4.3: sets `contribution` on every motif (plies 0..line.size()); X = side to move at `root`.
 void judge_contributions(const chess::Board& root, std::span<const chess::Move> line,
                          std::span<Motif> motifs);
+// §4.5 cost switch; default computes everything (the analysis never changes it)
+struct MotifOptions { bool pin_tactical = true; };
+// position_motifs(board, MotifOptions options = {}); line_motifs(root, line, MotifOptions options = {})
 
 // analysis.hpp
 inline constexpr int kTacticMarginUnits = kMistakeUnits;
@@ -255,14 +300,28 @@ at checkpoint 2, decided by the Captain per mismatch, each with a §15 row.
   `tactics_unit_tests`: `{id, title, source, fen, line_uci, contributions,
   labels_include, labels_exclude}`. `line_uci` is a tactic sequence from `fen` (X = side
   to move), already cut to its walked plies. `contributions` lists **every** X-side motif
-  of `position_motifs(fen)` and `line_motifs(fen, line)` as `{tag, side, ply, actor,
-  targets, contribution}` (exact set: a missing or extra X motif fails). Label entries
+  of `position_motifs(fen)` and `line_motifs(fen, line)` other than `pin_tactical` as
+  `{tag, side, ply, actor, targets, contribution}` (exact set: a missing or extra X motif
+  fails). `pin_tactical` entries also carry `threat {kind, square}` and are checked only
+  where listed (Captain, 2026-10-21: chosen instances, not an exact set). Label entries
   are `{tag, side, ply, actor, targets}`; any field may be omitted in `labels_exclude`.
   Squares as names; exact format in the file's `comment`.
 - Coverage, at least: 6 fixtures whose key motif is `direct`; 3 with an `indirect` motif
   (pin stopping a recapture ×2, one free choice); 4 with a `none` motif;
   `removal_of_defender` 3 positives and 3 near misses (T33, T34 revived among them).
   IDs C01–Cnn. (Reduced 2026-10-21, §15.)
+- **`pin_tactical` C rows**: C09 lists both of its fork instances: ply 0, actor d5,
+  targets h4, e2, g2, threat fork f4, `direct` (black's next move Qxh4 captures h4); ply 1,
+  actor d5, targets g3, e2, g2, threat fork f4, `direct` (black's next move Nxe2 captures e2).
+- **T fixtures** (`tests/fixtures/motifs.json`, `unit`): T42 onward for `pin_tactical`,
+  frozen in the contract commit. Includes carry `threat {kind, square}`; the motif
+  harness matches it when given. At least one include per threat kind, plus excludes for
+  a threat that already exists on Bx, an absolutely pinned p, a second guard, and Y in
+  check; one fixture with Y to move.
+- **Puzzle-corpus sampling** (Captain, 2026-10-21): `tactics_oracle` computes
+  `pin_tactical` (detector and reference) only on puzzles whose 0-based row index in the
+  CSV is divisible by 16, with zero mismatches required as for every tag;
+  `tactics_puzzle_eval` and `tactics_puzzles` switch it off (no measured theme maps to it).
 - **Hand labels**: WP4 labels from the plain meaning in §4.3, one-line reason per label,
   without running or reading the rule implementation. Lines must be tactics: a Lichess
   puzzle solution (CC0, puzzle ID as source) or a line checked by WP4 at `standard` to
@@ -290,12 +349,22 @@ at checkpoint 2, decided by the Captain per mismatch, each with a §15 row.
 - Label rows like motif rows: `removal_of_defender: b d5 → N d5, R e4 (ply 1) [rule]`.
 - Motif rows show a non-null contribution inside the ply parentheses:
   `fork: n f3 → K e1, Q d4 (ply 1, direct) [rule]`.
+- Restricted-movement wording (Captain, 2026-10-21): rows of the four restricted-movement
+  tags print a phrase instead of the tag; all other rows print the tag as before. JSON
+  tags are unchanged.
+  - `pin_absolute`: `restricted movement (absolute pin): R e1 → n e5, k e8 (ply 0) [rule]`
+  - `pin_relative`: `restricted movement (relative pin): …`
+  - `overloaded_defender`: `restricted movement (overloaded defender): …`
+  - `pin_tactical`: `restricted movement (tactic: Nd5-f4 fork): n d5 → P g3, Q e2, K g2
+    (ply 1, direct) [rule]`. Inside the parentheses: the actor's piece letter upper case,
+    actor square, `-`, threat square, the threat kind with `_` printed as a space.
 - Wording pinned by golden tests; `position.motifs` still not printed.
 
 ## 11. Work packages
 
 Each worker owns only the files listed, builds and runs its own targets, and returns
-under 300 words. Batch 1: WP1, WP3, WP4. Batch 2: WP2, WP5. Milestone end: WP6.
+under 300 words. Batch 1: WP1, WP3, WP4. Batch 2: WP2, WP5. Batch 3 (`pin_tactical`,
+§4.5): WP7, WP8, WP9. Milestone end: WP6.
 
 | WP | Owned files | Done when | Non-goals |
 |---|---|---|---|
@@ -305,6 +374,9 @@ under 300 words. Batch 1: WP1, WP3, WP4. Batch 2: WP2, WP5. Milestone end: WP6.
 | WP4 fixtures | `tests/fixtures/tactics.json` (proposal), new rows in `tests/fixtures/positions.json` (proposal), throwaway scripts under `build/` | C table and F rows per §9, each line's tactic status checked; then the Captain's review | code; running WP1's rule |
 | WP5 puzzle check | `tests/tactics/puzzle_eval.cpp` | §7 numbers printed for test (and dev locally); exit rule unchanged | rule logic |
 | WP6 docs | `README.md`, `third_party/DEPENDENCIES.md` | §13 | — |
+| WP7 `pin_tactical` detector | `src/tactics/motifs.cpp`, new `src/tactics/pin_tactical.cpp` (optional) and `src/tactics/CMakeLists.txt`, `src/tactics/tactic.cpp` (tag switch only), `tests/tactics/tactics_unit_tests.cpp` | §4.5 in `position_motifs`/`line_motifs` with `MotifOptions`; identity includes `threat`; M2 §5 order with `pin_tactical` after `trapped_piece`, then kind, then b; unit tests at each §4.5 boundary; T fixtures match `threat`; C harness per §9 | oracle, report, render |
+| WP8 `pin_tactical` reference | `tests/tactics/oracle/*`, `tests/tactics/motif_oracle.cpp`, `tests/tactics/puzzle_eval.cpp` | independent reference of §4.5 written from this plan without reading WP7's code; oracle compares `threat`; sampling per §9; `tactics_oracle` zero mismatches | detector |
+| WP9 report + render for `pin_tactical` | `src/report/*` (except the contract's `to_string`), `src/render/*`, `tests/report/*`, `tests/render/*` and goldens, `tools/validate_report.py` | `threat` key per §5 in `to_json`, validates against the v3 schema; restricted-movement wording per §10 in golden tests, including a `pin_tactical` row | detection |
 
 ## 12. Captain's checkpoints
 
@@ -335,8 +407,9 @@ under 300 words. Batch 1: WP1, WP3, WP4. Batch 2: WP2, WP5. Milestone end: WP6.
 3. C fixtures pass (`unit`): contributions exact, labels as listed, after checkpoint 2.
 4. All F fixtures keep every M1 and M2 expectation unchanged and pass their new rows;
    every F report validates against `report.v3.schema.json`.
-5. `tactics_oracle` zero mismatches and `tactics_puzzles` targets still met (motifs
-   unchanged); §7 numbers recorded in the receipt.
+5. `tactics_oracle` zero mismatches (`pin_tactical` on the §9 sample and on every T
+   fixture) and `tactics_puzzles` targets still met (M2 motifs unchanged); §7 numbers
+   recorded in the receipt.
 6. Rerun identity: byte-identical JSON as in M1 acceptance 4.
 7. `standard` ≤ 12 s wall time per F fixture (Release); the receipt records the slowest.
 8. Facts first: judgements carry `engine` (or `rule` when forced), labels and
@@ -362,3 +435,6 @@ contribution `direct`.
 | 2026-10-21 | §9: indirect coverage 3 (pin stopping a recapture ×2, free choice ×1); the overloaded-defender ×2 and landing-square-guard ×1 cases dropped | Captain, checkpoint 1: an indirect overload is rare and beyond players below titled level (a 50k-puzzle scan found none); a landing-square guard by an X piece is not the motif's work (C01 decision below) |
 | 2026-10-21 | §4.3 rule 2: only X moves count, and only captures of a Y piece of μ; rule 3: only Y pieces of μ, and only while no piece of μ has moved or been captured | Captain, checkpoint 2. Y replies made pins direct (C10 Kxh7; C12, C13, C14 king and pawn moves); X moving its own pinner without capturing made a pin direct (C16 Re2, C09 Qxh4); the X pinner's own guard made a pin indirect (C01 Qa4 on c6) |
 | 2026-10-21 | C fixture hand labels: C01 pin a4→a7,a8 `none`; C09 pin g5→g3,g2 `none` and `removal_of_defender` required; C08 `removal_of_defender` required; C16 pin e1→e5,e8 `none` | Captain, checkpoint 2. C08, C09: Lichess tags both `capturingDefender`, and the captured piece is a defender by SEE |
+| 2026-10-21 | §4.5: new state motif `pin_tactical` (restricted movement through a threat that removing the Y piece enables; nine threat kinds, empty guarded squares included); `Motif.threat` (§5, §6) and motif identity includes `threat`; `MotifOptions` | Captain: comprehensive analysis first, conciseness later. Prototype on 9,300 puzzles: +9.6 reported motifs per puzzle (M2 tags 3.7), 17.8 ms per board |
+| 2026-10-21 | §10: the four restricted-movement tags print `restricted movement (…)` instead of the tag; `overloaded_defender` detection unchanged | Captain: shared wording, not a merged tag. "(overloaded defender)" instead of "(overloaded: guards …)" so the targets are not printed twice |
+| 2026-10-21 | §9: `pin_tactical` exempt from the C fixtures' exact set; corpus tests sample it (oracle every 16th puzzle row; puzzle eval off) | Captain: chosen C instances only (~71 X-side instances on C01–C16); no speed budget, corpus tests sample |
