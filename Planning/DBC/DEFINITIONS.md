@@ -333,15 +333,19 @@ PostM2_EM1 starts from commit `d5b703a`.
 | positive / near miss | A T fixture where the motif holds / a deliberately similar position where it must not (e.g. a fork whose forking piece can be taken) | M2 §9 |
 | constructed | A fixture position made up by hand rather than taken from a game | M2 §9 |
 | `motifs_include` | Key on an F fixture: listed motif instances must appear in the report (extras allowed). From PostM2_EM1 an entry may also state its `contribution` | M2 §9, PostM2_EM1 §9 |
+| `positional_include` | Key on an F fixture from M3a: listed positional features or changes must appear in the report (extras allowed); partial objects match like `motifs_include` | M3a §8 |
+| P fixtures | Positional unit fixtures in `tests/fixtures/positional.json` (M3a): `features` entries P01… (a position with features that must or must not be reported) and `lines` entries PL01… (a line with positional changes that must or must not be reported). Hand-labelled from the plain definitions; at least 10 are positions from the Captain's books, cited by game | M3a §8 |
 | re-blessing | Re-deriving engine fixture expectations for a new Stockfish version; an explicit milestone task | AGENTS.md |
 
 ### 6.3 Tests, gates, builds
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| CTest label | `unit`: no engine or model. `engine`: needs `assets/engines/stockfish`. `model`: needs a GGUF model, opt-in. Missing assets fail, never skip | AGENTS.md |
+| CTest label | `unit`: no engine or model. `engine`: needs `assets/engines/stockfish` and, from M3b, the game-count table. `games` (from M3b): needs the broadcast month files fetched by `tools/fetch_assets.sh games`. `model`: needs a GGUF model, opt-in. Missing assets fail, never skip | AGENTS.md, M3b §9 |
 | `tactics_puzzles` | CTest (`unit`) running `tactics_puzzle_eval` on test: recall and Lichess agreement; `pin_tactical` switched off (no theme maps to it) | M2 §7.3, PostM2_EM1 §9 |
 | `tactics_oracle` | CTest (`unit`) running `tactics_motif_oracle`: detectors against the reference implementation on test and the T fixtures (`pin_tactical` on the sample only, see compared positions); zero mismatches required. Replaced `tactics_confirm` (engine-confirmed precision, removed 2026-10-20) | M2 §7.4, PostM2_EM1 §9 |
+| `positional_oracle` | CTest (`unit`, M3a): positional features, changes and the mobility, space and development counts against an independent reference on every board of every `test.csv` solution line; zero mismatches required | M3a §8 |
+| `games_oracle` | CTest (`games`, M3b): `chesswhy-games` on two pinned months against `tools/count_games.py`, an independent python-chess counter; the two tables must be byte-identical | M3b §9 |
 | gate | Required checks. After a batch: build and affected tests. At milestone end: all tests in Release and ASan/UBSan, clang-format, clang-tidy, Ruff, basedpyright, ShellCheck, the smoke command | AGENTS.md |
 | Release / ASan build | `build/release` (optimised) and `build/asan` (debug with address and undefined-behaviour sanitisers) | AGENTS.md |
 | smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2 and PostM2_EM1: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 (M2), and from PostM2_EM1 a refutation that is a tactic with the fork `direct`, while the root (all lines at ES 1.0) is not a tactic | M2 §14, PostM2_EM1 §14 |
@@ -374,13 +378,20 @@ Mostly planned; [CONCEPTS.md](CONCEPTS.md) marks what is built.
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| positional fact | Planned: a lasting feature computed by rule (pawn structure, king safety, piece activity, space and development, material imbalance), reported as a before/after change along a line and used only when tied to a line or verdict | vision §5.6 |
+| positional fact | A lasting feature computed by rule (pawn structure, king safety, piece activity, space and development, material balance), reported as a positional feature of the position and as positional changes along a line, and used in the explanation only when tied to a line or verdict. Planned until M3a is built; §9 has the parts. Since 2026-10-21 (Captain's option B): material balance only; before, "material imbalance" (which pieces each side has, beyond the count) and named pawn structures were included, now deferred | vision §5.6, M3a |
 | position key | Piece placement, side to move, castling rights and an en-passant square only when a legal capture exists; move counters ignored, so transpositions match | vision §5.7, M1 §4.8 |
 | opening name | Name and ECO code of a position in the pinned opening dataset; `book` provenance; never guessed for an unnamed position | vision §5.7, M1 §4.8 |
 | last named position | For PGN input: the last position on the game mainline (up to and including the analysed position) that has an opening name, with its ply | M1 §4.8 |
-| game-count table | Planned: a position → move-count table built offline from pinned game collections, each source and platform kept apart, with a recorded table id. One source since 2026-10-21: Lichess broadcasts, both players 2200+ | vision §5.7 |
-| game counts | Planned: per source and position, the number of games, results and the count for each move played; `games` provenance; every figure names its source and platform and is never phrased as move quality | vision §2, §5.7 |
-| rating floor | Planned: the minimum rating both players of a game must have (`WhiteElo` and `BlackElo` tags) for the game to enter the game-count table; games without both tags are left out. 2200 (Captain, 2026-10-21) | vision §5.7 |
+| game-count table | Planned: a position → move-count table built offline from pinned game collections, each source and platform kept apart, with a recorded table id. One source since 2026-10-21: Lichess broadcasts, both players 2200+, January 2020 to September 2026, in `assets/data/games/lichess_broadcast_2200.tsv` | vision §5.7, M3b §4 |
+| game counts | Planned: per source and position, the number of games, results and the count for each move played; `games` provenance; every figure names its source and platform and is never phrased as move quality | vision §2, §5.7, M3b §5 |
+| rating floor | Planned: the minimum rating both players of a game must have (`WhiteElo` and `BlackElo` tags) for the game to enter the game-count table; games without both tags are left out. 2200 (Captain, 2026-10-21) | vision §5.7, M3b §4.1 |
+| broadcast month | One pinned monthly file of the Lichess broadcast database (`lichess_db_broadcast_YYYY-MM.pgn.zst`), checked against the SHA-256 Lichess published on 2026-10-21 | M3b §4.4 |
+| excluded game | A game left out of the game-count table, counted under the first failing reason: `variant` (not standard chess), `setup` (custom start position), `rating` (below the rating floor or no rating), `result` (unfinished), `illegal` (an unreadable or illegal move within the ply limit) | M3b §4.1 |
+| broken game | A game whose moves cannot be replayed legally, usually a relay error. Excluded only when the error falls within the ply limit (reason `illegal`); later errors are never read | M3b §1 B2 |
+| ply limit | How deep into each game positions are counted for the game-count table: positions after 0 to L−1 half-moves, with the move played from them. L = 40 (open until the Captain approves) | M3b §4.2 |
+| minimum game count | The number of counted games a position needs to be kept in the game-count table. N = 5 (open until the Captain approves) | M3b §4.2 |
+| table id | `games::kTable`: the table's name with the first 12 hex digits of its SHA-256, recorded in every report, like the opening dataset's commit | M3b §4.4 |
+| `chesswhy-games` | The offline tool that reads PGN text on standard input and writes the game-count table (§4 of M3b); run by `tools/fetch_assets.sh games` | M3b §3 |
 | book corpus | Planned: the Captain's local books as text, kept out of the repository | vision §8 |
 | book index | Planned: a BM25 search index over page or paragraph chunks of the book corpus, kept out of the repository | vision §8 |
 | concept tag | Planned: a motif or positional tag from the report, widened by a checked-in keyword map, used as the book query | vision §8 |
@@ -390,3 +401,47 @@ Mostly planned; [CONCEPTS.md](CONCEPTS.md) marks what is built.
 | fact sheet | Planned: a compact text form of the report (not raw JSON) given to the language model with a level-specific prompt | vision §7.2 |
 | language model | Planned: a local GGUF model run through llama.cpp (linked as a library) that turns the fact sheet into prose for the chosen level; decides no chess content | vision §7.1 |
 | fact check | Planned: every move, square and piece in the prose must be in the report, and opening names and game counts must match it exactly; one regeneration, then template rendering with a notice | vision §7.3 |
+
+## 9. Positional features (M3a)
+
+Planned until M3a is built. Exact rules are in `Planning/milestones/M3a.md` §4–§5.
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| positional feature | One feature of §4 of M3a on one board: a tag, an owner, the pieces it concerns, and a file or value where the tag has one; `rule` provenance. `position.positional` lists those of the analysed position | M3a §4 |
+| owner | The side a positional feature belongs to: the pawns' or pieces' side, the king's side for king safety, the side ahead for leads and material | M3a §4 |
+| feature identity | What makes a feature "the same" on two boards: its tag, owner and, depending on the tag, its file, the square of its piece, its pawns' squares, its value or the colour of its bishop's squares | M3a §4 |
+| positional change | A positional feature that `appears` or `disappears` at a ply of a line, judged by feature identity; a feature whose identity persists while its pieces or value change is not a change. Listed in `MoveAssessment.positional` for each candidate and the asked move, over the walked plies | M3a §5 |
+| `holds_at_end` | On a positional change: an appearance is still there, or a disappearance is still gone, at the end of the walked plies (Captain's option C, 2026-10-21) | M3a §5 |
+| relative rank | A rank counted from a side's own back rank (1) towards the other side (8) | M3a §4 |
+| king files | The file of a king and the files next to it | M3a §4.2 |
+| mobility | For a side: squares attacked by its knights, bishops, rooks and queens that hold none of its own pieces and are not attacked by an enemy pawn, summed per piece | M3a §4.4 |
+| space | For a side: squares on files c–f, its relative ranks 2–4, behind one of its own pawns on the same file, holding none of its pawns and not attacked by an enemy pawn | M3a §4.4 |
+| undeveloped | For a side: its knights and bishops still on its back rank | M3a §4.4 |
+| lead threshold | The gap a side needs to be given a lead: mobility 10, space 3, undeveloped pieces 2 (open until the Captain approves); set so that a lead appears in about one position in six (mobility, space) of strong broadcast games | M3a §4.4 |
+
+The tags in plain words (owner X, other side Y):
+
+| Tag | Plain words | Group |
+|---|---|---|
+| `isolated_pawn` | X pawns on a file with no X pawn on either neighbouring file | pawn structure |
+| `doubled_pawns` | Two or more X pawns on one file | pawn structure |
+| `backward_pawn` | An X pawn left behind its neighbours whose next square is covered by a Y pawn | pawn structure |
+| `passed_pawn` | The front X pawn of a file with no Y pawn ahead of it on its own or a neighbouring file | pawn structure |
+| `connected_passed_pawns` | X passed pawns on neighbouring files | pawn structure |
+| `pawn_islands` | The number of separate groups of X pawns | pawn structure |
+| `pawn_chain` | Three or more X pawns on one diagonal, each defending the next | pawn structure |
+| `castling_kingside`, `castling_queenside` | X may still castle on that side | king safety |
+| `king_shield_gap` | A king file with no X pawn on the two squares in front of the X king (king on its first two ranks) | king safety |
+| `open_file_near_king` | A king file with no pawns | king safety |
+| `half_open_file_near_king` | A king file with no X pawn and at least one Y pawn | king safety |
+| `king_zone_attacker` | A Y piece (not pawn or king) attacking the X king or a square next to it | king safety |
+| `bishop_pair` | X has bishops on both colours | pieces |
+| `rook_open_file` | An X rook on a file with no pawns | pieces |
+| `rook_half_open_file` | An X rook on a file with no X pawn and at least one Y pawn | pieces |
+| `rook_seventh` | An X rook on its seventh rank, where the Y king sits behind or Y pawns stand | pieces |
+| `outpost` | An X knight or bishop on its ranks 4–6, defended by an X pawn, that no Y pawn can ever attack | pieces |
+| `bad_bishop` | An X bishop whose colour holds most X pawns, at least two of them blocked by Y pawns | pieces |
+| `mobility_lead`, `space_lead`, `development_lead` | X leads by at least the lead threshold; the value is the gap | space and development |
+| `material_ahead` | X is ahead in material (1/3/3/5/9); the value is the gap in pawns | material |
+| `exchange_up` | X has an extra rook while Y has an extra knight or bishop | material |

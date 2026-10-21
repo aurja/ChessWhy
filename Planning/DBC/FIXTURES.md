@@ -254,3 +254,14 @@ the tactic (DEFINITIONS §4.5), plus required or forbidden tactic labels. Read b
 | `tests/fixtures/annotated.pgn` | Five games with comments, NAGs and headers | PGN reader tests, `pgntool` tests | |
 | `tests/fixtures/fen_tag.pgn` | A game starting from a `FEN`/`SetUp` tag | U04 | |
 | `tests/fixtures/puzzles/test.csv` | The committed **test** split of the Lichess puzzle sample: 9,300 puzzles from the 2026-10-05 Lichess export (CC0), columns `PuzzleId, FEN, Moves, Themes, Stratum`, see DEFINITIONS §5.1 | `tactics_puzzles` (recall, Lichess agreement), `tactics_oracle` | |
+
+## 8. P fixtures — positional features and changes (`tests/fixtures/positional.json`, planned)
+
+**Concepts:** `PositionalFixtures`, `PawnStructure`, `KingSafety`, `PieceActivity`, `SpaceDevelopment`, `MaterialBalance`, `PositionalChange`
+
+Planned. `features` entries (P01…) give a position with features that must or must not
+be reported; `lines` entries (PL01…) give a line with changes that must or must not be
+reported. Every tag gets a positive and a near miss, and at least ten positions come from
+the Captain's books, cited by game. Rows arrive with the fixtures, hand-labelled before the
+detectors run; the Captain reviews them at the checkpoint after the first batch. New F
+rows (`positional_include`, game counts) are added to section 1 then.

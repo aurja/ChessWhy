@@ -58,7 +58,7 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class Positional planned
-    class Question,Reference,Explanation partial
+    class Question,Reference,Explanation,Proof partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -73,7 +73,7 @@ flowchart LR
 | `Reference` | Knowledge from outside the engine: opening names, game counts, book passages | provenance, opening name, game counts, book passage | partial |
 | `Report` | The one document holding every fact, each with its provenance; nothing is claimed outside it | report, provenance, facts first | implemented |
 | `Explanation` | The words a reader gets: template text today, language-model prose checked against the report later | explanation, template rendering | partial |
-| `Proof` | Fixtures and measurements that show the facts are right | fixture, recall | implemented |
+| `Proof` | Fixtures and measurements that show the facts are right | fixture, recall | partial |
 
 ## Level 2
 
@@ -345,32 +345,38 @@ flowchart LR
     AnalysedPosition["Analysed position"]
     WalkedPlies["Walked plies"]
     PawnStructure["Pawn structure"]
+    NamedStructures["Named pawn structures"]
     KingSafety["King safety"]
     PieceActivity["Piece activity"]
     SpaceDevelopment["Space and development"]
-    MaterialImbalance["Material imbalance"]
+    MaterialBalance["Material balance"]
+    Imbalances["Material imbalances"]
     PositionalChange["Change along a line"]
     TiedToLine["Tied to a line or verdict"]
-    AnalysedPosition & WalkedPlies -->|boards| PawnStructure & KingSafety & PieceActivity & SpaceDevelopment & MaterialImbalance
-    PawnStructure & KingSafety & PieceActivity & SpaceDevelopment & MaterialImbalance -->|features before and after| PositionalChange
+    AnalysedPosition & WalkedPlies -->|boards| PawnStructure & KingSafety & PieceActivity & SpaceDevelopment & MaterialBalance
+    PawnStructure -->|families| NamedStructures
+    MaterialBalance -->|beyond the count| Imbalances
+    PawnStructure & KingSafety & PieceActivity & SpaceDevelopment & MaterialBalance -->|features on each board| PositionalChange
     PositionalChange -->|changes that matter| TiedToLine
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,WalkedPlies external
-    class PawnStructure,KingSafety,PieceActivity,SpaceDevelopment,MaterialImbalance,PositionalChange,TiedToLine planned
+    class PawnStructure,NamedStructures,KingSafety,PieceActivity,SpaceDevelopment,MaterialBalance,Imbalances,PositionalChange,TiedToLine planned
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
 | `AnalysedPosition` | See Question | — | external |
 | `WalkedPlies` | See Threats and urgency | — | external |
-| `PawnStructure` | Isolated, doubled, backward, passed and connected pawns, islands, chains, named structures | positional fact | planned |
-| `KingSafety` | Pawn shield, open files toward the king, attackers near it, castling rights | positional fact | planned |
-| `PieceActivity` | Mobility, outposts, bad bishop, bishop pair, rooks on open files or the seventh rank | positional fact | planned |
-| `SpaceDevelopment` | Space and development lead | positional fact | planned |
-| `MaterialImbalance` | Which pieces each side has, beyond the material count | positional fact | planned |
-| `PositionalChange` | A feature that appears or disappears along a line | positional fact | planned |
+| `PawnStructure` | Isolated, doubled, backward, passed and connected passed pawns, pawn islands, pawn chains. Since 2026-10-21; before, it also held named structures (now `NamedStructures`) | positional fact, `isolated_pawn`, `doubled_pawns`, `backward_pawn`, `passed_pawn`, `connected_passed_pawns`, `pawn_islands`, `pawn_chain` | planned |
+| `NamedStructures` | Named pawn-structure families (isolated queen's pawn, hanging pawns, Carlsbad and the like); deferred on 2026-10-21, part of `PawnStructure` before | positional fact | planned |
+| `KingSafety` | Castling rights, gaps in the king's pawn shield, open and half-open files next to the king, enemy pieces attacking the squares around it | positional fact, king files, `castling_kingside`, `king_shield_gap`, `open_file_near_king`, `half_open_file_near_king`, `king_zone_attacker` | planned |
+| `PieceActivity` | Bishop pair, rooks on open or half-open files or the seventh rank, outposts, bad bishops. Mobility moved to `SpaceDevelopment` on 2026-10-21 | positional fact, `bishop_pair`, `rook_open_file`, `rook_half_open_file`, `rook_seventh`, `outpost`, `bad_bishop` | planned |
+| `SpaceDevelopment` | A side ahead in mobility, space or development by at least the lead threshold (mobility was under `PieceActivity` before 2026-10-21) | mobility, space, undeveloped, lead threshold | planned |
+| `MaterialBalance` | Who is ahead in material and by how much, and an exchange up. Called `MaterialImbalance` before 2026-10-21, when it meant which pieces each side has beyond the count (now `Imbalances`) | `material_ahead`, `exchange_up` | planned |
+| `Imbalances` | Which pieces each side has beyond the material count (two minor pieces against a rook and the like); deferred on 2026-10-21 | positional fact | planned |
+| `PositionalChange` | A positional feature that appears or disappears along a line, judged by its identity, and whether that still holds at the end | positional change, feature identity, `holds_at_end` | planned |
 | `TiedToLine` | A positional fact enters the explanation only when a line or verdict changes it | positional fact | planned |
 
 ### L2 · Reference knowledge (`Reference`)
@@ -379,6 +385,7 @@ flowchart LR
 flowchart LR
     AnalysedPosition["Analysed position"]
     GameMainline["Game mainline"]
+    BroadcastMonths["Broadcast months"]
     PositionKey["Position key"]
     OpeningNames["Opening names"]
     LastNamed["Last named position"]
@@ -391,6 +398,7 @@ flowchart LR
     AnalysedPosition & GameMainline -->|positions| PositionKey
     PositionKey -->|lookup| OpeningNames & GameCounts
     OpeningNames -->|name of an earlier position| LastNamed
+    BroadcastMonths -->|games| GameTable
     GameTable -->|counts per source| GameCounts
     BookCorpus -->|chunks| BookIndex
     ConceptTags -->|query| BookIndex
@@ -399,7 +407,7 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,GameMainline external
-    class GameTable,GameCounts,BookCorpus,BookIndex,ConceptTags,BookPassages planned
+    class BroadcastMonths,GameTable,GameCounts,BookCorpus,BookIndex,ConceptTags,BookPassages planned
 ```
 
 | Node | Meaning | Terms | Status |
@@ -409,8 +417,9 @@ flowchart LR
 | `PositionKey` | Placement, side to move, castling and a usable en-passant square, so transpositions match | position key | implemented |
 | `OpeningNames` | The name and ECO code of a named position; never guessed for an unnamed one | opening name | implemented |
 | `LastNamed` | For a game: the last named position on the mainline, up to and including the analysed one | last named position | implemented |
-| `GameTable` | Position-to-move counts built offline from pinned game collections, each source kept apart | game-count table | planned |
-| `GameCounts` | How often players chose each move, per source and platform; never a judgement of the move | game counts | planned |
+| `BroadcastMonths` | Monthly files of strong over-the-board games relayed by Lichess, each pinned by its checksum | broadcast month | planned |
+| `GameTable` | Position-to-move counts built offline from the pinned games, each source kept apart, with a recorded table id | game-count table, table id, rating floor, ply limit, minimum game count | planned |
+| `GameCounts` | How often players chose each move in the analysed position, with results, per source and platform; never a judgement of the move | game counts | planned |
 | `BookCorpus` | The Captain's local books as text, kept out of the repository | book corpus | planned |
 | `BookIndex` | A search index over book chunks | book index | planned |
 | `ConceptTags` | The report's motif and positional tags, widened by a keyword map, used as the book query | concept tag | planned |
@@ -508,7 +517,16 @@ flowchart LR
     ReferenceImplementation["Reference implementation"]
     PuzzleSample["Puzzle sample"]
     Recall["Recall"]
-    HandLabel -->|expected results| MotifFixtures & ContributionFixtures
+    PositionalFixtures["Positional fixtures"]
+    PositionalReference["Positional reference"]
+    GamesOracle["Games oracle"]
+    Positional["Positional facts"]
+    Reference["Reference knowledge"]
+    HandLabel -->|expected results| MotifFixtures & ContributionFixtures & PositionalFixtures
+    PuzzleSample -->|positions| PositionalReference
+    PositionalFixtures -.->|check| Positional
+    PositionalReference -.->|zero mismatches| Positional
+    GamesOracle -.->|identical table| Reference
     MotifFixtures & PuzzleSample -->|positions| ReferenceImplementation
     PuzzleSample -->|Lichess themes| Recall
     EngineFixtures -.->|check| Report
@@ -520,7 +538,8 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class Question,Motifs,Tactics,Report external
+    class Question,Motifs,Tactics,Report,Positional,Reference external
+    class PositionalFixtures,PositionalReference,GamesOracle planned
 ```
 
 | Node | Meaning | Terms | Status |
@@ -537,6 +556,11 @@ flowchart LR
 | `ReferenceImplementation` | A second, plain implementation of the motif definitions; both must agree everywhere | reference implementation | implemented |
 | `PuzzleSample` | Fixed samples of Lichess puzzles: one for tuning, one committed for testing | Lichess puzzle database, split | implemented |
 | `Recall` | When Lichess names a theme, how often we find it for the solver; held above frozen targets | recall, target (metric) | implemented |
+| `Positional` | See L1 | — | external |
+| `Reference` | See L1 | — | external |
+| `PositionalFixtures` | Positions where a positional feature must or must not be reported, and lines where a change must or must not be | P fixtures, `positional_include` | planned |
+| `PositionalReference` | A second, plain implementation of the positional definitions; both must agree on every puzzle board | `positional_oracle` | planned |
+| `GamesOracle` | A second, independent counter that rebuilds the game-count table from the same games; both tables must be identical | `games_oracle` | planned |
 
 ## Level 3
 
@@ -770,3 +794,83 @@ flowchart TD
 | `FcFirstFailure` | One retry only | fact check | planned |
 | `FcRegenerate` | A second attempt from the same fact sheet | fact check, fact sheet | planned |
 | `FcPass` | The checked prose is the explanation | explanation | planned |
+
+### L3 · Change along a line (`PositionalChange`)
+
+```mermaid
+flowchart TD
+    PcBoards["Boards of the line: the start, then one per ply up to the walked plies"]
+    PcFeatures["Positional features of each board"]
+    PcCompare{"Is a feature with the same identity on the board before?"}
+    PcAppears["Appears at this ply"]
+    PcDisappears["Disappears at this ply"]
+    PcSame["No change, even if its pieces or value moved"]
+    PcEnd{"Still so on the last board?"}
+    PcHolds["Holds at the end"]
+    PcUndone["Undone by the end"]
+    PcBoards --> PcFeatures --> PcCompare
+    PcCompare -->|only on this board| PcAppears
+    PcCompare -->|only on the board before| PcDisappears
+    PcCompare -->|on both| PcSame
+    PcAppears & PcDisappears --> PcEnd
+    PcEnd -->|yes| PcHolds
+    PcEnd -->|no| PcUndone
+    classDef planned stroke-dasharray:6 4,color:#888
+    classDef partial stroke-dasharray:2 2
+    classDef external stroke-dasharray:1 3,color:#999
+    class PcBoards,PcFeatures,PcCompare,PcAppears,PcDisappears,PcSame,PcEnd,PcHolds,PcUndone planned
+```
+
+| Node | Meaning | Terms | Status |
+|---|---|---|---|
+| `PcBoards` | The boards a line passes through, as far as the walked plies reach | walked plies | planned |
+| `PcFeatures` | Every positional feature on each of those boards, for both sides | positional feature | planned |
+| `PcCompare` | Compares each ply's features with the ply before by identity | feature identity | planned |
+| `PcAppears` | A feature that was not there one ply earlier | positional change | planned |
+| `PcDisappears` | A feature that is gone one ply later | positional change | planned |
+| `PcSame` | The same feature on both boards, even if its pieces or value differ (a lead that grows). Where the identity holds the number (pawn islands, material ahead), a new number is a disappearance plus an appearance | feature identity | planned |
+| `PcEnd` | Looks at the last walked board | `holds_at_end` | planned |
+| `PcHolds` | The change survives the line | `holds_at_end` | planned |
+| `PcUndone` | The change is reversed before the line ends | `holds_at_end` | planned |
+
+### L3 · Game-count table (`GameTable`)
+
+```mermaid
+flowchart TD
+    GtGame["A game from the broadcast months"]
+    GtStandard{"Standard chess from the usual start?"}
+    GtRating{"Both players rated at the rating floor or above?"}
+    GtResult{"Finished with a result?"}
+    GtLegal{"Every move legal up to the ply limit?"}
+    GtExcluded["Excluded, counted by reason"]
+    GtCount["Each position up to the ply limit counted once, with the move played and the result"]
+    GtKeep{"Reached in at least the minimum game count?"}
+    GtRow["Table row: games, results, every move with its count"]
+    GtDropped["Left out of the table"]
+    GtGame --> GtStandard
+    GtStandard -->|yes| GtRating
+    GtRating -->|yes| GtResult
+    GtResult -->|yes| GtLegal
+    GtLegal -->|yes| GtCount
+    GtStandard & GtRating & GtResult & GtLegal -->|no| GtExcluded
+    GtCount --> GtKeep
+    GtKeep -->|yes| GtRow
+    GtKeep -->|no| GtDropped
+    classDef planned stroke-dasharray:6 4,color:#888
+    classDef partial stroke-dasharray:2 2
+    classDef external stroke-dasharray:1 3,color:#999
+    class GtGame,GtStandard,GtRating,GtResult,GtLegal,GtExcluded,GtCount,GtKeep,GtRow,GtDropped planned
+```
+
+| Node | Meaning | Terms | Status |
+|---|---|---|---|
+| `GtGame` | One game of the pinned monthly files | broadcast month | planned |
+| `GtStandard` | No variant and no custom start position | excluded game | planned |
+| `GtRating` | Both players have a rating, at 2200 or above | rating floor | planned |
+| `GtResult` | A win, a loss or a draw, not an unfinished game | excluded game | planned |
+| `GtLegal` | The moves read so far replay legally; moves after the ply limit are never read | broken game, ply limit | planned |
+| `GtExcluded` | The game adds nothing; its reason is counted in the table's header | excluded game | planned |
+| `GtCount` | A position repeated within one game counts once | game counts | planned |
+| `GtKeep` | Rare positions are left out to keep the table small | minimum game count | planned |
+| `GtRow` | The row the report reads for the analysed position | game-count table | planned |
+| `GtDropped` | Too rare to be kept; the report says the position is not in the table | minimum game count | planned |

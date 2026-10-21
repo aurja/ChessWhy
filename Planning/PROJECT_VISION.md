@@ -170,6 +170,11 @@ the material balance. Named structure families and Silman's imbalances wait for 
 milestone (Captain, 2026-10-21): their boundaries are fuzzy, and a wrong label would
 still carry `rule` provenance.
 
+Where changes are measured (Captain, 2026-10-21): at every ply of a line within its
+walked plies, each feature that appears or disappears is listed at that ply, with a flag
+saying whether the change still holds at the end of the walked plies. Lines: the
+candidate lines and the asked move's line with its refutation; threat lines are not read.
+
 ### 5.7 Opening names (M1) and game statistics (M3b)
 
 - **Lookup key**: the position (piece placement, side to move, castling rights, en

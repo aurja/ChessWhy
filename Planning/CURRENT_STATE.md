@@ -16,8 +16,8 @@ Updated 2026-10-21.
   material balance (named structure families and Silman's imbalances later). M3b source =
   Lichess broadcasts only, both players 2200+, January 2020 onward (online Lichess Elite
   dropped; broadcast license is CC BY-SA 4.0, was recorded as CC0). Minimum game count
-  and ply limit: frozen after a pilot build (proposed 5 and 40). Still open: where M3a
-  measures before/after changes along a line.
+  and ply limit: frozen after a pilot build (proposed 5 and 40). M3a measures changes at
+  every ply of the candidate and asked-move lines, with a "still holds at the end" flag.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept
   diagrams; first version approved as the current baseline, Captain reviewing), CODE (concept → source), DEFINITIONS
   (glossary, was `Planning/definitions/TERMINOLOGY.md`), FIXTURES with boards and TESTS,
