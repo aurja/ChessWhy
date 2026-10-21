@@ -77,7 +77,6 @@ class PrefixVisitor(chess.pgn.BaseVisitor[ParsedGame]):
         self.headers: chess.pgn.Headers = chess.pgn.Headers()
         self.moves: list[tuple[str, str]] = []
         self.mainline_plies: int = 0
-        self.variation_depth: int = 0
         self.illegal_prefix: bool = False
 
     @override
@@ -111,24 +110,18 @@ class PrefixVisitor(chess.pgn.BaseVisitor[ParsedGame]):
 
     @override
     def visit_move(self, board: chess.Board, move: chess.Move) -> None:
-        if self.variation_depth == 0:
-            if move == chess.Move.null():
-                self.illegal_prefix = True
-            self.moves.append((position_key(board), move.uci()))
-            self.mainline_plies += 1
+        if move == chess.Move.null():
+            self.illegal_prefix = True
+        self.moves.append((position_key(board), move.uci()))
+        self.mainline_plies += 1
 
     @override
-    def begin_variation(self) -> None:
-        self.variation_depth += 1
-
-    @override
-    def end_variation(self) -> None:
-        if self.variation_depth > 0:
-            self.variation_depth -= 1
+    def begin_variation(self) -> chess.pgn.SkipType:
+        return chess.pgn.SKIP
 
     @override
     def handle_error(self, error: Exception) -> None:
-        if self.variation_depth == 0 and self.mainline_plies < self.max_ply:
+        if self.mainline_plies < self.max_ply:
             self.illegal_prefix = True
 
     @override

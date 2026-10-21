@@ -42,12 +42,12 @@ is played from it (§4). [INFERENCE] The 1,542 missing games have no moves (forf
 
 | # | Check | Result |
 |---|---|---|
-| 1 | Release and ASan/UBSan builds; CTests | Builds use `-Werror`. Release 139/139 (105 `unit`, 33 `engine` serial, 1 `games`). ASan/UBSan 139/139: `unit` and `games` 106/106; after the clang-tidy fixes, `unit` and `games` (without the untouched `tactics_oracle`) again 105/105, and `engine` 33/33 serial |
+| 1 | Release and ASan/UBSan builds; CTests | Builds use `-Werror`. Final (after the review fixes): Release 141/141 (107 `unit`, 33 `engine` serial, 1 `games`). ASan/UBSan 141/141: `unit` and `games` 107/107 plus `engine` 33/33 after the review fixes; `tactics_oracle` (unchanged) passed in the branch's first ASan run |
 | 2 | Rebuild identity | `tools/fetch_assets.sh games` from an empty `assets/data/games/`: 81 months downloaded and checked against their pinned SHA-256s; the table builds with the same counts and SHA-256 `e0cb7fab…d7a7` (28 min 50 s wall time, mostly download) |
 | 3 | Oracle | `games_oracle` passes (2020-07 and 2022-08, byte-identical). Full run of `tools/count_games.py` over all 81 months: same exclusion counts, 117,058 positions, 10,422,667 bytes, SHA-256 `e0cb7fab…d7a7`; byte-identical to the pinned table (121 min wall time) |
 | 4 | F rows | F25 (12,900 games; Ba4 12,424, Bxc6 474), F28 (470; O-O 369, Nc3 69, d4 15), F29 start position (262,026; e4 123,657, d4 87,792, Nf3 28,707), F30 not found (beyond 40 plies); every F report validates against v4 |
 | 5 | Facts first | counts carry `games` and name source, platform and credit; no quality wording; golden render tests pass |
-| 6 | Lookup cost; wall time | load + `find(start)` 108.7–144.0 ms over five runs, mean 121.5 ms (§7 limit 200 ms); slowest `standard` F fixture F11 7.23 s (limit 12 s) |
+| 6 | Lookup cost; wall time | load + `find(start)` 108.7–144.0 ms over five runs, mean 121.5 ms (§7 limit 200 ms); slowest `standard` F fixture 7.80 s (F06; limit 12 s) |
 | 7 | Credits | `third_party/DEPENDENCIES.md` row: CC BY-SA 4.0 (broadcasts section of database.lichess.org), the 81 pinned months, the table id and SHA-256; README explains `tools/fetch_assets.sh games` |
 | 8 | Gates | clang-format and `clang-tidy --quiet -p build/release` clean on all changed C++; Ruff (lint and format) and basedpyright clean on `tools/count_games.py`; ShellCheck clean on `tools/fetch_assets.sh`; `check_dbc` ok |
 
@@ -66,4 +66,23 @@ validates the returned row (load + find was 671–724 ms before, against the 200
 
 ## Review
 
-Pending: one completion review after the full gate.
+One completion review (`reviewer`, 2026-10-22) covering M3a and M3b together, scope M3a
+§14, M3b §12 and the project principles. Two blockers, both against acceptance 3 (the
+independent counter), both fixed at the root:
+
+- **Position key kept a pseudo-legal en passant square.** `openings::position_key`
+  returned `getFen(false)` and relied on chess-library to drop an en passant square
+  without a legal capture; after `makeMove` it does not. In an eligible game reaching
+  9...f5 with White's e5 pawn pinned (`tests/fixtures/games_edge.pgn`), the builder
+  stored `f6`, Python stored `-`, and a `--fen` lookup missed. `position_key` now keeps
+  the square only when a legal en passant capture exists. The fix is shared by the
+  builder, the lookup and the opening names.
+- **Python oracle parsed variations.** After an illegal move inside a variation
+  (`1.e4 (1.d4 Ke6) e5`), python-chess's error recovery left the variation board in
+  place, so later mainline moves were counted from it. The visitor now skips variations.
+
+Regression: `games_oracle_edge` (`unit`) runs both tools on `games_edge.pgn` (19 vs 22
+positions before the fix, byte-identical after), plus a `position_key` unit case. The
+pinned table rebuilt with the fixed builder has the same SHA-256 (`e0cb7fab…d7a7`), so
+the shipped table was not affected by either bug. One recheck found both blockers
+resolved.

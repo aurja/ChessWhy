@@ -30,14 +30,14 @@ changes §15). Terms: `Planning/DBC/DEFINITIONS.md`.
 
 | # | Check | Result |
 |---|---|---|
-| 1 | Release and ASan/UBSan builds; CTests | Builds use `-Wall -Wextra -Wpedantic -Werror`. Release 139/139 (105 `unit`, 33 `engine` serial with `CHESSWHY_CHECK_TIMING=1`, 1 `games`). ASan/UBSan 139/139: `unit` and `games` 106/106 (3,081 s, `tactics_oracle` included); after the clang-tidy fixes, everything but `tactics_oracle` (untouched code) again 105/105 (433 s), and `engine` 33/33 serial (758 s) |
+| 1 | Release and ASan/UBSan builds; CTests | Builds use `-Wall -Wextra -Wpedantic -Werror`. Final (after the review fixes): Release 141/141 (107 `unit`, 33 `engine` serial with `CHESSWHY_CHECK_TIMING=1`, 1 `games`). ASan/UBSan 141/141: `unit` and `games` 107/107 (408 s) plus `engine` 33/33 serial (750 s) after the review fixes; `tactics_oracle` (code unchanged since) passed in the branch's first ASan run (`unit` and `games` 106/106, 3,081 s) |
 | 2 | P fixtures | all pass after checkpoint 2, including the 10 book positions; no rule/label mismatch came up |
 | 3 | `positional_oracle` | 0 mismatches on 9,300 puzzles (test split): 53,378 feature lists, 9,300 lines, 320,268 count values; per-tag counts below |
 | 4 | F fixtures | every earlier expectation and every new row passes; every F report validates against v4. F01–F24 facts were rechecked by hand at the gate and are unchanged (FIXTURES snapshot) |
 | 5 | Rerun identity | `cli_rerun_identity` passes on F01, F03, F12, F25, F29 and F30 |
-| 6 | `standard` wall time per F fixture | slowest F11 7.23 s, then F25 7.17 s (limit 12 s), Release, serial |
+| 6 | `standard` wall time per F fixture | slowest F06 7.80 s in the final run (F11 7.23 s in the run before; limit 12 s), Release, serial |
 | 7 | Facts first | every feature and change carries `rule`; the template prints only report fields; golden render tests pass |
-| 8 | Gates | clang-format and `clang-tidy --quiet -p build/release` clean on all 19 changed C++ units; Ruff (lint and format) and basedpyright clean on `tools/count_games.py` and `tools/render_fixture_boards.py`; ShellCheck clean on `tools/fetch_assets.sh`; `check_dbc` ok |
+| 8 | Gates | clang-format and `clang-tidy --quiet -p build/release` clean on all 20 changed C++ units; Ruff (lint and format) and basedpyright clean on `tools/count_games.py` and `tools/render_fixture_boards.py`; ShellCheck clean on `tools/fetch_assets.sh`; `check_dbc` ok |
 | 9 | Docs | README, `third_party/DEPENDENCIES.md`, vision §5.6/§11, `CURRENT_STATE.md`, DBC files, this receipt |
 
 Smoke (`--fen 'r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4' --move
@@ -83,4 +83,8 @@ goes with Black's recapture).
 
 ## Review
 
-Pending: one completion review after the full gate.
+One completion review (`reviewer`, 2026-10-22) covering M3a and M3b together, scope M3a
+§14, M3b §12 and the project principles. It found no M3a blockers in the detectors,
+line changes, report v4 or the template. Its two blockers were in M3b (see that
+receipt); the shared position-key fix reran every F fixture here as well. One recheck
+found both resolved.

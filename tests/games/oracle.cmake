@@ -1,34 +1,71 @@
-foreach(required_file IN ITEMS "${MONTH_1}" "${MONTH_2}" "${PYTHON_TOOL}")
-    if(NOT EXISTS "${required_file}")
-        message(FATAL_ERROR "games oracle input is missing: ${required_file}")
+if(NOT EXISTS "${CPP_TOOL}" OR NOT EXISTS "${PYTHON}" OR NOT EXISTS "${PYTHON_TOOL}")
+    message(FATAL_ERROR "games oracle executable or tool is missing")
+endif()
+
+set(output_prefix "${OUTPUT_PREFIX}")
+if(output_prefix STREQUAL "")
+    set(output_prefix "games-oracle")
+endif()
+set(cpp_output "${TEST_BINARY_DIR}/${output_prefix}-cpp.tsv")
+set(python_output "${TEST_BINARY_DIR}/${output_prefix}-python.tsv")
+
+if(DEFINED INPUT_PGN)
+    if(NOT EXISTS "${INPUT_PGN}")
+        message(FATAL_ERROR "games oracle input is missing: ${INPUT_PGN}")
     endif()
-endforeach()
-if(NOT EXISTS "${CPP_TOOL}" OR NOT EXISTS "${PYTHON}")
-    message(FATAL_ERROR "games oracle executable is missing")
-endif()
+    execute_process(
+        COMMAND "${CPP_TOOL}" --min-games "${MIN_GAMES}" --max-ply "${MAX_PLY}"
+            --months "${MONTHS}"
+        INPUT_FILE "${INPUT_PGN}"
+        OUTPUT_FILE "${cpp_output}"
+        ERROR_VARIABLE cpp_error
+        RESULT_VARIABLE cpp_results
+    )
+    if(NOT "${cpp_results}" STREQUAL "0")
+        message(FATAL_ERROR "C++ games oracle command failed (${cpp_results}): ${cpp_error}")
+    endif()
 
-set(cpp_output "${TEST_BINARY_DIR}/games-oracle-cpp.tsv")
-set(python_output "${TEST_BINARY_DIR}/games-oracle-python.tsv")
-execute_process(
-    COMMAND "${ZSTD}" -dc "${MONTH_1}" "${MONTH_2}"
-    COMMAND "${CPP_TOOL}" --min-games 2 --months 2020-07,2022-08
-    OUTPUT_FILE "${cpp_output}"
-    ERROR_VARIABLE cpp_error
-    RESULTS_VARIABLE cpp_results
-)
-if(NOT "${cpp_results}" STREQUAL "0;0")
-    message(FATAL_ERROR "C++ games oracle command failed (${cpp_results}): ${cpp_error}")
-endif()
+    execute_process(
+        COMMAND "${PYTHON}" "${PYTHON_TOOL}" --min-games "${MIN_GAMES}"
+            --max-ply "${MAX_PLY}" --months "${MONTHS}" "${INPUT_PGN}"
+        OUTPUT_FILE "${python_output}"
+        ERROR_VARIABLE python_error
+        RESULT_VARIABLE python_results
+    )
+    if(NOT "${python_results}" STREQUAL "0")
+        message(FATAL_ERROR "Python games oracle command failed (${python_results}): ${python_error}")
+    endif()
+else()
+    foreach(required_file IN ITEMS "${MONTH_1}" "${MONTH_2}")
+        if(NOT EXISTS "${required_file}")
+            message(FATAL_ERROR "games oracle input is missing: ${required_file}")
+        endif()
+    endforeach()
+    if(NOT EXISTS "${ZSTD}")
+        message(FATAL_ERROR "games oracle decompressor is missing")
+    endif()
 
-execute_process(
-    COMMAND "${ZSTD}" -dc "${MONTH_1}" "${MONTH_2}"
-    COMMAND "${PYTHON}" "${PYTHON_TOOL}" --min-games 2 --months 2020-07,2022-08
-    OUTPUT_FILE "${python_output}"
-    ERROR_VARIABLE python_error
-    RESULTS_VARIABLE python_results
-)
-if(NOT "${python_results}" STREQUAL "0;0")
-    message(FATAL_ERROR "Python games oracle command failed (${python_results}): ${python_error}")
+    execute_process(
+        COMMAND "${ZSTD}" -dc "${MONTH_1}" "${MONTH_2}"
+        COMMAND "${CPP_TOOL}" --min-games 2 --months 2020-07,2022-08
+        OUTPUT_FILE "${cpp_output}"
+        ERROR_VARIABLE cpp_error
+        RESULTS_VARIABLE cpp_results
+    )
+    if(NOT "${cpp_results}" STREQUAL "0;0")
+        message(FATAL_ERROR "C++ games oracle command failed (${cpp_results}): ${cpp_error}")
+    endif()
+
+    execute_process(
+        COMMAND "${ZSTD}" -dc "${MONTH_1}" "${MONTH_2}"
+        COMMAND "${PYTHON}" "${PYTHON_TOOL}" --min-games 2 --months 2020-07,2022-08
+        OUTPUT_FILE "${python_output}"
+        ERROR_VARIABLE python_error
+        RESULTS_VARIABLE python_results
+    )
+    if(NOT "${python_results}" STREQUAL "0;0")
+        message(FATAL_ERROR "Python games oracle command failed (${python_results}): ${python_error}")
+    endif()
 endif()
 
 execute_process(

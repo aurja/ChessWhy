@@ -257,7 +257,7 @@ the tactic (DEFINITIONS §4.5), plus required or forbidden tactic labels. Read b
 
 ## 7. Data files
 
-**Concepts:** `InputFixtures`, `GameMainline`, `PgnInput`, `OpeningNames`, `PuzzleSample`, `MotifFixtures`, `ContributionFixtures`, `ReferenceImplementation`
+**Concepts:** `InputFixtures`, `GameMainline`, `PgnInput`, `OpeningNames`, `PuzzleSample`, `MotifFixtures`, `ContributionFixtures`, `ReferenceImplementation`, `GamesOracle`, `PositionKey`
 
 | File | Content | Read by | Comments |
 |---|---|---|---|
@@ -265,6 +265,7 @@ the tactic (DEFINITIONS §4.5), plus required or forbidden tactic labels. Read b
 | `tests/fixtures/three_games.pgn` | Three games; game 3 has an illegal second move | U fixtures, E08, PGN input tests | |
 | `tests/fixtures/annotated.pgn` | Five games with comments, NAGs and headers | PGN reader tests, `pgntool` tests | |
 | `tests/fixtures/fen_tag.pgn` | A game starting from a `FEN`/`SetUp` tag | U04 | |
+| `tests/fixtures/games_edge.pgn` | Two eligible games (both players 2300/2400): one reaches a double pawn step (9...f5) whose only capturing pawn is pinned, so the en passant square is pseudo-legal; one has a variation with an illegal move (`1.e4 (1.d4 Ke6) e5 2.Nf3 Nc6`) | `games_oracle_edge` | |
 | `tests/fixtures/puzzles/test.csv` | The committed **test** split of the Lichess puzzle sample: 9,300 puzzles from the 2026-10-05 Lichess export (CC0), columns `PuzzleId, FEN, Moves, Themes, Stratum`, see DEFINITIONS §5.1 | `tactics_puzzles` (recall, Lichess agreement), `tactics_oracle` | |
 
 ## 8. P fixtures — positional features and changes (`tests/fixtures/positional.json`)

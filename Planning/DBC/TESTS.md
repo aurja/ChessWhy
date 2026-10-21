@@ -5,9 +5,9 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-22, M3 batch 2 (positional facts and game counts wired into the
-report): 139 CTests (105 `unit`, 33 `engine`, 1 `games`, no `model` yet), all passing in
-Release; `tactics_unit_tests` has 26 test cases.
+**Snapshot:** 2026-10-22, M3 completion-review fixes (legal en passant in the position
+key, mainline-only Python oracle): 141 CTests (107 `unit`, 33 `engine`, 1 `games`, no
+`model` yet), all passing in Release; `tactics_unit_tests` has 26 test cases.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -224,9 +224,11 @@ Program tests (`tests/positional/oracle/`):
 | games table respects ply limit and excludes N-minus-one positions | unit | No position after ply 40; a position with N−1 games is dropped | `GtLegal`, `GtKeep`, `GtDropped` |
 | minimum-count boundary, move tie ordering, and table lookup round trip | unit | N games kept; ties in move order; `Table::find` hit and miss after `build_table` | `GtKeep`, `GtRow`, `GameTable`, `GameCounts` |
 | games table loader rejects malformed headers, rows, and ordering | unit | `Table::load` rejects bad headers, row shapes, counts and order; a row with an illegal move loads, and `find` on its position throws | `GameTable`, `GtRow` |
+| position keys keep only legally capturable en passant squares | unit | After a double pawn step whose only capturing pawn is pinned (9...f5 in `games_edge.pgn`'s first game), the key's en passant field is `-`; with a legal capture (1.e4 a6 2.e5 d5) it keeps `d6` | `PositionKey` |
 
 Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
 | `games_oracle` | `chesswhy-games`, `tools/count_games.py` (`oracle.cmake`) | games | Both tools on the 2020-07 and 2022-08 months with N = 2 write byte-identical tables | `GamesOracle`, `GameTable`, `BroadcastMonths` |
+| `games_oracle_edge` | `chesswhy-games`, `tools/count_games.py` (`oracle.cmake`) | unit | Both tools on `tests/fixtures/games_edge.pgn` (max ply 20, N = 1) write byte-identical tables: a pseudo-legal en passant square is left out of the key, and a variation with an illegal move is not counted | `GamesOracle`, `PositionKey`, `GtCount` |

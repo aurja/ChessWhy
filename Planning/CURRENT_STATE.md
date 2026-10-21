@@ -16,8 +16,8 @@ Updated 2026-10-22.
     table `lichess_broadcast_2200@e0cb7fab3212`, built by `tools/fetch_assets.sh games`.
     The Python oracle over all 81 months and a rebuild from a clean directory both give
     the pinned SHA-256. `--games FILE`; a missing or invalid table exits 3.
-  - Release CTests 139/139 (105 `unit`, 33 `engine`, 1 `games`); slowest `standard`
-    F fixture F11 7.23 s.
+  - Release and ASan/UBSan CTests 141/141 (107 `unit`, 33 `engine`, 1 `games`); slowest
+    `standard` F fixture 7.80 s (F06).
 - Next: M4 (libllama prose). Four candidate GGUFs are downloaded to `assets/models/`;
   pinning them is an M4 task.
 - Scope proposal from M3a: lines print every positional change (F26/F27 show 20–25 rows

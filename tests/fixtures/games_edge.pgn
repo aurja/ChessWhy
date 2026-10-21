@@ -1,0 +1,23 @@
+[Event "Pinned en passant square"]
+[Site "Local"]
+[Date "2026.10.22"]
+[Round "1"]
+[White "White Player"]
+[Black "Black Player"]
+[WhiteElo "2300"]
+[BlackElo "2400"]
+[Result "1-0"]
+
+1. e4 e5 2. Nf3 Nc6 3. Nxe5 Nf6 4. Nxc6 bxc6 5. e5 Nd5 6. d4 Bc5 7. Bd3 O-O 8. Nc3 Re8 9. a3 f5 10. Be4 1-0
+
+[Event "Illegal variation"]
+[Site "Local"]
+[Date "2026.10.22"]
+[Round "2"]
+[White "White Player"]
+[Black "Black Player"]
+[WhiteElo "2300"]
+[BlackElo "2400"]
+[Result "1-0"]
+
+1. e4 (1. d4 Ke6) e5 2. Nf3 Nc6 1-0

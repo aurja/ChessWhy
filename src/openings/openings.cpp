@@ -71,7 +71,21 @@ namespace {
 } // namespace
 
 std::string position_key(const chess::Board& board) {
-    return board.getFen(false);
+    std::string key = board.getFen(false);
+    if (board.enpassantSq() == chess::Square::NO_SQ) {
+        return key;
+    }
+
+    chess::Movelist captures;
+    chess::movegen::legalmoves<chess::movegen::MoveGenType::CAPTURE>(captures, board);
+    for (const chess::Move move : captures) {
+        if (move.typeOf() == chess::Move::ENPASSANT) {
+            return key;
+        }
+    }
+
+    key.replace(key.rfind(' ') + 1, std::string::npos, "-");
+    return key;
 }
 
 Table Table::load(const std::filesystem::path& dir) {

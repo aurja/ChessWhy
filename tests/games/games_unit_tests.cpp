@@ -94,6 +94,43 @@ private:
 
 } // namespace
 
+TEST_CASE("position keys keep only legally capturable en passant squares", "[games][unit]") {
+    chess::Board pinned;
+    for (const std::string_view uci : {
+             "e2e4",
+             "e7e5",
+             "g1f3",
+             "b8c6",
+             "f3e5",
+             "g8f6",
+             "e5c6",
+             "b7c6",
+             "e4e5",
+             "f6d5",
+             "d2d4",
+             "f8c5",
+             "f1d3",
+             "e8g8",
+             "b1c3",
+             "f8e8",
+             "a2a3",
+             "f7f5",
+         }) {
+        pinned.makeMove(chess::uci::uciToMove(pinned, uci));
+    }
+    REQUIRE(pinned.enpassantSq() != chess::Square::NO_SQ);
+    const std::string pinned_key = chesswhy::openings::position_key(pinned);
+    CHECK(pinned_key.substr(pinned_key.rfind(' ') + 1) == "-");
+
+    chess::Board capturable;
+    for (const std::string_view uci : {"e2e4", "a7a6", "e4e5", "d7d5"}) {
+        capturable.makeMove(chess::uci::uciToMove(capturable, uci));
+    }
+    REQUIRE(capturable.enpassantSq() != chess::Square::NO_SQ);
+    const std::string capturable_key = chesswhy::openings::position_key(capturable);
+    CHECK(capturable_key.substr(capturable_key.rfind(' ') + 1) == "d6");
+}
+
 TEST_CASE("games table counts first-failing exclusions in contract order", "[games][unit]") {
     std::string pgn;
     pgn += eligible_game("1-0", "1. e4 *", "[Variant \"Crazyhouse\"]\n");
