@@ -69,7 +69,8 @@ to be wrong goes back to the orchestrator with a concrete reason.
 - Tactic judgements, contributions and labels are annotations (as M2 D7): they never
   change verdicts, urgency, `quiet`, consequences, lines or motif lists.
 - One new motif tag, `pin_tactical` (§4.5, batch 3, added 2026-10-21); the M2 §4
-  definitions are unchanged, T fixtures grow by T42–T53 and the oracle covers the new tag.
+  definitions are unchanged, T fixtures grow by T42–T53 (T54–T56 added at the gate, §15)
+  and the oracle covers the new tag.
 
 ## 4. Rules
 

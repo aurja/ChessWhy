@@ -144,7 +144,7 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 | `actor` | The piece that does it: the forking knight, the pinner, the hanging piece itself, the overloaded defender |
 | `targets` | The pieces it acts on, in a fixed order (M2 §5) |
 | `gain` | SEE value in pawns, only for `hanging_piece` and `trapped_piece`; null otherwise |
-| `threat` | Only on `pin_tactical`: `{kind, square}`, the kind of threat that removing the restricted piece would enable and the square b where X's threatening move lands (for `capture`: the captured piece's square); null otherwise (§4.4, `pin_tactical`) |
+| `threat` | Only on `pin_tactical`: `{kind, square}`, the kind of threat that removing the restricted piece would enable and the square b where X's threatening move lands. For `capture` that is the captured piece's square, except en passant, where b is the landing square and the captured pawn (a target) stands behind it. Before the 2026-10-21 milestone review this row equated the two. Null otherwise (§4.4, `pin_tactical`) |
 | `contribution` | The motif's role in the tactic of the line it is listed on: `direct`, `indirect`, `none`, or null = not judged. Always null in M2; from PostM2_EM1 set on every motif of a tactic line, null elsewhere (§4.5) |
 
 ### 4.4 The tags in plain words

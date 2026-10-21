@@ -26,7 +26,8 @@ changes §15). Terms: `Planning/definitions/TERMINOLOGY.md`.
   defenders and tactical pins print as `restricted movement (…)`, e.g.
   `restricted movement (tactic: Nd5-f4 fork): n d5 → P g3, Q e2, K g2 (ply 1, direct) [rule]`.
 - **Fixtures**: C01–C16 (hand-labelled contributions and labels, `tactics.json`), F21–F24
-  (new F rows), T42–T54 (`pin_tactical`), C09's two tactical-pin rows.
+  (new F rows), T42–T56 (`pin_tactical`; T54–T56 added at the gate), C09's two
+  tactical-pin rows.
 - **Reference implementation** of §4.5 in `tests/tactics/oracle/`, written from the plan
   text without reading the detector; `tactics_oracle` compares `threat` and samples
   `pin_tactical` on every 16th puzzle and on every T fixture.
@@ -84,9 +85,8 @@ Measured on the prototype before the contract (9,300 test puzzles, 44,078 boards
 board against 19 µs for the M2 motifs. The Captain accepted the speed (no budget) with
 corpus sampling. Effects: `tactics_oracle` takes about 23 s in Release (was 12 s) and
 about 24 min under ASan; F fixtures stay under 6 s. 82.7 % of `overloaded_defender`
-instances also appear as a
-`pin_tactical` restriction ([INFERENCE] the rest fall under §4.5 skips: a king in check,
-an absolutely pinned piece, no legal capture).
+instances also appear as a `pin_tactical` restriction ([INFERENCE] the rest fall under
+§4.5 skips: a king in check, an absolutely pinned piece, no legal capture).
 
 ## Contract changes
 
@@ -107,4 +107,13 @@ chess-library:
 
 ## Review
 
-REVIEW_RESULT
+One completion review (`reviewer`, 2026-10-21), scope §14 and the project principles. It
+found no implementation blockers in tactic judgement, contributions, `pin_tactical`,
+serialisation, rendering or determinism. One blocker (row 10): the TERMINOLOGY `threat`
+row put a `capture` threat on the captured piece's square, which is wrong for en passant
+(`7k/8/8/3pP3/8/3n4/8/K2R4 w - d6 0 1` reports `capture` on d6, pawn on d5). The row
+was fixed and the recheck found it resolved. One nit (T range in this receipt) was also
+fixed.
+
+Open for the Captain: checkpoint 3, trying the smoke command and approving the merge of
+`postm2-em1` into `main`.
