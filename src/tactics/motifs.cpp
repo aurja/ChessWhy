@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <optional>
+#include <unordered_map>
 #include <vector>
 
 #include "see_internal.hpp"
@@ -344,7 +345,7 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
 
 [[nodiscard]] bool same_identity(const Motif& left, const Motif& right) {
     return left.tag == right.tag && left.side == right.side && left.actor == right.actor &&
-           left.targets == right.targets;
+           left.targets == right.targets && left.threat == right.threat;
 }
 
 [[nodiscard]] bool motif_less(const Motif& left, const Motif& right) {
@@ -365,6 +366,17 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
     }
     if (left.targets.size() != right.targets.size()) {
         return left.targets.size() < right.targets.size();
+    }
+    if (left.threat.has_value() != right.threat.has_value()) {
+        return !left.threat.has_value();
+    }
+    if (left.threat && right.threat) {
+        if (left.threat->kind != right.threat->kind) {
+            return left.threat->kind < right.threat->kind;
+        }
+        if (left.threat->square != right.threat->square) {
+            return left.threat->square < right.threat->square;
+        }
     }
     if (left.side != right.side) {
         return left.side < right.side;
@@ -517,9 +529,17 @@ void append_discovered_attacks(const chess::Board& before, const chess::Board& a
 }
 
 void append_back_rank_mates(const chess::Board& after, chess::Color side, int ply,
-                            const SquareList& checking_pieces, std::vector<Motif>& motifs) {
+                            const SquareList& checking_pieces, std::vector<Motif>& motifs,
+                            bool* checkmate = nullptr) {
     const chess::Color enemy = ~side;
-    if (!after.inCheck() || chess::movegen::anylegalmoves(after)) {
+    if (!after.inCheck()) {
+        return;
+    }
+    const bool has_legal_moves = chess::movegen::anylegalmoves(after);
+    if (checkmate != nullptr) {
+        *checkmate = !has_legal_moves;
+    }
+    if (has_legal_moves) {
         return;
     }
     const chess::Square king = after.kingSq(enemy);
@@ -543,8 +563,8 @@ void append_back_rank_mates(const chess::Board& after, chess::Color side, int pl
 }
 
 void append_move_motifs(const chess::Board& before, const chess::Board& after,
-                        const chess::Move& move, std::size_t ply_index,
-                        std::vector<Motif>& motifs) {
+                        const chess::Move& move, std::size_t ply_index, std::vector<Motif>& motifs,
+                        bool* checkmate = nullptr) {
     const chess::Color side = before.sideToMove();
     const chess::Square from = move.from();
     const bool is_castling = move.typeOf() == chess::Move::CASTLING;
@@ -576,25 +596,356 @@ void append_move_motifs(const chess::Board& before, const chess::Board& after,
         motifs.push_back(make_motif(after, MotifTag::DoubleCheck, side,
                                     static_cast<int>(ply_index + 1), actor, {king}));
     }
-    append_back_rank_mates(after, side, static_cast<int>(ply_index + 1), checking_pieces, motifs);
+    append_back_rank_mates(after, side, static_cast<int>(ply_index + 1), checking_pieces, motifs,
+                           checkmate);
     if (move.typeOf() == chess::Move::PROMOTION) {
         motifs.push_back(
             make_motif(after, MotifTag::Promotion, side, static_cast<int>(ply_index + 1), actor));
     }
 }
 
+constexpr std::array<MotifTag, 7> kPinMoveTags{MotifTag::Fork,
+                                               MotifTag::Skewer,
+                                               MotifTag::DiscoveredCheck,
+                                               MotifTag::DiscoveredAttack,
+                                               MotifTag::DoubleCheck,
+                                               MotifTag::BackRankMate,
+                                               MotifTag::Promotion};
+constexpr std::array<ThreatKind, 9> kPinThreatKinds{ThreatKind::Fork,
+                                                    ThreatKind::Skewer,
+                                                    ThreatKind::DiscoveredCheck,
+                                                    ThreatKind::DiscoveredAttack,
+                                                    ThreatKind::DoubleCheck,
+                                                    ThreatKind::BackRankMate,
+                                                    ThreatKind::Promotion,
+                                                    ThreatKind::Checkmate,
+                                                    ThreatKind::Capture};
+
+struct MoveThreatEffects {
+    std::array<bool, kPinMoveTags.size()> move_tags{};
+    bool checkmate = false;
+};
+
+struct PinThreatCandidate {
+    chess::Square square = chess::Square::NO_SQ;
+    SquareList targets;
+};
+
+using PinThreatSelections =
+    std::array<std::array<std::optional<PinThreatCandidate>, 64>, kPinThreatKinds.size()>;
+
+class EditableBoard : public chess::Board {
+public:
+    explicit EditableBoard(const chess::Board& board) : chess::Board(board) {}
+
+    void erase(chess::Square square) {
+        const chess::Piece piece = at(square);
+        if (piece == chess::Piece::NONE) {
+            return;
+        }
+        removePiece(piece, square);
+
+        bool metadata_changed = false;
+        if (piece.type() == chess::PieceType::ROOK) {
+            for (const chess::Color color : {chess::Color::WHITE, chess::Color::BLACK}) {
+                const int back_rank = color == chess::Color::WHITE ? 0 : 7;
+                if (static_cast<int>(square.rank()) != back_rank) {
+                    continue;
+                }
+                for (const chess::Board::CastlingRights::Side castle_side :
+                     {chess::Board::CastlingRights::Side::KING_SIDE,
+                      chess::Board::CastlingRights::Side::QUEEN_SIDE}) {
+                    if (cr_.has(color, castle_side) &&
+                        square.file() == cr_.getRookFile(color, castle_side)) {
+                        cr_.clear(color, castle_side);
+                        metadata_changed = true;
+                    }
+                }
+            }
+        }
+        if (ep_sq_ != chess::Square::NO_SQ) {
+            const int victim_offset = sideToMove() == chess::Color::WHITE ? -8 : 8;
+            if (square.index() == ep_sq_.index() + victim_offset) {
+                ep_sq_ = chess::Square::NO_SQ;
+                metadata_changed = true;
+            }
+        }
+        if (metadata_changed) {
+            const auto fen = getFen();
+            setFen(fen);
+        }
+    }
+};
+
+[[nodiscard]] chess::Board board_without(const chess::Board& board, chess::Square removed) {
+    EditableBoard result(board);
+    result.erase(removed);
+    return result;
+}
+
+[[nodiscard]] chess::Square move_destination(chess::Move move, chess::Color side) {
+    if (move.typeOf() == chess::Move::CASTLING) {
+        return chess::Square::castling_king_square(move.to() > move.from(), side);
+    }
+    return move.to();
+}
+
+[[nodiscard]] std::uint32_t move_key(chess::Move move) {
+    const std::uint32_t base =
+        static_cast<std::uint32_t>((move.from().index() * 64) + move.to().index());
+    const auto type = static_cast<std::uint32_t>(move.typeOf());
+    const std::uint32_t promotion = move.typeOf() == chess::Move::PROMOTION
+                                        ? static_cast<std::uint32_t>(move.promotionType())
+                                        : 0U;
+    return (((base * 8U) + type) * 8U) + promotion;
+}
+
+[[nodiscard]] bool could_be_fork(const chess::Board& after, chess::Square actor,
+                                 chess::Color side) {
+    const auto attacker_type = after.at<chess::PieceType>(actor);
+    if (attacker_type == chess::PieceType::KING || see(after, actor, ~side) > 0) {
+        return false;
+    }
+    const chess::Bitboard candidates =
+        after.us(~side) & ~after.pieces(chess::PieceType::PAWN, ~side);
+    int target_count = 0;
+    for (const chess::Square target : squares(candidates.getBits())) {
+        if (!attacks_square(after, actor, target)) {
+            continue;
+        }
+        const auto target_type = after.at<chess::PieceType>(target);
+        if (target_type == chess::PieceType::KING ||
+            comparison_value(target_type) > comparison_value(attacker_type) ||
+            (see(after, target, side) >= 1 && !attacks_square(after, target, actor))) {
+            if (++target_count == 2) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+[[nodiscard]] bool move_motif_candidate(const chess::Board& before, const chess::Board& after,
+                                        chess::Move move, chess::Color side,
+                                        const SquareList& checking_pieces) {
+    const chess::Square actor = move_destination(move, side);
+    const auto actor_type = after.at<chess::PieceType>(actor);
+    if (actor_type != chess::PieceType::KING && could_be_fork(after, actor, side)) {
+        return true;
+    }
+    if (actor_type == chess::PieceType::BISHOP || actor_type == chess::PieceType::ROOK ||
+        actor_type == chess::PieceType::QUEEN || !checking_pieces.empty() ||
+        move.typeOf() == chess::Move::PROMOTION) {
+        return true;
+    }
+    const chess::Bitboard sliders = before.pieces(chess::PieceType::BISHOP, side) |
+                                    before.pieces(chess::PieceType::ROOK, side) |
+                                    before.pieces(chess::PieceType::QUEEN, side);
+    return std::ranges::any_of(squares(sliders.getBits()), [&](const chess::Square slider) {
+        return slider != move.from() && attacks_square(before, slider, move.from());
+    });
+}
+
+[[nodiscard]] MoveThreatEffects move_threat_effects(const chess::Board& before, chess::Move move,
+                                                    chess::Color side,
+                                                    std::vector<Motif>* detected_motifs = nullptr) {
+    MoveThreatEffects effects;
+    chess::Board after = before;
+    after.makeMove(move);
+    const SquareList checking_pieces = checkers(after, side, after.kingSq(~side));
+    if (!move_motif_candidate(before, after, move, side, checking_pieces)) {
+        return effects;
+    }
+
+    std::vector<Motif> local_motifs;
+    append_move_motifs(before, after, move, 0, local_motifs, &effects.checkmate);
+    std::ranges::sort(local_motifs, motif_less);
+    for (const Motif& motif : local_motifs) {
+        const auto* found = std::ranges::find(kPinMoveTags, motif.tag);
+        if (found != kPinMoveTags.end()) {
+            effects.move_tags[static_cast<std::size_t>(found - kPinMoveTags.begin())] = true;
+        }
+    }
+    if (detected_motifs != nullptr) {
+        *detected_motifs = std::move(local_motifs);
+    }
+    return effects;
+}
+
+void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) {
+    if (board.isAttacked(board.kingSq(chess::Color::WHITE), chess::Color::BLACK) ||
+        board.isAttacked(board.kingSq(chess::Color::BLACK), chess::Color::WHITE) ||
+        !chess::movegen::anylegalmoves(board)) {
+        return;
+    }
+    for (const chess::Color side : {chess::Color::WHITE, chess::Color::BLACK}) {
+        const chess::Color enemy = ~side;
+
+        chess::Board bx = board;
+        if (bx.sideToMove() != side) {
+            bx.makeNullMove();
+        }
+        chess::Movelist baseline_moves;
+        chess::movegen::legalmoves(baseline_moves, bx);
+        std::unordered_map<std::uint32_t, MoveThreatEffects> baseline;
+        baseline.reserve(baseline_moves.size());
+        for (const chess::Move move : baseline_moves) {
+            baseline.emplace(move_key(move), move_threat_effects(bx, move, side));
+        }
+        std::array<int, 64> baseline_see_cache{};
+        baseline_see_cache.fill(-1);
+        const auto baseline_see = [&bx, &baseline_see_cache, side](chess::Square target) {
+            int& value = baseline_see_cache[static_cast<std::size_t>(target.index())];
+            if (value < 0) {
+                value = see(bx, target, side);
+            }
+            return value;
+        };
+
+        const chess::Bitboard enemy_pieces =
+            board.us(enemy) & ~board.pieces(chess::PieceType::KING);
+        for (const chess::Square p : squares(enemy_pieces.getBits())) {
+            const chess::Board minus_p = board_without(bx, p);
+            if (minus_p.isAttacked(minus_p.kingSq(enemy), side) ||
+                minus_p.isAttacked(minus_p.kingSq(side), enemy)) {
+                continue;
+            }
+
+            PinThreatSelections selected{};
+            chess::Movelist legal_moves;
+            chess::movegen::legalmoves(legal_moves, minus_p);
+            std::vector<chess::Move> ordered_moves(legal_moves.begin(), legal_moves.end());
+            std::ranges::sort(ordered_moves, [side](chess::Move left, chess::Move right) {
+                const chess::Square left_to = move_destination(left, side);
+                const chess::Square right_to = move_destination(right, side);
+                if (left_to != right_to) {
+                    return left_to < right_to;
+                }
+                return move_key(left) < move_key(right);
+            });
+
+            for (const chess::Move move : ordered_moves) {
+                std::vector<Motif> move_motifs;
+                const MoveThreatEffects effects =
+                    move_threat_effects(minus_p, move, side, &move_motifs);
+                const auto baseline_move = baseline.find(move_key(move));
+                const MoveThreatEffects* baseline_effects =
+                    baseline_move == baseline.end() ? nullptr : &baseline_move->second;
+                const chess::Square destination = move_destination(move, side);
+
+                for (std::size_t kind = 0; kind < kPinMoveTags.size(); ++kind) {
+                    if (!effects.move_tags[kind] ||
+                        (baseline_effects != nullptr && baseline_effects->move_tags[kind])) {
+                        continue;
+                    }
+                    const std::size_t actor = static_cast<std::size_t>(move.from().index());
+                    auto& candidate = selected[kind][actor];
+                    if (candidate && candidate->square <= destination) {
+                        continue;
+                    }
+                    const auto found =
+                        std::ranges::find_if(move_motifs, [kind](const Motif& motif) {
+                            return motif.tag == kPinMoveTags[kind];
+                        });
+                    if (found == move_motifs.end()) {
+                        continue;
+                    }
+                    SquareList targets;
+                    targets.reserve(found->targets.size());
+                    for (const PieceOnSquare& target : found->targets) {
+                        targets.emplace_back(target.square);
+                    }
+                    candidate =
+                        PinThreatCandidate{.square = destination, .targets = std::move(targets)};
+                }
+
+                if (effects.checkmate &&
+                    (baseline_effects == nullptr || !baseline_effects->checkmate)) {
+                    constexpr auto mate_kind = static_cast<std::size_t>(ThreatKind::Checkmate);
+                    const std::size_t actor = static_cast<std::size_t>(move.from().index());
+                    auto& candidate = selected[mate_kind][actor];
+                    if (!candidate || destination < candidate->square) {
+                        candidate = PinThreatCandidate{.square = destination,
+                                                       .targets = {minus_p.kingSq(enemy)}};
+                    }
+                }
+            }
+
+            constexpr auto capture_kind = static_cast<std::size_t>(ThreatKind::Capture);
+            for (const chess::Square target : squares(enemy_pieces.getBits())) {
+                if (target == p || baseline_see(target) > 0 || see(minus_p, target, side) < 1) {
+                    continue;
+                }
+                std::optional<chess::Move> capture;
+                int capture_value = 0;
+                for (const chess::Move move : ordered_moves) {
+                    chess::Square captured_square = move.to();
+                    if (move.typeOf() == chess::Move::ENPASSANT) {
+                        captured_square = move.to().ep_square();
+                    }
+                    if (captured_square != target) {
+                        continue;
+                    }
+                    const int attacker_value =
+                        comparison_value(minus_p.at<chess::PieceType>(move.from()));
+                    if (!capture || attacker_value < capture_value ||
+                        (attacker_value == capture_value && move.from() < capture->from())) {
+                        capture = move;
+                        capture_value = attacker_value;
+                    }
+                }
+                if (!capture) {
+                    continue;
+                }
+                const std::size_t actor = static_cast<std::size_t>(capture->from().index());
+                auto& candidate = selected[capture_kind][actor];
+                const chess::Square destination = move_destination(*capture, side);
+                if (!candidate || destination < candidate->square) {
+                    candidate = PinThreatCandidate{.square = destination, .targets = {target}};
+                }
+            }
+
+            for (std::size_t kind = 0; kind < selected.size(); ++kind) {
+                for (std::size_t actor = 0; actor < selected[kind].size(); ++actor) {
+                    const auto& selected_candidate = selected[kind][actor];
+                    if (!selected_candidate.has_value()) {
+                        continue;
+                    }
+                    const PinThreatCandidate& candidate = selected_candidate.value();
+                    SquareList targets{p};
+                    targets.insert(targets.end(), candidate.targets.begin(),
+                                   candidate.targets.end());
+                    Motif motif = make_motif(board, MotifTag::PinTactical, side, 0,
+                                             chess::Square(static_cast<int>(actor)), targets);
+                    motif.threat =
+                        MotifThreat{.kind = kPinThreatKinds[kind],
+                                    .square = static_cast<std::uint8_t>(candidate.square.index())};
+                    motifs.push_back(std::move(motif));
+                }
+            }
+        }
+    }
+}
+
 } // namespace
 
-std::vector<Motif> position_motifs(const chess::Board& board) {
+std::vector<Motif> position_motifs(const chess::Board& board, MotifOptions options) {
     std::vector<Motif> motifs = state_motifs(board);
+    if (options.pin_tactical) {
+        append_pin_tactical(board, motifs);
+    }
     std::ranges::sort(motifs, motif_less);
     return motifs;
 }
 
-std::vector<Motif> line_motifs(const chess::Board& root, std::span<const chess::Move> line) {
+std::vector<Motif> line_motifs(const chess::Board& root, std::span<const chess::Move> line,
+                               MotifOptions options) {
     std::vector<Motif> motifs;
     chess::Board before = root;
     std::vector<Motif> previous_state = state_motifs(before);
+    if (options.pin_tactical) {
+        append_pin_tactical(before, previous_state);
+    }
     for (std::size_t ply = 0; ply < line.size(); ++ply) {
         const chess::Move move = line[ply];
         chess::Board after = before;
@@ -612,6 +963,9 @@ std::vector<Motif> line_motifs(const chess::Board& root, std::span<const chess::
                 .captured_value = comparison_value(before.at<chess::PieceType>(captured_square))};
         }
         std::vector<Motif> current_state = state_motifs(after, last_capture);
+        if (options.pin_tactical) {
+            append_pin_tactical(after, current_state);
+        }
         for (Motif motif : current_state) {
             const bool already_present =
                 std::ranges::any_of(previous_state, [&motif](const Motif& previous) {

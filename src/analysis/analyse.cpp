@@ -95,6 +95,73 @@ constexpr int kParryMarginUnits = 60;
     return !moves.empty();
 }
 
+[[nodiscard]] std::size_t legal_move_count(const chess::Board& board) {
+    chess::Movelist moves;
+    chess::movegen::legalmoves(moves, board);
+    return moves.size();
+}
+
+[[nodiscard]] std::optional<TacticJudgement>
+judge_refutation(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& nodes_searched,
+                 const chess::Board& root, std::span<const std::string> pv_uci,
+                 const Eval& refuted_move_eval, Threat& refutation) {
+    const auto line_moves = walked_moves(root, pv_uci);
+    if (line_moves.empty()) {
+        return std::nullopt;
+    }
+
+    chess::Movelist legal_moves;
+    chess::movegen::legalmoves(legal_moves, root);
+    if (legal_moves.empty()) {
+        throw engine::EngineError("Stockfish refutation has a move after a terminal position");
+    }
+
+    TacticJudgement judgement;
+    if (legal_moves.size() == 1) {
+        judgement.forced = true;
+        return judgement;
+    }
+
+    const auto refutation_first = line_moves.front();
+    engine::SearchRequest request;
+    request.fen = root.getFen();
+    request.nodes = budget.r;
+    request.multipv = 1;
+    request.searchmoves_uci.reserve(legal_moves.size() - 1);
+    for (const auto move : legal_moves) {
+        if (move != refutation_first) {
+            request.searchmoves_uci.emplace_back(chess::uci::moveToUci(move, root.chess960()));
+        }
+    }
+
+    const auto searched = engine.search(request);
+    nodes_searched += searched.nodes;
+    const auto& alternative_line = first_line(searched);
+    if (alternative_line.pv_uci.empty()) {
+        throw engine::EngineError("Stockfish search R returned an empty principal variation");
+    }
+    const auto alternative_move = detail::legal_move(root, alternative_line.pv_uci.front());
+    if (alternative_move == chess::Move::NO_MOVE || alternative_move == refutation_first) {
+        throw engine::EngineError("Stockfish search R returned an invalid alternative move");
+    }
+
+    TacticAlternative alternative{
+        .san = chess::uci::moveToSan(root, alternative_move),
+        .uci = chess::uci::moveToUci(alternative_move, root.chess960()),
+        .eval = eval_for(alternative_line, root.sideToMove(), root.sideToMove()),
+    };
+    const int margin_units = 2000 - refuted_move_eval.es_units - alternative.eval.es_units;
+    judgement.alternative = std::move(alternative);
+    judgement.margin_units = margin_units;
+    judgement.is_tactic = is_tactic_margin(margin_units);
+    if (judgement.is_tactic) {
+        const auto moves = std::span<const chess::Move>(line_moves);
+        tactics::judge_contributions(root, moves, refutation.motifs);
+        judgement.labels = tactics::tactic_labels(root, moves);
+    }
+    return judgement;
+}
+
 [[nodiscard]] bool pseudo_legal_uci(const chess::Board& board, std::string_view uci) {
     if ((uci.size() != 4 && uci.size() != 5) || uci[0] < 'a' || uci[0] > 'h' || uci[1] < '1' ||
         uci[1] > '8' || uci[2] < 'a' || uci[2] > 'h' || uci[3] < '1' || uci[3] > '8') {
@@ -290,6 +357,8 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
         }
         result.refutation =
             make_threat(after_move, reply, reply_line, report_side(after_move.sideToMove()));
+        result.refutation->tactic = judge_refutation(engine, budget, nodes_searched, after_move,
+                                                     reply, result.eval, *result.refutation);
     }
     return result;
 }
@@ -316,7 +385,8 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.fine_truncated = false;
     report.asked_move.reset();
 
-    if (!has_legal_moves(board)) {
+    const auto root_legal_moves = legal_move_count(board);
+    if (root_legal_moves == 0) {
         report.position.terminal = in_check ? Terminal::Checkmate : Terminal::Stalemate;
         return;
     }
@@ -332,6 +402,10 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.engine.nodes_searched += a_result.nodes;
     if (a_result.lines.empty()) {
         throw engine::EngineError("Stockfish search A returned no complete principal variation");
+    }
+    if (root_legal_moves >= 2 && a_result.lines.size() < 2) {
+        throw engine::EngineError(
+            "Stockfish search A returned fewer than two principal variations");
     }
     const auto& best_line = a_result.lines.front();
     report.position.eval_white = eval_for(best_line, side_to_move, chess::Color::WHITE);
@@ -387,6 +461,30 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
                             std::ranges::all_of(report.candidates, [](const MoveAssessment& move) {
                                 return move.verdict == Verdict::Fine;
                             });
+
+    TacticJudgement root_tactic;
+    if (root_legal_moves == 1) {
+        root_tactic.forced = true;
+    } else {
+        const auto& alternative = report.candidates[1];
+        root_tactic.alternative = TacticAlternative{
+            .san = alternative.san, .uci = alternative.uci, .eval = alternative.eval};
+        const int margin_units = report.candidates[0].eval.es_units - alternative.eval.es_units;
+        root_tactic.margin_units = margin_units;
+        root_tactic.is_tactic = is_tactic_margin(margin_units);
+    }
+    if (root_tactic.is_tactic) {
+        const auto moves = walked_moves(board, best_line.pv_uci);
+        const auto line = std::span<const chess::Move>(moves);
+        tactics::judge_contributions(board, line, report.position.motifs);
+        tactics::judge_contributions(board, line, report.candidates[0].motifs);
+        auto& own_threat = side_to_move == chess::Color::WHITE ? threats.white : threats.black;
+        if (own_threat.has_value()) {
+            tactics::judge_contributions(board, line, own_threat->motifs);
+        }
+        root_tactic.labels = tactics::tactic_labels(board, line);
+    }
+    report.candidates[0].tactic = std::move(root_tactic);
 
     if (in_check) {
         threats.urgency =

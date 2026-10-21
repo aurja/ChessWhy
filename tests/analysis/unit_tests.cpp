@@ -13,18 +13,21 @@ TEST_CASE("analysis node budgets match the frozen search table", "[analysis][uni
     CHECK(quick.c == 50'000);
     CHECK(quick.d == 25'000);
     CHECK(quick.e == 25'000);
+    CHECK(quick.r == 25'000);
     const auto standard = chesswhy::analysis::node_budget(chesswhy::Budget::Standard);
     CHECK(standard.a == 1'000'000);
     CHECK(standard.b == 200'000);
     CHECK(standard.c == 200'000);
     CHECK(standard.d == 100'000);
     CHECK(standard.e == 100'000);
+    CHECK(standard.r == 100'000);
     const auto deep = chesswhy::analysis::node_budget(chesswhy::Budget::Deep);
     CHECK(deep.a == 4'000'000);
     CHECK(deep.b == 800'000);
     CHECK(deep.c == 800'000);
     CHECK(deep.d == 400'000);
     CHECK(deep.e == 400'000);
+    CHECK(deep.r == 400'000);
 }
 
 TEST_CASE("expected score keeps WDL units exact", "[analysis][unit]") {
@@ -46,6 +49,12 @@ TEST_CASE("verdict boundaries are inclusive at fine, mistake and blunder", "[ana
     CHECK(verdict_for_loss(260) == Verdict::Mistake);
     CHECK(verdict_for_loss(539) == Verdict::Mistake);
     CHECK(verdict_for_loss(540) == Verdict::Blunder);
+}
+
+TEST_CASE("tactic margin boundary is inclusive", "[analysis][unit]") {
+    CHECK_FALSE(chesswhy::analysis::is_tactic_margin(259));
+    CHECK(chesswhy::analysis::is_tactic_margin(260));
+    CHECK_FALSE(chesswhy::analysis::is_tactic_margin(-1));
 }
 
 TEST_CASE("null move reliability depends on side-to-move non-pawn material", "[analysis][unit]") {

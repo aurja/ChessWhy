@@ -135,14 +135,21 @@ moves first, had a forcing line):
   keeps `S`'s threat, creates a new threat (E), the refutation line and its
   consequence when `m` is bad, and tactical/positional facts that change (M2–M3).
 
-### 5.5 Tactical motifs (M2)
+### 5.5 Tactical motifs (M2) and tactics (PostM2_EM1)
 
 Motifs are deterministic patterns of one position (plus the move that produced it where a tag
 needs it), with `rule` provenance; they state that the pattern is present and claim no gain. Mate
-and promotion threats come from engine consequences, not motif detectors. Overloaded defender and
-back-rank weakness are validated by fixtures; definitions are in M2 §4. Other measured motifs are
-validated against Lichess puzzle themes (CC0); per-motif recall targets are frozen in M2. Tactics
-and motif contribution are planned for PostM2_EM1, along with `removal_of_defender` as a tactic-side label.
+and promotion threats come from engine consequences, not motif detectors. Overloaded defender,
+back-rank weakness and the tactical pin (`pin_tactical`: a piece held in place because removing it
+would enable a threat) are validated by fixtures; definitions are in M2 §4 and PostM2_EM1 §4.5.
+Other measured motifs are validated against Lichess puzzle themes (CC0); per-motif recall targets
+are frozen in M2. Pins, overloaded defenders and tactical pins print as "restricted movement".
+
+PostM2_EM1 judges the best move's line and each refutation as a **tactic** when its expected
+score beats the best alternative first move by the only-move margin (≥ 0.13, `engine`); a lone
+legal move is **forced** (`rule`). On a tactic line each motif gets a contribution (`direct`,
+`indirect` or `none`; provenance `rule`), and the tactic label `removal_of_defender` (after lichess-puzzler's
+`capturing_defender`) marks a capture of a piece's only defender followed by winning the piece.
 
 ### 5.6 Positional facts (M3)
 
@@ -195,7 +202,7 @@ in. Sketch:
 
 ```json
 {
-  "schema_version": 2,
+  "schema_version": 3,
   "input": {"fen": "...", "move": "Nf3", "level": "club", "budget": "standard"},
   "engine": {"name": "Stockfish 19", "nodes": 0, "threads": 1, "reproducible": true},
   "position": {"side_to_move": "white", "in_check": false, "es_white": 0.54, "motifs": []},
@@ -207,9 +214,11 @@ in. Sketch:
   "candidates": [
     {"move": "h3", "es": 0.53, "loss": 0.01, "verdict": "fine",
      "parries_threat": true, "creates_threat": null, "refutation": null,
-     "facts": [{"source": "rule", "tag": "luft", "detail": "..."}], "motifs": []}
+     "facts": [{"source": "rule", "tag": "luft", "detail": "..."}], "motifs": [],
+     "tactic": {"source": "engine", "forced": false, "alternative": {"san": "Nf3", "eval": {}},
+                "margin": 0.21, "is_tactic": true, "labels": []}}
   ],
-  "asked_move": {"move": "Nf3", "verdict": "blunder", "refutation": {"line": ["..."], "motifs": []}},
+  "asked_move": {"move": "Nf3", "verdict": "blunder", "refutation": {"line": ["..."], "motifs": [], "tactic": {}}},
   "opening": {"source": "book", "eco": "C50", "name": "Italian Game",
               "dataset": "lichess-org/chess-openings@a6189a3", "last_named_ply": 5},
   "games": {"source": "games", "table": "<sha256>", "by_source": [
@@ -305,7 +314,7 @@ own plan with frozen acceptance criteria; the bullets below are the intent.
 | M0 | Repository, pinned dependencies, assets, agent setup, this vision | builds of dependencies smoke-tested; assets verified |
 | M1 | CLI, FEN/PGN/ply input, SAN/UCI moves, UCI engine wrapper, searches A–E, threats, urgency, verdicts, opening names, report v1 + schema, template rendering | ~20 hand-checked fixture positions (check, mate threat, hanging piece, counterattack, quiet, zugzwang-prone, promotion, castling/en passant input); opening name found through a transposition; no name for an unnamed position; identical report on rerun; clear errors for bad FEN/PGN/move; `standard` ≤ ~12 s wall time |
 | M2 | Tactical motif detectors in the report: patterns of one position, no claim of gain | exact motif recognition against the written definitions (reference implementation on a fixed Lichess puzzle sample); per-motif recall on that sample |
-| PostM2_EM1 | Tactic recognition: a line is a tactic when it gains in engine evaluation against the second-best move (only-move margin); per-motif contribution (direct, indirect, none); `removal_of_defender` as a tactic-side label | tactic labels follow mechanically from the engine lines; contribution judgements match hand-labelled fixtures |
+| PostM2_EM1 | Tactic recognition: a line is a tactic when it gains in engine evaluation against the second-best move (only-move margin); per-motif contribution (direct, indirect, none); `removal_of_defender` as a tactic-side label; tactical pin (`pin_tactical`) and "restricted movement" wording | tactic labels follow mechanically from the engine lines; contribution judgements match hand-labelled fixtures — implemented on branch `postm2-em1`, awaiting the Captain's merge approval |
 | M3 | Positional fact detectors and diffs; opening statistics table and builder | hand-labelled fixture positions, including book positions transcribed to FEN; per-source move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical |
 | M4 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; fact-check rejects seeded false statements |
 | M5 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve |

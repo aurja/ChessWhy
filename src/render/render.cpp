@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <iomanip>
 #include <locale>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -29,9 +30,49 @@ void write_square(std::ostringstream& output, std::uint8_t square) {
     output << static_cast<char>('a' + (square % 8)) << static_cast<char>('1' + (square / 8));
 }
 
+void write_motif_label(std::ostringstream& output, const Motif& motif) {
+    switch (motif.tag) {
+    case MotifTag::PinAbsolute:
+        output << "restricted movement (absolute pin)";
+        return;
+    case MotifTag::PinRelative:
+        output << "restricted movement (relative pin)";
+        return;
+    case MotifTag::OverloadedDefender:
+        output << "restricted movement (overloaded defender)";
+        return;
+    case MotifTag::PinTactical: {
+        if (!motif.threat.has_value()) {
+            throw std::bad_optional_access{};
+        }
+        const MotifThreat& threat = *motif.threat;
+        char actor_piece = motif.actor.piece;
+        if (actor_piece >= 'a' && actor_piece <= 'z') {
+            actor_piece = static_cast<char>(actor_piece - ('a' - 'A'));
+        }
+        std::string kind = to_string(threat.kind);
+        for (char& character : kind) {
+            if (character == '_') {
+                character = ' ';
+            }
+        }
+        output << "restricted movement (tactic: " << actor_piece;
+        write_square(output, motif.actor.square);
+        output << '-';
+        write_square(output, threat.square);
+        output << ' ' << kind << ')';
+        return;
+    }
+    default:
+        output << to_string(motif.tag);
+        return;
+    }
+}
+
 void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs) {
     for (const auto& motif : motifs) {
-        output << to_string(motif.tag) << ": " << motif.actor.piece << ' ';
+        write_motif_label(output, motif);
+        output << ": " << motif.actor.piece << ' ';
         write_square(output, motif.actor.square);
         if (!motif.targets.empty()) {
             output << " → ";
@@ -46,8 +87,57 @@ void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs) 
         if (motif.gain) {
             output << ", gain " << *motif.gain;
         }
-        output << " (ply " << motif.ply << ") [rule]\n";
+        output << " (ply " << motif.ply;
+        if (motif.contribution) {
+            output << ", " << to_string(*motif.contribution);
+        }
+        output << ") [rule]\n";
     }
+}
+
+void write_tactic_labels(std::ostringstream& output, const std::vector<TacticLabel>& labels) {
+    for (const auto& label : labels) {
+        output << to_string(label.tag) << ": " << label.actor.piece << ' ';
+        write_square(output, label.actor.square);
+        if (!label.targets.empty()) {
+            output << " → ";
+            for (std::size_t index = 0; index < label.targets.size(); ++index) {
+                if (index != 0) {
+                    output << ", ";
+                }
+                output << label.targets[index].piece << ' ';
+                write_square(output, label.targets[index].square);
+            }
+        }
+        output << " (ply " << label.ply << ") [rule]\n";
+    }
+}
+
+void write_tactic(std::ostringstream& output, const std::optional<TacticJudgement>& tactic) {
+    if (!tactic) {
+        return;
+    }
+    if (tactic->forced) {
+        output << "forced: only legal move [rule]\n";
+        return;
+    }
+    if (!tactic->is_tactic) {
+        return;
+    }
+
+    if (!tactic->alternative.has_value() || !tactic->margin_units.has_value()) {
+        return;
+    }
+    const TacticAlternative& alternative = tactic->alternative.value();
+    const int margin_units = tactic->margin_units.value();
+    const auto flags = output.flags();
+    const auto precision = output.precision();
+    output << "tactic: next best " << alternative.san << " is " << std::fixed
+           << std::setprecision(2) << static_cast<double>(margin_units) / 2000.0
+           << " worse [engine]\n";
+    output.flags(flags);
+    output.precision(precision);
+    write_tactic_labels(output, tactic->labels);
 }
 
 void write_consequence(std::ostringstream& output, const std::string& label,
@@ -77,6 +167,7 @@ void write_threat(std::ostringstream& output, const std::string& label,
 void write_move_details(std::ostringstream& output, const std::string& label,
                         const MoveAssessment& move) {
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
+    write_tactic(output, move.tactic);
     if (move.verdict == Verdict::Fine) {
         write_motifs(output, move.motifs);
     }
@@ -101,6 +192,7 @@ void write_move_details(std::ostringstream& output, const std::string& label,
     if (move.refutation) {
         output << label << " refutation line: " << san_line(move.refutation->line_san)
                << " [engine]\n";
+        write_tactic(output, move.refutation->tactic);
         write_motifs(output, move.refutation->motifs);
         write_consequence(output, label + " refutation consequence", move.refutation->consequence);
     } else {

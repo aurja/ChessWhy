@@ -1,0 +1,271 @@
+{
+  "comment": [
+    "Contribution and tactic-label unit fixtures C01-Cnn (Planning/milestones/PostM2_EM1.md §9). Label unit; no engine.",
+    "Each fixture: id, title, source (Lichess puzzle ID 'lichess:<id>' (CC0), '<game>, before <move>' via chesswhy-pgn, or 'constructed'), fen, line_uci, margin, contributions, labels_include, labels_exclude.",
+    "line_uci: a tactic sequence from fen (X = the side to move at fen), already cut to its walked plies (M1 §4.3). margin: null for a Lichess puzzle solution; otherwise the only-move margin (ES, X's view) WP4 measured at budget standard, >= 0.13.",
+    "contributions: every X-side motif of position_motifs(fen) (ply 0) and line_motifs(fen, line_uci) (ply >= 1), each {tag, side, ply, actor, targets, contribution, reason}; a missing or extra X-side motif fails. contribution: 'direct'|'indirect'|'none', hand-labelled from the plain meaning of §4.3; reason: one line.",
+    "pin_tactical (§4.5) is exempt from the exact set (Captain, 2026-10-21): its entries also carry threat {kind, square}, are checked only where listed, and unlisted pin_tactical motifs neither fail nor match.",
+    "Motif fields as in motifs.json: tag (report spelling), side ('white'|'black'), ply, actor (square, e.g. 'e5'), targets (squares, in the order the motif reports them).",
+    "labels_include: each entry {tag, side, ply, actor, targets, reason} must appear in tactic_labels(fen, line_uci) with exactly these fields (reason excepted). labels_exclude: no label may match; omitted fields match anything.",
+    "Proposed by PostM2_EM1 WP4; frozen after the Captain's review (§12, checkpoint 1); labels change only at checkpoint 2."
+  ],
+  "fixtures": [
+    {
+      "id": "C01",
+      "title": "Queen check-fork guards the knight-capture square",
+      "source": "lichess:SPCxc",
+      "fen": "rn1qk2r/ppp2ppp/5n2/3P2B1/1b2p1b1/2N5/PP3PPP/R2QKBNR w KQkq - 1 8",
+      "line_uci": ["d1a4", "b8c6", "d5c6", "b4c3", "b2c3"],
+      "margin": null,
+      "contributions": [
+        {"tag":"pin_relative","side":"white","ply":0,"actor":"g5","targets":["f6","d8"],"contribution":"none","reason":"The pin on f6 does not change Qa4+, dxc6, or the resulting exchange."},
+        {"tag":"pin_relative","side":"white","ply":1,"actor":"a4","targets":["a7","a8"],"contribution":"none","reason":"The pin on the a7 pawn plays no part; the queen's guard of c6 is the queen's own work (Captain, checkpoint 2)."},
+        {"tag":"fork","side":"white","ply":1,"actor":"a4","targets":["b4","e8"],"contribution":"direct","reason":"Qa4+ checks the king while attacking the bishop on b4."},
+        {"tag":"hanging_piece","side":"white","ply":2,"actor":"c6","targets":[],"contribution":"direct","reason":"dxc6 takes the hanging knight on c6."},
+        {"tag":"pin_absolute","side":"white","ply":2,"actor":"a4","targets":["c6","e8"],"contribution":"direct","reason":"The queen's pin includes the knight that dxc6 takes."},
+        {"tag":"trapped_piece","side":"white","ply":2,"actor":"c6","targets":[],"contribution":"direct","reason":"dxc6 captures the trapped knight."}
+      ],
+      "labels_include": [],
+      "labels_exclude": [{"tag":"removal_of_defender"}]
+    },
+    {
+      "id": "C02",
+      "title": "Discovered attack wins the exposed queen after checks",
+      "source": "lichess:NNFmu",
+      "fen": "5rk1/pp3pp1/7p/n2q4/4N1b1/3B4/P2Q1PPP/2R3K1 w - - 0 20",
+      "line_uci": ["e4f6", "g7f6", "d3h7", "g8h7", "d2d5"],
+      "margin": null,
+      "contributions": [
+        {"tag":"discovered_attack","side":"white","ply":3,"actor":"d2","targets":["d5"],"contribution":"direct","reason":"Qxd5 moves the discovered attacker onto and captures the queen."},
+        {"tag":"hanging_piece","side":"white","ply":4,"actor":"d5","targets":[],"contribution":"direct","reason":"Qxd5 takes the hanging queen."}
+      ],
+      "labels_include": [],
+      "labels_exclude": [{"tag":"removal_of_defender"}]
+    },
+    {
+      "id": "C03",
+      "title": "Queen sacrifice clears the knight fork",
+      "source": "lichess:AAdbR",
+      "fen": "r1b1k2r/ppp2p1p/3p1Q2/2q1n2P/4P3/3PN3/PPPK2P1/R4B1R b kq - 0 18",
+      "line_uci": ["c5e3", "d2e3", "e5g4", "e3f4", "g4f6"],
+      "margin": null,
+      "contributions": [
+        {"tag":"fork","side":"black","ply":3,"actor":"g4","targets":["e3","f6"],"contribution":"direct","reason":"Ng4+ forks the king and queen, and Nxf6 takes the queen."},
+        {"tag":"hanging_piece","side":"black","ply":4,"actor":"f6","targets":[],"contribution":"direct","reason":"Nxf6 takes the hanging queen on f6."}
+      ],
+      "labels_include": [],
+      "labels_exclude": [{"tag":"removal_of_defender"}]
+    },
+    {
+      "id": "C04",
+      "title": "Rook fork forces the queen exchange",
+      "source": "lichess:wKuEl",
+      "fen": "4R3/1pk1bQpp/2p3n1/8/3r4/1P2N1q1/1PP5/2B2KN1 b - - 0 20",
+      "line_uci": ["d4f4", "f7f4", "g3f4"],
+      "margin": null,
+      "contributions": [
+        {"tag":"fork","side":"black","ply":1,"actor":"f4","targets":["f1","f7"],"contribution":"direct","reason":"Rf4+ forks the king and queen and forces the queen capture."},
+        {"tag":"hanging_piece","side":"black","ply":2,"actor":"f4","targets":[],"contribution":"direct","reason":"Qxf4 takes the white queen left on f4 after the rook exchange."}
+      ],
+      "labels_include": [],
+      "labels_exclude": [{"tag":"removal_of_defender"}]
+    },
+    {
+      "id": "C05",
+      "title": "Capture of the overloaded bishop wins the knight",
+      "source": "lichess:xeP1l",
+      "fen": "1n1r4/2R2pk1/p4r1p/2pN2p1/1p1b4/1P3B1P/P1P2PP1/3R2K1 b - - 11 31",
+      "line_uci": ["f6f3", "g2f3", "d8d5"],
+      "margin": null,
+      "contributions": [
+        {"tag":"pin_absolute","side":"black","ply":0,"actor":"d4","targets":["f2","g1"],"contribution":"none","reason":"The pin does not affect either Rxf3 or Rxd5."},
+        {"tag":"overloaded_defender","side":"black","ply":0,"actor":"f3","targets":["f2","d5"],"contribution":"direct","reason":"Rxf3 takes the overloaded bishop, then Rxd5 takes its knight target."},
+        {"tag":"hanging_piece","side":"black","ply":2,"actor":"d5","targets":[],"contribution":"direct","reason":"Rxd5 takes the hanging knight."}
+      ],
+      "labels_include": [
+        {"tag":"removal_of_defender","side":"black","ply":1,"actor":"f3","targets":["f3","d5"],"reason":"Rxf3 removes the bishop defending Nd5, and Rxd5 captures that knight."}
+      ],
+      "labels_exclude": []
+    },
+    {
+      "id": "C06",
+      "title": "Knight capture removes the pawn guarding a knight",
+      "source": "lichess:xeZ2j",
+      "fen": "5rk1/pp3ppp/2p2n2/q7/2n2Q2/P1N2B1P/1PP2PP1/3R2K1 b - - 0 20",
+      "line_uci": ["c4b2", "d1b1", "a5c3"],
+      "margin": null,
+      "contributions": [
+        {"tag":"overloaded_defender","side":"black","ply":0,"actor":"b2","targets":["a3","c3"],"contribution":"direct","reason":"Nxb2 removes the pawn defender and Qxc3 takes the knight it guarded."},
+        {"tag":"hanging_piece","side":"black","ply":2,"actor":"c3","targets":[],"contribution":"direct","reason":"Qxc3 takes the hanging knight."}
+      ],
+      "labels_include": [
+        {"tag":"removal_of_defender","side":"black","ply":1,"actor":"b2","targets":["b2","c3"],"reason":"Nxb2 removes the pawn protecting Nc3, which Qxc3 then wins."}
+      ],
+      "labels_exclude": []
+    },
+    {
+      "id": "C07",
+      "title": "Queen sacrifice removes the rook's defender",
+      "source": "lichess:SLgPd",
+      "fen": "2r3k1/p2q1pp1/1p5p/4n3/Q3P3/6PP/5P1K/2R5 w - - 3 33",
+      "line_uci": ["a4d7", "e5d7", "c1c8"],
+      "margin": null,
+      "contributions": [
+        {"tag":"overloaded_defender","side":"white","ply":0,"actor":"d7","targets":["a7","c8"],"contribution":"direct","reason":"Qxd7 takes the guarding queen, and Rxc8 takes its rook target."},
+        {"tag":"hanging_piece","side":"white","ply":2,"actor":"c8","targets":[],"contribution":"direct","reason":"Rxc8 takes the hanging rook."}
+      ],
+      "labels_include": [
+        {"tag":"removal_of_defender","side":"white","ply":1,"actor":"d7","targets":["d7","c8"],"reason":"Qxd7 removes the queen defending Rc8, then Rxc8 captures that rook."}
+      ],
+      "labels_exclude": []
+    },
+    {
+      "id": "C08",
+      "title": "Overloaded queen leaves the bishop on b6 exposed",
+      "source": "lichess:9qopA",
+      "fen": "3r2k1/4rppb/1BBp3p/b3p3/P1P4q/1Q1P3P/5PP1/R4RK1 b - - 0 22",
+      "line_uci": ["d8b8", "c4c5", "d6c5", "b3d5", "a5b6"],
+      "margin": null,
+      "contributions": [
+        {"tag":"overloaded_defender","side":"black","ply":0,"actor":"b3","targets":["d3","b6"],"contribution":"direct","reason":"Bxb6 takes one of the queen's protected targets."},
+        {"tag":"pin_relative","side":"black","ply":1,"actor":"b8","targets":["b6","b3"],"contribution":"direct","reason":"Rb8 pins the bishop to the queen, and Bxb6 later captures the bishop."},
+        {"tag":"overloaded_defender","side":"black","ply":2,"actor":"b3","targets":["d3","b6"],"contribution":"direct","reason":"Bxb6 takes the queen's protected bishop target."},
+        {"tag":"hanging_piece","side":"black","ply":4,"actor":"b6","targets":[],"contribution":"direct","reason":"Bxb6 captures the hanging bishop."}
+      ],
+      "labels_include": [
+        {"tag":"removal_of_defender","side":"black","ply":3,"actor":"c5","targets":["c5","b6"],"reason":"dxc5 removes the pawn defending Bb6; the queen alone cannot hold d3 and b6, and Bxb6 wins the bishop (Captain, checkpoint 2)."}
+      ],
+      "labels_exclude": []
+    },
+    {
+      "id": "C09",
+      "title": "Queen and knight overwhelm the pawn's two duties",
+      "source": "lichess:obWQv",
+      "fen": "2r3k1/p4pp1/Pp2pn1p/3nN1q1/3P1P1R/3B2P1/1P2Q1KP/8 b - - 0 30",
+      "line_uci": ["g5h4", "g3h4", "d5f4", "g2f3", "f4e2"],
+      "margin": null,
+      "contributions": [
+        {"tag":"pin_absolute","side":"black","ply":0,"actor":"g5","targets":["g3","g2"],"contribution":"none","reason":"Qxh4 dissolves this pin; the g3 pawn is held by the threat Nxf4+, not by the queen (Captain, checkpoint 2)."},
+        {"tag":"overloaded_defender","side":"black","ply":0,"actor":"g3","targets":["f4","h4"],"contribution":"direct","reason":"Qxh4 takes the rook target and Nxf4 wins the pawn target."},
+        {"tag":"pin_tactical","side":"black","ply":0,"actor":"d5","targets":["h4","e2","g2"],"threat":{"kind":"fork","square":"f4"},"contribution":"direct","reason":"The h4 rook guards f4 against the Nf4 fork; Qxh4 captures it."},
+        {"tag":"pin_tactical","side":"black","ply":1,"actor":"d5","targets":["g3","e2","g2"],"threat":{"kind":"fork","square":"f4"},"contribution":"direct","reason":"The g3 pawn guards f4 against the Nf4 fork; Nxe2 later captures the forked queen."},
+        {"tag":"fork","side":"black","ply":3,"actor":"f4","targets":["e2","g2"],"contribution":"direct","reason":"Nxf4+ forks the queen and king."},
+        {"tag":"hanging_piece","side":"black","ply":4,"actor":"e2","targets":[],"contribution":"direct","reason":"Nxe2 takes the hanging queen."}
+      ],
+      "labels_include": [
+        {"tag":"removal_of_defender","side":"black","ply":1,"actor":"h4","targets":["h4","f4"],"reason":"Qxh4 removes the rook defending f4, gxh4 pulls away the pawn, its other defender, and Nxf4+ follows (Captain, checkpoint 2)."}
+      ],
+      "labels_exclude": []
+    },
+    {
+      "id": "C10",
+      "title": "Sacrificial rook check leads to mate",
+      "source": "lichess:Fvug7",
+      "fen": "3r1r1k/1pp1q1pp/8/3B1p2/1pPn1P2/b3B3/P3QP2/1K5R w - - 0 29",
+      "line_uci": ["h1h7", "h8h7", "e2h5"],
+      "margin": null,
+      "contributions": [
+        {"tag":"hanging_piece","side":"white","ply":0,"actor":"d4","targets":[],"contribution":"none","reason":"The knight on d4 is not used by Rxh7+ or Qh5#."},
+        {"tag":"pin_absolute","side":"white","ply":0,"actor":"h1","targets":["h7","h8"],"contribution":"direct","reason":"Rxh7+ captures the pinned pawn and opens the mating attack."},
+        {"tag":"pin_relative","side":"white","ply":1,"actor":"h7","targets":["g7","e7"],"contribution":"none","reason":"Kxh7 removes the rook before the pin can affect Qh5#."},
+        {"tag":"hanging_piece","side":"white","ply":2,"actor":"d4","targets":[],"contribution":"none","reason":"The later hanging-knight state is irrelevant to the mate."}
+      ],
+      "labels_include": [],
+      "labels_exclude": [{"tag":"removal_of_defender"}]
+    },
+    {
+      "id": "C11",
+      "title": "Queen trade removes the knight's defender",
+      "source": "lichess:7hB3U",
+      "fen": "r1b2rk1/1p3ppp/p7/4p3/4nq2/PNP5/2P2QBP/R3K2R w KQ - 0 19",
+      "line_uci": ["f2f4", "e5f4", "g2e4"],
+      "margin": null,
+      "contributions": [
+        {"tag":"hanging_piece","side":"white","ply":2,"actor":"e4","targets":[],"contribution":"direct","reason":"Bxe4 takes the hanging knight."},
+        {"tag":"pin_relative","side":"white","ply":3,"actor":"e4","targets":["b7","a8"],"contribution":"none","reason":"The bishop's new pin appears after the last tactic move and is not used."}
+      ],
+      "labels_include": [
+        {"tag":"removal_of_defender","side":"white","ply":1,"actor":"f4","targets":["f4","e4"],"reason":"Qxf4 removes the queen defending Ne4, and Bxe4 later captures the knight."}
+      ],
+      "labels_exclude": []
+    },
+    {
+      "id": "C12",
+      "title": "Pinned pawn cannot recapture the bishop on d6",
+      "source": "constructed",
+      "fen": "4k3/4p3/3q4/8/8/6B1/8/4R1K1 w - - 0 1",
+      "line_uci": ["g3d6", "e7e5", "d6b4", "e5e4", "g1f2", "e4e3"],
+      "margin": 0.501,
+      "contributions": [
+        {"tag":"hanging_piece","side":"white","ply":0,"actor":"d6","targets":[],"contribution":"direct","reason":"Bxd6 captures the hanging queen."},
+        {"tag":"pin_absolute","side":"white","ply":0,"actor":"e1","targets":["e7","e8"],"contribution":"indirect","reason":"The e-file pin stops the pawn on e7 from recapturing Bxd6."},
+        {"tag":"pin_absolute","side":"white","ply":2,"actor":"e1","targets":["e5","e8"],"contribution":"none","reason":"The later pin on e5 does not affect the remaining capture or king move."},
+        {"tag":"pin_absolute","side":"white","ply":4,"actor":"e1","targets":["e4","e8"],"contribution":"none","reason":"The e4 pin does not change Kf2 or the tactic's result."},
+        {"tag":"pin_absolute","side":"white","ply":6,"actor":"e1","targets":["e3","e8"],"contribution":"none","reason":"The final pawn pin appears after the last white move."}
+      ],
+      "labels_include": [],
+      "labels_exclude": []
+    },
+    {
+      "id": "C13",
+      "title": "Pinned knight cannot recapture the bishop on f5",
+      "source": "constructed",
+      "fen": "4k3/4n3/8/5q2/8/7B/8/K3R3 w - - 0 1",
+      "line_uci": ["h3f5", "e8d8", "f5e4", "d8d7", "a1b2", "d7d6"],
+      "margin": 0.500,
+      "contributions": [
+        {"tag":"hanging_piece","side":"white","ply":0,"actor":"f5","targets":[],"contribution":"direct","reason":"Bxf5 captures the hanging queen."},
+        {"tag":"pin_absolute","side":"white","ply":0,"actor":"e1","targets":["e7","e8"],"contribution":"indirect","reason":"The e-file pin makes Nxf5 illegal, so the bishop cannot be recaptured."}
+      ],
+      "labels_include": [],
+      "labels_exclude": []
+    },
+    {
+      "id": "C14",
+      "title": "Pinned pawn cannot recapture the bishop on d6 from c7",
+      "source": "constructed",
+      "fen": "2k5/2p5/3q4/4B3/8/8/8/K1R5 w - - 0 1",
+      "line_uci": ["e5d6", "c8d7", "d6a3", "c7c5", "c1e1", "d7c6"],
+      "margin": 0.500,
+      "contributions": [
+        {"tag":"hanging_piece","side":"white","ply":0,"actor":"d6","targets":[],"contribution":"direct","reason":"Bxd6 captures the hanging queen."},
+        {"tag":"pin_absolute","side":"white","ply":0,"actor":"c1","targets":["c7","c8"],"contribution":"indirect","reason":"The c-file pin prevents the pawn from recapturing the bishop on d6."}
+      ],
+      "labels_include": [],
+      "labels_exclude": []
+    },
+    {
+      "id": "C15",
+      "title": "T33 revival: pawn removes the bishop defending a knight",
+      "source": "constructed, after seed T33",
+      "fen": "4k3/8/3b4/2P1n3/8/8/8/K3R3 w - - 0 1",
+      "line_uci": ["c5d6", "e8d7", "e1e5", "d7d6", "e5h5", "d6e6"],
+      "margin": 0.499,
+      "contributions": [
+        {"tag":"hanging_piece","side":"white","ply":0,"actor":"d6","targets":[],"contribution":"direct","reason":"cxd6 captures the hanging bishop."},
+        {"tag":"pin_absolute","side":"white","ply":0,"actor":"e1","targets":["e5","e8"],"contribution":"direct","reason":"Rxe5 moves the pinning rook and captures the pinned knight."},
+        {"tag":"trapped_piece","side":"white","ply":1,"actor":"e5","targets":[],"contribution":"direct","reason":"After cxd6, Rxe5 captures the trapped knight."},
+        {"tag":"hanging_piece","side":"white","ply":2,"actor":"e5","targets":[],"contribution":"direct","reason":"Rxe5 takes the hanging knight."}
+      ],
+      "labels_include": [
+        {"tag":"removal_of_defender","side":"white","ply":1,"actor":"d6","targets":["d6","e5"],"reason":"cxd6 removes the bishop defending Ne5, then Rxe5 captures the knight."}
+      ],
+      "labels_exclude": []
+    },
+    {
+      "id": "C16",
+      "title": "T34 near miss: the rook still defends the knight",
+      "source": "constructed, after seed T34",
+      "fen": "k3r3/8/3b4/2P1n3/8/8/8/K3R3 w - - 0 1",
+      "line_uci": ["c5d6", "a8b7", "e1e2", "b7c6", "a1b1", "c6d6"],
+      "margin": 0.499,
+      "contributions": [
+        {"tag":"hanging_piece","side":"white","ply":0,"actor":"d6","targets":[],"contribution":"direct","reason":"cxd6 captures the hanging bishop."},
+        {"tag":"pin_relative","side":"white","ply":0,"actor":"e1","targets":["e5","e8"],"contribution":"none","reason":"Re2 regroups along the file without using the pin (Captain, checkpoint 2)."},
+        {"tag":"pin_relative","side":"white","ply":3,"actor":"e2","targets":["e5","e8"],"contribution":"none","reason":"After Re2, the remaining White king move to b1 is not attacked by the pin's pieces."}
+      ],
+      "labels_include": [],
+      "labels_exclude": [{"tag":"removal_of_defender"}]
+    }
+  ]
+}

@@ -4,11 +4,17 @@ ChessWhy answers why a move may be best or why a chosen move is good or bad for 
 Its chess facts come from Stockfish searches and deterministic rules, and each fact records its
 provenance. It also reports tactical motifs: deterministic patterns of one position (and, where
 needed, the move that produced it), with `rule` provenance; a motif states that the pattern is
-present and claims no gain. Tactics—lines whose engine-evaluation gain under best replies is
-measured against the second-best move—come in PostM2_EM1. The current release renders a report
-without a language model; verbalisation is planned for M4.
-M2 motif definitions were written after consulting lichess-puzzler; the Lichess puzzle database
-(CC0) provides the theme tags used as the validation reference.
+present and claims no gain. Pins, overloaded defenders and tactical pins (a piece held in place
+because removing it would enable a fork, mate, capture or other threat) are printed as
+"restricted movement". The best move and each refutation are judged as tactics: a tactic is a
+line whose expected score beats the next-best move by at least 0.13 (`engine`); a position with
+one legal move is marked forced (`rule`). On a tactic line every motif gets a contribution
+(`direct`, `indirect` or `none`), and the rule label `removal_of_defender` marks a capture that
+takes away a piece's only defender. The current release renders a report without a language
+model; verbalisation is planned for M4.
+M2 motif definitions were written after consulting lichess-puzzler, and `removal_of_defender`
+follows its `capturing_defender` theme; the Lichess puzzle database (CC0) provides the theme tags
+used as the validation reference.
 
 ## Requirements and setup
 
@@ -31,8 +37,9 @@ ctest --preset release
 ```
 
 CTest's `unit` label does not need an engine; `engine` tests need the fetched Stockfish asset.
-`tactics_unit_tests` checks the T fixtures in CTest's `unit` suite; `tactics_puzzles` measures
-recall, and `tactics_oracle` checks exact agreement with the independent reference implementation.
+`tactics_unit_tests` checks the T fixtures (motifs) and C fixtures (hand-labelled contributions and
+tactic labels) in CTest's `unit` suite; `tactics_puzzles` measures recall, and `tactics_oracle`
+checks exact agreement with the independent reference implementation.
 The `asan` preset builds with AddressSanitizer and UndefinedBehaviorSanitizer:
 
 ```sh

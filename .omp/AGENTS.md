@@ -26,8 +26,10 @@ git-ignored `assets/`; never from system packages in tests.
 
 ChessWhy answers "why this move / why not that move" for one chess position.
 `Planning/PROJECT_VISION.md` is the source of truth for scope, method and
-decisions; read it by section. `Planning/DEFINITIONS.md` is the glossary of
-project-specific terms (see Definitions below).
+decisions; read it by section. `Planning/definitions/` holds the Captain's
+reference set: `TERMINOLOGY.md` (glossary of project-specific terms),
+`FIXTURES.md` (every fixture with its board, claim and current result) and
+`TESTS.md` (every test and what it checks); see Definitions below.
 
 - **Facts first, words last.** Chess content is computed in C++ (Stockfish
   searches and deterministic rules) and stored in the report. The language model
@@ -70,7 +72,8 @@ orchestrator runs the gates.
    milestone contract in `Planning/milestones/M<N>.md`: public headers, report
    schema changes, fixture positions (FEN + expected facts), acceptance
    bullets, owned files per work package. Add every new term the contract
-   introduces to `Planning/DEFINITIONS.md`. Commit both together.
+   introduces to `Planning/definitions/TERMINOLOGY.md`, and every new fixture to
+   `FIXTURES.md`. Commit them together.
 2. Spawn all independent work packages in one batch. Each brief contains: goal,
    owned files, contract paths, plan section as `path:start-end`, fixtures and
    non-goals. If the done-condition does not fit in a few bullets, split the
@@ -82,7 +85,8 @@ orchestrator runs the gates.
 5. Commit locally after each green batch.
 6. When the milestone looks complete: full gate, completion review, receipt in
    `Planning/receipts/M<N>.md`, plan checkboxes, `Planning/CURRENT_STATE.md`,
-   a pass over `Planning/DEFINITIONS.md` against the final plan, report to the
+   a pass over `Planning/definitions/` (terminology against the final plan,
+   "Codebase today" in `FIXTURES.md`, test list in `TESTS.md`), report to the
    Captain.
 
 Start a fresh orchestrator session at each milestone, or once context passes
@@ -91,22 +95,34 @@ list are the handoff.
 
 ## Definitions
 
-`Planning/DEFINITIONS.md` is the Captain's main tool for leading the project:
+`Planning/definitions/` is the Captain's main tool for leading the project:
 she reasons and decides in its terms. Keep it current without exception.
 
-- The orchestrator owns it. Any commit that introduces, renames, redefines or
-  retires a project-specific term (plan, contract change, §15 row, receipt,
-  decision) updates `DEFINITIONS.md` in the same commit. No term reaches the
-  Captain in a message, plan or receipt before it is defined there.
+- `TERMINOLOGY.md` is the glossary. `FIXTURES.md` lists every fixture with its
+  board, what it claims, what the code reports today, and a Comments column.
+  `TESTS.md` lists every CTest with its label and what it checks.
+- The orchestrator owns all three. Any commit that introduces, renames,
+  redefines or retires a project-specific term (plan, contract change, §15 row,
+  receipt, decision) updates `TERMINOLOGY.md` in the same commit; any commit
+  that adds, changes or drops a fixture or a test updates `FIXTURES.md` or
+  `TESTS.md` in the same commit. No term reaches the Captain in a message, plan
+  or receipt before it is defined there.
+- Regenerate fixture boards with `.venv/bin/python tools/render_fixture_boards.py`
+  after any fixture change. In `FIXTURES.md`, "Codebase today" holds the facts
+  a human needs (best move, verdicts, tactic judgement, contributing motifs,
+  test result), not report fields copied for the language model.
+- Any agent that finds a problem with a fixture adds a dated, signed note to
+  its Comments cell in `FIXTURES.md`; that is the only edit workers make in
+  `Planning/definitions/`.
 - A changed meaning is rewritten in place, with the date and the old meaning
   named ("called X before <date>"), so old receipts stay readable.
 - Open questions that affect a definition are marked as open in its row.
 - Prefer project terms over generic ones where they differ ("engine-confirmed
   precision", not "precision"); when a generic word must be used, use it in the
   sense the file gives.
-- Workers do not edit it; they list new terms in their return message and the
-  orchestrator adds them.
-- Read it by section, like the other planning documents.
+- Workers do not edit `TERMINOLOGY.md`; they list new terms in their return
+  message and the orchestrator adds them.
+- Read these files by section, like the other planning documents.
 
 ## Reviews
 

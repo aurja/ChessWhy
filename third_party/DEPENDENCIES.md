@@ -19,6 +19,7 @@ update this table.
 | Package | Pin | License | Role | Milestone |
 |---|---|---|---|---|
 | python-jsonschema/jsonschema with attrs, jsonschema-specifications, referencing, rpds-py | `4.26.0`; others pinned in `tools/requirements-dev.txt` | MIT (all five) | validates reports against `schema/report.v2.schema.json` in CTest | M1 |
+| niklasf/python-chess (`chess`) | `1.11.2` | GPL-3.0-or-later; piece drawings by Colin M.L. Burnett used under their BSD option | `tools/render_fixture_boards.py` renders the fixture board SVGs in `Planning/definitions/boards/`; a separate development tool, never linked into or shipped with ChessWhy | PostM2_EM1 |
 
 ## Fetched assets (`assets/`, git-ignored, `tools/fetch_assets.sh`)
 
@@ -35,4 +36,4 @@ update this table.
 
 | Reference | Pin | License | Use |
 |---|---|---|---|
-| lichess-puzzler | commit `608cf7f2b2a2a02682736ff176b454a30b398e01` | AGPL-3.0 | motif definitions consulted; puzzle themes used as the validation reference |
+| lichess-puzzler | commit `608cf7f2b2a2a02682736ff176b454a30b398e01` | AGPL-3.0 | motif definitions consulted; puzzle themes used as the validation reference; `removal_of_defender` after `capturing_defender`. No code used |

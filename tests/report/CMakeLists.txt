@@ -1,7 +1,7 @@
 add_executable(report_unit_tests report_unit_tests.cpp)
 target_link_libraries(report_unit_tests PRIVATE chesswhy_report Catch2::Catch2WithMain
     chesswhy_warnings chesswhy_paths)
-catch_discover_tests(report_unit_tests PROPERTIES LABELS unit)
+catch_discover_tests(report_unit_tests TEST_PREFIX report_ PROPERTIES LABELS unit)
 
 add_executable(report_schema_examples write_examples.cpp)
 target_link_libraries(report_schema_examples PRIVATE chesswhy_report chesswhy_warnings chesswhy_paths)
@@ -14,10 +14,14 @@ set_tests_properties(report_schema_examples PROPERTIES
 
 add_test(NAME report_schema_unit
     COMMAND "${CHESSWHY_PYTHON}" "${PROJECT_SOURCE_DIR}/tools/validate_report.py"
-        "${PROJECT_SOURCE_DIR}/schema/report.v2.schema.json"
+        "${PROJECT_SOURCE_DIR}/schema/report.v3.schema.json"
         "${report_examples_dir}/terminal_checkmate.json"
         "${report_examples_dir}/side_in_check.json"
         "${report_examples_dir}/normal_position.json"
-        "${report_examples_dir}/pgn_opening.json")
+        "${report_examples_dir}/pgn_opening.json"
+        "${report_examples_dir}/tactic_with_labels.json"
+        "${report_examples_dir}/forced_judgement.json"
+        "${report_examples_dir}/negative_margin_judgement.json"
+        "${report_examples_dir}/refutation_judgement.json")
 set_tests_properties(report_schema_unit PROPERTIES
     FIXTURES_REQUIRED report_schema_examples LABELS unit)

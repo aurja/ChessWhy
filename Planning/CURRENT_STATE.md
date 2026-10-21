@@ -1,26 +1,27 @@
 # Current state
 
-Updated 2026-10-20.
+Updated 2026-10-21.
 
-- Milestone: **M2 complete, merged into `main`** (checkpoint 3 approved by the Captain
-  2026-10-20). Receipt `Planning/receipts/M2.md`;
-  contract `Planning/milestones/M2.md` (changes §15). 13 motifs, report v2, recall
-  targets met on test, reference implementation with 0 mismatches on test, dev and
-  T fixtures; Release and ASan/UBSan CTests 93/93; slowest `standard` fixture 7.98 s.
-- Next milestone: **PostM2_EM1** (vision §11), decided at checkpoint 2b (M2 D11–D13).
-  Carry-over:
-  - Tactic = a line whose engine-evaluation gain under best replies is measured
-    against the second-best move (only-move margin, option A).
-  - Fill `Motif::contribution` (`direct`, `indirect`, `none`); always null in M2.
-  - `removal_of_defender` returns as a tactic-side label (not a motif). Seed code from
-    the removed engine-confirmation tool: commits `ebe0b7f`–`d5b703a` on `m2`.
-  - Baseline: the last engine-confirmed precision table in the M2 receipt.
-  - Scope proposals from the M2 recall-miss audit (receipt): forks by a capturable
-    piece, skewers with a pawn behind, discovered attacks on pawns or defended equal
-    pieces are outside the M2 definitions.
+- Milestone: **PostM2_EM1 implemented on branch `postm2-em1`, awaiting checkpoint 3**
+  (the Captain tries the smoke command and approves the merge). Receipt
+  `Planning/receipts/PostM2_EM1.md`; contract `Planning/milestones/PostM2_EM1.md`
+  (changes §15). Tactic judgement (margin ≥ 0.13 over the next-best first move, search
+  R), contributions `direct`/`indirect`/`none`, `removal_of_defender` tactic label,
+  report v3, new state motif `pin_tactical` with `threat` (14 motif tags), shared
+  "restricted movement" wording. Release CTests 111/111; slowest `standard` F fixture
+  5.87 s; `tactics_oracle` 0 mismatches (about 30 s in Release).
+- Definitions: `Planning/definitions/` (TERMINOLOGY, FIXTURES with boards, TESTS), kept
+  current by the orchestrator.
+- Scope proposals still open from the M2 recall-miss audit: forks by a capturable piece,
+  skewers with a pawn behind, discovered attacks on pawns or defended equal pieces.
+- Captain's stance (2026-10-21): comprehensiveness first, conciseness later
+  (`pin_tactical` adds about 9.6 reported motifs per puzzle).
+- M2 complete, merged into `main` (receipt `Planning/receipts/M2.md`): 13 motifs, report
+  v2, recall targets met, reference implementation 0 mismatches.
 - Decided 2026-10-19/20 (M2 D1–D13): see M2 §1. ChessWhy stays MIT; lichess-puzzler
   (AGPL-3.0) is read for definitions only, never copied, and credited.
-- Engine CTests run serially (`-j1`); `tactics_oracle` takes ~12 s in Release.
+- Engine CTests run serially (`-j1`). ASan/UBSan `tactics_oracle` runs for about 25 min
+  (CTest `TIMEOUT 3600` on that test).
 - M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine
   analysis, report v1. Release and ASan/UBSan CTests 73/73; slowest `standard` fixture
   6.67 s.

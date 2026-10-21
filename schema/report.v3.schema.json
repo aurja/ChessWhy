@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/report.v2.schema.json",
-  "title": "ChessWhy report, schema version 2",
+  "$id": "https://chesswhy.local/schema/report.v3.schema.json",
+  "title": "ChessWhy report, schema version 3",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "input", "engine", "position", "threats", "candidates", "fine_truncated", "asked_move", "opening"],
   "properties": {
-    "schema_version": {"const": 2},
+    "schema_version": {"const": 3},
     "input": {
       "type": "object",
       "additionalProperties": false,
@@ -34,13 +34,14 @@
         "nodes": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["A", "B", "C", "D", "E"],
+          "required": ["A", "B", "C", "D", "E", "R"],
           "properties": {
             "A": {"type": "integer", "minimum": 1},
             "B": {"type": "integer", "minimum": 1},
             "C": {"type": "integer", "minimum": 1},
             "D": {"type": "integer", "minimum": 1},
-            "E": {"type": "integer", "minimum": 1}
+            "E": {"type": "integer", "minimum": 1},
+            "R": {"type": "integer", "minimum": 1}
           }
         },
         "nodes_searched": {"type": "integer", "minimum": 0}
@@ -158,20 +159,21 @@
     "threat": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "side", "root_fen", "line", "consequence", "motifs"],
+      "required": ["source", "side", "root_fen", "line", "consequence", "motifs", "tactic"],
       "properties": {
         "source": {"const": "engine"},
         "side": {"$ref": "#/$defs/side"},
         "root_fen": {"type": "string"},
         "line": {"$ref": "#/$defs/san_line"},
         "consequence": {"$ref": "#/$defs/consequence"},
-        "motifs": {"$ref": "#/$defs/motifs"}
+        "motifs": {"$ref": "#/$defs/motifs"},
+        "tactic": {"oneOf": [{"$ref": "#/$defs/tactic"}, {"type": "null"}]}
       }
     },
     "move": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "san", "uci", "eval", "loss", "verdict", "in_multipv", "gives_check", "line", "parries_threat", "creates_threat", "refutation", "motifs"],
+      "required": ["source", "san", "uci", "eval", "loss", "verdict", "in_multipv", "gives_check", "line", "parries_threat", "creates_threat", "refutation", "motifs", "tactic"],
       "properties": {
         "source": {"const": "engine"},
         "san": {"type": "string"},
@@ -199,7 +201,8 @@
         },
         "creates_threat": {"oneOf": [{"$ref": "#/$defs/threat"}, {"type": "null"}]},
         "refutation": {"oneOf": [{"$ref": "#/$defs/threat"}, {"type": "null"}]},
-        "motifs": {"$ref": "#/$defs/motifs"}
+        "motifs": {"$ref": "#/$defs/motifs"},
+        "tactic": {"oneOf": [{"$ref": "#/$defs/tactic"}, {"type": "null"}]}
       }
     },
     "piece_on_square": {
@@ -214,23 +217,97 @@
     "motif": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain", "contribution"],
+      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain", "threat", "contribution"],
       "properties": {
         "source": {"const": "rule"},
         "tag": {"enum": ["hanging_piece", "pin_absolute", "pin_relative", "back_rank_weakness",
-                         "overloaded_defender", "trapped_piece", "fork", "skewer", "discovered_check",
-                         "discovered_attack", "double_check", "back_rank_mate", "promotion"]},
+                         "overloaded_defender", "trapped_piece", "pin_tactical", "fork", "skewer",
+                         "discovered_check", "discovered_attack", "double_check", "back_rank_mate",
+                         "promotion"]},
         "side": {"$ref": "#/$defs/side"},
         "ply": {"type": "integer", "minimum": 0},
         "actor": {"$ref": "#/$defs/piece_on_square"},
         "targets": {"type": "array", "items": {"$ref": "#/$defs/piece_on_square"}},
         "gain": {"type": ["integer", "null"], "minimum": 1},
+        "threat": {"oneOf": [{"$ref": "#/$defs/motif_threat"}, {"type": "null"}]},
         "contribution": {"enum": ["direct", "indirect", "none", null]}
       },
-      "if": {"properties": {"tag": {"enum": ["hanging_piece", "trapped_piece"]}}},
-      "then": {"properties": {"gain": {"type": "integer"}}},
-      "else": {"properties": {"gain": {"type": "null"}}}
+      "allOf": [
+        {
+          "if": {"properties": {"tag": {"enum": ["hanging_piece", "trapped_piece"]}}},
+          "then": {"properties": {"gain": {"type": "integer"}}},
+          "else": {"properties": {"gain": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"tag": {"const": "pin_tactical"}}},
+          "then": {"properties": {"threat": {"$ref": "#/$defs/motif_threat"}, "targets": {"minItems": 1}}},
+          "else": {"properties": {"threat": {"type": "null"}}}
+        }
+      ]
     },
-    "motifs": {"type": "array", "items": {"$ref": "#/$defs/motif"}}
+    "motif_threat": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "square"],
+      "properties": {
+        "kind": {"enum": ["fork", "skewer", "discovered_check", "discovered_attack", "double_check",
+                          "back_rank_mate", "promotion", "checkmate", "capture"]},
+        "square": {"type": "string", "pattern": "^[a-h][1-8]$"}
+      }
+    },
+    "motifs": {"type": "array", "items": {"$ref": "#/$defs/motif"}},
+    "tactic_label": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "tag", "side", "ply", "actor", "targets"],
+      "properties": {
+        "source": {"const": "rule"},
+        "tag": {"enum": ["removal_of_defender"]},
+        "side": {"$ref": "#/$defs/side"},
+        "ply": {"type": "integer", "minimum": 1},
+        "actor": {"$ref": "#/$defs/piece_on_square"},
+        "targets": {"type": "array", "items": {"$ref": "#/$defs/piece_on_square"}, "minItems": 2, "maxItems": 2}
+      }
+    },
+    "tactic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "forced", "alternative", "margin", "is_tactic", "labels"],
+      "properties": {
+        "source": {"enum": ["engine", "rule"]},
+        "forced": {"type": "boolean"},
+        "alternative": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["san", "uci", "eval"],
+              "properties": {
+                "san": {"type": "string"},
+                "uci": {"type": "string", "pattern": "^[a-h][1-8][a-h][1-8][qrbn]?$"},
+                "eval": {"$ref": "#/$defs/eval"}
+              }
+            },
+            {"type": "null"}
+          ]
+        },
+        "margin": {"type": ["number", "null"], "minimum": -1, "maximum": 1},
+        "is_tactic": {"type": "boolean"},
+        "labels": {"type": "array", "items": {"$ref": "#/$defs/tactic_label"}}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"forced": {"const": true}}},
+          "then": {"properties": {"source": {"const": "rule"}, "alternative": {"type": "null"},
+                                  "margin": {"type": "null"}, "is_tactic": {"const": false}}},
+          "else": {"properties": {"source": {"const": "engine"}, "alternative": {"type": "object"},
+                                  "margin": {"type": "number"}}}
+        },
+        {
+          "if": {"properties": {"is_tactic": {"const": false}}},
+          "then": {"properties": {"labels": {"maxItems": 0}}}
+        }
+      ]
+    }
   }
 }

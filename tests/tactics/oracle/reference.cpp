@@ -41,6 +41,31 @@ public:
             removePiece(piece, square);
         }
     }
+    void erase_for_pin(Square square) {
+        const Piece piece = at(square);
+        bool metadata_changed = false;
+        if (piece.type() == PieceType::ROOK &&
+            square.rank() == (piece.color() == Color::WHITE ? chess::Rank::underlying::RANK_1
+                                                            : chess::Rank::underlying::RANK_8)) {
+            constexpr std::array sides{chess::Board::CastlingRights::Side::KING_SIDE,
+                                       chess::Board::CastlingRights::Side::QUEEN_SIDE};
+            for (const auto castle : sides) {
+                if (castlingRights().getRookFile(piece.color(), castle) == square.file()) {
+                    cr_.clear(piece.color(), castle);
+                    metadata_changed = true;
+                }
+            }
+        }
+        if (piece.type() == PieceType::PAWN && ep_sq_ != Square::NO_SQ &&
+            ep_sq_.ep_square() == square) {
+            ep_sq_ = Square::NO_SQ;
+            metadata_changed = true;
+        }
+        erase(square);
+        if (metadata_changed) {
+            key_ = zobrist();
+        }
+    }
     void relocate(Square from, Square to) {
         const Piece moving = at(from);
         const Piece captured = at(to);
@@ -262,6 +287,7 @@ void set_turn(chess::Board& board, Color side) {
             .actor = actor,
             .targets = std::move(targets),
             .gain = gain,
+            .threat = std::nullopt,
             .contribution = std::nullopt};
 }
 
@@ -270,6 +296,9 @@ void set_turn(chess::Board& board, Color side) {
     chess::movegen::legalmoves(moves, board);
     return moves.empty();
 }
+
+[[nodiscard]] std::vector<Motif> pin_tactical_motifs(const chess::Board& board, Color side,
+                                                     int ply);
 
 [[nodiscard]] std::optional<int> captured_value(const chess::Board& before, Move move) {
     const auto captured = before.getCapturing<PieceType>(move);
@@ -298,7 +327,8 @@ void set_turn(chess::Board& board, Color side) {
 
 [[nodiscard]] std::vector<Motif> state_motifs(const chess::Board& board, int ply,
                                               const chess::Board* before = nullptr,
-                                              const Move* previous_move = nullptr) {
+                                              const Move* previous_move = nullptr,
+                                              bool include_pin_tactical = true) {
     std::vector<Motif> motifs;
     if (terminal_position(board)) {
         return motifs;
@@ -492,6 +522,11 @@ void set_turn(chess::Board& board, Color side) {
                                                 printed_piece(board, square), {}, gain));
                 }
             }
+        }
+        if (include_pin_tactical) {
+            std::vector<Motif> pin_motifs = pin_tactical_motifs(board, side, ply);
+            motifs.insert(motifs.end(), std::make_move_iterator(pin_motifs.begin()),
+                          std::make_move_iterator(pin_motifs.end()));
         }
     }
     return motifs;
@@ -691,9 +726,182 @@ void set_turn(chess::Board& board, Color side) {
     return motifs;
 }
 
+struct MoveOutcome {
+    Move move;
+    std::vector<Motif> motifs;
+    bool checkmate = false;
+};
+
+[[nodiscard]] bool checkmate_after(const chess::Board& board, Color attacker, Color defender) {
+    return board.isAttacked(board.kingSq(defender), attacker) &&
+           !chess::movegen::anylegalmoves(board);
+}
+
+[[nodiscard]] Square captured_square(Move move) {
+    return move.typeOf() == Move::ENPASSANT ? move.to().ep_square() : move.to();
+}
+
+[[nodiscard]] Square move_destination(Move move, Color side) {
+    if (move.typeOf() == Move::CASTLING) {
+        return Square::castling_king_square(move.to() > move.from(), side);
+    }
+    return move.to();
+}
+
+[[nodiscard]] std::optional<ThreatKind> threat_kind(MotifTag tag) {
+    switch (tag) {
+    case MotifTag::Fork:
+        return ThreatKind::Fork;
+    case MotifTag::Skewer:
+        return ThreatKind::Skewer;
+    case MotifTag::DiscoveredCheck:
+        return ThreatKind::DiscoveredCheck;
+    case MotifTag::DiscoveredAttack:
+        return ThreatKind::DiscoveredAttack;
+    case MotifTag::DoubleCheck:
+        return ThreatKind::DoubleCheck;
+    case MotifTag::BackRankMate:
+        return ThreatKind::BackRankMate;
+    case MotifTag::Promotion:
+        return ThreatKind::Promotion;
+    default:
+        return std::nullopt;
+    }
+}
+
+[[nodiscard]] std::vector<Motif> pin_tactical_motifs(const chess::Board& board, Color side,
+                                                     int ply) {
+    const Color enemy = other(side);
+    if (board.isAttacked(board.kingSq(enemy), side) ||
+        board.isAttacked(board.kingSq(side), enemy)) {
+        return {};
+    }
+
+    chess::Board side_to_move = board;
+    set_turn(side_to_move, side);
+    chess::Movelist original_moves;
+    chess::movegen::legalmoves(original_moves, side_to_move);
+
+    std::vector<MoveOutcome> original_outcomes;
+    original_outcomes.reserve(original_moves.size());
+    for (const Move move : original_moves) {
+        chess::Board after = side_to_move;
+        after.makeMove(move);
+        original_outcomes.push_back({move, move_motifs(side_to_move, after, move, ply),
+                                     checkmate_after(after, side, enemy)});
+    }
+
+    std::vector<Motif> result;
+    const auto add = [&result, side, ply](PieceOnSquare actor, std::vector<PieceOnSquare> targets,
+                                          ThreatKind kind, Square destination) {
+        Motif motif = make_motif(MotifTag::PinTactical, side, ply, actor, std::move(targets));
+        motif.threat =
+            MotifThreat{.kind = kind, .square = static_cast<std::uint8_t>(destination.index())};
+        const auto existing = std::ranges::find_if(result, [&motif](const Motif& candidate) {
+            return candidate.actor.square == motif.actor.square &&
+                   candidate.targets.front().square == motif.targets.front().square &&
+                   candidate.threat->kind == motif.threat->kind;
+        });
+        if (existing == result.end()) {
+            result.push_back(std::move(motif));
+        } else if (motif.threat->square < existing->threat->square) {
+            *existing = std::move(motif);
+        }
+    };
+
+    for (int index = 0; index < 64; ++index) {
+        const Square pinned_square(index);
+        const Piece pinned_piece = board.at(pinned_square);
+        if (pinned_piece == Piece::NONE || pinned_piece.color() != enemy ||
+            pinned_piece.type() == PieceType::KING) {
+            continue;
+        }
+
+        EditableBoard without_piece(side_to_move);
+        without_piece.erase_for_pin(pinned_square);
+        if (without_piece.isAttacked(without_piece.kingSq(enemy), side) ||
+            without_piece.isAttacked(without_piece.kingSq(side), enemy)) {
+            continue;
+        }
+
+        chess::Movelist exposed_moves;
+        chess::movegen::legalmoves(exposed_moves, without_piece);
+        for (const Move move : exposed_moves) {
+            const auto original =
+                std::ranges::find_if(original_outcomes, [move](const MoveOutcome& outcome) {
+                    return outcome.move == move;
+                });
+            chess::Board after = without_piece;
+            after.makeMove(move);
+            const PieceOnSquare actor = printed_piece(without_piece, move.from());
+            for (const Motif& threat : move_motifs(without_piece, after, move, ply)) {
+                const std::optional<ThreatKind> kind = threat_kind(threat.tag);
+                if (!kind || (original != original_outcomes.end() &&
+                              std::ranges::any_of(original->motifs, [&threat](const Motif& motif) {
+                                  return motif.tag == threat.tag;
+                              }))) {
+                    continue;
+                }
+                std::vector<PieceOnSquare> targets{printed_piece(board, pinned_square)};
+                targets.insert(targets.end(), threat.targets.begin(), threat.targets.end());
+                add(actor, std::move(targets), *kind, move_destination(move, side));
+            }
+
+            if (checkmate_after(after, side, enemy) &&
+                (original == original_outcomes.end() || !original->checkmate)) {
+                add(actor,
+                    {printed_piece(board, pinned_square),
+                     printed_piece(after, after.kingSq(enemy))},
+                    ThreatKind::Checkmate, move_destination(move, side));
+            }
+        }
+
+        for (int target_index = 0; target_index < 64; ++target_index) {
+            const Square target(target_index);
+            const Piece victim = without_piece.at(target);
+            if (target == pinned_square || victim == Piece::NONE || victim.color() != enemy ||
+                victim.type() == PieceType::KING || see(side_to_move, target, side) > 0 ||
+                see(without_piece, target, side) < 1) {
+                continue;
+            }
+
+            Move best_capture = Move::NO_MOVE;
+            int best_value = std::numeric_limits<int>::max();
+            int best_from = 64;
+            bool best_is_queen_promotion = false;
+            for (const Move move : exposed_moves) {
+                if (captured_square(move) != target || !without_piece.isCapture(move)) {
+                    continue;
+                }
+                const Piece capturer = without_piece.at(move.from());
+                const int value = comparison_value(capturer.type());
+                const bool queen_promotion =
+                    move.typeOf() == Move::PROMOTION && move.promotionType() == PieceType::QUEEN;
+                if (value < best_value ||
+                    (value == best_value && move.from().index() < best_from) ||
+                    (value == best_value && move.from().index() == best_from && queen_promotion &&
+                     !best_is_queen_promotion)) {
+                    best_capture = move;
+                    best_value = value;
+                    best_from = move.from().index();
+                    best_is_queen_promotion = queen_promotion;
+                }
+            }
+            if (best_capture == Move::NO_MOVE) {
+                continue;
+            }
+            add(printed_piece(without_piece, best_capture.from()),
+                {printed_piece(board, pinned_square), printed_piece(without_piece, target)},
+                ThreatKind::Capture, best_capture.to());
+        }
+    }
+    return result;
+}
+
 [[nodiscard]] bool identity_equal(const Motif& left, const Motif& right) {
     if (left.tag != right.tag || left.side != right.side ||
-        left.actor.square != right.actor.square || left.targets.size() != right.targets.size()) {
+        left.actor.square != right.actor.square || left.targets.size() != right.targets.size() ||
+        left.threat != right.threat) {
         return false;
     }
     for (std::size_t index = 0; index < left.targets.size(); ++index) {
@@ -718,6 +926,17 @@ void set_turn(chess::Board& board, Color side) {
     const auto right_targets = right.targets | std::views::transform(&PieceOnSquare::square);
     if (!std::ranges::equal(left_targets, right_targets)) {
         return std::ranges::lexicographical_compare(left_targets, right_targets);
+    }
+    if (left.threat.has_value() != right.threat.has_value()) {
+        return !left.threat.has_value();
+    }
+    if (left.threat.has_value()) {
+        if (left.threat->kind != right.threat->kind) {
+            return left.threat->kind < right.threat->kind;
+        }
+        if (left.threat->square != right.threat->square) {
+            return left.threat->square < right.threat->square;
+        }
     }
     return left.side < right.side;
 }
@@ -753,21 +972,25 @@ int see(const chess::Board& board, Square square, Color side) {
     return exchange_sequence(board, square, side);
 }
 
-std::vector<Motif> reference_position_motifs(const chess::Board& board) {
-    return sorted(state_motifs(board, 0));
+std::vector<Motif> reference_position_motifs(const chess::Board& board,
+                                             chesswhy::tactics::MotifOptions options) {
+    return sorted(state_motifs(board, 0, nullptr, nullptr, options.pin_tactical));
 }
 
-std::vector<Motif> reference_line_motifs(const chess::Board& root, std::span<const Move> line) {
+std::vector<Motif> reference_line_motifs(const chess::Board& root, std::span<const Move> line,
+                                         chesswhy::tactics::MotifOptions options) {
     std::vector<Motif> result;
     chess::Board current = root;
-    std::vector<Motif> previous_state = state_motifs(root, 0);
+    std::vector<Motif> previous_state =
+        state_motifs(root, 0, nullptr, nullptr, options.pin_tactical);
     for (std::size_t index = 0; index < line.size(); ++index) {
         const Move move = line[index];
         const chess::Board before = current;
         current.makeMove(move);
         const int ply = static_cast<int>(index + 1);
 
-        std::vector<Motif> current_state = state_motifs(current, ply, &before, &move);
+        std::vector<Motif> current_state =
+            state_motifs(current, ply, &before, &move, options.pin_tactical);
         for (Motif& motif : current_state) {
             if (std::ranges::none_of(previous_state, [&motif](const Motif& previous) {
                     return identity_equal(motif, previous);
