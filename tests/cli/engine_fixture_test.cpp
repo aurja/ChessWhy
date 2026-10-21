@@ -217,15 +217,14 @@ void check_expectations(const Json& fixture, const Json& report,
                     actual != nullptr && actual->is_array() &&
                     std::ranges::any_of(*actual, [&](const Json& motif) {
                         const Json* actor_square = find_pointer(motif, "/actor/square");
-                        const bool base_match =
-                            motif.is_object() && actor_square != nullptr &&
-                            *actor_square == actor && motif.value("tag", std::string{}) == tag &&
-                            motif.value("side", std::string{}) == side;
+                        const bool base_match = motif.is_object() && actor_square != nullptr &&
+                                                *actor_square == actor &&
+                                                motif.value("tag", std::string{}) == tag &&
+                                                motif.value("side", std::string{}) == side;
                         const bool contribution_matches =
                             !instance.contains("contribution") ||
-                            (motif.is_object() &&
-                             motif.value("contribution", Json(nullptr)) ==
-                                 instance.at("contribution"));
+                            (motif.is_object() && motif.value("contribution", Json(nullptr)) ==
+                                                      instance.at("contribution"));
                         return base_match && contribution_matches;
                     });
                 std::string expectation = "motifs_include:";
@@ -245,11 +244,12 @@ void check_expectations(const Json& fixture, const Json& report,
 constexpr int kTacticMarginUnits = 260;
 
 void check_invariant(bool condition, std::string_view fixture_id, std::string_view key,
-                     std::string expected, std::string actual,
+                     std::string_view expected, std::string_view actual,
                      std::vector<std::string>& failures) {
     if (!condition) {
-        failures.push_back("fixture " + std::string(fixture_id) + " invariant " +
-                           std::string(key) + ": expected " + expected + ", actual " + actual);
+        failures.push_back("fixture " + std::string(fixture_id) + " invariant " + std::string(key) +
+                           ": expected " + std::string(expected) + ", actual " +
+                           std::string(actual));
     }
 }
 
@@ -275,7 +275,7 @@ void check_invariant(bool condition, std::string_view fixture_id, std::string_vi
 }
 
 [[nodiscard]] std::optional<std::string> uci_for_san(const chess::Board& board,
-                                                      std::string_view san) {
+                                                     std::string_view san) {
     chess::Movelist moves;
     chess::movegen::legalmoves(moves, board);
     for (const auto move : moves) {
@@ -287,7 +287,7 @@ void check_invariant(bool condition, std::string_view fixture_id, std::string_vi
 }
 
 void check_motif_contributions(const Json* motifs, bool expected, std::string_view fixture_id,
-                              std::string_view key, std::vector<std::string>& failures) {
+                               std::string_view key, std::vector<std::string>& failures) {
     if (motifs == nullptr || !motifs->is_array()) {
         check_invariant(false, fixture_id, key, "motif array", "<missing or not an array>",
                         failures);
@@ -317,7 +317,7 @@ void check_empty_labels_when_not_tactic(const Json* tactic, bool is_tactic,
 }
 
 [[nodiscard]] bool check_refutation(const Json& move, std::string_view fixture_id,
-                                   std::string_view key, std::vector<std::string>& failures) {
+                                    std::string_view key, std::vector<std::string>& failures) {
     const Json* refutation = member(move, "refutation");
     if (refutation == nullptr || refutation->is_null()) {
         return false;
@@ -335,9 +335,8 @@ void check_empty_labels_when_not_tactic(const Json* tactic, bool is_tactic,
     }
 
     const bool judged = tactic != nullptr && tactic->is_object();
-    check_invariant(judged, fixture_id, std::string(key) + ".refutation.tactic",
-                    "judgement object", tactic == nullptr ? "<missing>" : tactic->dump(),
-                    failures);
+    check_invariant(judged, fixture_id, std::string(key) + ".refutation.tactic", "judgement object",
+                    tactic == nullptr ? "<missing>" : tactic->dump(), failures);
     if (!judged) {
         check_motif_contributions(member(*refutation, "motifs"), false, fixture_id,
                                   std::string(key) + ".refutation.motifs", failures);
@@ -349,8 +348,7 @@ void check_empty_labels_when_not_tactic(const Json* tactic, bool is_tactic,
     const bool forced_actual = tactic->value("forced", false);
     check_invariant(forced_actual == forced_expected, fixture_id,
                     std::string(key) + ".refutation.tactic.forced",
-                    forced_expected ? "true" : "false", forced_actual ? "true" : "false",
-                    failures);
+                    forced_expected ? "true" : "false", forced_actual ? "true" : "false", failures);
     const Json* alternative = member(*tactic, "alternative");
     const Json* margin = member(*tactic, "margin");
     bool is_tactic_expected = false;
@@ -372,20 +370,18 @@ void check_empty_labels_when_not_tactic(const Json* tactic, bool is_tactic,
             const Json* alternative_eval = member(*alternative, "eval");
             const auto move_score = score_units(move_eval);
             const auto alternative_score = score_units(alternative_eval);
-            const auto actual_alt_uci = member(*alternative, "uci");
+            const auto* actual_alt_uci = member(*alternative, "uci");
             const auto first_uci = uci_for_san(root, line->front().get<std::string>());
-            if (first_uci.has_value() && actual_alt_uci != nullptr &&
-                actual_alt_uci->is_string()) {
+            if (first_uci.has_value() && actual_alt_uci != nullptr && actual_alt_uci->is_string()) {
                 check_invariant(actual_alt_uci->get<std::string>() != *first_uci, fixture_id,
                                 std::string(key) + ".refutation.tactic.alternative.uci",
                                 "different from refutation first move", actual_alt_uci->dump(),
                                 failures);
             } else {
-                check_invariant(false, fixture_id,
-                                std::string(key) + ".refutation.tactic.alternative.uci",
-                                "resolvable alternative and refutation first move",
-                                actual_alt_uci == nullptr ? "<missing>" : actual_alt_uci->dump(),
-                                failures);
+                check_invariant(
+                    false, fixture_id, std::string(key) + ".refutation.tactic.alternative.uci",
+                    "resolvable alternative and refutation first move",
+                    actual_alt_uci == nullptr ? "<missing>" : actual_alt_uci->dump(), failures);
             }
             if (move_score.has_value() && alternative_score.has_value()) {
                 const int expected_margin = (2000 - *move_score) - *alternative_score;
@@ -399,8 +395,7 @@ void check_empty_labels_when_not_tactic(const Json* tactic, bool is_tactic,
                                 margin == nullptr ? "<missing>" : margin->dump(), failures);
                 is_tactic_expected = expected_margin >= kTacticMarginUnits;
             } else {
-                check_invariant(false, fixture_id,
-                                std::string(key) + ".refutation.tactic.margin",
+                check_invariant(false, fixture_id, std::string(key) + ".refutation.tactic.margin",
                                 "derivable from engine evals", "<missing eval>", failures);
             }
         }
@@ -409,8 +404,8 @@ void check_empty_labels_when_not_tactic(const Json* tactic, bool is_tactic,
     const bool is_tactic_actual = tactic->value("is_tactic", false);
     check_invariant(is_tactic_actual == is_tactic_expected, fixture_id,
                     std::string(key) + ".refutation.tactic.is_tactic",
-                    is_tactic_expected ? "true" : "false",
-                    is_tactic_actual ? "true" : "false", failures);
+                    is_tactic_expected ? "true" : "false", is_tactic_actual ? "true" : "false",
+                    failures);
     check_empty_labels_when_not_tactic(tactic, is_tactic_expected, fixture_id,
                                        std::string(key) + ".refutation.tactic", failures);
     check_motif_contributions(member(*refutation, "motifs"), is_tactic_expected, fixture_id,
@@ -448,8 +443,8 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
         if (fen != nullptr && fen->is_string()) {
             root_moves = legal_move_count(chess::Board(fen->get<std::string>()));
         }
-        const bool has_first = candidates != nullptr && candidates->is_array() &&
-                               !candidates->empty();
+        const bool has_first =
+            candidates != nullptr && candidates->is_array() && !candidates->empty();
         const Json* first = has_first ? &(*candidates)[0] : nullptr;
         const Json* tactic = first == nullptr ? nullptr : member(*first, "tactic");
         check_invariant(tactic != nullptr && tactic->is_object(), fixture_id,
@@ -460,8 +455,7 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
             const bool forced_expected = root_moves == 1;
             const bool forced_actual = tactic->value("forced", false);
             check_invariant(forced_actual == forced_expected, fixture_id,
-                            "candidates[0].tactic.forced",
-                            forced_expected ? "true" : "false",
+                            "candidates[0].tactic.forced", forced_expected ? "true" : "false",
                             forced_actual ? "true" : "false", failures);
             const Json* alternative = member(*tactic, "alternative");
             const Json* margin = member(*tactic, "margin");
@@ -475,12 +469,10 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
                                 margin == nullptr ? "<missing>" : margin->dump(), failures);
             } else if (candidates->size() >= 2) {
                 const Json& second = (*candidates)[1];
-                const bool has_alternative =
-                    alternative != nullptr && alternative->is_object();
-                check_invariant(has_alternative, fixture_id,
-                                "candidates[0].tactic.alternative", "object",
-                                alternative == nullptr ? "<missing>" : alternative->dump(),
-                                failures);
+                const bool has_alternative = alternative != nullptr && alternative->is_object();
+                check_invariant(
+                    has_alternative, fixture_id, "candidates[0].tactic.alternative", "object",
+                    alternative == nullptr ? "<missing>" : alternative->dump(), failures);
                 if (has_alternative) {
                     for (const std::string_view field : {"san", "uci", "eval"}) {
                         const Json* actual = member(*alternative, field);
@@ -488,11 +480,9 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
                         const bool equal =
                             actual != nullptr && expected != nullptr && *actual == *expected;
                         check_invariant(equal, fixture_id,
-                                        "candidates[0].tactic.alternative." +
-                                            std::string(field),
+                                        "candidates[0].tactic.alternative." + std::string(field),
                                         expected == nullptr ? "<missing>" : expected->dump(),
-                                        actual == nullptr ? "<missing>" : actual->dump(),
-                                        failures);
+                                        actual == nullptr ? "<missing>" : actual->dump(), failures);
                     }
                 }
                 const auto first_score = score_units(member(*first, "eval"));
@@ -503,15 +493,13 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
                         margin != nullptr && margin->is_number() &&
                         static_cast<int>(std::llround(margin->get<double>() * 2000.0)) ==
                             expected_margin;
-                    check_invariant(margin_matches, fixture_id,
-                                    "candidates[0].tactic.margin",
+                    check_invariant(margin_matches, fixture_id, "candidates[0].tactic.margin",
                                     std::to_string(expected_margin) + " es_units",
                                     margin == nullptr ? "<missing>" : margin->dump(), failures);
                     root_is_tactic = expected_margin >= kTacticMarginUnits;
                 } else {
                     check_invariant(false, fixture_id, "candidates[0].tactic.margin",
-                                    "derivable from candidate evals", "<missing eval>",
-                                    failures);
+                                    "derivable from candidate evals", "<missing eval>", failures);
                 }
             } else {
                 check_invariant(false, fixture_id, "candidates[1]",
@@ -520,8 +508,7 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
             }
             const bool is_tactic_actual = tactic->value("is_tactic", false);
             check_invariant(is_tactic_actual == root_is_tactic, fixture_id,
-                            "candidates[0].tactic.is_tactic",
-                            root_is_tactic ? "true" : "false",
+                            "candidates[0].tactic.is_tactic", root_is_tactic ? "true" : "false",
                             is_tactic_actual ? "true" : "false", failures);
             check_empty_labels_when_not_tactic(tactic, root_is_tactic, fixture_id,
                                                "candidates[0].tactic", failures);
@@ -532,12 +519,11 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
                 const Json& candidate = (*candidates)[index];
                 if (index > 0) {
                     const Json* candidate_tactic = member(candidate, "tactic");
-                    check_invariant(candidate_tactic != nullptr && candidate_tactic->is_null(),
-                                    fixture_id,
-                                    "candidates[" + std::to_string(index) + "].tactic", "null",
-                                    candidate_tactic == nullptr ? "<missing>"
-                                                                : candidate_tactic->dump(),
-                                    failures);
+                    check_invariant(
+                        candidate_tactic != nullptr && candidate_tactic->is_null(), fixture_id,
+                        "candidates[" + std::to_string(index) + "].tactic", "null",
+                        candidate_tactic == nullptr ? "<missing>" : candidate_tactic->dump(),
+                        failures);
                 }
                 check_move_motifs(candidate, index == 0, root_is_tactic, fixture_id,
                                   "candidates[" + std::to_string(index) + "]", failures);
@@ -545,8 +531,8 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
         }
     }
 
-    check_motif_contributions(find_pointer(report, "/position/motifs"), root_is_tactic,
-                              fixture_id, "position.motifs", failures);
+    check_motif_contributions(find_pointer(report, "/position/motifs"), root_is_tactic, fixture_id,
+                              "position.motifs", failures);
 
     const Json* threats = member(report, "threats");
     if (threats != nullptr && threats->is_object()) {
@@ -559,9 +545,9 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
                 continue;
             }
             const bool root_threat = own_side == color;
-            check_motif_contributions(member(*threat, "motifs"),
-                                      root_threat && root_is_tactic, fixture_id,
-                                      "threats." + std::string(color) + ".motifs", failures);
+            check_motif_contributions(member(*threat, "motifs"), root_threat && root_is_tactic,
+                                      fixture_id, "threats." + std::string(color) + ".motifs",
+                                      failures);
             const Json* tactic = member(*threat, "tactic");
             check_invariant(tactic != nullptr && tactic->is_null(), fixture_id,
                             "threats." + std::string(color) + ".tactic", "null",
@@ -588,16 +574,19 @@ void check_tactic_invariants(const Json& report, std::string_view fixture_id,
             matching_candidate != nullptr && candidate_tactic != nullptr
                 ? asked_tactic != nullptr && *asked_tactic == *candidate_tactic
                 : asked_tactic != nullptr && asked_tactic->is_null();
-        check_invariant(tactic_copied, fixture_id, "asked_move.tactic",
-                        matching_candidate == nullptr
-                            ? "null"
-                            : (candidate_tactic == nullptr ? "<missing>"
-                                                           : candidate_tactic->dump()),
+        std::string expected_tactic;
+        if (matching_candidate == nullptr) {
+            expected_tactic = "null";
+        } else if (candidate_tactic == nullptr) {
+            expected_tactic = "<missing>";
+        } else {
+            expected_tactic = candidate_tactic->dump();
+        }
+        check_invariant(tactic_copied, fixture_id, "asked_move.tactic", expected_tactic,
                         asked_tactic == nullptr ? "<missing>" : asked_tactic->dump(), failures);
-        const bool asked_is_root =
-            matching_candidate != nullptr && candidates != nullptr &&
-            candidates->is_array() && !candidates->empty() &&
-            matching_candidate == &(*candidates)[0];
+        const bool asked_is_root = matching_candidate != nullptr && candidates != nullptr &&
+                                   candidates->is_array() && !candidates->empty() &&
+                                   matching_candidate == &(*candidates)[0];
         check_move_motifs(*asked, asked_is_root, root_is_tactic, fixture_id, "asked_move",
                           failures);
     }

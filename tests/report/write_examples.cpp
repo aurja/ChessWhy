@@ -16,8 +16,9 @@ int main(int argc, char** argv) {
     const std::filesystem::path output_directory(argv[1]);
     std::filesystem::create_directories(output_directory);
     constexpr std::array<const char*, 8> filenames{
-        "terminal_checkmate.json",      "side_in_check.json",      "normal_position.json",
-        "pgn_opening.json",              "tactic_with_labels.json", "forced_judgement.json",
+        "terminal_checkmate.json",        "side_in_check.json",
+        "normal_position.json",           "pgn_opening.json",
+        "tactic_with_labels.json",        "forced_judgement.json",
         "negative_margin_judgement.json", "refutation_judgement.json"};
     const auto reports = chesswhy::test_examples::all_reports();
     for (std::size_t index = 0; index < reports.size(); ++index) {

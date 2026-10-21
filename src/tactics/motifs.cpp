@@ -563,8 +563,8 @@ void append_back_rank_mates(const chess::Board& after, chess::Color side, int pl
 }
 
 void append_move_motifs(const chess::Board& before, const chess::Board& after,
-                        const chess::Move& move, std::size_t ply_index,
-                        std::vector<Motif>& motifs, bool* checkmate = nullptr) {
+                        const chess::Move& move, std::size_t ply_index, std::vector<Motif>& motifs,
+                        bool* checkmate = nullptr) {
     const chess::Color side = before.sideToMove();
     const chess::Square from = move.from();
     const bool is_castling = move.typeOf() == chess::Move::CASTLING;
@@ -604,14 +604,22 @@ void append_move_motifs(const chess::Board& before, const chess::Board& after,
     }
 }
 
-constexpr std::array<MotifTag, 7> kPinMoveTags{
-    MotifTag::Fork,          MotifTag::Skewer,      MotifTag::DiscoveredCheck,
-    MotifTag::DiscoveredAttack, MotifTag::DoubleCheck, MotifTag::BackRankMate,
-    MotifTag::Promotion};
-constexpr std::array<ThreatKind, 9> kPinThreatKinds{
-    ThreatKind::Fork,          ThreatKind::Skewer,       ThreatKind::DiscoveredCheck,
-    ThreatKind::DiscoveredAttack, ThreatKind::DoubleCheck, ThreatKind::BackRankMate,
-    ThreatKind::Promotion,     ThreatKind::Checkmate,    ThreatKind::Capture};
+constexpr std::array<MotifTag, 7> kPinMoveTags{MotifTag::Fork,
+                                               MotifTag::Skewer,
+                                               MotifTag::DiscoveredCheck,
+                                               MotifTag::DiscoveredAttack,
+                                               MotifTag::DoubleCheck,
+                                               MotifTag::BackRankMate,
+                                               MotifTag::Promotion};
+constexpr std::array<ThreatKind, 9> kPinThreatKinds{ThreatKind::Fork,
+                                                    ThreatKind::Skewer,
+                                                    ThreatKind::DiscoveredCheck,
+                                                    ThreatKind::DiscoveredAttack,
+                                                    ThreatKind::DoubleCheck,
+                                                    ThreatKind::BackRankMate,
+                                                    ThreatKind::Promotion,
+                                                    ThreatKind::Checkmate,
+                                                    ThreatKind::Capture};
 
 struct MoveThreatEffects {
     std::array<bool, kPinMoveTags.size()> move_tags{};
@@ -683,13 +691,13 @@ public:
 }
 
 [[nodiscard]] std::uint32_t move_key(chess::Move move) {
-    const std::uint32_t base = static_cast<std::uint32_t>(move.from().index() * 64 +
-                                                         move.to().index());
-    const std::uint32_t type = static_cast<std::uint32_t>(move.typeOf());
+    const std::uint32_t base =
+        static_cast<std::uint32_t>((move.from().index() * 64) + move.to().index());
+    const auto type = static_cast<std::uint32_t>(move.typeOf());
     const std::uint32_t promotion = move.typeOf() == chess::Move::PROMOTION
                                         ? static_cast<std::uint32_t>(move.promotionType())
                                         : 0U;
-    return (base * 8U + type) * 8U + promotion;
+    return (((base * 8U) + type) * 8U) + promotion;
 }
 
 [[nodiscard]] bool could_be_fork(const chess::Board& after, chess::Square actor,
@@ -721,7 +729,7 @@ public:
                                         chess::Move move, chess::Color side,
                                         const SquareList& checking_pieces) {
     const chess::Square actor = move_destination(move, side);
-    const chess::PieceType actor_type = after.at<chess::PieceType>(actor);
+    const auto actor_type = after.at<chess::PieceType>(actor);
     if (actor_type != chess::PieceType::KING && could_be_fork(after, actor, side)) {
         return true;
     }
@@ -733,16 +741,13 @@ public:
     const chess::Bitboard sliders = before.pieces(chess::PieceType::BISHOP, side) |
                                     before.pieces(chess::PieceType::ROOK, side) |
                                     before.pieces(chess::PieceType::QUEEN, side);
-    for (const chess::Square slider : squares(sliders.getBits())) {
-        if (slider != move.from() && attacks_square(before, slider, move.from())) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(squares(sliders.getBits()), [&](const chess::Square slider) {
+        return slider != move.from() && attacks_square(before, slider, move.from());
+    });
 }
 
-[[nodiscard]] MoveThreatEffects move_threat_effects(const chess::Board& before,
-                                                    chess::Move move, chess::Color side,
+[[nodiscard]] MoveThreatEffects move_threat_effects(const chess::Board& before, chess::Move move,
+                                                    chess::Color side,
                                                     std::vector<Motif>* detected_motifs = nullptr) {
     MoveThreatEffects effects;
     chess::Board after = before;
@@ -756,7 +761,7 @@ public:
     append_move_motifs(before, after, move, 0, local_motifs, &effects.checkmate);
     std::ranges::sort(local_motifs, motif_less);
     for (const Motif& motif : local_motifs) {
-        const auto found = std::ranges::find(kPinMoveTags, motif.tag);
+        const auto* found = std::ranges::find(kPinMoveTags, motif.tag);
         if (found != kPinMoveTags.end()) {
             effects.move_tags[static_cast<std::size_t>(found - kPinMoveTags.begin())] = true;
         }
@@ -838,8 +843,8 @@ void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) 
                     if (candidate && candidate->square <= destination) {
                         continue;
                     }
-                    const auto found = std::ranges::find_if(
-                        move_motifs, [kind](const Motif& motif) {
+                    const auto found =
+                        std::ranges::find_if(move_motifs, [kind](const Motif& motif) {
                             return motif.tag == kPinMoveTags[kind];
                         });
                     if (found == move_motifs.end()) {
@@ -850,25 +855,25 @@ void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) 
                     for (const PieceOnSquare& target : found->targets) {
                         targets.emplace_back(target.square);
                     }
-                    candidate = PinThreatCandidate{destination, std::move(targets)};
+                    candidate =
+                        PinThreatCandidate{.square = destination, .targets = std::move(targets)};
                 }
 
                 if (effects.checkmate &&
                     (baseline_effects == nullptr || !baseline_effects->checkmate)) {
-                    constexpr std::size_t mate_kind =
-                        static_cast<std::size_t>(ThreatKind::Checkmate);
+                    constexpr auto mate_kind = static_cast<std::size_t>(ThreatKind::Checkmate);
                     const std::size_t actor = static_cast<std::size_t>(move.from().index());
                     auto& candidate = selected[mate_kind][actor];
                     if (!candidate || destination < candidate->square) {
-                        candidate = PinThreatCandidate{destination, {minus_p.kingSq(enemy)}};
+                        candidate = PinThreatCandidate{.square = destination,
+                                                       .targets = {minus_p.kingSq(enemy)}};
                     }
                 }
             }
 
-            constexpr std::size_t capture_kind = static_cast<std::size_t>(ThreatKind::Capture);
+            constexpr auto capture_kind = static_cast<std::size_t>(ThreatKind::Capture);
             for (const chess::Square target : squares(enemy_pieces.getBits())) {
-                if (target == p || baseline_see(target) > 0 ||
-                    see(minus_p, target, side) < 1) {
+                if (target == p || baseline_see(target) > 0 || see(minus_p, target, side) < 1) {
                     continue;
                 }
                 std::optional<chess::Move> capture;
@@ -896,31 +901,31 @@ void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) 
                 auto& candidate = selected[capture_kind][actor];
                 const chess::Square destination = move_destination(*capture, side);
                 if (!candidate || destination < candidate->square) {
-                    candidate = PinThreatCandidate{destination, {target}};
+                    candidate = PinThreatCandidate{.square = destination, .targets = {target}};
                 }
             }
 
             for (std::size_t kind = 0; kind < selected.size(); ++kind) {
                 for (std::size_t actor = 0; actor < selected[kind].size(); ++actor) {
-                    if (!selected[kind][actor]) {
+                    const auto& selected_candidate = selected[kind][actor];
+                    if (!selected_candidate.has_value()) {
                         continue;
                     }
+                    const PinThreatCandidate& candidate = selected_candidate.value();
                     SquareList targets{p};
-                    targets.insert(targets.end(), selected[kind][actor]->targets.begin(),
-                                   selected[kind][actor]->targets.end());
+                    targets.insert(targets.end(), candidate.targets.begin(),
+                                   candidate.targets.end());
                     Motif motif = make_motif(board, MotifTag::PinTactical, side, 0,
                                              chess::Square(static_cast<int>(actor)), targets);
-                    motif.threat = MotifThreat{
-                        .kind = kPinThreatKinds[kind],
-                        .square = static_cast<std::uint8_t>(
-                            selected[kind][actor]->square.index())};
+                    motif.threat =
+                        MotifThreat{.kind = kPinThreatKinds[kind],
+                                    .square = static_cast<std::uint8_t>(candidate.square.index())};
                     motifs.push_back(std::move(motif));
                 }
             }
         }
     }
 }
-
 
 } // namespace
 

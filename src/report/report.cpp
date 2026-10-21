@@ -47,7 +47,6 @@ template <typename Enum>
     return value;
 }
 
-
 [[nodiscard]] Json serialize_motif(const Motif& motif) {
     Json value = Json::object();
     value["source"] = "rule";
@@ -103,9 +102,8 @@ template <typename Enum>
     } else {
         value["alternative"] = nullptr;
     }
-    value["margin"] = tactic.margin_units
-                          ? Json(static_cast<double>(*tactic.margin_units) / 2000.0)
-                          : Json(nullptr);
+    value["margin"] = tactic.margin_units ? Json(static_cast<double>(*tactic.margin_units) / 2000.0)
+                                          : Json(nullptr);
     value["is_tactic"] = tactic.is_tactic;
     Json labels = Json::array();
     for (const auto& label : tactic.labels) {

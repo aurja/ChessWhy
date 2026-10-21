@@ -44,9 +44,8 @@ public:
     void erase_for_pin(Square square) {
         const Piece piece = at(square);
         if (piece.type() == PieceType::ROOK &&
-            square.rank() == (piece.color() == Color::WHITE
-                                  ? chess::Rank::underlying::RANK_1
-                                  : chess::Rank::underlying::RANK_8)) {
+            square.rank() == (piece.color() == Color::WHITE ? chess::Rank::underlying::RANK_1
+                                                            : chess::Rank::underlying::RANK_8)) {
             constexpr std::array sides{chess::Board::CastlingRights::Side::KING_SIDE,
                                        chess::Board::CastlingRights::Side::QUEEN_SIDE};
             for (const auto castle : sides) {
@@ -289,7 +288,7 @@ void set_turn(chess::Board& board, Color side) {
 }
 
 [[nodiscard]] std::vector<Motif> pin_tactical_motifs(const chess::Board& board, Color side,
-                                                      int ply);
+                                                     int ply);
 
 [[nodiscard]] std::optional<int> captured_value(const chess::Board& before, Move move) {
     const auto captured = before.getCapturing<PieceType>(move);
@@ -761,7 +760,7 @@ struct MoveOutcome {
 }
 
 [[nodiscard]] std::vector<Motif> pin_tactical_motifs(const chess::Board& board, Color side,
-                                                      int ply) {
+                                                     int ply) {
     const Color enemy = other(side);
     if (board.isAttacked(board.kingSq(enemy), side)) {
         return {};
@@ -777,17 +776,16 @@ struct MoveOutcome {
     for (const Move move : original_moves) {
         chess::Board after = side_to_move;
         after.makeMove(move);
-        original_outcomes.push_back(
-            {move, move_motifs(side_to_move, after, move, ply),
-             checkmate_after(after, side, enemy)});
+        original_outcomes.push_back({move, move_motifs(side_to_move, after, move, ply),
+                                     checkmate_after(after, side, enemy)});
     }
 
     std::vector<Motif> result;
-    const auto add = [&result, side, ply](PieceOnSquare actor,
-                                          std::vector<PieceOnSquare> targets,
+    const auto add = [&result, side, ply](PieceOnSquare actor, std::vector<PieceOnSquare> targets,
                                           ThreatKind kind, Square destination) {
         Motif motif = make_motif(MotifTag::PinTactical, side, ply, actor, std::move(targets));
-        motif.threat = MotifThreat{kind, static_cast<std::uint8_t>(destination.index())};
+        motif.threat =
+            MotifThreat{.kind = kind, .square = static_cast<std::uint8_t>(destination.index())};
         const auto existing = std::ranges::find_if(result, [&motif](const Motif& candidate) {
             return candidate.actor.square == motif.actor.square &&
                    candidate.targets.front().square == motif.targets.front().square &&
@@ -817,8 +815,8 @@ struct MoveOutcome {
         chess::Movelist exposed_moves;
         chess::movegen::legalmoves(exposed_moves, without_piece);
         for (const Move move : exposed_moves) {
-            const auto original = std::ranges::find_if(
-                original_outcomes, [move](const MoveOutcome& outcome) {
+            const auto original =
+                std::ranges::find_if(original_outcomes, [move](const MoveOutcome& outcome) {
                     return outcome.move == move;
                 });
             chess::Board after = without_piece;
@@ -839,8 +837,9 @@ struct MoveOutcome {
 
             if (checkmate_after(after, side, enemy) &&
                 (original == original_outcomes.end() || !original->checkmate)) {
-                add(actor, {printed_piece(board, pinned_square),
-                            printed_piece(after, after.kingSq(enemy))},
+                add(actor,
+                    {printed_piece(board, pinned_square),
+                     printed_piece(after, after.kingSq(enemy))},
                     ThreatKind::Checkmate, move_destination(move, side));
             }
         }
@@ -865,12 +864,11 @@ struct MoveOutcome {
                 const Piece capturer = without_piece.at(move.from());
                 const int value = comparison_value(capturer.type());
                 const bool queen_promotion =
-                    move.typeOf() == Move::PROMOTION &&
-                    move.promotionType() == PieceType::QUEEN;
+                    move.typeOf() == Move::PROMOTION && move.promotionType() == PieceType::QUEEN;
                 if (value < best_value ||
-                    (value == best_value && static_cast<int>(move.from().index()) < best_from) ||
-                    (value == best_value && static_cast<int>(move.from().index()) == best_from &&
-                     queen_promotion && !best_is_queen_promotion)) {
+                    (value == best_value && move.from().index() < best_from) ||
+                    (value == best_value && move.from().index() == best_from && queen_promotion &&
+                     !best_is_queen_promotion)) {
                     best_capture = move;
                     best_value = value;
                     best_from = move.from().index();

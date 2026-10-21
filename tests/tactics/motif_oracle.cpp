@@ -391,9 +391,8 @@ void compare_lists(Statistics& statistics, std::ostream* mismatch_output,
                    std::size_t mismatch_limit, std::size_t& mismatch_rows, std::string id,
                    std::string ply, std::string fen, std::string moves,
                    const std::vector<Motif>& detector, const std::vector<Motif>& reference) {
-    statistics.pin_tactical_instances_compared +=
-        for_tag(detector, MotifTag::PinTactical).size() +
-        for_tag(reference, MotifTag::PinTactical).size();
+    statistics.pin_tactical_instances_compared += for_tag(detector, MotifTag::PinTactical).size() +
+                                                  for_tag(reference, MotifTag::PinTactical).size();
     ++statistics.compared;
     if (same_list(detector, reference)) {
         return;
@@ -442,8 +441,7 @@ void process_position(const std::string& id, const std::string& fen,
     chess::Board walked = root;
     const std::vector<chess::Move> moves = parse_line(walked, uci_moves);
     walked = root;
-    const chesswhy::tactics::MotifOptions motif_options{
-        .pin_tactical = include_pin_tactical};
+    const chesswhy::tactics::MotifOptions motif_options{.pin_tactical = include_pin_tactical};
     for (std::size_t ply = 0; ply <= moves.size(); ++ply) {
         const std::vector<Motif> detector =
             chesswhy::tactics::position_motifs(walked, motif_options);
@@ -455,8 +453,7 @@ void process_position(const std::string& id, const std::string& fen,
             walked.makeMove(moves[ply]);
         }
     }
-    const std::vector<Motif> detector =
-        chesswhy::tactics::line_motifs(root, moves, motif_options);
+    const std::vector<Motif> detector = chesswhy::tactics::line_motifs(root, moves, motif_options);
     const std::vector<Motif> reference = chesswhy::oracle::reference_line_motifs(
         root, std::span<const chess::Move>(moves), motif_options);
     compare_lists(statistics, mismatch_output, mismatch_limit, mismatch_rows, id, "line",

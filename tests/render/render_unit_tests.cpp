@@ -11,9 +11,10 @@
 
 TEST_CASE("example reports match the golden text", "[unit]") {
     constexpr std::array<const char*, 8> filenames{
-        "terminal_checkmate.txt", "side_in_check.txt", "normal_position.txt", "pgn_opening.txt",
-        "tactic_with_labels.txt", "forced_judgement.txt", "negative_margin_judgement.txt",
-        "refutation_judgement.txt"};
+        "terminal_checkmate.txt",        "side_in_check.txt",
+        "normal_position.txt",           "pgn_opening.txt",
+        "tactic_with_labels.txt",        "forced_judgement.txt",
+        "negative_margin_judgement.txt", "refutation_judgement.txt"};
     const auto reports = chesswhy::test_examples::all_reports();
 
     for (std::size_t index = 0; index < reports.size(); ++index) {
@@ -61,8 +62,7 @@ TEST_CASE("tactic judgements, labels and contributions render from report fields
     CHECK(tactic_text.find("tactic: next best g6 is 0.49 worse [engine]") != std::string::npos);
     CHECK(tactic_text.find("removal_of_defender: b d5 → N d5, R e4 (ply 1) [rule]") !=
           std::string::npos);
-    CHECK(tactic_text.find("fork: n f3 → K e1, Q d4 (ply 1, direct) [rule]") !=
-          std::string::npos);
+    CHECK(tactic_text.find("fork: n f3 → K e1, Q d4 (ply 1, direct) [rule]") != std::string::npos);
     CHECK(tactic_text.find("restricted movement (absolute pin): R e1 → n e5, k e8 (ply 0) "
                            "[rule]") != std::string::npos);
     CHECK(tactic_text.find("restricted movement (relative pin): B b1 → n c2, q e4 (ply 0) "

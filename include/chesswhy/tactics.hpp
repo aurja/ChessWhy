@@ -43,9 +43,8 @@ struct MotifOptions {
 // after ply k but not after ply k-1 (ply 0 = `root`). A motif at ply k reads only the
 // boards before and after ply k and move k itself, never later moves. `line` holds legal
 // moves, already cut to the walked plies by the caller. Ordered per M2 §5.
-[[nodiscard]] std::vector<Motif> line_motifs(const chess::Board& root,
-                                             std::span<const chess::Move> line,
-                                             MotifOptions options = {});
+[[nodiscard]] std::vector<Motif>
+line_motifs(const chess::Board& root, std::span<const chess::Move> line, MotifOptions options = {});
 
 // Tactic labels (PostM2_EM1 §4.4) of the tactic sequence `line` played from `root`, for the
 // side to move at `root` (X). `line` holds legal moves, already cut to the walked plies.

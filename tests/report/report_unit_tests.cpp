@@ -69,8 +69,7 @@ TEST_CASE("JSON follows schema key order", "[unit]") {
     CHECK(keys(json["engine"]) == std::vector<std::string>{"name", "threads", "hash_mb", "multipv",
                                                            "reproducible", "nodes",
                                                            "nodes_searched"});
-    CHECK(keys(json["engine"]["nodes"]) ==
-          std::vector<std::string>{"A", "B", "C", "D", "E", "R"});
+    CHECK(keys(json["engine"]["nodes"]) == std::vector<std::string>{"A", "B", "C", "D", "E", "R"});
     CHECK(json["engine"]["nodes"]["R"] == 1000);
     CHECK(keys(json["position"]) == std::vector<std::string>{"fen", "side_to_move", "in_check",
                                                              "terminal", "eval_white", "motifs"});
@@ -124,10 +123,10 @@ TEST_CASE("motif JSON uses the schema v3 shape", "[unit]") {
     CHECK(json["candidates"][0]["creates_threat"]["motifs"][0]["tag"] == "discovered_attack");
     CHECK(json["asked_move"]["motifs"][0]["tag"] == "skewer");
     CHECK(json["asked_move"]["refutation"]["motifs"][0]["gain"] == 3);
-    const auto pin = chesswhy::to_json(chesswhy::test_examples::tactic_with_labels())
-                         ["candidates"][0]["motifs"][4];
-    CHECK(keys(pin) == std::vector<std::string>{"source", "tag", "side", "ply", "actor",
-                                                "targets", "gain", "threat", "contribution"});
+    const auto pin = chesswhy::to_json(
+        chesswhy::test_examples::tactic_with_labels())["candidates"][0]["motifs"][4];
+    CHECK(keys(pin) == std::vector<std::string>{"source", "tag", "side", "ply", "actor", "targets",
+                                                "gain", "threat", "contribution"});
     CHECK(keys(pin["threat"]) == std::vector<std::string>{"kind", "square"});
     CHECK(pin["tag"] == "pin_tactical");
     CHECK(pin["threat"]["kind"] == "fork");
@@ -138,17 +137,17 @@ TEST_CASE("tactic judgements and motif contributions serialize in report v3", "[
     using namespace chesswhy;
 
     const auto forced = to_json(test_examples::forced_judgement());
-    CHECK(forced["candidates"][0]["tactic"].dump() ==
-          R"({"source":"rule","forced":true,"alternative":null,"margin":null,"is_tactic":false,"labels":[]})");
+    CHECK(
+        forced["candidates"][0]["tactic"].dump() ==
+        R"({"source":"rule","forced":true,"alternative":null,"margin":null,"is_tactic":false,"labels":[]})");
 
     const auto tactic = to_json(test_examples::tactic_with_labels());
     const auto& judgement = tactic["candidates"][0]["tactic"];
     CHECK(keys(judgement) == std::vector<std::string>{"source", "forced", "alternative", "margin",
-                                                       "is_tactic", "labels"});
+                                                      "is_tactic", "labels"});
     CHECK(judgement["source"] == "engine");
     CHECK(judgement["alternative"]["san"] == "g6");
-    CHECK(keys(judgement["alternative"]) ==
-          std::vector<std::string>{"san", "uci", "eval"});
+    CHECK(keys(judgement["alternative"]) == std::vector<std::string>{"san", "uci", "eval"});
     CHECK(keys(judgement["alternative"]["eval"]) ==
           std::vector<std::string>{"source", "es", "cp", "mate"});
     CHECK(judgement["alternative"]["eval"]["source"] == "engine");

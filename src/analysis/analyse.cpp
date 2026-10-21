@@ -357,9 +357,8 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
         }
         result.refutation =
             make_threat(after_move, reply, reply_line, report_side(after_move.sideToMove()));
-        result.refutation->tactic =
-            judge_refutation(engine, budget, nodes_searched, after_move, reply, result.eval,
-                             *result.refutation);
+        result.refutation->tactic = judge_refutation(engine, budget, nodes_searched, after_move,
+                                                     reply, result.eval, *result.refutation);
     }
     return result;
 }
@@ -468,11 +467,9 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         root_tactic.forced = true;
     } else {
         const auto& alternative = report.candidates[1];
-        root_tactic.alternative =
-            TacticAlternative{.san = alternative.san, .uci = alternative.uci,
-                              .eval = alternative.eval};
-        const int margin_units =
-            report.candidates[0].eval.es_units - alternative.eval.es_units;
+        root_tactic.alternative = TacticAlternative{
+            .san = alternative.san, .uci = alternative.uci, .eval = alternative.eval};
+        const int margin_units = report.candidates[0].eval.es_units - alternative.eval.es_units;
         root_tactic.margin_units = margin_units;
         root_tactic.is_tactic = is_tactic_margin(margin_units);
     }
@@ -481,9 +478,10 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         const auto line = std::span<const chess::Move>(moves);
         tactics::judge_contributions(board, line, report.position.motifs);
         tactics::judge_contributions(board, line, report.candidates[0].motifs);
-        Threat& own_threat =
-            side_to_move == chess::Color::WHITE ? *threats.white : *threats.black;
-        tactics::judge_contributions(board, line, own_threat.motifs);
+        auto& own_threat = side_to_move == chess::Color::WHITE ? threats.white : threats.black;
+        if (own_threat.has_value()) {
+            tactics::judge_contributions(board, line, own_threat->motifs);
+        }
         root_tactic.labels = tactics::tactic_labels(board, line);
     }
     report.candidates[0].tactic = std::move(root_tactic);

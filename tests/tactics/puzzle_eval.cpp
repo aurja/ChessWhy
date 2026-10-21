@@ -24,9 +24,9 @@
 namespace {
 
 using chesswhy::Motif;
+using chesswhy::MotifContribution;
 using chesswhy::MotifTag;
 using chesswhy::Side;
-using chesswhy::MotifContribution;
 using chesswhy::TacticLabelTag;
 
 constexpr std::size_t kTagCount = 10;
@@ -455,11 +455,9 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
                 }
             }
         }
-        const bool removal_predicted =
-            std::ranges::any_of(labels, [solver](const auto& label) {
-                return label.side == solver &&
-                       label.tag == TacticLabelTag::RemovalOfDefender;
-            });
+        const bool removal_predicted = std::ranges::any_of(labels, [solver](const auto& label) {
+            return label.side == solver && label.tag == TacticLabelTag::RemovalOfDefender;
+        });
         const bool removal_actual = has_theme(fields[3], kUnmeasuredStratum);
         if (fields[4] == "background") {
             removal_metrics.background_predicted += removal_predicted ? 1U : 0U;
@@ -533,12 +531,11 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
 }
 
 void print_table(const std::array<Metrics, kTagCount>& metrics) {
-    std::cout << std::left << std::setw(22) << "tag" << std::right << std::setw(13)
-              << "bg-tagged" << std::setw(13) << "bg-predicted" << std::setw(9) << "bg-TP"
-              << std::setw(9) << "bg-FP" << std::setw(15) << "lichess-agree"
-              << std::setw(12) << "stratum-n" << std::setw(12) << "stratum-TP"
-              << std::setw(10) << "recall" << std::setw(14) << "direct-count"
-              << std::setw(13) << "direct-share" << '\n';
+    std::cout << std::left << std::setw(22) << "tag" << std::right << std::setw(13) << "bg-tagged"
+              << std::setw(13) << "bg-predicted" << std::setw(9) << "bg-TP" << std::setw(9)
+              << "bg-FP" << std::setw(15) << "lichess-agree" << std::setw(12) << "stratum-n"
+              << std::setw(12) << "stratum-TP" << std::setw(10) << "recall" << std::setw(14)
+              << "direct-count" << std::setw(13) << "direct-share" << '\n';
     std::cout << std::fixed << std::setprecision(3);
     for (std::size_t index = 0; index < kTagCount; ++index) {
         const Metrics& value = metrics[index];
@@ -547,22 +544,22 @@ void print_table(const std::array<Metrics, kTagCount>& metrics) {
                   << value.background_predicted << std::setw(9) << value.background_true_positive
                   << std::setw(9) << value.background_false_positive << std::setw(15)
                   << lichess_agreement(value) << std::setw(12) << value.stratum_count
-                  << std::setw(12) << value.stratum_true_positive << std::setw(10)
-                  << recall(value) << std::setw(14) << value.stratum_direct << std::setw(13)
+                  << std::setw(12) << value.stratum_true_positive << std::setw(10) << recall(value)
+                  << std::setw(14) << value.stratum_direct << std::setw(13)
                   << ratio(value.stratum_direct, value.stratum_true_positive) << '\n';
     }
 }
 
 void print_removal_metrics(const RemovalMetrics& metrics) {
-    std::cout << "\n" << std::left << std::setw(22) << "label" << std::right
-              << std::setw(14) << "stratum-n" << std::setw(18) << "stratum-predicted"
-              << std::setw(10) << "recall" << std::setw(15) << "bg-predicted"
-              << std::setw(9) << "bg-TP" << std::setw(15) << "lichess-agree" << '\n';
-    std::cout << std::left << std::setw(22) << "removal_of_defender" << std::right
-              << std::setw(14) << metrics.stratum_count << std::setw(18)
-              << metrics.stratum_predicted << std::setw(10)
-              << ratio(metrics.stratum_predicted, metrics.stratum_count) << std::setw(15)
-              << metrics.background_predicted << std::setw(9)
+    std::cout << "\n"
+              << std::left << std::setw(22) << "label" << std::right << std::setw(14) << "stratum-n"
+              << std::setw(18) << "stratum-predicted" << std::setw(10) << "recall" << std::setw(15)
+              << "bg-predicted" << std::setw(9) << "bg-TP" << std::setw(15) << "lichess-agree"
+              << '\n';
+    std::cout << std::left << std::setw(22) << "removal_of_defender" << std::right << std::setw(14)
+              << metrics.stratum_count << std::setw(18) << metrics.stratum_predicted
+              << std::setw(10) << ratio(metrics.stratum_predicted, metrics.stratum_count)
+              << std::setw(15) << metrics.background_predicted << std::setw(9)
               << metrics.background_true_positive << std::setw(15)
               << ratio(metrics.background_true_positive, metrics.background_predicted) << '\n';
 }

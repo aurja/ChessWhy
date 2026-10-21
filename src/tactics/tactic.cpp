@@ -67,8 +67,8 @@ struct TrackedPiece {
 
 using TrackedPieces = std::array<TrackedPiece, 64>;
 
-void add_tracked_piece(const chess::Board& board, std::uint8_t square_index,
-                       TrackedPieces& pieces, std::size_t& count) {
+void add_tracked_piece(const chess::Board& board, std::uint8_t square_index, TrackedPieces& pieces,
+                       std::size_t& count) {
     const chess::Square square(square_index);
     for (std::size_t index = 0; index < count; ++index) {
         if (pieces[index].square == square) {
@@ -92,8 +92,7 @@ void add_tracked_piece(const chess::Board& board, std::uint8_t square_index,
 }
 
 [[nodiscard]] bool motif_attacks(const chess::Board& board, const TrackedPieces& pieces,
-                                 std::size_t count, chess::Color side,
-                                 chess::Square destination) {
+                                 std::size_t count, chess::Color side, chess::Square destination) {
     for (std::size_t index = 0; index < count; ++index) {
         const TrackedPiece& piece = pieces[index];
         if (piece.present && piece.color == side &&
@@ -118,7 +117,7 @@ void add_tracked_piece(const chess::Board& board, std::uint8_t square_index,
 }
 
 [[nodiscard]] std::vector<chess::Board> positions_after(const chess::Board& root,
-                                                         std::span<const chess::Move> line) {
+                                                        std::span<const chess::Move> line) {
     std::vector<chess::Board> positions;
     positions.reserve(line.size() + 1);
     positions.push_back(root);
@@ -147,7 +146,7 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
             continue;
         }
 
-        const std::size_t ply = static_cast<std::size_t>(motif.ply);
+        const auto ply = static_cast<std::size_t>(motif.ply);
         const chess::Board& motif_position = positions[ply];
         TrackedPieces pieces{};
         std::size_t piece_count = 0;
@@ -181,8 +180,7 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
                 (castling && tracked_piece_at(pieces, piece_count, move.to()) < piece_count) ||
                 (capture && tracked_piece_at(pieces, piece_count, captured) < piece_count);
             if (!motif_piece_activity && !touched_piece && x_move && !castling) {
-                indirect = indirect ||
-                           motif_attacks(before, pieces, piece_count, enemy, move.to());
+                indirect = indirect || motif_attacks(before, pieces, piece_count, enemy, move.to());
             }
             motif_piece_activity = motif_piece_activity || touched_piece;
 
@@ -194,10 +192,8 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
             }
             if (castling) {
                 const bool king_side = move.to() > move.from();
-                const std::size_t king_index =
-                    tracked_piece_at(pieces, piece_count, move.from());
-                const std::size_t rook_index =
-                    tracked_piece_at(pieces, piece_count, move.to());
+                const std::size_t king_index = tracked_piece_at(pieces, piece_count, move.from());
+                const std::size_t rook_index = tracked_piece_at(pieces, piece_count, move.to());
                 if (king_index < piece_count) {
                     pieces[king_index].square =
                         chess::Square::castling_king_square(king_side, before.sideToMove());
@@ -214,9 +210,13 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
             }
         }
 
-        motif.contribution = direct ? MotifContribution::Direct
-                                    : (indirect ? MotifContribution::Indirect
-                                                : MotifContribution::None);
+        if (direct) {
+            motif.contribution = MotifContribution::Direct;
+        } else if (indirect) {
+            motif.contribution = MotifContribution::Indirect;
+        } else {
+            motif.contribution = MotifContribution::None;
+        }
     }
 }
 
@@ -234,20 +234,21 @@ std::vector<TacticLabel> tactic_labels(const chess::Board& root,
             continue;
         }
 
-        const chess::Square defender_square = captured_square(move);
-        const chess::Piece defender = before.at(defender_square);
+        const chess::Square removed_defender_square = captured_square(move);
+        const chess::Piece defender = before.at(removed_defender_square);
         if (defender == chess::Piece::NONE || defender.color() != enemy ||
             piece_value(defender.type()) == 0) {
             continue;
         }
 
         for (int target_index = 0; target_index < 64; ++target_index) {
-            const chess::Square target(target_index);
-            const chess::Piece target_piece = before.at(target);
-            if (target == defender_square || target_piece == chess::Piece::NONE ||
+            const chess::Square target_square(target_index);
+            const chess::Piece target_piece = before.at(target_square);
+            if (target_square == removed_defender_square || target_piece == chess::Piece::NONE ||
                 target_piece.color() != enemy || piece_value(target_piece.type()) == 0 ||
-                see(before, target, tactic_side) != 0 ||
-                detail::see_without_piece(before, target, tactic_side, defender_square) < 1) {
+                see(before, target_square, tactic_side) != 0 ||
+                detail::see_without_piece(before, target_square, tactic_side,
+                                          removed_defender_square) < 1) {
                 continue;
             }
 
@@ -255,9 +256,9 @@ std::vector<TacticLabel> tactic_labels(const chess::Board& root,
             for (std::size_t later = move_index + 1; later < line.size(); ++later) {
                 const chess::Board& future_before = positions[later];
                 const chess::Move future = line[later];
-                if (future_before.sideToMove() == tactic_side && future.to() == target &&
-                    future.typeOf() != chess::Move::ENPASSANT &&
-                    future_before.isCapture(future) && see(future_before, target, tactic_side) >= 1) {
+                if (future_before.sideToMove() == tactic_side && future.to() == target_square &&
+                    future.typeOf() != chess::Move::ENPASSANT && future_before.isCapture(future) &&
+                    see(future_before, target_square, tactic_side) >= 1) {
                     captured_later = true;
                     break;
                 }
@@ -271,7 +272,8 @@ std::vector<TacticLabel> tactic_labels(const chess::Board& root,
             label.side = report_side(tactic_side);
             label.ply = static_cast<int>(move_index + 1);
             label.actor = report_piece(positions[move_index + 1], move.to());
-            label.targets = {report_piece(before, defender_square), report_piece(before, target)};
+            label.targets = {report_piece(before, removed_defender_square),
+                             report_piece(before, target_square)};
             labels.push_back(std::move(label));
         }
     }

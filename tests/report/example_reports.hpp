@@ -256,17 +256,14 @@ inline constexpr const char* kAfterE4E5 =
     best.motifs.push_back(motif(MotifTag::Fork, Side::Black, 1, piece_on_square('f', 3, 'n'),
                                 {piece_on_square('e', 1, 'K'), piece_on_square('d', 4, 'Q')}));
     best.motifs.back().contribution = MotifContribution::Direct;
-    best.motifs.push_back(motif(MotifTag::PinAbsolute, Side::White, 0,
-                                piece_on_square('e', 1, 'R'),
+    best.motifs.push_back(motif(MotifTag::PinAbsolute, Side::White, 0, piece_on_square('e', 1, 'R'),
                                 {piece_on_square('e', 5, 'n'), piece_on_square('e', 8, 'k')}));
-    best.motifs.push_back(motif(MotifTag::PinRelative, Side::White, 0,
-                                piece_on_square('b', 1, 'B'),
+    best.motifs.push_back(motif(MotifTag::PinRelative, Side::White, 0, piece_on_square('b', 1, 'B'),
                                 {piece_on_square('c', 2, 'n'), piece_on_square('e', 4, 'q')}));
     best.motifs.push_back(motif(MotifTag::OverloadedDefender, Side::Black, 1,
                                 piece_on_square('d', 5, 'n'),
                                 {piece_on_square('e', 4, 'R'), piece_on_square('c', 4, 'Q')}));
-    best.motifs.push_back(motif(MotifTag::PinTactical, Side::Black, 1,
-                                piece_on_square('d', 5, 'n'),
+    best.motifs.push_back(motif(MotifTag::PinTactical, Side::Black, 1, piece_on_square('d', 5, 'n'),
                                 {piece_on_square('g', 3, 'P'), piece_on_square('e', 2, 'Q'),
                                  piece_on_square('g', 2, 'K')}));
     best.motifs.back().threat = MotifThreat{
@@ -285,8 +282,8 @@ inline constexpr const char* kAfterE4E5 =
     tactic.labels.push_back(removal_label());
     best.tactic = std::move(tactic);
 
-    report.position.motifs.push_back(motif(MotifTag::BackRankWeakness, Side::Black, 0,
-                                           piece_on_square('e', 8, 'k')));
+    report.position.motifs.push_back(
+        motif(MotifTag::BackRankWeakness, Side::Black, 0, piece_on_square('e', 8, 'k')));
     report.position.motifs.back().contribution = MotifContribution::Indirect;
     report.candidates.push_back(std::move(best));
     MoveAssessment alternative = move("g6", "g7g6", {"g6", "Qxf7#"}, 254, kF03);
@@ -347,9 +344,10 @@ inline constexpr const char* kAfterE4E5 =
 }
 
 [[nodiscard]] inline std::array<Report, 8> all_reports() {
-    return {terminal_checkmate(), side_in_check(), normal_position(), pgn_opening(),
-            tactic_with_labels(), forced_judgement(), negative_margin_judgement(),
-            refutation_judgement()};
+    return {terminal_checkmate(),        side_in_check(),
+            normal_position(),           pgn_opening(),
+            tactic_with_labels(),        forced_judgement(),
+            negative_margin_judgement(), refutation_judgement()};
 }
 
 } // namespace chesswhy::test_examples

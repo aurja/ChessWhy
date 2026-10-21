@@ -42,7 +42,10 @@ void write_motif_label(std::ostringstream& output, const Motif& motif) {
         output << "restricted movement (overloaded defender)";
         return;
     case MotifTag::PinTactical: {
-        const MotifThreat& threat = motif.threat.value();
+        if (!motif.threat.has_value()) {
+            throw std::bad_optional_access{};
+        }
+        const MotifThreat& threat = *motif.threat;
         char actor_piece = motif.actor.piece;
         if (actor_piece >= 'a' && actor_piece <= 'z') {
             actor_piece = static_cast<char>(actor_piece - ('a' - 'A'));
@@ -65,7 +68,6 @@ void write_motif_label(std::ostringstream& output, const Motif& motif) {
         return;
     }
 }
-
 
 void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs) {
     for (const auto& motif : motifs) {
@@ -123,11 +125,16 @@ void write_tactic(std::ostringstream& output, const std::optional<TacticJudgemen
         return;
     }
 
+    if (!tactic->alternative.has_value() || !tactic->margin_units.has_value()) {
+        return;
+    }
+    const TacticAlternative& alternative = tactic->alternative.value();
+    const int margin_units = tactic->margin_units.value();
     const auto flags = output.flags();
     const auto precision = output.precision();
-    output << "tactic: next best " << tactic->alternative->san << " is " << std::fixed
-           << std::setprecision(2)
-           << static_cast<double>(*tactic->margin_units) / 2000.0 << " worse [engine]\n";
+    output << "tactic: next best " << alternative.san << " is " << std::fixed
+           << std::setprecision(2) << static_cast<double>(margin_units) / 2000.0
+           << " worse [engine]\n";
     output.flags(flags);
     output.precision(precision);
     write_tactic_labels(output, tactic->labels);

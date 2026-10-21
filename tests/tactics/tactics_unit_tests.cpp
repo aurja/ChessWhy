@@ -117,12 +117,15 @@ line_motifs_from(std::string_view fen, std::initializer_list<std::string_view> u
         !square_name_is_valid(value["square"])) {
         return false;
     }
-    constexpr std::array kinds{
-        chesswhy::ThreatKind::Fork,          chesswhy::ThreatKind::Skewer,
-        chesswhy::ThreatKind::DiscoveredCheck, chesswhy::ThreatKind::DiscoveredAttack,
-        chesswhy::ThreatKind::DoubleCheck,    chesswhy::ThreatKind::BackRankMate,
-        chesswhy::ThreatKind::Promotion,      chesswhy::ThreatKind::Checkmate,
-        chesswhy::ThreatKind::Capture};
+    constexpr std::array kinds{chesswhy::ThreatKind::Fork,
+                               chesswhy::ThreatKind::Skewer,
+                               chesswhy::ThreatKind::DiscoveredCheck,
+                               chesswhy::ThreatKind::DiscoveredAttack,
+                               chesswhy::ThreatKind::DoubleCheck,
+                               chesswhy::ThreatKind::BackRankMate,
+                               chesswhy::ThreatKind::Promotion,
+                               chesswhy::ThreatKind::Checkmate,
+                               chesswhy::ThreatKind::Capture};
     const std::string kind = value["kind"].get<std::string>();
     return std::ranges::any_of(kinds, [kind](chesswhy::ThreatKind candidate) {
         return chesswhy::to_string(candidate) == kind;
@@ -519,9 +522,9 @@ TEST_CASE("pin tactical options and threat ordering are honored", "[unit]") {
     const auto rook_pin = std::ranges::find_if(rook_case, [](const Motif& motif) {
         return motif.tag == MotifTag::PinTactical && motif.side == Side::White &&
                motif.actor.square == static_cast<std::uint8_t>(square("a7").index()) &&
-               motif.threat == chesswhy::MotifThreat{
-                                   .kind = ThreatKind::Promotion,
-                                   .square = static_cast<std::uint8_t>(square("a8").index())};
+               motif.threat ==
+                   chesswhy::MotifThreat{.kind = ThreatKind::Promotion,
+                                         .square = static_cast<std::uint8_t>(square("a8").index())};
     });
     REQUIRE(rook_pin != rook_case.end());
     CHECK(rook_pin->targets ==
@@ -530,20 +533,17 @@ TEST_CASE("pin tactical options and threat ordering are honored", "[unit]") {
 
     const chess::Board discovery("k7/8/p7/8/N7/8/8/R6K w - - 0 1");
     const auto enabled = position_motifs(discovery);
-    CHECK(std::ranges::any_of(enabled, [](const Motif& motif) {
-        return motif.tag == MotifTag::PinTactical;
-    }));
+    CHECK(std::ranges::any_of(
+        enabled, [](const Motif& motif) { return motif.tag == MotifTag::PinTactical; }));
     const auto disabled = position_motifs(discovery, MotifOptions{.pin_tactical = false});
-    CHECK(std::ranges::none_of(disabled, [](const Motif& motif) {
-        return motif.tag == MotifTag::PinTactical;
-    }));
+    CHECK(std::ranges::none_of(
+        disabled, [](const Motif& motif) { return motif.tag == MotifTag::PinTactical; }));
     chess::Board line_board = discovery;
     const std::vector<chess::Move> discovery_line = parse_line(line_board, {"a1a2"});
-    const auto disabled_line = chesswhy::tactics::line_motifs(
-        discovery, discovery_line, MotifOptions{.pin_tactical = false});
-    CHECK(std::ranges::none_of(disabled_line, [](const Motif& motif) {
-        return motif.tag == MotifTag::PinTactical;
-    }));
+    const auto disabled_line = chesswhy::tactics::line_motifs(discovery, discovery_line,
+                                                              MotifOptions{.pin_tactical = false});
+    CHECK(std::ranges::none_of(
+        disabled_line, [](const Motif& motif) { return motif.tag == MotifTag::PinTactical; }));
 
     std::vector<const Motif*> ordered;
     for (const Motif& motif : enabled) {
@@ -556,10 +556,17 @@ TEST_CASE("pin tactical options and threat ordering are honored", "[unit]") {
         }
     }
     REQUIRE(ordered.size() == 2);
-    CHECK(ordered[0]->threat->kind == ThreatKind::DiscoveredCheck);
-    CHECK(ordered[0]->threat->square == static_cast<std::uint8_t>(square("b2").index()));
-    CHECK(ordered[1]->threat->kind == ThreatKind::DoubleCheck);
-    CHECK(ordered[1]->threat->square == static_cast<std::uint8_t>(square("b6").index()));
+    const auto& first_threat = ordered[0]->threat;
+    const auto& second_threat = ordered[1]->threat;
+    REQUIRE(first_threat.has_value());
+    REQUIRE(second_threat.has_value());
+    if (!first_threat.has_value() || !second_threat.has_value()) {
+        return;
+    }
+    CHECK(first_threat->kind == ThreatKind::DiscoveredCheck);
+    CHECK(first_threat->square == static_cast<std::uint8_t>(square("b2").index()));
+    CHECK(second_threat->kind == ThreatKind::DoubleCheck);
+    CHECK(second_threat->square == static_cast<std::uint8_t>(square("b6").index()));
 }
 
 TEST_CASE("pin tactical capture threats identify en passant landing squares", "[unit]") {
@@ -577,15 +584,16 @@ TEST_CASE("pin tactical capture threats identify en passant landing squares", "[
         return motif.tag == MotifTag::PinTactical && motif.side == Side::White &&
                motif.actor.square == static_cast<std::uint8_t>(square("e5").index()) &&
                motif.threat ==
-                   chesswhy::MotifThreat{
-                       .kind = ThreatKind::Capture,
-                       .square = static_cast<std::uint8_t>(square("d6").index())};
+                   chesswhy::MotifThreat{.kind = ThreatKind::Capture,
+                                         .square = static_cast<std::uint8_t>(square("d6").index())};
     });
     REQUIRE(capture != motifs.end());
-    CHECK(capture->targets ==
-          std::vector<PieceOnSquare>{
-              PieceOnSquare{.square = static_cast<std::uint8_t>(square("d3").index()), .piece = 'n'},
-              PieceOnSquare{.square = static_cast<std::uint8_t>(square("d5").index()), .piece = 'p'}});
+    CHECK(
+        capture->targets ==
+        std::vector<PieceOnSquare>{
+            PieceOnSquare{.square = static_cast<std::uint8_t>(square("d3").index()), .piece = 'n'},
+            PieceOnSquare{.square = static_cast<std::uint8_t>(square("d5").index()),
+                          .piece = 'p'}});
 }
 
 TEST_CASE("pin tactical identity includes its threat", "[unit]") {
@@ -593,10 +601,8 @@ TEST_CASE("pin tactical identity includes its threat", "[unit]") {
     const chess::Board root("k7/8/p7/8/Nb6/8/R7/4K3 b - - 0 1");
     chess::Board after = root;
     const std::vector<chess::Move> line = parse_line(after, {"b4f8"});
-    const auto unblocked_line =
-        line_motifs_from("k7/8/8/8/Nb6/8/R7/4K3 w - - 0 1", {"a4c3"});
-    expect_motif(unblocked_line, MotifTag::DiscoveredCheck, Side::White, "a2", 'R',
-                 {{"a8", 'k'}});
+    const auto unblocked_line = line_motifs_from("k7/8/8/8/Nb6/8/R7/4K3 w - - 0 1", {"a4c3"});
+    expect_motif(unblocked_line, MotifTag::DiscoveredCheck, Side::White, "a2", 'R', {{"a8", 'k'}});
     const auto previous = chesswhy::tactics::position_motifs(root);
     const auto walked = chesswhy::tactics::line_motifs(root, line);
     const auto same_actor_and_targets = [](const Motif& motif) {
@@ -612,17 +618,15 @@ TEST_CASE("pin tactical identity includes its threat", "[unit]") {
     const auto before = std::ranges::find_if(previous, [&](const Motif& motif) {
         return same_actor_and_targets(motif) &&
                motif.threat ==
-                   chesswhy::MotifThreat{
-                       .kind = ThreatKind::DiscoveredCheck,
-                       .square = static_cast<std::uint8_t>(square("c3").index())};
+                   chesswhy::MotifThreat{.kind = ThreatKind::DiscoveredCheck,
+                                         .square = static_cast<std::uint8_t>(square("c3").index())};
     });
     REQUIRE(before != previous.end());
     const auto current = std::ranges::find_if(walked, [&](const Motif& motif) {
         return same_actor_and_targets(motif) &&
-               motif.threat ==
-                   chesswhy::MotifThreat{
-                       .kind = ThreatKind::DiscoveredCheck,
-                       .square = static_cast<std::uint8_t>(square("b2").index())} &&
+               motif.threat == chesswhy::MotifThreat{.kind = ThreatKind::DiscoveredCheck,
+                                                     .square = static_cast<std::uint8_t>(
+                                                         square("b2").index())} &&
                motif.ply == 1;
     });
     CHECK(current != walked.end());
@@ -712,9 +716,9 @@ TEST_CASE("motif fixtures exercise every frozen include and exclude", "[unit]") 
 }
 namespace {
 
-[[nodiscard]] Motif test_motif(MotifTag tag, Side side, int ply, std::string_view actor_square,
-                               char actor_piece,
-                               std::initializer_list<std::pair<std::string_view, char>> targets = {}) {
+[[nodiscard]] Motif
+test_motif(MotifTag tag, Side side, int ply, std::string_view actor_square, char actor_piece,
+           std::initializer_list<std::pair<std::string_view, char>> targets = {}) {
     Motif motif;
     motif.tag = tag;
     motif.side = side;
@@ -762,8 +766,7 @@ namespace {
 }
 
 [[nodiscard]] bool valid_contribution_fixture_instance(const json& expected) {
-    if (!expected.is_object() ||
-        expected.size() != (expected.contains("threat") ? 8U : 7U) ||
+    if (!expected.is_object() || expected.size() != (expected.contains("threat") ? 8U : 7U) ||
         !expected.contains("tag") || !valid_fixture_tag(expected["tag"]) ||
         !expected.contains("side") || !expected["side"].is_string() ||
         !(expected["side"] == "white" || expected["side"] == "black") ||
@@ -792,8 +795,8 @@ namespace {
     if (!expected.is_object()) {
         return false;
     }
-    constexpr std::array<std::string_view, 6> allowed_fields{
-        "tag", "side", "ply", "actor", "targets", "reason"};
+    constexpr std::array<std::string_view, 6> allowed_fields{"tag",   "side",    "ply",
+                                                             "actor", "targets", "reason"};
     for (auto iterator = expected.begin(); iterator != expected.end(); ++iterator) {
         if (std::ranges::none_of(allowed_fields, [&iterator](std::string_view field) {
                 return iterator.key() == field;
@@ -801,10 +804,10 @@ namespace {
             return false;
         }
     }
-    if (include && (expected.size() != allowed_fields.size() || !expected.contains("tag") ||
-                    !expected.contains("side") || !expected.contains("ply") ||
-                    !expected.contains("actor") || !expected.contains("targets") ||
-                    !expected.contains("reason"))) {
+    if (include &&
+        (expected.size() != allowed_fields.size() || !expected.contains("tag") ||
+         !expected.contains("side") || !expected.contains("ply") || !expected.contains("actor") ||
+         !expected.contains("targets") || !expected.contains("reason"))) {
         return false;
     }
     if (expected.contains("tag") &&
@@ -843,8 +846,7 @@ namespace {
         return false;
     }
     if (expected.contains("threat") &&
-        (!motif.threat ||
-         expected["threat"]["kind"] != chesswhy::to_string(motif.threat->kind) ||
+        (!motif.threat || expected["threat"]["kind"] != chesswhy::to_string(motif.threat->kind) ||
          expected["threat"]["square"] != square_name(motif.threat->square))) {
         return false;
     }
@@ -856,8 +858,7 @@ namespace {
     return true;
 }
 
-[[nodiscard]] bool label_matches_include(const chesswhy::TacticLabel& label,
-                                         const json& expected) {
+[[nodiscard]] bool label_matches_include(const chesswhy::TacticLabel& label, const json& expected) {
     if (expected["tag"] != chesswhy::to_string(label.tag) ||
         expected["side"] != chesswhy::to_string(label.side) ||
         expected["ply"].get<int>() != label.ply ||
@@ -901,8 +902,7 @@ namespace {
     return true;
 }
 
-[[nodiscard]] std::vector<chess::Move> parse_fixture_line(chess::Board board,
-                                                           const json& moves) {
+[[nodiscard]] std::vector<chess::Move> parse_fixture_line(chess::Board board, const json& moves) {
     std::vector<chess::Move> line;
     line.reserve(moves.size());
     for (const json& move_json : moves) {
@@ -1067,10 +1067,9 @@ TEST_CASE("contribution none covers Y-side, ply-n and ply-zero motifs", "[unit]"
     const chess::Board root("7k/8/8/8/8/8/8/K1R5 w - - 0 1");
     chess::Board board = root;
     const std::vector<chess::Move> line = parse_line(board, {"c1c2"});
-    std::vector<Motif> motifs{
-        test_motif(MotifTag::HangingPiece, Side::Black, 0, "h8", 'k'),
-        test_motif(MotifTag::HangingPiece, Side::White, 1, "c2", 'R'),
-        test_motif(MotifTag::HangingPiece, Side::White, 0, "a1", 'K')};
+    std::vector<Motif> motifs{test_motif(MotifTag::HangingPiece, Side::Black, 0, "h8", 'k'),
+                              test_motif(MotifTag::HangingPiece, Side::White, 1, "c2", 'R'),
+                              test_motif(MotifTag::HangingPiece, Side::White, 0, "a1", 'K')};
     chesswhy::tactics::judge_contributions(root, line, motifs);
     for (const Motif& motif : motifs) {
         REQUIRE(motif.contribution.has_value());
@@ -1171,8 +1170,7 @@ TEST_CASE("tactic fixtures exercise contributions and labels", "[unit]") {
         const chess::Board root_board(fixture["fen"].get<std::string>());
         const std::vector<chess::Move> line = parse_fixture_line(root_board, fixture["line_uci"]);
         std::vector<Motif> motifs = chesswhy::tactics::position_motifs(root_board);
-        const std::vector<Motif> line_motifs =
-            chesswhy::tactics::line_motifs(root_board, line);
+        const std::vector<Motif> line_motifs = chesswhy::tactics::line_motifs(root_board, line);
         motifs.insert(motifs.end(), line_motifs.begin(), line_motifs.end());
         chesswhy::tactics::judge_contributions(root_board, line, motifs);
         const std::vector<chesswhy::TacticLabel> labels =
@@ -1186,10 +1184,9 @@ TEST_CASE("tactic fixtures exercise contributions and labels", "[unit]") {
             REQUIRE(valid_contribution_fixture_instance(expected));
             REQUIRE(expected["side"] == tactic_side_name);
             REQUIRE(expected["ply"].get<int>() <= static_cast<int>(line.size()));
-            const auto found = std::ranges::find_if(
-                motifs, [&expected, &matched, &motifs](const Motif& actual) {
-                    const std::size_t index =
-                        static_cast<std::size_t>(&actual - motifs.data());
+            const auto found =
+                std::ranges::find_if(motifs, [&expected, &matched, &motifs](const Motif& actual) {
+                    const auto index = static_cast<std::size_t>(&actual - motifs.data());
                     return !matched[index] && contribution_matches(actual, expected);
                 });
             if (found == motifs.end()) {
@@ -1235,8 +1232,8 @@ TEST_CASE("tactic fixtures exercise contributions and labels", "[unit]") {
             REQUIRE(valid_label_fixture_instance(forbidden, false));
             REQUIRE((!forbidden.contains("ply") ||
                      forbidden["ply"].get<int>() <= static_cast<int>(line.size())));
-            const auto found = std::ranges::find_if(
-                labels, [&forbidden](const chesswhy::TacticLabel& label) {
+            const auto found =
+                std::ranges::find_if(labels, [&forbidden](const chesswhy::TacticLabel& label) {
                     return label_matches_exclude(label, forbidden);
                 });
             if (found != labels.end()) {
