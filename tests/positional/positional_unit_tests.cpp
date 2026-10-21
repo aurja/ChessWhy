@@ -26,7 +26,7 @@ using chesswhy::Side;
 using nlohmann::json;
 
 [[nodiscard]] chess::Square square(std::string_view name) {
-    return chess::Square(name);
+    return {name};
 }
 
 [[nodiscard]] const PositionalFeature*
@@ -602,7 +602,8 @@ TEST_CASE("positional identity follows each tag's identity column", "[unit]") {
         return PieceOnSquare{.square = static_cast<std::uint8_t>(square(square_value).index()),
                              .piece = letter};
     };
-    const auto make_feature = [](PositionalTag tag, Side side, std::vector<PieceOnSquare> pieces,
+    const auto make_feature = [](PositionalTag tag, Side side,
+                                 const std::vector<PieceOnSquare>& pieces,
                                  std::optional<std::uint8_t> file, std::optional<int> value) {
         PositionalFeature result;
         result.tag = tag;
@@ -816,8 +817,8 @@ TEST_CASE("line changes compare identities and hold at the final position", "[un
         const PositionalChange& current = changes[index];
         CHECK(previous.ply <= current.ply);
         if (previous.ply == current.ply) {
-            CHECK(!(previous.change == PositionalChangeKind::Disappears &&
-                    current.change == PositionalChangeKind::Appears));
+            CHECK((previous.change != PositionalChangeKind::Disappears ||
+                   current.change != PositionalChangeKind::Appears));
         }
     }
 }

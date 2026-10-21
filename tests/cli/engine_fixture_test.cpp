@@ -44,10 +44,10 @@ using Clock = std::chrono::steady_clock;
     for (const auto& value : json_args) {
         args.push_back(value.get<std::string>());
     }
-    for (std::size_t index = 0; index + 1 < args.size(); ++index) {
-        if (args[index] == "--pgn") {
-            args[index + 1] =
-                (std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests/fixtures" / args[index + 1])
+    for (std::size_t index = 1; index < args.size(); ++index) {
+        if (args[index - 1] == "--pgn") {
+            args[index] =
+                (std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests/fixtures" / args[index])
                     .string();
         }
     }
@@ -274,13 +274,10 @@ void check_expectations(const Json& fixture, const Json& report,
                         if (!feature.is_object()) {
                             return false;
                         }
-                        for (auto field = instance.begin(); field != instance.end(); ++field) {
-                            if (!feature.contains(field.key()) ||
-                                feature.at(field.key()) != field.value()) {
-                                return false;
-                            }
-                        }
-                        return true;
+                        return std::ranges::all_of(instance.items(), [&](const auto& field) {
+                            return feature.contains(field.key()) &&
+                                   feature.at(field.key()) == field.value();
+                        });
                     });
                 std::string expectation = "positional_include:";
                 expectation += pointer;

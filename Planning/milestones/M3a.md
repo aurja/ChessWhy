@@ -354,9 +354,10 @@ Smoke command: `build/release/chesswhy --fen
 'r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4' --move Bxc6 --budget
 standard --json --no-llm` (after `1.e4 e5 2.Nf3 Nc6 3.Bb5 a6`): `asked_move.positional`
 lists black `doubled_pawns` on c at ply 2 with `holds_at_end` true, and white
-`bishop_pair` disappearing at ply 1.
+`bishop_pair` disappearing at ply 2 (Black's recapture; the text said ply 1 before 2026-10-22).
 
 ## 15. Contract changes
 
 | Date | Change | Reason |
 |---|---|---|
+| 2026-10-22 | Smoke command: white `bishop_pair` disappears at ply 2, not ply 1 (§14) | After 4.Bxc6 (ply 1) White still has bishops on c6 and c1; the pair goes when Black recaptures at ply 2. The report was right; the frozen smoke text was wrong |

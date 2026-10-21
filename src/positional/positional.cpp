@@ -433,16 +433,16 @@ void add_piece_features(const chess::Board& board, chess::Color side,
         ++pawn_color_counts[static_cast<std::size_t>(square_is_light(pawn))];
     }
     for (const bool bishop_color : {false, true}) {
-        const std::size_t color_index = static_cast<std::size_t>(bishop_color);
+        const auto color_index = static_cast<std::size_t>(bishop_color);
         const std::size_t other_index = 1U - color_index;
         if (pawn_color_counts[color_index] <= pawn_color_counts[other_index]) {
             continue;
         }
         SquareList same_color_bishops;
-        std::copy_if(bishops.begin(), bishops.end(), std::back_inserter(same_color_bishops),
-                     [bishop_color](chess::Square bishop) {
-                         return square_is_light(bishop) == bishop_color;
-                     });
+        std::ranges::copy_if(bishops, std::back_inserter(same_color_bishops),
+                             [bishop_color](chess::Square bishop) {
+                                 return square_is_light(bishop) == bishop_color;
+                             });
         if (same_color_bishops.empty()) {
             continue;
         }
@@ -597,7 +597,7 @@ int space(const chess::Board& board, chess::Color side) {
         for (int rank = 0; rank < 8; ++rank) {
             const chess::Square square{chess::File(file), chess::Rank(rank)};
             const int relative = relative_rank(square, side);
-            const std::size_t file_index = static_cast<std::size_t>(file);
+            const auto file_index = static_cast<std::size_t>(file);
             if (relative >= 2 && relative <= 4 && (own_pawns & square_bit(square)) == 0 &&
                 (enemy_pawn_attacks & square_bit(square)) == 0 &&
                 frontmost_pawn_rank[file_index] > relative) {

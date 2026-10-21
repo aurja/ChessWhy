@@ -24,7 +24,7 @@ struct BuiltTable {
     std::string summary;
 };
 
-BuiltTable build(std::string_view pgn, BuildOptions options) {
+BuiltTable build(std::string_view pgn, const BuildOptions& options) {
     std::istringstream input{std::string(pgn)};
     std::ostringstream output;
     std::ostringstream log;
@@ -167,7 +167,7 @@ TEST_CASE("minimum-count boundary, move tie ordering, and table lookup round tri
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -\t2\t1\t1\t0\td2d4:1,e2e4:1\n";
     CHECK(result.contents.ends_with(expected_row));
 
-    TemporaryTable file(result.contents);
+    const TemporaryTable file(result.contents);
     const auto table = Table::load(file.path());
     const auto found = table.find(chess::Board{});
     CHECK(found.found);
@@ -196,7 +196,7 @@ TEST_CASE("minimum-count boundary, move tie ordering, and table lookup round tri
 
 TEST_CASE("games table loader rejects malformed headers, rows, and ordering", "[games][unit]") {
     const auto expect_bad = [](const std::string& contents) {
-        TemporaryTable file(contents);
+        const TemporaryTable file(contents);
         CHECK_THROWS_AS(Table::load(file.path()), GamesError);
     };
 
@@ -214,12 +214,13 @@ TEST_CASE("games table loader rejects malformed headers, rows, and ordering", "[
     expect_bad(
         valid_table("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -\t2\t2\t0\t0\ta1a:2\n"));
 
-    TemporaryTable malformed_key(valid_table("not-a-fen\t2\t2\t0\t0\td2d4:1,e2e4:1\n"));
+    const TemporaryTable malformed_key(valid_table("not-a-fen\t2\t2\t0\t0\td2d4:1,e2e4:1\n"));
     const auto key_table = Table::load(malformed_key.path());
     CHECK_FALSE(key_table.find(chess::Board{}).found);
 
-    TemporaryTable illegal_move(valid_table("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -\t"
-                                            "2\t2\t0\t0\ta1a8:2\n"));
+    const TemporaryTable illegal_move(
+        valid_table("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -\t"
+                    "2\t2\t0\t0\ta1a8:2\n"));
     const auto illegal_move_table = Table::load(illegal_move.path());
     CHECK_THROWS_AS(illegal_move_table.find(chess::Board{}), GamesError);
 

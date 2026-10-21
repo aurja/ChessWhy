@@ -219,7 +219,7 @@ private:
     }
 
     std::istream& input_;
-    std::array<char, 64 * 1024> buffer_{};
+    std::array<char, static_cast<std::size_t>(64) * 1024> buffer_{};
     std::size_t buffer_position_ = 0;
     std::size_t buffer_size_ = 0;
     bool eof_ = false;

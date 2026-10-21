@@ -207,8 +207,11 @@ void write_game_move_counts(std::ostringstream& output, const MoveAssessment& mo
                 break;
             }
         }
-        if (move_count) {
-            output << "games: played in " << move_count->games << " of " << source.games.value()
+        if (move_count != nullptr) {
+            if (!source.games.has_value()) {
+                throw std::bad_optional_access{};
+            }
+            output << "games: played in " << move_count->games << " of " << *source.games
                    << " games [games]\n";
         } else {
             output << "games: not played in these games [games]\n";
@@ -224,11 +227,14 @@ void write_games_summary(std::ostringstream& output, const GamesInfo& games) {
                    << " plies) [games]\n";
             continue;
         }
-        output << "games: " << source.games.value() << " games, " << source.players
+        if (!source.games.has_value() || !source.white.has_value() || !source.draws.has_value() ||
+            !source.black.has_value()) {
+            throw std::bad_optional_access{};
+        }
+        output << "games: " << *source.games << " games, " << source.players
                << " (platform: " << source.platform << "; source: " << source.credit
-               << "; months: " << source.months << "): White won " << source.white.value()
-               << ", draws " << source.draws.value() << ", Black won " << source.black.value()
-               << " [games]\n";
+               << "; months: " << source.months << "): White won " << *source.white << ", draws "
+               << *source.draws << ", Black won " << *source.black << " [games]\n";
     }
 }
 

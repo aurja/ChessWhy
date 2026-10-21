@@ -43,7 +43,7 @@ using PawnFilesBySide = std::array<PawnsByFile, 2>;
 }
 
 [[nodiscard]] Square square_at(int file, int rank) noexcept {
-    return Square(file + rank * 8);
+    return {file + (rank * 8)};
 }
 
 [[nodiscard]] std::optional<Square> offset(Square square, int file_delta, int rank_delta) noexcept {
@@ -92,8 +92,8 @@ using PawnFilesBySide = std::array<PawnsByFile, 2>;
         return false;
     }
 
-    const int step_file = (file_delta > 0) - (file_delta < 0);
-    const int step_rank = (rank_delta > 0) - (rank_delta < 0);
+    const int step_file = static_cast<int>(file_delta > 0) - static_cast<int>(file_delta < 0);
+    const int step_rank = static_cast<int>(rank_delta > 0) - static_cast<int>(rank_delta < 0);
     int file = file_of(from) + step_file;
     int rank = rank_of(from) + step_rank;
     while (file != file_of(target) || rank != rank_of(target)) {
@@ -156,7 +156,7 @@ using PawnFilesBySide = std::array<PawnsByFile, 2>;
     const Piece piece = board.at(square);
     char letter = letters[static_cast<std::size_t>(piece.type())];
     if (piece.color() == Color::BLACK && letter != ' ') {
-        letter = static_cast<char>(letter - 'A' + 'a');
+        letter = static_cast<char>((letter - 'A') + 'a');
     }
     return {.square = static_cast<std::uint8_t>(square.index()), .piece = letter};
 }
@@ -350,7 +350,7 @@ std::vector<PositionalFeature> reference_features(const chess::Board& board) {
             }
             const bool has_adjacent_pawn =
                 (file > 0 && !own_by_file[static_cast<std::size_t>(file - 1)].empty()) ||
-                (file < 7 && !own_by_file[static_cast<std::size_t>(file + 1)].empty());
+                (file < 7 && !own_by_file[static_cast<std::size_t>(file) + 1].empty());
             if (!has_adjacent_pawn) {
                 append(features, PositionalTag::IsolatedPawn, side, printed_pieces(board, pawns),
                        static_cast<std::uint8_t>(file));
@@ -727,6 +727,8 @@ bool same_identity(const PositionalFeature& left, const PositionalFeature& right
     case PositionalTag::ConnectedPassedPawns: {
         std::vector<std::uint8_t> left_files;
         std::vector<std::uint8_t> right_files;
+        left_files.reserve(left.pieces.size());
+        right_files.reserve(right.pieces.size());
         for (const PieceOnSquare piece : left.pieces) {
             left_files.push_back(static_cast<std::uint8_t>(piece.square % 8));
         }

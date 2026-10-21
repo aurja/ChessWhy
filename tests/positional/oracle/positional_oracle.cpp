@@ -97,8 +97,8 @@ constexpr std::array<PositionalTag, 24> kTags{
 
 [[nodiscard]] std::string square_name(std::uint8_t square) {
     std::string name(2, ' ');
-    name[0] = static_cast<char>('a' + square % 8);
-    name[1] = static_cast<char>('1' + square / 8);
+    name[0] = static_cast<char>('a' + (square % 8));
+    name[1] = static_cast<char>('1' + (square / 8));
     return name;
 }
 

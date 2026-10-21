@@ -5,9 +5,11 @@ reports today and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (the
 code is in [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md)
 (§6.2 for the fixture kinds); the tests that read each set are in [TESTS.md](TESTS.md).
 
-**Snapshot:** F01–F24 and T/C/U rows: 2026-10-21, PostM2_EM1 milestone gate (commit
-`b4fbb30`, after batch 3, `pin_tactical`). F25–F30: 2026-10-22, M3 batch 2 (analysis and
-CLI wiring of positional facts and game counts). §8 P rows: 2026-10-22, M3 batch 1.
+**Snapshot:** F01–F24: rechecked 2026-10-22 at the M3 milestone gate (`ed60fc5`); every
+fact unchanged since PostM2_EM1 (commit `b4fbb30`), and F15 now has game counts. T/C/U
+rows: 2026-10-21, PostM2_EM1 gate; their tests still pass unchanged. F25–F30: 2026-10-22,
+M3 batch 2 (analysis and CLI wiring of positional facts and game counts). §8 P rows:
+2026-10-22, M3 batch 1.
 Release build, Stockfish 19 from `assets/`, `Threads=1`, game-count table
 `lichess_broadcast_2200@e0cb7fab3212`. F reports now also list `pin_tactical`
 instances, positional facts and game counts; the columns below name only the fixture
@@ -66,7 +68,7 @@ which is a load effect, not a wrong result.
 | F12 | <img src="boards/F12.svg" width="200" alt="F12"> | `1r3bk1/5pp1/b4q1p/2nPN3/2p5/N2nR2P/1P3PP1/1BBQ2K1 w - - 1 26`<br>Asked: **Ng4**<br><sub>Kasparov, Gary - Karpov, Anatoly, Wch33-KK3 1986, before 26.Ng4</sub> | mistake against a material threat | Eval: White ES 0.52 (+39 cp).<br>Best **Qc2**, not a tactic (margin 0.03 over Bxd3).<br>Fine moves: Qc2, Bxd3.<br>Black threatens Nxe5 (material); more urgent: black (consequence class).<br>Asked **Ng4**: mistake, loses 0.17 ES. Refutation Qf5 Rg3 Kh8 is not a tactic (margin 0.12 over Qh4). | |
 | F13 | <img src="boards/F13.svg" width="200" alt="F13"> | `rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3` | checkmate: terminal, no searches | Terminal: checkmate; no candidates.<br>Opening: Barnes Opening: Fool's Mate. | |
 | F14 | <img src="boards/F14.svg" width="200" alt="F14"> | `7k/5Q2/6K1/8/8/8/8/8 b - - 0 1` | stalemate: terminal, no searches | Terminal: stalemate; no candidates. | |
-| F15 | <img src="boards/F15.svg" width="200" alt="F15"> | PGN `two_games.pgn` game 2, ply 4 | PGN input: second game, ply 4 | Eval: White ES 0.52 (+28 cp).<br>Best **Nf3**, not a tactic (margin 0.00 over Nc3).<br>Fine moves: Nf3, Nc3, cxd5, g3, e3 and more.<br>No concrete Black threat; more urgent: neither (quiet).<br>Opening: Queen's Gambit Declined; last named: Queen's Gambit Declined. | |
+| F15 | <img src="boards/F15.svg" width="200" alt="F15"> | PGN `two_games.pgn` game 2, ply 4 | PGN input: second game, ply 4 | Eval: White ES 0.52 (+28 cp).<br>Best **Nf3**, not a tactic (margin 0.00 over Nc3).<br>Fine moves: Nf3, Nc3, cxd5, g3, e3 and more.<br>No concrete Black threat; more urgent: neither (quiet).<br>Opening: Queen's Gambit Declined; last named: Queen's Gambit Declined.<br>Games: 10,213 (White 3,538, draws 4,441, Black 2,234); Nc3 5,388, Nf3 4,654, g3 90, cxd5 68, e3 10. | |
 | F17 | <img src="boards/F17.svg" width="200" alt="F17"> | `4K3/3P2r1/4k3/8/8/8/8/8 w - - 3 70`<br>Asked: **d8=N+**<br><sub>Korchnoi, Viktor - Kasparov, Gary, London 1983, round 6, annotator's line 60...Rg6 61.Rg2, before 70.d8=N+</sub> | underpromotion is the only fine move; queening allows mate | Eval: White ES 0.49 (-20 cp).<br>Best **d8=N+**, a tactic (margin 0.49 over Kd8).<br>Fine moves: d8=N+.<br>Black threatens Rg8# (mate); more urgent: black (consequence class).<br>Asked **d8=N+**: fine. | |
 | F18 | <img src="boards/F18.svg" width="200" alt="F18"> | `4r3/1p3Pk1/3p4/8/8/pPnn2q1/P7/KN4R1 w - - 0 36`<br>Asked: **fxe8=N+**<br><sub>De la Bourdonnais, Louis Mahe - McDonnell, Alexander, London m1 1834, annotator's line 34.Nb1 Kxg7 35.gxf7+ Qxg3, before 36.fxe8=N+</sub> | underpromotion by capture is the only fine move | Eval: White ES 1.00 (+656 cp).<br>Best **fxe8=N+**, a tactic (margin 0.50 over fxe8=Q).<br>Fine moves: fxe8=N+.<br>Black threatens Qxg1 (mate); more urgent: black (consequence class).<br>Asked **fxe8=N+**: fine. | |
 | F19 | <img src="boards/F19.svg" width="200" alt="F19"> | `7k/5K2/6Q1/8/8/8/8/8 w - - 0 1`<br>Asked: **Qg7**<br><sub>constructed: stalemate in the null-move position (search B)</sub> | search B skips a stalemated null-move position | Eval: mate in 1 for White.<br>Best **Qh5#**, not a tactic (margin 0.00 over Qg8#).<br>Fine moves: Qh5#, Qg8#, Qh6#, Qg7#, Qf6+ and more.<br>Asked **Qg7#**: fine. | |

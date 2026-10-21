@@ -16,7 +16,7 @@ int parse_integer(std::string_view value, std::string_view option) {
     return parsed;
 }
 
-chesswhy::games::BuildOptions parse_options(int argc, char* argv[]) {
+chesswhy::games::BuildOptions parse_options(int argc, char** argv) {
     chesswhy::games::BuildOptions options;
     options.months = "2020-01..2026-09";
     for (int index = 1; index < argc; ++index) {

@@ -100,7 +100,7 @@ void require_header_line(std::istream& input, std::string_view expected) {
 Exclusions parse_exclusions(std::string_view text) {
     std::istringstream fields{std::string(text)};
     Exclusions result;
-    std::array<std::pair<std::string_view, int*>, 5> values{{
+    const std::array<std::pair<std::string_view, int*>, 5> values{{
         {"variant=", &result.variant},
         {"setup=", &result.setup},
         {"rating=", &result.rating},
@@ -299,7 +299,7 @@ void build_table(std::istream& in, std::ostream& out, std::ostream& log,
             << '\t' << position->black << '\t';
         std::vector<std::pair<std::string, int>> moves(position->moves.begin(),
                                                        position->moves.end());
-        std::sort(moves.begin(), moves.end(), [](const auto& left, const auto& right) {
+        std::ranges::sort(moves, [](const auto& left, const auto& right) {
             return left.second != right.second ? left.second > right.second
                                                : left.first < right.first;
         });
@@ -420,7 +420,7 @@ GameSourceCounts Table::find(const chess::Board& board) const {
     result.black = found->second.black;
     result.moves.reserve(found->second.moves.size());
     for (const auto& [uci, count] : found->second.moves) {
-        chess::Move move;
+        chess::Move move{};
         try {
             move = input::parse_move(board, uci);
         } catch (const input::InputError&) {
