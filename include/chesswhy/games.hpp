@@ -53,12 +53,15 @@ void build_table(std::istream& in, std::ostream& out, std::ostream& log,
 
 class Table {
 public:
-    // Reads a §4.3 file; header strings and limits come from its header lines.
+    // Reads a §4.3 file; header strings and limits come from its header lines. Checks
+    // the header and every row's shape, counts, order and move-count sums; a row's
+    // position key and move legality are checked when `find` returns that row.
     [[nodiscard]] static Table load(const std::filesystem::path& file); // throws GamesError
 
     // Counts for the analysed position (key openings::position_key). Not found: header
     // fields set, found false, counts null, moves empty. `table` is kTable; each move's
-    // `san` is computed on `board`.
+    // `san` is computed on `board`. Throws GamesError when the found row lists a move
+    // that is illegal on `board`.
     [[nodiscard]] GameSourceCounts find(const chess::Board& board) const;
 
 private:

@@ -10,6 +10,7 @@ target_link_libraries(chesswhy_cli
         chesswhy_render
     PRIVATE
         chesswhy_warnings
+        chesswhy_games
         chesswhy_paths)
 
 add_executable(chesswhy main.cpp)

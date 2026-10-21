@@ -159,6 +159,12 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     CHECK(defaults.threads == 1);
     CHECK(defaults.engine == std::filesystem::path(CHESSWHY_ASSETS_DIR) / "engines/stockfish");
     CHECK(defaults.openings == std::filesystem::path(CHESSWHY_ASSETS_DIR) / "data/openings");
+    CHECK(defaults.games ==
+          std::filesystem::path(CHESSWHY_ASSETS_DIR) / "data/games/lichess_broadcast_2200.tsv");
+
+    const std::vector<std::string_view> games_args{"--fen", fen, "--games", "/tmp/games.tsv"};
+    const auto custom_games = chesswhy::cli::parse_args(games_args);
+    CHECK(custom_games.games == std::filesystem::path("/tmp/games.tsv"));
 
     const std::vector<std::string_view> help_args{"--help"};
     const auto help = chesswhy::cli::parse_args(help_args);
@@ -185,4 +191,15 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     expect_error({"--fen"}, "--fen");
     expect_error({"--fen", fen, "--mystery"}, "--mystery");
     expect_error({}, "exactly one of --fen or --pgn");
+    const std::vector<std::string_view> missing_games_args{"--fen", fen, "--games",
+                                                           "/nonexistent/games.tsv"};
+    const auto missing_games = chesswhy::cli::parse_args(missing_games_args);
+    std::ostringstream missing_games_out;
+    std::ostringstream missing_games_err;
+    CHECK(chesswhy::cli::run(missing_games, missing_games_out, missing_games_err) ==
+          chesswhy::cli::kExitEngine);
+    CHECK(missing_games_out.str().empty());
+    CHECK(missing_games_err.str().find("/nonexistent/games.tsv") != std::string::npos);
+    expect_error({"--fen", fen, "--games", "/first.tsv", "--games", "/second.tsv"},
+                 "duplicate flag --games");
 }

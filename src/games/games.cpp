@@ -121,13 +121,18 @@ Exclusions parse_exclusions(std::string_view text) {
     return result;
 }
 
-bool is_canonical_position_key(std::string_view key, chess::Board& board) {
-    try {
-        board = input::parse_fen(key);
-    } catch (const input::InputError&) {
+bool is_uci_token(std::string_view text) {
+    const auto is_file = [](char value) {
+        return value >= 'a' && value <= 'h';
+    };
+    const auto is_rank = [](char value) {
+        return value >= '1' && value <= '8';
+    };
+    if ((text.size() != 4 && text.size() != 5) || !is_file(text[0]) || !is_rank(text[1]) ||
+        !is_file(text[2]) || !is_rank(text[3])) {
         return false;
     }
-    return openings::position_key(board) == key;
+    return text.size() == 4 || text[4] == 'q' || text[4] == 'r' || text[4] == 'b' || text[4] == 'n';
 }
 
 std::array<std::string_view, 6> split_row(std::string_view line) {
@@ -148,13 +153,12 @@ std::array<std::string_view, 6> split_row(std::string_view line) {
     return fields;
 }
 
-std::vector<std::pair<std::string, int>> parse_moves(std::string_view text, int games,
-                                                     const chess::Board& board) {
+std::vector<std::pair<std::string, int>> parse_moves(std::string_view text, int games) {
     if (text.empty()) {
         throw GamesError("games table row has no moves");
     }
     std::vector<std::pair<std::string, int>> moves;
-    std::string previous_uci;
+    std::string_view previous_uci;
     int previous_count = 0;
     long long move_total = 0;
     std::size_t start = 0;
@@ -167,21 +171,23 @@ std::vector<std::pair<std::string, int>> parse_moves(std::string_view text, int 
             pair.find(':', colon + 1) != std::string_view::npos) {
             throw GamesError("malformed games table move count");
         }
-        const std::string uci(pair.substr(0, colon));
-        const int count = parse_count(pair.substr(colon + 1), "move");
-        if (uci.empty() || count == 0 || (count > previous_count && !moves.empty()) ||
-            (!moves.empty() && uci == previous_uci) ||
-            (count == previous_count && uci <= previous_uci)) {
-            throw GamesError("unsorted games table moves");
+        const auto uci = pair.substr(0, colon);
+        if (!is_uci_token(uci)) {
+            throw GamesError("malformed UCI move in games table row");
         }
-        try {
-            static_cast<void>(input::parse_move(board, uci));
-        } catch (const input::InputError&) {
-            throw GamesError("illegal move in games table row");
+        const int count = parse_count(pair.substr(colon + 1), "move");
+        if (count == 0 || (!moves.empty() && (count > previous_count ||
+                                              (count == previous_count && uci <= previous_uci)))) {
+            throw GamesError("unsorted or duplicate games table moves");
+        }
+        for (const auto& previous_move : moves) {
+            if (previous_move.first == uci) {
+                throw GamesError("duplicate games table move");
+            }
         }
         move_total += count;
         moves.emplace_back(uci, count);
-        previous_uci = uci;
+        previous_uci = moves.back().first;
         previous_count = count;
         if (comma == std::string_view::npos) {
             break;
@@ -360,18 +366,15 @@ Table Table::load(const std::filesystem::path& file) {
                      .draws = std::nullopt,
                      .black = std::nullopt,
                      .moves = {}};
+    table.rows_.reserve(static_cast<std::size_t>(positions));
     std::string line;
-    std::string previous_key;
+    std::string_view previous_key;
     int loaded_positions = 0;
     while (std::getline(input, line)) {
         const auto fields = split_row(line);
-        const std::string key(fields[0]);
+        const auto key = fields[0];
         if (key.empty() || (!previous_key.empty() && key <= previous_key)) {
             throw GamesError("unsorted or duplicate games table key");
-        }
-        chess::Board board;
-        if (!is_canonical_position_key(key, board)) {
-            throw GamesError("malformed position key in games table");
         }
         const int games = parse_count(fields[1], "games");
         const int white = parse_count(fields[2], "white");
@@ -381,13 +384,17 @@ Table Table::load(const std::filesystem::path& file) {
             static_cast<long long>(white) + draws + black != games) {
             throw GamesError("inconsistent games table result counts");
         }
-        auto moves = parse_moves(fields[5], games, board);
-        table.rows_.emplace(key, Row{.games = games,
-                                     .white = white,
-                                     .draws = draws,
-                                     .black = black,
-                                     .moves = std::move(moves)});
-        previous_key = key;
+        auto moves = parse_moves(fields[5], games);
+        auto [row, inserted] =
+            table.rows_.emplace(std::string(key), Row{.games = games,
+                                                      .white = white,
+                                                      .draws = draws,
+                                                      .black = black,
+                                                      .moves = std::move(moves)});
+        if (!inserted) {
+            throw GamesError("duplicate games table key");
+        }
+        previous_key = row->first;
         ++loaded_positions;
     }
     if (input.bad()) {
@@ -413,7 +420,12 @@ GameSourceCounts Table::find(const chess::Board& board) const {
     result.black = found->second.black;
     result.moves.reserve(found->second.moves.size());
     for (const auto& [uci, count] : found->second.moves) {
-        const auto move = input::parse_move(board, uci);
+        chess::Move move;
+        try {
+            move = input::parse_move(board, uci);
+        } catch (const input::InputError&) {
+            throw GamesError("illegal move in games table row");
+        }
         result.moves.push_back(
             {.san = chess::uci::moveToSan(board, move), .uci = uci, .games = count});
     }

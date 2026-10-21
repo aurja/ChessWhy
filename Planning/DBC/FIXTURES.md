@@ -5,9 +5,13 @@ reports today and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (the
 code is in [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md)
 (§6.2 for the fixture kinds); the tests that read each set are in [TESTS.md](TESTS.md).
 
-**Snapshot:** 2026-10-21, PostM2_EM1 milestone gate (commit `b4fbb30`, after batch 3,
-`pin_tactical`). Release build, Stockfish 19 from `assets/`, `Threads=1`. F reports now
-also list `pin_tactical` instances; the columns below name only the fixture claims.
+**Snapshot:** F01–F24 and T/C/U rows: 2026-10-21, PostM2_EM1 milestone gate (commit
+`b4fbb30`, after batch 3, `pin_tactical`). F25–F30: 2026-10-22, M3 batch 2 (analysis and
+CLI wiring of positional facts and game counts). §8 P rows: 2026-10-22, M3 batch 1.
+Release build, Stockfish 19 from `assets/`, `Threads=1`, game-count table
+`lichess_broadcast_2200@e0cb7fab3212`. F reports now also list `pin_tactical`
+instances, positional facts and game counts; the columns below name only the fixture
+claims.
 
 **Comments column.** Any agent or the Captain may add a dated comment to a
 fixture's last column when the fixture looks wrong: a bad position, a claim that
@@ -37,7 +41,7 @@ position, ply 1 the position after the first move of the line.
 
 ## 1. F fixtures — full reports (`tests/fixtures/positions.json`, `engine_fixtures`)
 
-**Concepts:** `EngineFixtures`, `Urgency`, `ParryTest`, `Verdict`, `TacticJudgement`, `StateMotif`, `MoveMotif`, `TacticalPin`, `InputFixtures`, `OpeningNames`, `SearchB`
+**Concepts:** `EngineFixtures`, `Urgency`, `ParryTest`, `Verdict`, `TacticJudgement`, `StateMotif`, `MoveMotif`, `TacticalPin`, `InputFixtures`, `OpeningNames`, `SearchB`, `PositionalFixtures`, `PositionalChange`, `GameCounts`
 
 Run end to end through the CLI with the engine by `cli_fixture_<ID>`. Each
 fixture also pins exact report fields (`equals`), required fine moves, motifs
@@ -71,10 +75,12 @@ which is a load effect, not a wrong result.
 | F22 | <img src="boards/F22.svg" width="200" alt="F22"> | `k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1`<br>Asked: **c3**<br><sub>constructed: PostM2_EM1 smoke position</sub> | refutation fork wins the queen after the quiet pawn move | Eval: mate in 10 for White.<br>Best **Qxh4**, not a tactic (margin 0.00 over Qe4+).<br>Fine moves: Qxh4, Qe4+, Qh8+, Qa4+, Qd8+ and more.<br>Black threatens Nf3+ (material); more urgent: white (consequence class).<br>Asked **c3**: blunder, loses 0.49 ES. Refutation Nf3+ Kf2 Nxd4 is a tactic (margin 0.49 over Ng2+); motifs: fork Nf3 → Ke1, Qd4 (direct); hanging piece Qd4 (direct). | |
 | F23 | <img src="boards/F23.svg" width="200" alt="F23"> | `8/7k/5K2/6Q1/8/8/8/8 w - - 0 1`<br><sub>constructed: mate-in-one versus mate-in-two saturation</sub> | decisive mate-in-one position is saturated | Eval: mate in 1 for White.<br>Best **Qg7#**, not a tactic (margin 0.00 over Qg1).<br>Fine moves: Qg7#, Qg1, Qg4, Qg2, Qg3 and more.<br>No concrete Black threat; more urgent: white (consequence class). | |
 | F24 | <img src="boards/F24.svg" width="200" alt="F24"> | `7k/5Q2/6K1/8/8/8/8/8 w - - 0 1`<br><sub>constructed: four legal queen mates</sub> | four equally winning mate-in-one moves | Eval: mate in 1 for White.<br>Best **Qg7#**, not a tactic (margin 0.00 over Qf8#).<br>Fine moves: Qg7#, Qf8#, Qh7#, Qe8#, Qf4 and more. | |
-| F25 | <img src="boards/F25.svg" width="200" alt="F25"> | `r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4`<br>Asked: **Bxc6**<br><sub>constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6</sub> | Position: `bishop_pair` white and black.<br>Asked line: + `doubled_pawns` black, c file (ply 2); − `bishop_pair` white (ply 2); both hold at the end | Not run yet: the report does not carry positional facts until the analysis is wired. | |
-| F26 | <img src="boards/F26.svg" width="200" alt="F26"> | `6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58`<br>Asked: **a7**<br><sub>Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (F10 position)</sub> | Position: `passed_pawn` white, a file (P a6); `passed_pawn` black, g file (p g3); `material_ahead` white 4 | Not run yet: the report does not carry positional facts until the analysis is wired. | |
-| F27 | <img src="boards/F27.svg" width="200" alt="F27"> | `k7/8/8/8/8/8/8/4K2R w K - 0 1`<br>Asked: **O-O**<br><sub>constructed</sub> | Asked line: − `castling_kingside` white (ply 1), holds at the end | Not run yet: the report does not carry positional facts until the analysis is wired. | |
-| F28 | <img src="boards/F28.svg" width="200" alt="F28"> | `r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5`<br><sub>constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6</sub> | Position: `doubled_pawns` black, c file; `bishop_pair` black | Not run yet: the report does not carry positional facts until the analysis is wired. | |
+| F25 | <img src="boards/F25.svg" width="200" alt="F25"> | `r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4`<br>Asked: **Bxc6**<br><sub>constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6</sub> | Position: `bishop_pair` white and black.<br>Asked line: + `doubled_pawns` black, c file (ply 2); − `bishop_pair` white (ply 2); both hold at the end | Eval: White ES 0.54 (+40 cp).<br>Best **Ba4**; fine moves: Ba4.<br>Position: `bishop_pair` both sides.<br>Asked **Bxc6**: inaccuracy, loses 0.03 ES. Line: + doubled pawns Black c file (ply 2), − bishop pair White (ply 2), both hold at the end.<br>Games: 12900 (White 4344, draws 5596, Black 2960); Ba4 in 12424, Bxc6 in 474.<br>Test passes. | |
+| F26 | <img src="boards/F26.svg" width="200" alt="F26"> | `6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58`<br>Asked: **a7**<br><sub>Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (F10 position)</sub> | Position: `passed_pawn` white, a file (P a6); `passed_pawn` black, g file (p g3); `material_ahead` white 4 | Eval: White ES 0.54 (+58 cp).<br>Best **a7**; fine moves: a7.<br>Position: passed pawns White a file, Black f and g files; connected passed pawns Black; material ahead White 4.<br>Asked **a7**: fine.<br>Games: position not in the table.<br>Test passes. | |
+| F27 | <img src="boards/F27.svg" width="200" alt="F27"> | `k7/8/8/8/8/8/8/4K2R w K - 0 1`<br>Asked: **O-O**<br><sub>constructed</sub> | Asked line: − `castling_kingside` white (ply 1), holds at the end | Eval: mate in 11 for White.<br>Best **Rh7**; fine moves: Rh7, Kf2, Rh6, Rg1, Kd2 and more.<br>Asked **O-O**: fine. Line: − kingside castling right White (ply 1), holds at the end.<br>Games: position not in the table.<br>Test passes. | |
+| F28 | <img src="boards/F28.svg" width="200" alt="F28"> | `r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5`<br><sub>constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6</sub> | Position: `doubled_pawns` black, c file; `bishop_pair` black | Eval: Black ES 0.50 (−4 cp for White).<br>Best **d3**; fine moves: d3, O-O, Nc3, d4, Qe2 and more.<br>Position: doubled pawns Black c file; bishop pair Black.<br>Games: 470 (White 126, draws 234, Black 110); O-O in 369, Nc3 in 69, d4 in 15.<br>Test passes. | |
+| F29 | <img src="boards/F29.svg" width="200" alt="F29"> | `rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1`<br><sub>constructed: standard starting position</sub> | Games: found in `lichess_broadcast_2200@e0cb7fab3212` with 262026 games (White 91439, draws 105183, Black 65404); first moves e4 123657, d4 87792, Nf3 28707; the text report prints "games: played in 123657 of 262026 games [games]" | Eval: White ES 0.53 (+36 cp).<br>Best **e4**; fine moves: e4, d4, Nf3, e3.<br>Games: as claimed; e4 row printed under candidate 1.<br>Test passes. | |
+| F30 | <img src="boards/F30.svg" width="200" alt="F30"> | `6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58`<br><sub>Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (after 114 plies)</sub> | Games: not found (the table keeps positions within the first 40 plies); counts null, no moves | Eval: White ES 0.60 (+75 cp, quick budget).<br>Best **a7**; fine moves: a7.<br>Games: not found, as claimed.<br>Test passes. | |
 
 ## 2. U fixtures — opening names (`positions.json`, `unit_fixtures`)
 

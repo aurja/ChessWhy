@@ -334,6 +334,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 | constructed | A fixture position made up by hand rather than taken from a game | M2 §9 |
 | `motifs_include` | Key on an F fixture: listed motif instances must appear in the report (extras allowed). From PostM2_EM1 an entry may also state its `contribution` | M2 §9, PostM2_EM1 §9 |
 | `positional_include` | Key on an F fixture from M3a: listed positional features or changes must appear in the report (extras allowed); partial objects match like `motifs_include` | M3a §8 |
+| `text_contains` | Key on an F fixture from M3b: the text report of the same run (without `--json`) must contain the given string. Used for the rendered games row (F29) | M3b §9 |
 | P fixtures | Positional unit fixtures in `tests/fixtures/positional.json` (M3a): `features` entries P01… (a position with features that must or must not be reported) and `lines` entries PL01… (a line with positional changes that must or must not be reported). Hand-labelled from the plain definitions; at least 10 are positions from the Captain's books, cited by game | M3a §8 |
 | re-blessing | Re-deriving engine fixture expectations for a new Stockfish version; an explicit milestone task | AGENTS.md |
 

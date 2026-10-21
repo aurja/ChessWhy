@@ -95,12 +95,12 @@ Rules, checked by `python3 tools/check_dbc.py`:
 
 | Node | Code | Notes |
 |---|---|---|
-| `PawnStructure` | `src/positional/positional.cpp` `add_pawn_features` `features` | |
+| `PawnStructure` | `src/positional/positional.cpp` `add_pawn_features` `features`; `src/analysis/analyse.cpp` `analyse` | `analyse` fills `position.positional` |
 | `KingSafety` | `src/positional/positional.cpp` `add_king_features` `features` | |
 | `PieceActivity` | `src/positional/positional.cpp` `add_piece_features` `features` | |
 | `SpaceDevelopment` | `src/positional/positional.cpp` `mobility` `space` `undeveloped` `add_leads_and_material`; `include/chesswhy/positional.hpp` `kMobilityLead` `kSpaceLead` `kDevelopmentLead` | |
 | `MaterialBalance` | `src/positional/positional.cpp` `add_leads_and_material` | |
-| `PositionalChange` | `src/positional/positional.cpp` `same_identity` `line_changes`; `include/chesswhy/report.hpp` `PositionalChange` | Not yet filled into the report |
+| `PositionalChange` | `src/positional/positional.cpp` `same_identity` `line_changes`; `src/analysis/analyse.cpp` `assess_move` `walked_moves`; `include/chesswhy/report.hpp` `PositionalChange` | Over the same walked plies as the line motifs |
 | `TiedToLine` | `src/render/render.cpp` `write_positional_changes` | Prints only changes along lines; `position.positional` stays in the JSON |
 
 ## Reference knowledge
@@ -112,7 +112,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `LastNamed` | `src/openings/openings.cpp` `describe` | |
 | `BroadcastMonths` | `tools/fetch_assets.sh` `fetch_games` | Months and their SHA-256 pinned in the script |
 | `GameTable` | `src/games/games.cpp` `build_table` `Table`; `src/games/main.cpp` `parse_options`; `include/chesswhy/games.hpp` `kTable` `kRatingFloor` `kMaxPly` `kMinGames` | `chesswhy-games` builds the table from PGN on stdin |
-| `GameCounts` | `src/games/games.cpp` `Table`; `include/chesswhy/report.hpp` `GamesInfo` `GameSourceCounts` `GameMoveCount`; `src/render/render.cpp` `write_games_summary` `write_game_move_counts` | Not yet filled into the report |
+| `GameCounts` | `src/games/games.cpp` `Table`; `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `GamesInfo` `GameSourceCounts` `GameMoveCount`; `src/render/render.cpp` `write_games_summary` `write_game_move_counts` | `run` loads the table once (`--games`) and looks up the analysed position |
 
 ## Report
 
@@ -146,6 +146,6 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `ReferenceImplementation` | `tests/tactics/oracle/reference.cpp`; `tests/tactics/motif_oracle.cpp` | |
 | `PuzzleSample` | `tools/sample_puzzles.py`; `tests/fixtures/puzzles/` | |
 | `Recall` | `tests/tactics/puzzle_eval.cpp` | |
-| `PositionalFixtures` | `tests/fixtures/positional.json`; `tests/positional/positional_unit_tests.cpp` | F rows with `positional_include` not yet run |
+| `PositionalFixtures` | `tests/fixtures/positional.json`; `tests/positional/positional_unit_tests.cpp`; `tests/cli/engine_fixture_test.cpp` | F rows: `positional_include` |
 | `PositionalReference` | `tests/positional/oracle/reference.cpp`; `tests/positional/oracle/positional_oracle.cpp`; `tests/positional/oracle/reference_self_check.cpp` | |
 | `GamesOracle` | `tools/count_games.py` `GameCounter` `write_table`; `tests/games/oracle.cmake` | python-chess, development only |

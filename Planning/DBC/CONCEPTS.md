@@ -57,7 +57,7 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class Question,Positional,Reference,Explanation,Proof partial
+    class Question,Positional,Reference,Explanation partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -72,7 +72,7 @@ flowchart LR
 | `Reference` | Knowledge from outside the engine: opening names, game counts, book passages | provenance, opening name, game counts, book passage | partial |
 | `Report` | The one document holding every fact, each with its provenance; nothing is claimed outside it | report, provenance, facts first | implemented |
 | `Explanation` | The words a reader gets: template text today, language-model prose checked against the report later | explanation, template rendering | partial |
-| `Proof` | Fixtures and measurements that show the facts are right | fixture, recall | partial |
+| `Proof` | Fixtures and measurements that show the facts are right | fixture, recall | implemented |
 
 ## Level 2
 
@@ -362,7 +362,6 @@ flowchart LR
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,WalkedPlies external
     class NamedStructures,Imbalances planned
-    class PositionalChange,TiedToLine partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -376,8 +375,8 @@ flowchart LR
 | `SpaceDevelopment` | A side ahead in mobility, space or development by at least the lead threshold (mobility was under `PieceActivity` before 2026-10-21) | mobility, space, undeveloped, lead threshold | implemented |
 | `MaterialBalance` | Who is ahead in material and by how much, and an exchange up. Called `MaterialImbalance` before 2026-10-21, when it meant which pieces each side has beyond the count (now `Imbalances`) | `material_ahead`, `exchange_up` | implemented |
 | `Imbalances` | Which pieces each side has beyond the material count (two minor pieces against a rook and the like); deferred on 2026-10-21 | positional fact | planned |
-| `PositionalChange` | A positional feature that appears or disappears along a line, judged by its identity, and whether that still holds at the end | positional change, feature identity, `holds_at_end` | partial |
-| `TiedToLine` | A positional fact enters the explanation only when a line or verdict changes it | positional fact | partial |
+| `PositionalChange` | A positional feature that appears or disappears along a line, judged by its identity, and whether that still holds at the end | positional change, feature identity, `holds_at_end` | implemented |
+| `TiedToLine` | A positional fact enters the explanation only when a line or verdict changes it | positional fact | implemented |
 
 ### L2 · Reference knowledge (`Reference`)
 
@@ -408,7 +407,6 @@ flowchart LR
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,GameMainline external
     class BookCorpus,BookIndex,ConceptTags,BookPassages planned
-    class GameCounts partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -420,7 +418,7 @@ flowchart LR
 | `LastNamed` | For a game: the last named position on the mainline, up to and including the analysed one | last named position | implemented |
 | `BroadcastMonths` | Monthly files of strong over-the-board games relayed by Lichess, each pinned by its checksum | broadcast month | implemented |
 | `GameTable` | Position-to-move counts built offline from the pinned games, each source kept apart, with a recorded table id | game-count table, table id, rating floor, ply limit, minimum game count | implemented |
-| `GameCounts` | How often players chose each move in the analysed position, with results, per source and platform; never a judgement of the move | game counts | partial |
+| `GameCounts` | How often players chose each move in the analysed position, with results, per source and platform; never a judgement of the move | game counts | implemented |
 | `BookCorpus` | The Captain's local books as text, kept out of the repository | book corpus | planned |
 | `BookIndex` | A search index over book chunks | book index | planned |
 | `ConceptTags` | The report's motif and positional tags, widened by a keyword map, used as the book query | concept tag | planned |
@@ -540,7 +538,6 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class Question,Motifs,Tactics,Report,Positional,Reference external
-    class PositionalFixtures partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -559,7 +556,7 @@ flowchart LR
 | `Recall` | When Lichess names a theme, how often we find it for the solver; held above frozen targets | recall, target (metric) | implemented |
 | `Positional` | See L1 | — | external |
 | `Reference` | See L1 | — | external |
-| `PositionalFixtures` | Positions where a positional feature must or must not be reported, and lines where a change must or must not be | P fixtures, `positional_include` | partial |
+| `PositionalFixtures` | Positions where a positional feature must or must not be reported, and lines where a change must or must not be | P fixtures, `positional_include` | implemented |
 | `PositionalReference` | A second, plain implementation of the positional definitions; both must agree on every puzzle board | `positional_oracle` | implemented |
 | `GamesOracle` | A second, independent counter that rebuilds the game-count table from the same games; both tables must be identical | `games_oracle` | implemented |
 
@@ -819,12 +816,11 @@ flowchart TD
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class PcBoards partial
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
-| `PcBoards` | The boards a line passes through, as far as the walked plies reach | walked plies | partial |
+| `PcBoards` | The boards a line passes through, as far as the walked plies reach | walked plies | implemented |
 | `PcFeatures` | Every positional feature on each of those boards, for both sides | positional feature | implemented |
 | `PcCompare` | Compares each ply's features with the ply before by identity | feature identity | implemented |
 | `PcAppears` | A feature that was not there one ply earlier | positional change | implemented |

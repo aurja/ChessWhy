@@ -5,9 +5,9 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-21, PostM2_EM1 milestone gate (after batch 3, `pin_tactical`): 111
-CTests (84 `unit`, 27 `engine`, no `model` yet), all passing in Release;
-`tactics_unit_tests` has 26 test cases.
+**Snapshot:** 2026-10-22, M3 batch 2 (positional facts and game counts wired into the
+report): 139 CTests (105 `unit`, 33 `engine`, 1 `games`, no `model` yet), all passing in
+Release; `tactics_unit_tests` has 26 test cases.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -163,7 +163,7 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| CLI argument parsing applies defaults and validates usage | unit | Defaults (`club`, `standard`) and usage errors | `CommandLine`, `Settings`, `InputError` |
+| CLI argument parsing applies defaults and validates usage | unit | Defaults (`club`, `standard`, the game-count table under `assets/`), `--games PATH`, usage errors; a missing game-count table exits 3 with one message | `CommandLine`, `Settings`, `InputError`, `GameCounts` |
 | CLI error fixtures return the required status and one diagnostic | unit | E fixtures: exit code and a single message line | `CommandLine`, `InputFixtures`, `InputError` |
 | FEN and SAN/UCI parse fixtures identify the same moves | unit | Parse fixtures: SAN and UCI forms give the same move | `FenInput`, `AskedMove`, `InputFixtures` |
 | PGN opening fixtures describe current and last named positions | unit | U fixtures: current and last-named openings | `PgnInput`, `GameMainline`, `OpeningNames`, `LastNamed` |
@@ -172,9 +172,9 @@ Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
-| `cli_fixture_F01` … `cli_fixture_F24` (one per F fixture, F16 absent: 23 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture and checks its `equals` fields, `fine_includes`, `motifs_include` and `line_prefix`; runs the invariant check on every tactic judgement; with `CHESSWHY_CHECK_TIMING` on, fails above 12 s; saves the report for `report_schema` | `EngineFixtures`, `Verdict`, `TacticJudgement`, `StateMotif` |
+| `cli_fixture_F01` … `cli_fixture_F30` (one per F fixture, F16 absent: 29 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture and checks its `equals` fields, `fine_includes`, `motifs_include`, `positional_include`, `line_prefix` and `text_contains` (in the text report); runs the invariant check on every tactic judgement; with `CHESSWHY_CHECK_TIMING` on, fails above 12 s; saves the report for `report_schema` | `EngineFixtures`, `Verdict`, `TacticJudgement`, `StateMotif`, `PositionalFixtures`, `PositionalChange`, `GameCounts` |
 | `report_schema` | `tools/validate_report.py` | engine | Every saved F report validates against `schema/report.v4.schema.json`; runs after all `cli_fixture_*` tests | `ReportSchema`, `EngineFixtures` |
-| `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12 (JSON) and a text report for a fixed position (`Nf6` after 3.Qh5) are byte-identical across two runs | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput` |
+| `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30 (JSON) and a text report for a fixed position (`Nf6` after 3.Qh5) are byte-identical across two runs | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput` |
 
 ## 9. pgntool — `tests/pgntool/pgntool_unit_tests.cpp` (`pgntool_unit_tests`)
 
@@ -223,7 +223,7 @@ Program tests (`tests/positional/oracle/`):
 | repeated positions contribute only their first occurrence per game | unit | A position repeated within a game counts once | `GtCount` |
 | games table respects ply limit and excludes N-minus-one positions | unit | No position after ply 40; a position with N−1 games is dropped | `GtLegal`, `GtKeep`, `GtDropped` |
 | minimum-count boundary, move tie ordering, and table lookup round trip | unit | N games kept; ties in move order; `Table::find` hit and miss after `build_table` | `GtKeep`, `GtRow`, `GameTable`, `GameCounts` |
-| games table loader rejects malformed headers, rows, and ordering | unit | `Table::load` errors | `GameTable` |
+| games table loader rejects malformed headers, rows, and ordering | unit | `Table::load` rejects bad headers, row shapes, counts and order; a row with an illegal move loads, and `find` on its position throws | `GameTable`, `GtRow` |
 
 Program tests:
 

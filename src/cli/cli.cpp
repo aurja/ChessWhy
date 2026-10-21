@@ -2,6 +2,7 @@
 
 #include "chesswhy/analysis.hpp"
 #include "chesswhy/engine.hpp"
+#include "chesswhy/games.hpp"
 #include "chesswhy/input.hpp"
 #include "chesswhy/openings.hpp"
 #include "chesswhy/render.hpp"
@@ -30,8 +31,8 @@ namespace {
 [[nodiscard]] std::string usage() {
     return "Usage: chesswhy (--fen FEN | --pgn FILE [--game N] [--ply N]) [--move MOVE]\n"
            "                [--level beginner|club|advanced] [--budget quick|standard|deep]\n"
-           "                [--json] [--no-llm] [--threads N] [--engine PATH] [--openings DIR] "
-           "[--help]\n";
+           "                [--json] [--no-llm] [--threads N] [--engine PATH] [--openings DIR]\n"
+           "                [--games FILE] [--help]\n";
 }
 
 [[noreturn]] void usage_error(std::string_view message) {
@@ -94,6 +95,7 @@ Options parse_args(std::span<const std::string_view> args) {
     Options options;
     options.engine = assets_path("engines/stockfish");
     options.openings = assets_path("data/openings");
+    options.games = assets_path("data/games/lichess_broadcast_2200.tsv");
 
     bool seen_game = false;
     bool seen_json = false;
@@ -101,6 +103,7 @@ Options parse_args(std::span<const std::string_view> args) {
     bool seen_threads = false;
     bool seen_engine = false;
     bool seen_openings = false;
+    bool seen_games = false;
 
     for (std::size_t index = 0; index < args.size(); ++index) {
         const std::string_view flag = args[index];
@@ -164,6 +167,9 @@ Options parse_args(std::span<const std::string_view> args) {
         } else if (flag == "--openings") {
             reject_duplicate(seen_openings, flag);
             options.openings = std::filesystem::path(value_after(args, index, flag));
+        } else if (flag == "--games") {
+            reject_duplicate(seen_games, flag);
+            options.games = std::filesystem::path(value_after(args, index, flag));
         } else if (flag == "--help") {
             if (options.help) {
                 usage_error("duplicate flag --help");
@@ -226,6 +232,8 @@ int run(const Options& options, std::ostream& out, std::ostream& err) {
         report.input.budget = options.budget;
 
         const openings::Table opening_table = openings::Table::load(options.openings);
+        const games::Table game_table = games::Table::load(options.games);
+        report.games.by_source.push_back(game_table.find(board));
         engine::Engine engine(
             {.binary = options.engine, .threads = options.threads, .hash_mb = 64});
         report.engine.name = engine.name();
@@ -251,6 +259,9 @@ int run(const Options& options, std::ostream& out, std::ostream& err) {
         write_error(err, error.what());
         return kExitEngine;
     } catch (const openings::OpeningsError& error) {
+        write_error(err, error.what());
+        return kExitEngine;
+    } catch (const games::GamesError& error) {
         write_error(err, error.what());
         return kExitEngine;
     } catch (const std::exception& error) {

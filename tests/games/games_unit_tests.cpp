@@ -212,7 +212,16 @@ TEST_CASE("games table loader rejects malformed headers, rows, and ordering", "[
     expect_bad(malformed_header);
     expect_bad(valid_table("malformed row\n"));
     expect_bad(
-        valid_table("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -\t2\t2\t0\t0\ta1a8:2\n"));
+        valid_table("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -\t2\t2\t0\t0\ta1a:2\n"));
+
+    TemporaryTable malformed_key(valid_table("not-a-fen\t2\t2\t0\t0\td2d4:1,e2e4:1\n"));
+    const auto key_table = Table::load(malformed_key.path());
+    CHECK_FALSE(key_table.find(chess::Board{}).found);
+
+    TemporaryTable illegal_move(valid_table("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -\t"
+                                            "2\t2\t0\t0\ta1a8:2\n"));
+    const auto illegal_move_table = Table::load(illegal_move.path());
+    CHECK_THROWS_AS(illegal_move_table.find(chess::Board{}), GamesError);
 
     std::string duplicate_rows = valid_table();
     duplicate_rows.replace(duplicate_rows.find("# positions 1"),

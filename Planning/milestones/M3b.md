@@ -175,7 +175,7 @@ void build_table(std::istream& in, std::ostream& out, std::ostream& log,
 class Table {
 public:
     [[nodiscard]] static Table load(const std::filesystem::path& file); // GamesError
-    [[nodiscard]] GameSourceCounts find(const chess::Board& board) const;
+    [[nodiscard]] GameSourceCounts find(const chess::Board& board) const; // GamesError
 };
 } // namespace chesswhy::games
 
@@ -188,7 +188,9 @@ The contract commit's headers are authoritative; the block above is a summary.
 ## 7. Analysis and CLI
 
 - `--games PATH` loads the table once per run. A missing, unreadable or malformed table
-  is an asset error (exit 3), like the openings dataset.
+  is an asset error (exit 3), like the openings dataset. `load` checks every row's shape,
+  counts and order; the found row's moves are checked for legality in `find`, whose
+  `GamesError` is the same asset error.
 - The analysed position is looked up; `san` for each move comes from the analysed board.
 - Lookup adds at most 200 ms per run (Release); the receipt records it.
 
@@ -265,3 +267,5 @@ under each candidate.
 | Date | Change | Reason |
 |---|---|---|
 | 2026-10-21 | WP-I adds the §9 F rows to `positions.json` | Their counts come from the pinned table, which exists only after batch 1; M3a §11 lists fixture edits as a WP-I non-goal, so this row makes the exception explicit |
+| 2026-10-21 | Games row prints the report fields verbatim, with field names: `games: 1840 games, both rated 2200 or more (platform: over the board (may include online events relayed as broadcasts); source: Lichess broadcast database, database.lichess.org, CC BY-SA 4.0; months: 2020-01..2026-09): White won 640, draws 790, Black won 410 [games]` (§8) | Captain's decision at checkpoint 1: every word comes from a report field and the platform caveat stays; the frozen wording called all games over-the-board and named a source not in the report |
+| 2026-10-21 | `load` checks every row's shape, counts and order; position-key and move legality checks move to `find` for the returned row; `find` may throw `GamesError` (§6, §7) | Checking all 117,058 rows by FEN parse and move generation made load + find take 671–724 ms against §7's 200 ms; the pinned SHA-256 already guards the shipped table's content |
