@@ -230,7 +230,7 @@ The contract commit's headers are authoritative; the block above is a summary.
 ## 7. Puzzle check (not gating)
 
 Lichess puzzles are built as only-move lines, and a Lichess theme names the motif behind
-the puzzle's tactic (DEFINITIONS §5.3). `tactics_puzzle_eval` treats each `test.csv`
+the puzzle's tactic (TERMINOLOGY §5.3). `tactics_puzzle_eval` treats each `test.csv`
 solution line from the root as a tactic sequence and prints:
 
 - **direct share**, per measured theme: on the theme's stratum, among puzzles where the
@@ -321,7 +321,8 @@ under 300 words. Batch 1: WP1, WP3, WP4. Batch 2: WP2, WP5. Milestone end: WP6.
   C fixtures in the test section.
 - Vision: §5.5 (tactic, margin, contribution, `removal_of_defender`), §6 sketch
   (`tactic`), §11 row status. `Planning/CURRENT_STATE.md`, receipt
-  `Planning/receipts/PostM2_EM1.md`, `Planning/DEFINITIONS.md` pass.
+  `Planning/receipts/PostM2_EM1.md`, `Planning/definitions/` pass (TERMINOLOGY,
+  FIXTURES, TESTS).
 
 ## 14. Acceptance
 

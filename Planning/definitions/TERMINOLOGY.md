@@ -1,4 +1,4 @@
-# ChessWhy — Definitions
+# ChessWhy — Terminology
 
 Project-specific meanings of the words used in the plans, receipts and agent reports.
 Where a word has an ordinary meaning, an ordinary chess meaning and a project meaning,
@@ -8,6 +8,8 @@ points to the section that defines or decides each term.
 Status: updated 2026-10-20 at M2 close. At checkpoint 2b the Captain split motifs from
 tactics (§4.5): M2 measures motif recognition only; tactics are milestone PostM2_EM1.
 Updated 2026-10-20 with the frozen PostM2_EM1 plan (§3.2, §4.5, §5.8, §6).
+Moved 2026-10-21 from `Planning/DEFINITIONS.md` (title "Definitions") to
+`Planning/definitions/TERMINOLOGY.md`, beside `FIXTURES.md` and `TESTS.md` (§6.1).
 
 ## 1. Words that mean several things
 
@@ -295,12 +297,13 @@ PostM2_EM1 starts from commit `d5b703a`.
 | worker, fixer, reviewer, scout | Subagents: implement one WP; fix one failing gate; review a finished milestone once; read-only search | AGENTS.md |
 | receipt | `Planning/receipts/M<N>.md`: what a milestone delivered and the evidence (tables, timings, gate results) | AGENTS.md |
 | blocker / scope proposal / nit | Review outcomes: a blocker cites a broken acceptance row or principle with a failing input; a scope proposal is new work for the Captain to decide; a nit is optional | AGENTS.md |
+| TERMINOLOGY.md / FIXTURES.md / TESTS.md | The three files in `Planning/definitions/`: this glossary; every fixture with its board, claim, current result ("Codebase today") and a Comments column where agents raise fixture problems; every CTest with its label and what it checks. Orchestrator-owned; called `Planning/DEFINITIONS.md` (glossary only) before 2026-10-21 | AGENTS.md |
 
 ### 6.2 Fixtures
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| fixture | A stored test case with expected results | — |
+| fixture | A stored test case with expected results; all are listed in `FIXTURES.md` | — |
 | F fixtures | Engine fixtures in `tests/fixtures/positions.json` (F01–F20, F16 dropped; PostM2_EM1 adds F21 onward): world-championship positions with expected threats, urgency, verdicts and, from PostM2_EM1, tactic judgements; pinned to Stockfish 19 at `standard`, robust at all budgets | M1 §9, PostM2_EM1 §9 |
 | U, E, parse fixtures | No engine judgement: U = opening names and PGN/ply input, E = error exit codes and messages, parse = FEN/move parsing | M1 §9 |
 | T fixtures | Motif unit fixtures T01–T41 in `tests/fixtures/motifs.json`: a position and line with instances that must (`includes`) or must not (`excludes`) be reported | M2 §9 |
