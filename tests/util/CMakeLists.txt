@@ -1,2 +1,7 @@
-# Owner: PostM3_EM2 WP8 (FIPS 180-4 vector tests for sha256_hex, label unit).
-# Owner note only, so the tree configures while the workers run.
+add_executable(sha256_unit_tests sha256_unit_tests.cpp)
+target_link_libraries(sha256_unit_tests PRIVATE
+    Catch2::Catch2WithMain
+    chesswhy_util
+    chesswhy_warnings
+)
+catch_discover_tests(sha256_unit_tests PROPERTIES LABELS unit)

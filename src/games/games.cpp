@@ -1,13 +1,17 @@
 #include "chesswhy/games.hpp"
 
+#include "chesswhy/digest.hpp"
 #include "chesswhy/input.hpp"
 #include "chesswhy/openings.hpp"
 
 #include <algorithm>
 #include <array>
 #include <charconv>
+#include <cstddef>
 #include <fstream>
+#include <iterator>
 #include <map>
+#include <span>
 #include <sstream>
 #include <string_view>
 #include <unordered_map>
@@ -201,6 +205,14 @@ std::vector<std::pair<std::string, int>> parse_moves(std::string_view text, int 
 }
 
 } // namespace
+namespace {
+[[nodiscard]] std::string table_name(std::string_view digest) {
+    if (digest == kTableSha256) {
+        return kTable;
+    }
+    return "custom@" + std::string(digest.substr(0, 12));
+}
+} // namespace
 
 void build_table(std::istream& in, std::ostream& out, std::ostream& log,
                  const BuildOptions& options) {
@@ -327,10 +339,17 @@ void build_table(std::istream& in, std::ostream& out, std::ostream& log,
 }
 
 Table Table::load(const std::filesystem::path& file) {
-    std::ifstream input(file, std::ios::binary);
-    if (!input.is_open()) {
+    std::ifstream file_input(file, std::ios::binary);
+    if (!file_input.is_open()) {
         throw GamesError("cannot read games table " + file.string());
     }
+    std::string bytes((std::istreambuf_iterator<char>(file_input)),
+                      std::istreambuf_iterator<char>());
+    if (file_input.bad()) {
+        throw GamesError("cannot read games table " + file.string());
+    }
+    const std::string digest = sha256_hex(std::as_bytes(std::span(bytes.data(), bytes.size())));
+    std::istringstream input(std::move(bytes));
 
     require_header_line(input, std::string("# source ") + kSourceId);
     require_header_line(input, std::string("# platform ") + kPlatform);
@@ -353,7 +372,7 @@ Table Table::load(const std::filesystem::path& file) {
 
     Table table;
     table.header_ = {.id = kSourceId,
-                     .table = kTable,
+                     .table = table_name(digest),
                      .platform = kPlatform,
                      .players = kPlayers,
                      .months = months,

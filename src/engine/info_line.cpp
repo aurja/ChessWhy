@@ -121,7 +121,7 @@ std::optional<Line> parse_info_line(std::string_view text) {
         }
         if (token == "depth") {
             const auto value = next_token(text, offset);
-            if (!parse_integer(value, line.depth)) {
+            if (!parse_integer(value, line.depth) || line.depth < 1) {
                 return std::nullopt;
             }
             have_depth = true;

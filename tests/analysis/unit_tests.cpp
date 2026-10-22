@@ -38,6 +38,15 @@ TEST_CASE("expected score keeps WDL units exact", "[analysis][unit]") {
     CHECK(chesswhy::analysis::es_units(line) == 1'155);
 }
 
+TEST_CASE("UCI move line retains a positive search depth", "[analysis][unit]") {
+    const auto shallow =
+        chesswhy::engine::parse_info_line("info depth 1 score cp 0 wdl 350 300 350 pv d2d4");
+    REQUIRE(shallow.has_value());
+    CHECK(shallow->depth == 1);
+    CHECK_FALSE(chesswhy::engine::parse_info_line("info depth 0 score cp 0 wdl 350 300 350 pv d2d4")
+                    .has_value());
+}
+
 TEST_CASE("verdict boundaries are inclusive at fine, mistake and blunder", "[analysis][unit]") {
     using chesswhy::Verdict;
     using chesswhy::analysis::verdict_for_loss;
@@ -87,6 +96,8 @@ TEST_CASE("walked plies follows the six-ply horizon and capture extension", "[an
 TEST_CASE("walked plies stops at illegal moves and the end of a short PV", "[analysis][unit]") {
     const chess::Board root("k7/8/8/8/8/8/4R3/4K3 w - - 0 1");
     const std::array illegal_pv{std::string("e2e3"), std::string("a8a7"), std::string("a1a8")};
+    const std::array<std::string, 0> empty_pv{};
+    CHECK(chesswhy::analysis::walked_plies(root, empty_pv) == 0);
     CHECK(chesswhy::analysis::walked_plies(root, illegal_pv) == 2);
 
     const std::array short_pv{std::string("e2e3")};

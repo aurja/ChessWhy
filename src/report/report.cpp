@@ -46,6 +46,17 @@ template <typename Enum>
     value["square"] = std::move(square);
     return value;
 }
+[[nodiscard]] Json serialize_motif_restriction(const MotifRestriction& restriction) {
+    Json value = Json::object();
+    value["piece"] = serialize_piece_on_square(restriction.piece);
+    value["restricted"] = restriction.restricted;
+    value["free"] = restriction.free;
+    Json held_to = Json::object();
+    held_to["kind"] = to_string(restriction.held_to.kind);
+    held_to["name"] = restriction.held_to.name;
+    value["held_to"] = std::move(held_to);
+    return value;
+}
 
 [[nodiscard]] Json serialize_motif(const Motif& motif) {
     Json value = Json::object();
@@ -61,6 +72,8 @@ template <typename Enum>
     value["targets"] = std::move(targets);
     value["gain"] = motif.gain ? Json(*motif.gain) : Json(nullptr);
     value["threat"] = motif.threat ? serialize_motif_threat(*motif.threat) : Json(nullptr);
+    value["restriction"] =
+        motif.restriction ? serialize_motif_restriction(*motif.restriction) : Json(nullptr);
     value["contribution"] =
         motif.contribution ? Json(to_string(*motif.contribution)) : Json(nullptr);
     return value;
@@ -240,11 +253,13 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["san"] = move.san;
     value["uci"] = move.uci;
     value["eval"] = serialize_eval(move.eval);
+    value["depth"] = move.depth;
     value["loss"] = static_cast<double>(move.loss_units) / 2000.0;
     value["verdict"] = to_string(move.verdict);
     value["in_multipv"] = move.in_multipv;
     value["gives_check"] = move.gives_check;
     value["line"] = move.line_san;
+    value["walked_plies"] = move.walked_plies;
     if (move.parries_threat) {
         Json parry = Json::object();
         parry["source"] = parry_source(move.parries_threat->test);
@@ -256,6 +271,8 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     }
     value["creates_threat"] =
         move.creates_threat ? serialize_threat(*move.creates_threat) : Json(nullptr);
+    value["creates_threat_skipped"] =
+        move.creates_threat_skipped ? Json(to_string(*move.creates_threat_skipped)) : Json(nullptr);
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
     value["motifs"] = serialize_motifs(move.motifs);
     value["tactic"] = serialize_optional_tactic(move.tactic);
@@ -584,6 +601,7 @@ nlohmann::ordered_json to_json(const Report& report) {
     position["fen"] = report.position.fen;
     position["side_to_move"] = to_string(report.position.side_to_move);
     position["in_check"] = report.position.in_check;
+    position["legal_moves"] = report.position.legal_moves;
     position["terminal"] =
         report.position.terminal ? Json(to_string(*report.position.terminal)) : Json(nullptr);
     position["eval_white"] =

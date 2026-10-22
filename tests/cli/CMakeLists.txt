@@ -28,7 +28,8 @@ foreach(index RANGE 0 ${CLI_FIXTURE_LAST_INDEX})
         COMMAND cli_fixture_test "${fixture_id}" "$<BOOL:${CHESSWHY_CHECK_TIMING}>")
     set_tests_properties(cli_fixture_${fixture_id} PROPERTIES
         LABELS engine
-        FIXTURES_SETUP cli_report_${fixture_id})
+        FIXTURES_SETUP cli_report_${fixture_id}
+        RESOURCE_LOCK engine)
     list(APPEND CLI_REPORT_FILES "${CMAKE_CURRENT_BINARY_DIR}/reports/${fixture_id}.json")
     list(APPEND CLI_REPORT_FIXTURES cli_report_${fixture_id})
 endforeach()
@@ -43,4 +44,4 @@ set_tests_properties(report_schema PROPERTIES
     FIXTURES_REQUIRED "${CLI_REPORT_FIXTURES}")
 
 add_test(NAME cli_rerun_identity COMMAND cli_identity_test)
-set_tests_properties(cli_rerun_identity PROPERTIES LABELS engine)
+set_tests_properties(cli_rerun_identity PROPERTIES LABELS engine RESOURCE_LOCK engine)

@@ -20,7 +20,7 @@ int main(int argc, char** argv) {
         "normal_position.json",           "pgn_opening.json",
         "tactic_with_labels.json",        "forced_judgement.json",
         "negative_margin_judgement.json", "refutation_judgement.json"};
-    const auto reports = chesswhy::test_examples::all_reports();
+    const auto reports = chesswhy::test_examples::schema_reports();
     for (std::size_t index = 0; index < reports.size(); ++index) {
         std::ofstream output(output_directory / filenames[index], std::ios::binary);
         if (!output) {

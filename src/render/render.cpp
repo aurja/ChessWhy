@@ -1,5 +1,6 @@
 #include "chesswhy/render.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <iomanip>
 #include <locale>
@@ -28,6 +29,123 @@ namespace {
 
 void write_square(std::ostringstream& output, std::uint8_t square) {
     output << static_cast<char>('a' + (square % 8)) << static_cast<char>('1' + (square / 8));
+}
+void write_uci_square(std::ostringstream& output, const std::string& uci, std::size_t offset) {
+    output << uci[offset] << uci[offset + 1];
+}
+
+void write_restricted_moves(std::ostringstream& output, const MotifRestriction& restriction,
+                            const std::vector<std::string>& moves) {
+    if (moves.empty()) {
+        output << "none";
+        return;
+    }
+    char piece = restriction.piece.piece;
+    if (piece >= 'a' && piece <= 'z') {
+        piece = static_cast<char>(piece - ('a' - 'A'));
+    }
+    for (std::size_t index = 0; index < moves.size(); ++index) {
+        if (index != 0) {
+            output << ", ";
+        }
+        const std::string& uci = moves[index];
+        if (piece != 'P') {
+            output << piece;
+        }
+        write_uci_square(output, uci, 0);
+        output << '-';
+        write_uci_square(output, uci, 2);
+        if (uci.size() > 4) {
+            char promotion = uci[4];
+            if (promotion >= 'a' && promotion <= 'z') {
+                promotion = static_cast<char>(promotion - ('a' - 'A'));
+            }
+            output << '=' << promotion;
+        }
+    }
+}
+
+void write_held_to(std::ostringstream& output, const HeldTo& held_to) {
+    switch (held_to.kind) {
+    case HeldTo::Kind::File:
+        output << "along file " << held_to.name;
+        return;
+    case HeldTo::Kind::Rank:
+        output << "along rank " << held_to.name;
+        return;
+    case HeldTo::Kind::Diagonal:
+        output << "along diagonal " << held_to.name;
+        return;
+    case HeldTo::Kind::Square:
+        output << "at square " << held_to.name;
+        return;
+    case HeldTo::Kind::Squares: {
+        const bool multiple = held_to.name.find(',') != std::string::npos;
+        output << "only to square" << (multiple ? "s " : " ");
+        for (char character : held_to.name) {
+            if (character == ',') {
+                output << ", ";
+            } else {
+                output << character;
+            }
+        }
+        return;
+    }
+    }
+}
+
+void write_restriction(std::ostringstream& output, const MotifRestriction& restriction) {
+    output << "; ";
+    write_held_to(output, restriction.held_to);
+    output << "; restricted: ";
+    write_restricted_moves(output, restriction, restriction.restricted);
+    output << "; free: ";
+    write_restricted_moves(output, restriction, restriction.free);
+}
+
+[[nodiscard]] const char* side_name(Side side) {
+    return side == Side::White ? "White" : "Black";
+}
+
+[[nodiscard]] const char* creates_threat_skip_reason(CreatesThreatSkip skip) {
+    switch (skip) {
+    case CreatesThreatSkip::GivesCheck:
+        return "gives check";
+    case CreatesThreatSkip::GameOver:
+        return "game over";
+    case CreatesThreatSkip::NoLegalMove:
+        return "no legal move";
+    }
+    return "";
+}
+
+void write_header(std::ostringstream& output, const Report& report) {
+    output << "Engine: " << report.engine.name << " (Threads=" << report.engine.threads
+           << ", Hash=" << report.engine.hash_mb << " MB) [rule]\n";
+    const NodeBudget& nodes = report.engine.nodes;
+    output << "Budget: " << to_string(report.input.budget) << ", nodes A=" << nodes.a
+           << ", B=" << nodes.b << ", C=" << nodes.c << ", D=" << nodes.d << ", E=" << nodes.e
+           << ", R=" << nodes.r << " [rule]\n";
+}
+
+void write_candidate_count(std::ostringstream& output, const Report& report) {
+    const std::size_t count = report.candidates.size();
+    output << "Candidates: " << count << " of " << report.position.legal_moves
+           << " legal moves (engine's top " << count << ')';
+    if (report.position.legal_moves > 0 &&
+        count < static_cast<std::size_t>(report.position.legal_moves)) {
+        output << "; unlisted moves are not judged and may also be fine";
+    }
+    output << " [rule]\n";
+}
+
+void write_candidate_eval(std::ostringstream& output, const MoveAssessment& move) {
+    output << std::fixed << std::setprecision(1) << static_cast<double>(move.eval.es_units) / 20.0;
+}
+
+void write_walk(std::ostringstream& output, const std::string& label, const MoveAssessment& move) {
+    output << label << " facts read to ply " << move.walked_plies << " of " << move.line_san.size()
+           << " [rule]\n";
 }
 
 void write_motif_label(std::ostringstream& output, const Motif& motif) {
@@ -85,7 +203,10 @@ void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs) 
             }
         }
         if (motif.gain) {
-            output << ", gain " << *motif.gain;
+            output << ", SEE " << *motif.gain;
+        }
+        if (motif.restriction) {
+            write_restriction(output, *motif.restriction);
         }
         output << " (ply " << motif.ply;
         if (motif.contribution) {
@@ -239,8 +360,9 @@ void write_games_summary(std::ostringstream& output, const GamesInfo& games) {
 }
 
 void write_move_details(std::ostringstream& output, const std::string& label,
-                        const MoveAssessment& move, const GamesInfo& games) {
+                        const MoveAssessment& move, const GamesInfo& games, Side side_to_move) {
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
+    write_walk(output, label, move);
     write_positional_changes(output, move.positional);
     write_game_move_counts(output, move, games);
     write_tactic(output, move.tactic);
@@ -248,22 +370,32 @@ void write_move_details(std::ostringstream& output, const std::string& label,
         write_motifs(output, move.motifs);
     }
     if (move.parries_threat) {
-        output << label << " parries threat: " << boolean(move.parries_threat->parries) << " ("
-               << to_string(move.parries_threat->test) << ") ["
-               << parry_source(move.parries_threat->test) << "]\n";
+        output << label << " parries threat: " << boolean(move.parries_threat->parries) << " (";
+        if (move.parries_threat->test == ParryTest::DeferredByCheck) {
+            output << "deferred_by_check: the move checks, so the threat only waits";
+        } else {
+            output << to_string(move.parries_threat->test);
+        }
+        output << ") [" << parry_source(move.parries_threat->test) << "]\n";
     } else {
         output << label << " parries threat: null [rule]\n";
     }
     if (move.creates_threat) {
         output << label << " creates threat side: " << to_string(move.creates_threat->side)
                << " [engine]\n";
-        output << label << " creates threat line: " << san_line(move.creates_threat->line_san)
+        const Side passing_side = side_to_move == Side::White ? Side::Black : Side::White;
+        output << label << " creates threat line (if " << side_name(passing_side)
+               << " passes after " << move.san << "): " << san_line(move.creates_threat->line_san)
                << " [engine]\n";
         write_motifs(output, move.creates_threat->motifs);
         write_consequence(output, label + " creates threat consequence",
                           move.creates_threat->consequence);
     } else {
-        output << label << " creates threat: null [rule]\n";
+        output << label << " creates threat: not searched";
+        if (move.creates_threat_skipped) {
+            output << " (" << creates_threat_skip_reason(*move.creates_threat_skipped) << ')';
+        }
+        output << " [rule]\n";
     }
     if (move.refutation) {
         output << label << " refutation line: " << san_line(move.refutation->line_san)
@@ -293,6 +425,7 @@ void write_eval(std::ostringstream& output, const std::string& label, const Eval
 std::string text(const Report& report) {
     std::ostringstream output;
     output.imbue(std::locale::classic());
+    write_header(output, report);
     output << "Position side to move: " << to_string(report.position.side_to_move) << " [rule]\n";
     output << "Position in check: " << boolean(report.position.in_check) << " [rule]\n";
     output << "Position terminal: ";
@@ -329,20 +462,25 @@ std::string text(const Report& report) {
         output << "Threats: null [rule]\n";
     }
 
+    write_candidate_count(output, report);
     for (std::size_t index = 0; index < report.candidates.size(); ++index) {
         const auto& candidate = report.candidates[index];
         const std::string label = "Candidate " + std::to_string(index + 1);
         output << label << ": " << candidate.san << " (" << candidate.uci << "), "
-               << to_string(candidate.verdict) << ", loss=" << std::fixed << std::setprecision(1)
-               << static_cast<double>(candidate.loss_units) / 20.0 << "% [engine]\n";
-        write_move_details(output, label, candidate, report.games);
+               << to_string(candidate.verdict) << ", es=";
+        write_candidate_eval(output, candidate);
+        output << "%, loss=" << std::fixed << std::setprecision(1)
+               << static_cast<double>(candidate.loss_units) / 20.0 << "%, depth=" << candidate.depth
+               << " [engine]\n";
+        write_move_details(output, label, candidate, report.games, report.position.side_to_move);
     }
 
     if (report.asked_move) {
         output << "Asked move: " << report.asked_move->san << " (" << report.asked_move->uci
                << "), " << to_string(report.asked_move->verdict)
                << ", in_multipv: " << boolean(report.asked_move->in_multipv) << " [engine]\n";
-        write_move_details(output, "Asked move", *report.asked_move, report.games);
+        write_move_details(output, "Asked move", *report.asked_move, report.games,
+                           report.position.side_to_move);
     } else {
         output << "Asked move: null [rule]\n";
     }

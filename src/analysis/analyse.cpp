@@ -313,16 +313,24 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     const bool mates = gives_check && !has_reply;
 
     std::optional<ParryInfo> parry;
-    if (opponent_threat_rank >= 2 && opponent_line.has_value() && !opponent_line->pv_uci.empty()) {
+    if (!root.inCheck() && opponent_threat_rank >= 2 && opponent_line.has_value() &&
+        !opponent_line->pv_uci.empty()) {
         parry = search_parry(engine, budget, nodes_searched, after_move, gives_check, mates,
                              opponent_line->pv_uci.front(), *opponent_line);
     }
 
     std::optional<Threat> creates_threat;
-    if (!gives_check && has_reply) {
+    std::optional<CreatesThreatSkip> creates_threat_skipped;
+    if (gives_check) {
+        creates_threat_skipped = CreatesThreatSkip::GivesCheck;
+    } else if (!has_reply) {
+        creates_threat_skipped = CreatesThreatSkip::GameOver;
+    } else {
         chess::Board null_after_move = after_move;
         null_after_move.makeNullMove();
-        if (has_legal_moves(null_after_move)) {
+        if (!has_legal_moves(null_after_move)) {
+            creates_threat_skipped = CreatesThreatSkip::NoLegalMove;
+        } else {
             engine::SearchRequest request;
             request.fen = null_after_move.getFen();
             request.nodes = budget.e;
@@ -339,16 +347,19 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     result.san = chess::uci::moveToSan(root, move);
     result.uci.assign(uci);
     result.eval = eval_for(line, root.sideToMove(), root.sideToMove());
+    result.depth = line.depth;
     result.loss_units = std::max(0, es_units(best_line) - es_units(line));
     result.verdict = verdict_for_loss(result.loss_units);
     result.in_multipv = in_multipv;
     result.gives_check = gives_check;
     result.line_san = san_line(root, line.pv_uci);
     const auto moves = walked_moves(root, line.pv_uci);
+    result.walked_plies = static_cast<int>(moves.size());
     result.motifs = tactics::line_motifs(root, std::span<const chess::Move>(moves));
     result.positional = positional::line_changes(root, std::span<const chess::Move>(moves));
     result.parries_threat = parry;
     result.creates_threat = std::move(creates_threat);
+    result.creates_threat_skipped = creates_threat_skipped;
 
     if (result.verdict != Verdict::Fine) {
         const auto pv = std::span<const std::string>(line.pv_uci);
@@ -389,6 +400,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.asked_move.reset();
 
     const auto root_legal_moves = legal_move_count(board);
+    report.position.legal_moves = static_cast<int>(root_legal_moves);
     if (root_legal_moves == 0) {
         report.position.terminal = in_check ? Terminal::Checkmate : Terminal::Stalemate;
         return;

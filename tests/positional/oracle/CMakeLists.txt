@@ -12,6 +12,8 @@ if(TARGET chesswhy_positional)
     target_include_directories(positional_oracle PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
     target_link_libraries(positional_oracle PRIVATE chesswhy_positional chesswhy_warnings)
     add_test(NAME positional_oracle
-        COMMAND positional_oracle "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv")
+        COMMAND positional_oracle
+            "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
+            "${PROJECT_SOURCE_DIR}/tests/fixtures/positional.json")
     set_tests_properties(positional_oracle PROPERTIES LABELS unit)
 endif()

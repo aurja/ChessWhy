@@ -326,6 +326,8 @@ void set_turn(chess::Board& board, Color side) {
     return value.has_value() && *value >= see_value;
 }
 
+void apply_restrictions(const chess::Board& board, std::vector<Motif>& motifs);
+
 [[nodiscard]] std::vector<Motif> state_motifs(const chess::Board& board, int ply,
                                               const chess::Board* before = nullptr,
                                               const Move* previous_move = nullptr,
@@ -530,6 +532,7 @@ void set_turn(chess::Board& board, Color side) {
                           std::make_move_iterator(pin_motifs.end()));
         }
     }
+    apply_restrictions(board, motifs);
     return motifs;
 }
 
@@ -897,6 +900,337 @@ struct MoveOutcome {
         }
     }
     return result;
+}
+
+[[nodiscard]] std::string square_name(Square square) {
+    std::string result(2, ' ');
+    result[0] = static_cast<char>('a' + square.file());
+    result[1] = static_cast<char>('1' + square.rank());
+    return result;
+}
+
+[[nodiscard]] std::vector<Move> pseudo_legal_moves_from(const chess::Board& board, Square from) {
+    const Piece piece = board.at(from);
+    if (piece == Piece::NONE || piece.color() != board.sideToMove()) {
+        return {};
+    }
+
+    std::vector<Move> result;
+    const auto add_move = [&result, &board, from, piece](Square to) {
+        const Piece destination = board.at(to);
+        if (destination != Piece::NONE &&
+            (destination.color() == piece.color() || destination.type() == PieceType::KING)) {
+            return;
+        }
+        if (piece.type() == PieceType::PAWN &&
+            static_cast<int>(to.rank()) == (piece.color() == Color::WHITE ? 7 : 0)) {
+            for (const PieceType promotion :
+                 {PieceType::QUEEN, PieceType::ROOK, PieceType::BISHOP, PieceType::KNIGHT}) {
+                result.push_back(Move::make<Move::PROMOTION>(from, to, promotion));
+            }
+        } else {
+            result.push_back(Move::make(from, to));
+        }
+    };
+
+    if (piece.type() == PieceType::PAWN) {
+        const int direction = piece.color() == Color::WHITE ? 1 : -1;
+        const int next_rank = from.rank() + direction;
+        if (next_rank >= 0 && next_rank < 8) {
+            const Square one_step(from.file() + next_rank * 8);
+            if (board.at(one_step) == Piece::NONE) {
+                add_move(one_step);
+                const int start_rank = piece.color() == Color::WHITE ? 1 : 6;
+                const int double_rank = from.rank() + (2 * direction);
+                if (static_cast<int>(from.rank()) == start_rank &&
+                    board.at(Square(from.file() + double_rank * 8)) == Piece::NONE) {
+                    result.push_back(Move::make(from, Square(from.file() + double_rank * 8)));
+                }
+            }
+            for (const int file_delta : {-1, 1}) {
+                const int next_file = from.file() + file_delta;
+                if (next_file < 0 || next_file >= 8) {
+                    continue;
+                }
+                const Square to(next_file + next_rank * 8);
+                const Piece destination = board.at(to);
+                if ((destination != Piece::NONE && destination.color() != piece.color() &&
+                     destination.type() != PieceType::KING) ||
+                    (to == board.enpassantSq() && destination == Piece::NONE)) {
+                    if (to == board.enpassantSq() && destination == Piece::NONE) {
+                        result.push_back(Move::make<Move::ENPASSANT>(from, to));
+                    } else {
+                        add_move(to);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    constexpr std::array<std::pair<int, int>, 8> knight_steps{
+        {{1, 2}, {2, 1}, {-1, 2}, {-2, 1}, {1, -2}, {2, -1}, {-1, -2}, {-2, -1}}};
+    constexpr std::array<std::pair<int, int>, 8> king_steps{
+        {{1, 0}, {-1, 0}, {0, 1}, {0, -1}, {1, 1}, {1, -1}, {-1, 1}, {-1, -1}}};
+    const auto add_step = [&board, from, piece, &add_move](int file_delta, int rank_delta,
+                                                           bool slide) {
+        int file = from.file() + file_delta;
+        int rank = from.rank() + rank_delta;
+        while (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
+            const Square to(file + rank * 8);
+            const Piece destination = board.at(to);
+            if (destination == Piece::NONE ||
+                (destination.color() != piece.color() && destination.type() != PieceType::KING)) {
+                add_move(to);
+            }
+            if (!slide || destination != Piece::NONE) {
+                break;
+            }
+            file += file_delta;
+            rank += rank_delta;
+        }
+    };
+
+    if (piece.type() == PieceType::KNIGHT) {
+        for (const auto& [file_delta, rank_delta] : knight_steps) {
+            add_step(file_delta, rank_delta, false);
+        }
+    } else if (piece.type() == PieceType::KING) {
+        for (const auto& [file_delta, rank_delta] : king_steps) {
+            add_step(file_delta, rank_delta, false);
+        }
+    } else {
+        for (const auto& [file_delta, rank_delta] : kDirections) {
+            if (slider_matches(piece.type(), file_delta, rank_delta)) {
+                add_step(file_delta, rank_delta, true);
+            }
+        }
+    }
+    return result;
+}
+
+[[nodiscard]] bool on_segment(Square first, Square last, Square candidate) noexcept {
+    const int df = last.file() - first.file();
+    const int dr = last.rank() - first.rank();
+    const int cf = candidate.file() - first.file();
+    const int cr = candidate.rank() - first.rank();
+    return cf * dr == cr * df && cf * df + cr * dr >= 0 && cf * df + cr * dr <= df * df + dr * dr;
+}
+
+[[nodiscard]] std::vector<std::string> uci_strings(const std::vector<Move>& moves) {
+    std::vector<std::string> result;
+    result.reserve(moves.size());
+    for (const Move move : moves) {
+        result.push_back(chess::uci::moveToUci(move));
+    }
+    std::ranges::sort(result);
+    return result;
+}
+
+[[nodiscard]] HeldTo held_to(Square held_square, const std::vector<Move>& free_moves) {
+    if (free_moves.empty()) {
+        return {.kind = HeldTo::Kind::Square, .name = square_name(held_square)};
+    }
+    std::vector<Square> destinations;
+    destinations.reserve(free_moves.size());
+    for (const Move move : free_moves) {
+        if (std::ranges::find(destinations, move.to()) == destinations.end()) {
+            destinations.push_back(move.to());
+        }
+    }
+    std::ranges::sort(destinations, [](Square left, Square right) {
+        return left.file() == right.file() ? left.rank() < right.rank()
+                                           : left.file() < right.file();
+    });
+
+    const bool one_file = std::ranges::all_of(
+        destinations, [held_square](Square square) { return square.file() == held_square.file(); });
+    if (one_file) {
+        return {.kind = HeldTo::Kind::File,
+                .name = std::string(1, static_cast<char>('a' + held_square.file()))};
+    }
+    const bool one_rank = std::ranges::all_of(
+        destinations, [held_square](Square square) { return square.rank() == held_square.rank(); });
+    if (one_rank) {
+        return {.kind = HeldTo::Kind::Rank,
+                .name = std::string(1, static_cast<char>('1' + held_square.rank()))};
+    }
+    const Square diagonal_destination = destinations.front();
+    const int diagonal_file_delta = diagonal_destination.file() - held_square.file();
+    const int diagonal_rank_delta = diagonal_destination.rank() - held_square.rank();
+    const bool one_diagonal =
+        diagonal_file_delta != 0 &&
+        (diagonal_file_delta == diagonal_rank_delta ||
+         diagonal_file_delta == -diagonal_rank_delta) &&
+        std::ranges::all_of(destinations, [held_square, diagonal_destination](Square square) {
+            return aligned(held_square, diagonal_destination, square);
+        });
+    if (one_diagonal) {
+        const int file_delta = destinations.front().file() - held_square.file();
+        const int rank_delta = destinations.front().rank() - held_square.rank();
+        const int step_file = static_cast<int>(file_delta > 0) - static_cast<int>(file_delta < 0);
+        const int step_rank = static_cast<int>(rank_delta > 0) - static_cast<int>(rank_delta < 0);
+        int first_file = held_square.file();
+        int first_rank = held_square.rank();
+        while (first_file - step_file >= 0 && first_file - step_file < 8 &&
+               first_rank - step_rank >= 0 && first_rank - step_rank < 8) {
+            first_file -= step_file;
+            first_rank -= step_rank;
+        }
+        int last_file = held_square.file();
+        int last_rank = held_square.rank();
+        while (last_file + step_file >= 0 && last_file + step_file < 8 &&
+               last_rank + step_rank >= 0 && last_rank + step_rank < 8) {
+            last_file += step_file;
+            last_rank += step_rank;
+        }
+        Square first(first_file + first_rank * 8);
+        Square last(last_file + last_rank * 8);
+        if (first.file() > last.file()) {
+            std::swap(first, last);
+        }
+        return {.kind = HeldTo::Kind::Diagonal,
+                .name = square_name(first) + '-' + square_name(last)};
+    }
+
+    std::string name;
+    for (const Square square : destinations) {
+        if (!name.empty()) {
+            name += ',';
+        }
+        name += square_name(square);
+    }
+    return {.kind = HeldTo::Kind::Squares, .name = std::move(name)};
+}
+
+[[nodiscard]] std::optional<MotifRestriction> restriction_for(const chess::Board& position,
+                                                              const Motif& motif) {
+    const Color x = motif.side == Side::White ? Color::WHITE : Color::BLACK;
+    const Color y = other(x);
+    Square held_square;
+    switch (motif.tag) {
+    case MotifTag::PinAbsolute:
+    case MotifTag::PinRelative:
+    case MotifTag::PinTactical:
+        held_square = Square(motif.targets.at(0).square);
+        break;
+    case MotifTag::OverloadedDefender:
+        held_square = Square(motif.actor.square);
+        break;
+    default:
+        return std::nullopt;
+    }
+
+    chess::Board by = position;
+    set_turn(by, y);
+    chess::Movelist all_legal_moves;
+    chess::movegen::legalmoves(all_legal_moves, by);
+    std::vector<Move> legal_moves;
+    for (const Move move : all_legal_moves) {
+        if (move.from() == held_square) {
+            legal_moves.push_back(move);
+        }
+    }
+
+    std::vector<Move> restricted_moves;
+    if (motif.tag == MotifTag::PinAbsolute) {
+        const Square king = position.kingSq(y);
+        for (const Move move : pseudo_legal_moves_from(by, held_square)) {
+            if (!on_segment(Square(motif.actor.square), king, move.to())) {
+                restricted_moves.push_back(move);
+            }
+        }
+    } else if (motif.tag == MotifTag::PinRelative) {
+        const Square target(motif.targets.at(1).square);
+        const Square attacker(motif.actor.square);
+        for (const Move move : legal_moves) {
+            chess::Board after = by;
+            after.makeMove(move);
+            if (!on_segment(attacker, target, move.to()) && see(after, target, x) >= 1) {
+                restricted_moves.push_back(move);
+            }
+        }
+    } else if (motif.tag == MotifTag::OverloadedDefender) {
+        for (const Move move : legal_moves) {
+            chess::Board after = by;
+            after.makeMove(move);
+            const bool exposes_target =
+                std::ranges::any_of(motif.targets, [&after, x](const PieceOnSquare& target) {
+                    const Square target_square(target.square);
+                    return printed_piece(after, target_square) == target &&
+                           see(after, target_square, x) >= 1;
+                });
+            if (exposes_target) {
+                restricted_moves.push_back(move);
+            }
+        }
+    } else if (motif.tag == MotifTag::PinTactical && motif.threat.has_value()) {
+        for (const Move move : legal_moves) {
+            chess::Board after_y = by;
+            after_y.makeMove(move);
+            chess::Movelist x_moves;
+            chess::movegen::legalmoves(x_moves, after_y);
+            const Square destination(motif.threat->square);
+            bool enabled = false;
+            for (const Move x_move : x_moves) {
+                if (x_move.from() != Square(motif.actor.square) ||
+                    move_destination(x_move, x) != destination) {
+                    continue;
+                }
+                if (motif.threat->kind == ThreatKind::Capture) {
+                    enabled = after_y.isCapture(x_move) && see(after_y, destination, x) >= 1;
+                } else {
+                    chess::Board after_x = after_y;
+                    after_x.makeMove(x_move);
+                    if (motif.threat->kind == ThreatKind::Checkmate) {
+                        enabled = checkmate_after(after_x, x, y);
+                    } else {
+                        const std::vector<Motif> produced =
+                            move_motifs(after_y, after_x, x_move, 1);
+                        enabled = std::ranges::any_of(produced, [&motif](const Motif& candidate) {
+                            return threat_kind(candidate.tag) == motif.threat->kind;
+                        });
+                    }
+                }
+                if (enabled) {
+                    break;
+                }
+            }
+            if (enabled) {
+                restricted_moves.push_back(move);
+            }
+        }
+    }
+
+    std::vector<std::string> restricted = uci_strings(restricted_moves);
+    if (restricted.empty()) {
+        return std::nullopt;
+    }
+    std::vector<Move> free_moves;
+    for (const Move move : legal_moves) {
+        const std::string uci = chess::uci::moveToUci(move);
+        if (!std::ranges::binary_search(restricted, uci)) {
+            free_moves.push_back(move);
+        }
+    }
+    return MotifRestriction{.piece = printed_piece(position, held_square),
+                            .restricted = std::move(restricted),
+                            .free = uci_strings(free_moves),
+                            .held_to = held_to(held_square, free_moves)};
+}
+
+void apply_restrictions(const chess::Board& board, std::vector<Motif>& motifs) {
+    for (auto motif = motifs.begin(); motif != motifs.end();) {
+        motif->restriction = restriction_for(board, *motif);
+        const bool restricted_tag =
+            motif->tag == MotifTag::PinAbsolute || motif->tag == MotifTag::PinRelative ||
+            motif->tag == MotifTag::OverloadedDefender || motif->tag == MotifTag::PinTactical;
+        if (restricted_tag && !motif->restriction.has_value()) {
+            motif = motifs.erase(motif);
+        } else {
+            ++motif;
+        }
+    }
 }
 
 [[nodiscard]] bool identity_equal(const Motif& left, const Motif& right) {

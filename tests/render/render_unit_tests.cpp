@@ -4,10 +4,144 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <utility>
+#include <vector>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include "../report/example_reports.hpp"
+
+namespace {
+
+[[nodiscard]] std::string render_template_lines(const chesswhy::Report& report) {
+    const std::string rendered = chesswhy::render::text(report);
+    std::istringstream rendered_lines(rendered);
+    std::ostringstream selected_lines;
+    std::string line;
+    while (std::getline(rendered_lines, line)) {
+        if (line.starts_with("Engine:") || line.starts_with("Budget:") ||
+            line.starts_with("Candidates:") || line.starts_with("Candidate 1:") ||
+            line.starts_with("Candidate 1 facts read to ply") ||
+            line.starts_with("Asked move facts read to ply") ||
+            line.find("parries threat: false (deferred_by_check") != std::string::npos ||
+            line.find("creates threat line (if") != std::string::npos ||
+            line.find("creates threat: not searched") != std::string::npos ||
+            line.starts_with("restricted movement") || line.starts_with("hanging_piece")) {
+            selected_lines << line << '\n';
+        }
+    }
+    return selected_lines.str();
+}
+
+[[nodiscard]] chesswhy::MotifRestriction restriction(chesswhy::PieceOnSquare piece,
+                                                     std::vector<std::string> restricted,
+                                                     std::vector<std::string> free,
+                                                     chesswhy::HeldTo held_to) {
+    return chesswhy::MotifRestriction{
+        .piece = piece,
+        .restricted = std::move(restricted),
+        .free = std::move(free),
+        .held_to = std::move(held_to),
+    };
+}
+
+} // namespace
+
+TEST_CASE("PostM3_EM2 template wording matches its golden lines", "[unit]") {
+    using namespace chesswhy;
+    Report report = test_examples::base_report(test_examples::kF03, Side::Black);
+    report.engine.nodes =
+        NodeBudget{.a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .r = 100000};
+
+    MoveAssessment candidate;
+    candidate.san = "g6";
+    candidate.uci = "g7g6";
+    candidate.eval.es_units = 960;
+    candidate.loss_units = 0;
+    candidate.verdict = Verdict::Fine;
+    candidate.depth = 16;
+    candidate.line_san = {"g6", "Nf6", "Qe5", "d6", "Qf4", "Nc6", "d4", "g5", "Be3", "Bg7"};
+    candidate.walked_plies = 6;
+    candidate.creates_threat =
+        test_examples::threat(Side::Black, test_examples::kF03, {"Nxe4"},
+                              test_examples::consequence(ConsequenceClass::Material, 3, 1));
+
+    const auto add_restriction = [&candidate](MotifTag tag, PieceOnSquare actor,
+                                              std::vector<PieceOnSquare> targets,
+                                              MotifRestriction motif_restriction) {
+        Motif motif;
+        motif.tag = tag;
+        motif.actor = actor;
+        motif.targets = std::move(targets);
+        motif.restriction = std::move(motif_restriction);
+        candidate.motifs.push_back(std::move(motif));
+    };
+    add_restriction(
+        MotifTag::PinAbsolute, test_examples::piece_on_square('e', 1, 'R'),
+        {test_examples::piece_on_square('e', 5, 'n'), test_examples::piece_on_square('e', 8, 'k')},
+        restriction(test_examples::piece_on_square('e', 5, 'N'), {"e5c6", "e5d7"}, {},
+                    HeldTo{.kind = HeldTo::Kind::Square, .name = "e5"}));
+    add_restriction(
+        MotifTag::PinRelative, test_examples::piece_on_square('b', 1, 'B'),
+        {test_examples::piece_on_square('c', 2, 'n'), test_examples::piece_on_square('e', 4, 'q')},
+        restriction(test_examples::piece_on_square('c', 2, 'n'), {"c2c4"}, {"c2c3"},
+                    HeldTo{.kind = HeldTo::Kind::File, .name = "e"}));
+    add_restriction(
+        MotifTag::OverloadedDefender, test_examples::piece_on_square('d', 5, 'n'),
+        {test_examples::piece_on_square('e', 4, 'R'), test_examples::piece_on_square('c', 4, 'Q')},
+        restriction(test_examples::piece_on_square('d', 5, 'n'), {"d5f4"}, {"d5b4"},
+                    HeldTo{.kind = HeldTo::Kind::Rank, .name = "7"}));
+    add_restriction(
+        MotifTag::PinRelative, test_examples::piece_on_square('d', 5, 'n'),
+        {test_examples::piece_on_square('g', 3, 'P'), test_examples::piece_on_square('e', 2, 'Q')},
+        restriction(test_examples::piece_on_square('d', 5, 'n'), {"d5e7"}, {"d5f6"},
+                    HeldTo{.kind = HeldTo::Kind::Diagonal, .name = "a4-e8"}));
+    add_restriction(MotifTag::OverloadedDefender, test_examples::piece_on_square('e', 4, 'q'),
+                    {test_examples::piece_on_square('h', 4, 'R')},
+                    restriction(test_examples::piece_on_square('e', 4, 'q'), {"e4f4"},
+                                {"e4a2", "e4d1", "e4g8"},
+                                HeldTo{.kind = HeldTo::Kind::Squares, .name = "a2,d1,g8"}));
+    add_restriction(MotifTag::PinRelative, test_examples::piece_on_square('e', 5, 'N'),
+                    {test_examples::piece_on_square('f', 3, 'p')},
+                    restriction(test_examples::piece_on_square('e', 5, 'N'), {"e5c6"}, {"e5f3"},
+                                HeldTo{.kind = HeldTo::Kind::Squares, .name = "f3"}));
+    add_restriction(MotifTag::PinAbsolute, test_examples::piece_on_square('a', 8, 'R'),
+                    {test_examples::piece_on_square('a', 7, 'p')},
+                    restriction(test_examples::piece_on_square('a', 7, 'P'), {"a7a8q"}, {},
+                                HeldTo{.kind = HeldTo::Kind::Square, .name = "a7"}));
+    candidate.motifs.push_back(test_examples::motif(MotifTag::HangingPiece, Side::White, 3,
+                                                    test_examples::piece_on_square('h', 6, 'n'), {},
+                                                    3));
+    report.candidates.push_back(std::move(candidate));
+    MoveAssessment game_over;
+    game_over.san = "d6";
+    game_over.uci = "d7d6";
+    game_over.creates_threat_skipped = CreatesThreatSkip::GameOver;
+    report.candidates.push_back(std::move(game_over));
+    MoveAssessment no_legal_move;
+    no_legal_move.san = "Qf6";
+    no_legal_move.uci = "d8f6";
+    no_legal_move.creates_threat_skipped = CreatesThreatSkip::NoLegalMove;
+    report.candidates.push_back(std::move(no_legal_move));
+
+    MoveAssessment skipped;
+    skipped.san = "Nf6";
+    skipped.uci = "g8f6";
+    skipped.line_san = {"Nf6"};
+    skipped.walked_plies = 1;
+    skipped.gives_check = true;
+    skipped.parries_threat = ParryInfo{.parries = false, .test = ParryTest::DeferredByCheck};
+    skipped.creates_threat_skipped = CreatesThreatSkip::GivesCheck;
+    report.asked_move = std::move(skipped);
+
+    const std::string path =
+        std::string(CHESSWHY_SOURCE_DIR) + "/tests/render/golden/postm3_em2_template.txt";
+    const std::ifstream golden_file(path, std::ios::binary);
+    REQUIRE(golden_file.good());
+    std::ostringstream golden_content;
+    golden_content << golden_file.rdbuf();
+    CHECK(render_template_lines(report) == golden_content.str());
+}
 
 TEST_CASE("example reports match the golden text", "[unit]") {
     constexpr std::array<const char*, 8> filenames{
@@ -51,7 +185,7 @@ TEST_CASE("motif rows and level-independent output", "[unit]") {
     report.input.level = chesswhy::Level::Beginner;
     CHECK(chesswhy::render::text(report) == club_text);
     CHECK(club_text.find("fork: N e5 → r c6, k g6 (ply 3) [rule]") != std::string::npos);
-    CHECK(club_text.find("hanging_piece: n d5, gain 3 (ply 1) [rule]") != std::string::npos);
+    CHECK(club_text.find("hanging_piece: n d5, SEE 3 (ply 1) [rule]") != std::string::npos);
     CHECK(club_text.find("skewer: q f6 → R f1 (ply 1) [rule]") == std::string::npos);
     CHECK(club_text.find("back_rank_weakness: k e8 (ply 0) [rule]") == std::string::npos);
 }
@@ -86,14 +220,17 @@ TEST_CASE("tactic judgements, labels and contributions render from report fields
     CHECK(tactic_text.find("removal_of_defender: b d5 → N d5, R e4 (ply 1) [rule]") !=
           std::string::npos);
     CHECK(tactic_text.find("fork: n f3 → K e1, Q d4 (ply 1, direct) [rule]") != std::string::npos);
-    CHECK(tactic_text.find("restricted movement (absolute pin): R e1 → n e5, k e8 (ply 0) "
-                           "[rule]") != std::string::npos);
-    CHECK(tactic_text.find("restricted movement (relative pin): B b1 → n c2, q e4 (ply 0) "
-                           "[rule]") != std::string::npos);
-    CHECK(tactic_text.find("restricted movement (overloaded defender): n d5 → R e4, Q c4 "
-                           "(ply 1) [rule]") != std::string::npos);
+    CHECK(tactic_text.find("restricted movement (absolute pin): R e1 → n e5, k e8; at square e5; "
+                           "restricted: Ne5-c6, Ne5-d7; free: none (ply 0) [rule]") !=
+          std::string::npos);
+    CHECK(tactic_text.find("restricted movement (relative pin): B b1 → n c2, q e4; at square c2; "
+                           "restricted: Nc2-b4; free: none (ply 0) [rule]") != std::string::npos);
+    CHECK(tactic_text.find("restricted movement (overloaded defender): n d5 → R e4, Q c4; "
+                           "at square d5; restricted: Nd5-e7; free: none (ply 1) [rule]") !=
+          std::string::npos);
     CHECK(tactic_text.find("restricted movement (tactic: Nd5-f4 fork): n d5 → "
-                           "P g3, Q e2, K g2 (ply 1, direct) [rule]") != std::string::npos);
+                           "P g3, Q e2, K g2; at square g3; restricted: g3-g4; free: none "
+                           "(ply 1, direct) [rule]") != std::string::npos);
     CHECK(tactic_text.find("back_rank_weakness: k e8") == std::string::npos);
     const auto asked_copy_report = chesswhy::test_examples::tactic_with_asked_move();
     const std::string asked_copy_text = chesswhy::render::text(asked_copy_report);

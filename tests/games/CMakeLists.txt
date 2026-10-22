@@ -2,6 +2,7 @@ add_executable(games_unit_tests games_unit_tests.cpp)
 target_link_libraries(games_unit_tests PRIVATE
     Catch2::Catch2WithMain
     chesswhy_games
+    chesswhy_util
     chesswhy_warnings
     chesswhy_paths
 )

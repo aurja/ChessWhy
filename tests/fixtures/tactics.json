@@ -266,6 +266,33 @@
       ],
       "labels_include": [],
       "labels_exclude": [{"tag":"removal_of_defender"}]
+    },
+    {
+      "id": "C17",
+      "title": "Back-rank pawns deny the king an escape from Re8#",
+      "source": "constructed",
+      "fen": "6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1",
+      "line_uci": ["e1e8"],
+      "margin": 1.0,
+      "contributions": [
+        {"tag":"back_rank_weakness","side":"white","ply":0,"actor":"g8","targets":[],"contribution":"indirect","reason":"The pawns on f7, g7, and h7 deny Kf7, Kg7, and Kh7, which would escape Re8+ if each blocker were removed."},
+        {"tag":"back_rank_mate","side":"white","ply":1,"actor":"e8","targets":["g8"],"contribution":"direct","reason":"Re8# directly delivers the checkmate represented by this motif."}
+      ],
+      "labels_include": [],
+      "labels_exclude": []
+    },
+    {
+      "id": "C18",
+      "title": "Qxg7# captures the pinned pawn",
+      "source": "constructed",
+      "fen": "6k1/5ppp/3rr3/q7/6Q1/8/1B3PPP/6K1 w - - 0 1",
+      "line_uci": ["g4g7"],
+      "margin": 1.0,
+      "contributions": [
+        {"tag":"back_rank_weakness","side":"white","ply":0,"actor":"g8","targets":[],"contribution":"none","reason":"The queen on g7 attacks f7 and h7, so removing the blockers gives the king no answer to Qxg7#."}
+      ],
+      "labels_include": [],
+      "labels_exclude": []
     }
   ]
 }

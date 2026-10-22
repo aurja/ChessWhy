@@ -18,11 +18,15 @@ Updated 2026-10-22.
     the pinned SHA-256. `--games FILE`; a missing or invalid table exits 3.
   - Release and ASan/UBSan CTests 141/141 (107 `unit`, 33 `engine`, 1 `games`); slowest
     `standard` F fixture 7.80 s (F06).
-- Next: PostM3_EM2 (fixes from the 2026-10-22 conceptual audit in `Planning/critiques/`;
-  plan `Planning/milestones/PostM3_EM2.md`; checkpoint 1 passed 2026-10-22; contract
-  commit done (headers, v5 schema; tests red until batch 1); next batch 1), then M4 (libllama
-  prose). Four candidate GGUFs are downloaded to `assets/models/`; pinning them is an M4
-  task.
+- In progress: PostM3_EM2 (fixes from the 2026-10-22 conceptual audit in `Planning/critiques/`;
+  plan `Planning/milestones/PostM3_EM2.md`, branch `postm3-em2`). Checkpoint 1 passed,
+  contract commit done, batch 1 (WP1–WP8) integrated 2026-10-22: report v5, restricted
+  and free moves with the existence condition, contribution rule 3′, data digests,
+  semantic checker (14 mutants rejected), conditions in the text. Release CTests: all
+  green except `motif fixtures…` (T07, T48–T50, T52) and `tactic fixtures…` (C01, C05,
+  C09, C10, C12, C14), which wait for the Captain at checkpoint 2. Then WP9 docs,
+  milestone gates, completion review, receipt; then M4 (libllama prose). Four candidate
+  GGUFs are downloaded to `assets/models/`; pinning them is an M4 task.
 - Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
   (F26/F27 show 20–25 rows per line); M4 decides what the prose says.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept

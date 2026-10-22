@@ -3,6 +3,7 @@ target_link_libraries(chesswhy_games PUBLIC chesswhy_headers PRIVATE
     chesswhy_input
     chesswhy_openings
     chesswhy_warnings
+    chesswhy_util
 )
 
 add_executable(chesswhy-games main.cpp)
