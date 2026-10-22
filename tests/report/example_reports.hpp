@@ -491,7 +491,7 @@ inline void add_schema_root_judgement(Report& report) {
         return chess::uci::moveToUci(lhs) < chess::uci::moveToUci(rhs);
     });
     const chess::Move best_move = chess::uci::uciToMove(root, best.uci);
-    const auto alternative_move = std::ranges::find_if(
+    auto* const alternative_move = std::ranges::find_if(
         legal_moves, [best_move](chess::Move move) { return move != best_move; });
     if (alternative_move == legal_moves.end()) {
         return;
@@ -555,7 +555,7 @@ inline void add_schema_refutation_judgements(Report& report) {
             continue;
         }
         const chess::Move refutation_move = chess::uci::parseSan(root, refutation.line_san.front());
-        const auto alternative_move = std::ranges::find_if(
+        auto* const alternative_move = std::ranges::find_if(
             legal_moves, [refutation_move](chess::Move move) { return move != refutation_move; });
         if (alternative_move == legal_moves.end()) {
             continue;

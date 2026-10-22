@@ -82,7 +82,7 @@ void write_held_to(std::ostringstream& output, const HeldTo& held_to) {
     case HeldTo::Kind::Squares: {
         const bool multiple = held_to.name.find(',') != std::string::npos;
         output << "only to square" << (multiple ? "s " : " ");
-        for (char character : held_to.name) {
+        for (const char character : held_to.name) {
             if (character == ',') {
                 output << ", ";
             } else {

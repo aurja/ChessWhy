@@ -163,8 +163,8 @@ line_motifs_from(std::string_view fen, std::initializer_list<std::string_view> u
     }
     if (kind == "diagonal") {
         if (name.size() != 5 || name[2] != '-' || name[0] >= name[3] || name[0] < 'a' ||
-            name[0] > 'h' || name[3] < 'a' || name[3] > 'h' || name[1] < '1' ||
-            name[1] > '8' || name[4] < '1' || name[4] > '8') {
+            name[0] > 'h' || name[3] < 'a' || name[3] > 'h' || name[1] < '1' || name[1] > '8' ||
+            name[4] < '1' || name[4] > '8') {
             return false;
         }
         const int file_delta = name[3] - name[0];
@@ -199,8 +199,8 @@ line_motifs_from(std::string_view fen, std::initializer_list<std::string_view> u
 
 [[nodiscard]] bool valid_fixture_restriction(const json& value) {
     if (!value.is_object() || value.size() != 3 || !value.contains("restricted") ||
-        !value["restricted"].is_array() || value["restricted"].empty() ||
-        !value.contains("free") || !value["free"].is_array() || !value.contains("held_to") ||
+        !value["restricted"].is_array() || value["restricted"].empty() || !value.contains("free") ||
+        !value["free"].is_array() || !value.contains("held_to") ||
         !valid_fixture_held_to(value["held_to"])) {
         return false;
     }
@@ -220,7 +220,6 @@ line_motifs_from(std::string_view fen, std::initializer_list<std::string_view> u
     };
     return valid_moves(value["restricted"]) && valid_moves(value["free"]);
 }
-
 
 [[nodiscard]] bool valid_fixture_instance_field(std::string_view field) {
     return field == "tag" || field == "side" || field == "ply" || field == "actor" ||
@@ -475,138 +474,162 @@ TEST_CASE("state motifs identify back-rank weakness and overloaded defenders", "
     CHECK(find_motif(no_overload, MotifTag::OverloadedDefender, Side::White, "d6") == nullptr);
 }
 
+TEST_CASE("held move restrictions never include capturing a king", "[unit]") {
+    const chess::Board root("R7/p2k4/2np4/2p2pR1/2P5/1P4P1/P3r1K1/8 w - - 1 37");
+    chess::Board position = root;
+    (void)parse_line(position, {"g2f3", "c6d4"});
+    const auto motifs = chesswhy::tactics::position_motifs(position);
+    const Motif* overloaded = find_motif(motifs, MotifTag::OverloadedDefender, Side::White, "d4");
+    REQUIRE(overloaded != nullptr);
+    REQUIRE(overloaded->restriction.has_value());
+    if (overloaded->restriction.has_value()) {
+        const std::vector<std::string> restricted{"d4b3", "d4b5", "d4c2", "d4c6", "d4e6"};
+        CHECK(overloaded->restriction->restricted == restricted);
+        CHECK(std::ranges::find(overloaded->restriction->restricted, "d4f3") ==
+              overloaded->restriction->restricted.end());
+    }
+}
+
 TEST_CASE("restricted movement reports held moves and line constraints", "[unit]") {
     using chesswhy::tactics::position_motifs;
 
-    const auto knight_pin =
-        position_motifs(chess::Board("4k3/4n3/8/8/8/8/8/K3R3 w - - 0 1"));
+    const auto knight_pin = position_motifs(chess::Board("4k3/4n3/8/8/8/8/8/K3R3 w - - 0 1"));
     const Motif* absolute_knight = find_motif(knight_pin, MotifTag::PinAbsolute, Side::White, "e1");
     REQUIRE(absolute_knight != nullptr);
     REQUIRE(absolute_knight->restriction.has_value());
-    const auto& knight_restriction = absolute_knight->restriction.value();
-    const PieceOnSquare held_knight{.square = static_cast<std::uint8_t>(square("e7").index()),
-                                    .piece = 'n'};
-    CHECK(knight_restriction.piece == held_knight);
-    const std::vector<std::string> knight_moves{
-        "e7c6", "e7c8", "e7d5", "e7f5", "e7g6", "e7g8"};
-    CHECK(knight_restriction.restricted == knight_moves);
-    CHECK(knight_restriction.free.empty());
-    const chesswhy::HeldTo knight_held_to{.kind = chesswhy::HeldTo::Kind::Square,
-                                          .name = "e7"};
-    CHECK(knight_restriction.held_to == knight_held_to);
+    if (absolute_knight->restriction.has_value()) {
+        const auto& knight_restriction = absolute_knight->restriction.value();
+        const PieceOnSquare held_knight{.square = static_cast<std::uint8_t>(square("e7").index()),
+                                        .piece = 'n'};
+        CHECK(knight_restriction.piece == held_knight);
+        const std::vector<std::string> knight_moves{"e7c6", "e7c8", "e7d5", "e7f5", "e7g6", "e7g8"};
+        CHECK(knight_restriction.restricted == knight_moves);
+        CHECK(knight_restriction.free.empty());
+        const chesswhy::HeldTo knight_held_to{.kind = chesswhy::HeldTo::Kind::Square, .name = "e7"};
+        CHECK(knight_restriction.held_to == knight_held_to);
+    }
 
     constexpr std::string_view file_pin_fen = "4k3/4r3/8/8/8/8/8/K3R3";
-    const auto file_pin =
-        position_motifs(chess::Board(std::string(file_pin_fen) + " w - - 0 1"));
+    const auto file_pin = position_motifs(chess::Board(std::string(file_pin_fen) + " w - - 0 1"));
     const auto file_pin_black_to_move =
         position_motifs(chess::Board(std::string(file_pin_fen) + " b - - 0 1"));
-    const Motif* held_rook =
-        find_motif(file_pin, MotifTag::PinAbsolute, Side::White, "e1");
+    const Motif* held_rook = find_motif(file_pin, MotifTag::PinAbsolute, Side::White, "e1");
     const Motif* held_rook_black_to_move =
         find_motif(file_pin_black_to_move, MotifTag::PinAbsolute, Side::White, "e1");
     REQUIRE(held_rook != nullptr);
     REQUIRE(held_rook_black_to_move != nullptr);
     REQUIRE(held_rook->restriction.has_value());
     REQUIRE(held_rook_black_to_move->restriction.has_value());
-    CHECK(held_rook->restriction == held_rook_black_to_move->restriction);
-    CHECK_FALSE(held_rook->restriction->free.empty());
     const chesswhy::HeldTo file_held_to{.kind = chesswhy::HeldTo::Kind::File, .name = "e"};
-    CHECK(held_rook->restriction->held_to == file_held_to);
+    if (held_rook->restriction.has_value() && held_rook_black_to_move->restriction.has_value()) {
+        CHECK(held_rook->restriction == held_rook_black_to_move->restriction);
+        CHECK_FALSE(held_rook->restriction->free.empty());
+        CHECK(held_rook->restriction->held_to == file_held_to);
+    }
 
     const auto rank_pin = position_motifs(chess::Board("K7/8/8/8/8/8/8/R2r3k w - - 0 1"));
-    const Motif* held_rank_rook =
-        find_motif(rank_pin, MotifTag::PinAbsolute, Side::White, "a1");
+    const Motif* held_rank_rook = find_motif(rank_pin, MotifTag::PinAbsolute, Side::White, "a1");
     REQUIRE(held_rank_rook != nullptr);
     REQUIRE(held_rank_rook->restriction.has_value());
     const chesswhy::HeldTo rank_held_to{.kind = chesswhy::HeldTo::Kind::Rank, .name = "1"};
-    CHECK(held_rank_rook->restriction->held_to == rank_held_to);
+    if (held_rank_rook->restriction.has_value()) {
+        CHECK(held_rank_rook->restriction->held_to == rank_held_to);
+    }
 
-    const auto diagonal_pin =
-        position_motifs(chess::Board("8/8/4k3/8/2b5/8/B7/K7 w - - 0 1"));
-    const Motif* held_bishop =
-        find_motif(diagonal_pin, MotifTag::PinAbsolute, Side::White, "a2");
+    const auto diagonal_pin = position_motifs(chess::Board("8/8/4k3/8/2b5/8/B7/K7 w - - 0 1"));
+    const Motif* held_bishop = find_motif(diagonal_pin, MotifTag::PinAbsolute, Side::White, "a2");
     REQUIRE(held_bishop != nullptr);
     REQUIRE(held_bishop->restriction.has_value());
     const chesswhy::HeldTo diagonal_held_to{.kind = chesswhy::HeldTo::Kind::Diagonal,
                                             .name = "a2-g8"};
-    CHECK(held_bishop->restriction->held_to == diagonal_held_to);
+    if (held_bishop->restriction.has_value()) {
+        CHECK(held_bishop->restriction->held_to == diagonal_held_to);
+    }
 
-    const auto relative_pin =
-        position_motifs(chess::Board("4q1k1/4r3/8/8/8/8/8/K3R3 w - - 0 1"));
+    const auto relative_pin = position_motifs(chess::Board("4q1k1/4r3/8/8/8/8/8/K3R3 w - - 0 1"));
     const Motif* held_relative_rook =
         find_motif(relative_pin, MotifTag::PinRelative, Side::White, "e1");
     REQUIRE(held_relative_rook != nullptr);
     REQUIRE(held_relative_rook->restriction.has_value());
-    CHECK_FALSE(held_relative_rook->restriction->restricted.empty());
-    CHECK_FALSE(held_relative_rook->restriction->free.empty());
-    CHECK(held_relative_rook->restriction->held_to == file_held_to);
+    if (held_relative_rook->restriction.has_value()) {
+        CHECK_FALSE(held_relative_rook->restriction->restricted.empty());
+        CHECK_FALSE(held_relative_rook->restriction->free.empty());
+        CHECK(held_relative_rook->restriction->held_to == file_held_to);
+    }
 
-    const auto overloaded = position_motifs(
-        chess::Board("7k/8/8/3p4/2n1n3/8/1N3N2/K7 w - - 0 1"));
+    const auto overloaded = position_motifs(chess::Board("7k/8/8/3p4/2n1n3/8/1N3N2/K7 w - - 0 1"));
     const Motif* overloaded_pawn =
         find_motif(overloaded, MotifTag::OverloadedDefender, Side::White, "d5");
     REQUIRE(overloaded_pawn != nullptr);
     REQUIRE(overloaded_pawn->restriction.has_value());
-    const auto& overload_restriction = overloaded_pawn->restriction.value();
-    const PieceOnSquare held_overloaded_pawn{
-        .square = static_cast<std::uint8_t>(square("d5").index()), .piece = 'p'};
-    CHECK(overload_restriction.piece == held_overloaded_pawn);
-    CHECK((overload_restriction.restricted ==
-           std::vector<std::string>{"d5c4", "d5d4", "d5e4"}));
-    CHECK(overload_restriction.free.empty());
-    const chesswhy::HeldTo overload_held_to{.kind = chesswhy::HeldTo::Kind::Square,
-                                            .name = "d5"};
-    CHECK(overload_restriction.held_to == overload_held_to);
+    if (overloaded_pawn->restriction.has_value()) {
+        const auto& overload_restriction = overloaded_pawn->restriction.value();
+        const PieceOnSquare held_overloaded_pawn{
+            .square = static_cast<std::uint8_t>(square("d5").index()), .piece = 'p'};
+        CHECK(overload_restriction.piece == held_overloaded_pawn);
+        CHECK(
+            (overload_restriction.restricted == std::vector<std::string>{"d5c4", "d5d4", "d5e4"}));
+        CHECK(overload_restriction.free.empty());
+        const chesswhy::HeldTo overload_held_to{.kind = chesswhy::HeldTo::Kind::Square,
+                                                .name = "d5"};
+        CHECK(overload_restriction.held_to == overload_held_to);
+    }
 
     const auto tactical = position_motifs(chess::Board("8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1"));
-    const Motif* tactical_pin =
-        find_motif(tactical, MotifTag::PinTactical, Side::White, "d5");
+    const Motif* tactical_pin = find_motif(tactical, MotifTag::PinTactical, Side::White, "d5");
     REQUIRE(tactical_pin != nullptr);
     REQUIRE(tactical_pin->restriction.has_value());
-    const auto& tactical_restriction = tactical_pin->restriction.value();
-    const PieceOnSquare held_tactical_pawn{
-        .square = static_cast<std::uint8_t>(square("g5").index()), .piece = 'p'};
-    CHECK(tactical_restriction.piece == held_tactical_pawn);
-    CHECK((tactical_restriction.restricted ==
-           std::vector<std::string>{"g5f4", "g5g4", "g5h4"}));
-    CHECK(tactical_restriction.free.empty());
-    const chesswhy::HeldTo tactical_held_to{.kind = chesswhy::HeldTo::Kind::Square,
-                                            .name = "g5"};
-    CHECK(tactical_restriction.held_to == tactical_held_to);
+    if (tactical_pin->restriction.has_value()) {
+        const auto& tactical_restriction = tactical_pin->restriction.value();
+        const PieceOnSquare held_tactical_pawn{
+            .square = static_cast<std::uint8_t>(square("g5").index()), .piece = 'p'};
+        CHECK(tactical_restriction.piece == held_tactical_pawn);
+        CHECK(
+            (tactical_restriction.restricted == std::vector<std::string>{"g5f4", "g5g4", "g5h4"}));
+        CHECK(tactical_restriction.free.empty());
+        const chesswhy::HeldTo tactical_held_to{.kind = chesswhy::HeldTo::Kind::Square,
+                                                .name = "g5"};
+        CHECK(tactical_restriction.held_to == tactical_held_to);
+    }
 }
 
 TEST_CASE("restricted pawn move sets include hypothetical captures", "[unit]") {
     using chesswhy::tactics::position_motifs;
 
-    const auto empty_capture = position_motifs(
-        chess::Board("4k3/8/8/4p3/8/8/8/K3R3 w - - 0 1"));
+    const auto empty_capture = position_motifs(chess::Board("4k3/8/8/4p3/8/8/8/K3R3 w - - 0 1"));
     const Motif* empty_capture_pin =
         find_motif(empty_capture, MotifTag::PinAbsolute, Side::White, "e1");
     REQUIRE(empty_capture_pin != nullptr);
     REQUIRE(empty_capture_pin->restriction.has_value());
-    CHECK((empty_capture_pin->restriction->restricted ==
-           std::vector<std::string>{"e5d4", "e5f4"}));
-    CHECK(empty_capture_pin->restriction->free == std::vector<std::string>{"e5e4"});
+    if (empty_capture_pin->restriction.has_value()) {
+        CHECK((empty_capture_pin->restriction->restricted ==
+               std::vector<std::string>{"e5d4", "e5f4"}));
+        CHECK(empty_capture_pin->restriction->free == std::vector<std::string>{"e5e4"});
+    }
 
-    const auto own_piece_capture = position_motifs(
-        chess::Board("4k3/8/8/4p3/3n4/8/8/K3R3 w - - 0 1"));
+    const auto own_piece_capture =
+        position_motifs(chess::Board("4k3/8/8/4p3/3n4/8/8/K3R3 w - - 0 1"));
     const Motif* own_piece_pin =
         find_motif(own_piece_capture, MotifTag::PinAbsolute, Side::White, "e1");
     REQUIRE(own_piece_pin != nullptr);
     REQUIRE(own_piece_pin->restriction.has_value());
-    CHECK(std::ranges::find(own_piece_pin->restriction->restricted, "e5d4") !=
-          own_piece_pin->restriction->restricted.end());
+    if (own_piece_pin->restriction.has_value()) {
+        CHECK(std::ranges::find(own_piece_pin->restriction->restricted, "e5d4") !=
+              own_piece_pin->restriction->restricted.end());
+    }
 
-    const auto promotion_capture = position_motifs(
-        chess::Board("4k3/8/8/8/8/8/4p3/K2NR3 w - - 0 1"));
+    const auto promotion_capture =
+        position_motifs(chess::Board("4k3/8/8/8/8/8/4p3/K2NR3 w - - 0 1"));
     const Motif* promotion_pin =
         find_motif(promotion_capture, MotifTag::PinAbsolute, Side::White, "e1");
     REQUIRE(promotion_pin != nullptr);
     REQUIRE(promotion_pin->restriction.has_value());
-    CHECK((promotion_pin->restriction->restricted ==
-           std::vector<std::string>{"e2d1b", "e2d1n", "e2d1q", "e2d1r", "e2f1b", "e2f1n",
-                                    "e2f1q", "e2f1r"}));
-    CHECK(promotion_pin->restriction->free.empty());
+    if (promotion_pin->restriction.has_value()) {
+        CHECK((promotion_pin->restriction->restricted ==
+               std::vector<std::string>{"e2d1b", "e2d1n", "e2d1q", "e2d1r", "e2f1b", "e2f1n",
+                                        "e2f1q", "e2f1r"}));
+        CHECK(promotion_pin->restriction->free.empty());
+    }
 }
 
 TEST_CASE("a held piece other than a pawn without legal moves restricts nothing", "[unit]") {
@@ -615,9 +638,8 @@ TEST_CASE("a held piece other than a pawn without legal moves restricts nothing"
     const chess::Board boxed_defender("7k/8/3n4/2nrn3/3n4/1N3N2/8/K7 b - - 0 1");
     chess::Movelist legal_moves;
     chess::movegen::legalmoves(legal_moves, boxed_defender);
-    CHECK(std::ranges::none_of(legal_moves, [](const chess::Move move) {
-        return move.from() == square("d5");
-    }));
+    CHECK(std::ranges::none_of(legal_moves,
+                               [](const chess::Move move) { return move.from() == square("d5"); }));
     CHECK(find_motif(position_motifs(boxed_defender), MotifTag::OverloadedDefender, Side::White,
                      "d5") == nullptr);
 }
@@ -1173,29 +1195,28 @@ test_motif(MotifTag tag, Side side, int ply, std::string_view actor_square, char
 TEST_CASE("denied moves and answers apply restricted-reply rules", "[unit]") {
     SECTION("back-rank replies remove the blocker and distinguish check from capture") {
         const chess::Board checked("4R1k1/5ppp/8/8/8/8/5PPP/4K3 b - - 0 1");
-        const Motif weakness =
-            test_motif(MotifTag::BackRankWeakness, Side::White, 0, "g8", 'k');
+        const Motif weakness = test_motif(MotifTag::BackRankWeakness, Side::White, 0, "g8", 'k');
         const auto moves = chesswhy::tactics::denied_moves(checked, weakness);
         std::vector<std::string> uci_moves;
+        uci_moves.reserve(moves.size());
         for (const chess::Move move : moves) {
             uci_moves.push_back(chess::uci::moveToUci(move, checked.chess960()));
         }
         CHECK((uci_moves == std::vector<std::string>{"g8f7", "g8g7", "g8h7"}));
 
         const chess::Move escape = chess::uci::uciToMove(checked, "g8g7");
-        CHECK(chesswhy::tactics::answers(
-            checked, weakness, escape, static_cast<std::uint8_t>(square("e8").index())));
+        CHECK(chesswhy::tactics::answers(checked, weakness, escape,
+                                         static_cast<std::uint8_t>(square("e8").index())));
 
         const chess::Board not_checked("6k1/5ppp/8/8/8/8/5PPP/4K3 b - - 0 1");
         const chess::Move same_escape = chess::uci::uciToMove(not_checked, "g8g7");
-        CHECK_FALSE(chesswhy::tactics::answers(
-            not_checked, weakness, same_escape, static_cast<std::uint8_t>(square("e8").index())));
+        CHECK_FALSE(chesswhy::tactics::answers(not_checked, weakness, same_escape,
+                                               static_cast<std::uint8_t>(square("e8").index())));
 
         const chess::Board still_attacked("4R1k1/5ppp/8/8/8/8/8/4K1R1 b - - 0 1");
         const chess::Move unsafe_escape = chess::uci::uciToMove(still_attacked, "g8g7");
-        CHECK_FALSE(chesswhy::tactics::answers(
-            still_attacked, weakness, unsafe_escape,
-            static_cast<std::uint8_t>(square("e8").index())));
+        CHECK_FALSE(chesswhy::tactics::answers(still_attacked, weakness, unsafe_escape,
+                                               static_cast<std::uint8_t>(square("e8").index())));
     }
 
     SECTION("an absolute-pin line check is ignored, but other attacks still count") {
@@ -1205,14 +1226,13 @@ TEST_CASE("denied moves and answers apply restricted-reply rules", "[unit]") {
         const auto denied = chesswhy::tactics::denied_moves(board, pin);
         const chess::Move capture = chess::uci::uciToMove(board, "e7g6");
         REQUIRE(std::ranges::find(denied, capture) != denied.end());
-        CHECK(chesswhy::tactics::answers(
-            board, pin, capture, static_cast<std::uint8_t>(square("g6").index())));
+        CHECK(chesswhy::tactics::answers(board, pin, capture,
+                                         static_cast<std::uint8_t>(square("g6").index())));
 
         const chess::Board double_check("4k3/4n3/5NQ1/8/8/8/8/4R2K b - - 0 1");
         const chess::Move only_queen_captured = chess::uci::uciToMove(double_check, "e7g6");
-        CHECK_FALSE(chesswhy::tactics::answers(
-            double_check, pin, only_queen_captured,
-            static_cast<std::uint8_t>(square("g6").index())));
+        CHECK_FALSE(chesswhy::tactics::answers(double_check, pin, only_queen_captured,
+                                               static_cast<std::uint8_t>(square("g6").index())));
     }
 
     SECTION("a denied capture answers a quiet tactic move, including at j equals k") {
@@ -1220,13 +1240,12 @@ TEST_CASE("denied moves and answers apply restricted-reply rules", "[unit]") {
         chess::Board after = root;
         const std::vector<chess::Move> line = parse_line(after, {"e5c6"});
         const chess::Move reply = chess::uci::uciToMove(after, "d4c6");
-        const Motif root_pin =
-            test_motif(MotifTag::PinRelative, Side::White, 0, "a4", 'R',
-                       {{"d4", 'n'}, {"h4", 'q'}});
+        const Motif root_pin = test_motif(MotifTag::PinRelative, Side::White, 0, "a4", 'R',
+                                          {{"d4", 'n'}, {"h4", 'q'}});
         const auto denied = chesswhy::tactics::denied_moves(after, root_pin);
         REQUIRE(std::ranges::find(denied, reply) != denied.end());
-        CHECK(chesswhy::tactics::answers(
-            after, root_pin, reply, static_cast<std::uint8_t>(square("c6").index())));
+        CHECK(chesswhy::tactics::answers(after, root_pin, reply,
+                                         static_cast<std::uint8_t>(square("c6").index())));
 
         std::vector<Motif> root_motif{root_pin};
         chesswhy::tactics::judge_contributions(root, line, root_motif);
@@ -1239,19 +1258,16 @@ TEST_CASE("denied moves and answers apply restricted-reply rules", "[unit]") {
         CHECK(ply_one_motif[0].contribution == chesswhy::MotifContribution::Indirect);
     }
     SECTION("a relative-pin move on the actor-to-rear segment is not denied") {
-        const chess::Board board(
-            "1b2r1k1/1p4pp/p1p2p2/8/3P3N/P1P1r2P/1P1Q1PPq/3KR3 w - - 0 29");
+        const chess::Board board("1b2r1k1/1p4pp/p1p2p2/8/3P3N/P1P1r2P/1P1Q1PPq/3KR3 w - - 0 29");
         const Motif pin = test_motif(MotifTag::PinRelative, Side::Black, 0, "e8", 'r',
                                      {{"e3", 'P'}, {"e1", 'R'}});
         const auto denied = chesswhy::tactics::denied_moves(board, pin);
         CHECK(denied.empty());
     }
     SECTION("the checking rook's own check is not ignored for a later relative pin") {
-        const chess::Board root(
-            "3r1r1k/1pp1q1pp/8/3B1p2/1pPn1P2/b3B3/P3QP2/1K5R w - - 0 29");
+        const chess::Board root("3r1r1k/1pp1q1pp/8/3B1p2/1pPn1P2/b3B3/P3QP2/1K5R w - - 0 29");
         chess::Board after = root;
-        const std::vector<chess::Move> line =
-            parse_line(after, {"h1h7", "h8h7", "e2h5"});
+        const std::vector<chess::Move> line = parse_line(after, {"h1h7", "h8h7", "e2h5"});
         chess::Board checking_position = root;
         const std::vector<chess::Move> checking_move = parse_line(checking_position, {"h1h7"});
         const Motif pin = test_motif(MotifTag::PinRelative, Side::White, 1, "h7", 'R',
@@ -1386,8 +1402,7 @@ TEST_CASE("indirect contributions require a denied reply that answers an X move"
         const std::vector<chess::Move> line =
             parse_line(after, {"d1a4", "b8c6", "d5c6", "b4c3", "b2c3"});
         chess::Board checking_position = root;
-        const std::vector<chess::Move> checking_line =
-            parse_line(checking_position, {"d1a4"});
+        const std::vector<chess::Move> checking_line = parse_line(checking_position, {"d1a4"});
         REQUIRE(checking_line.size() == 1);
         const Motif pin = test_motif(MotifTag::PinRelative, Side::White, 0, "g5", 'B',
                                      {{"f6", 'n'}, {"d8", 'q'}});

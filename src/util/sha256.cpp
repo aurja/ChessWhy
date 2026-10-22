@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <string_view>
 
 namespace chesswhy {
 namespace {
@@ -107,7 +108,7 @@ std::string sha256_hex(std::span<const std::byte> bytes) {
         process_block(state, tail.data() + 64);
     }
 
-    constexpr char kHex[] = "0123456789abcdef";
+    constexpr std::string_view kHex = "0123456789abcdef";
     std::string result;
     result.reserve(64);
     for (const std::uint32_t word : state) {

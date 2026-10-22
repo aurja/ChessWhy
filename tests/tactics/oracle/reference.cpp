@@ -942,14 +942,14 @@ struct MoveOutcome {
         const int direction = piece.color() == Color::WHITE ? 1 : -1;
         const int next_rank = from.rank() + direction;
         if (next_rank >= 0 && next_rank < 8) {
-            const Square one_step(from.file() + next_rank * 8);
+            const Square one_step(from.file() + (next_rank * 8));
             if (board.at(one_step) == Piece::NONE) {
                 add_move(one_step);
                 const int start_rank = piece.color() == Color::WHITE ? 1 : 6;
                 const int double_rank = from.rank() + (2 * direction);
                 if (static_cast<int>(from.rank()) == start_rank &&
-                    board.at(Square(from.file() + double_rank * 8)) == Piece::NONE) {
-                    result.push_back(Move::make(from, Square(from.file() + double_rank * 8)));
+                    board.at(Square(from.file() + (double_rank * 8))) == Piece::NONE) {
+                    result.push_back(Move::make(from, Square(from.file() + (double_rank * 8))));
                 }
             }
             for (const int file_delta : {-1, 1}) {
@@ -957,7 +957,7 @@ struct MoveOutcome {
                 if (next_file < 0 || next_file >= 8) {
                     continue;
                 }
-                const Square to(next_file + next_rank * 8);
+                const Square to(next_file + (next_rank * 8));
                 const Piece destination = board.at(to);
                 if ((destination != Piece::NONE && destination.color() != piece.color() &&
                      destination.type() != PieceType::KING) ||
@@ -982,7 +982,7 @@ struct MoveOutcome {
         int file = from.file() + file_delta;
         int rank = from.rank() + rank_delta;
         while (file >= 0 && file < 8 && rank >= 0 && rank < 8) {
-            const Square to(file + rank * 8);
+            const Square to(file + (rank * 8));
             const Piece destination = board.at(to);
             if (destination == Piece::NONE ||
                 (destination.color() != piece.color() && destination.type() != PieceType::KING)) {
@@ -1089,8 +1089,8 @@ struct MoveOutcome {
             last_file += step_file;
             last_rank += step_rank;
         }
-        Square first(first_file + first_rank * 8);
-        Square last(last_file + last_rank * 8);
+        Square first(first_file + (first_rank * 8));
+        Square last(last_file + (last_rank * 8));
         if (first.file() > last.file()) {
             std::swap(first, last);
         }
@@ -1119,9 +1119,8 @@ struct MoveOutcome {
 }
 
 [[nodiscard]] bool has_uci_move(const std::vector<Move>& moves, Move candidate) {
-    return std::ranges::any_of(moves, [candidate](Move move) {
-        return same_uci_move(move, candidate);
-    });
+    return std::ranges::any_of(moves,
+                               [candidate](Move move) { return same_uci_move(move, candidate); });
 }
 
 void append_unique_uci_move(std::vector<Move>& moves, Move candidate) {
@@ -1130,8 +1129,7 @@ void append_unique_uci_move(std::vector<Move>& moves, Move candidate) {
     }
 }
 
-[[nodiscard]] std::vector<Move> hypothetical_pawn_captures(const chess::Board& board,
-                                                           Square from) {
+[[nodiscard]] std::vector<Move> hypothetical_pawn_captures(const chess::Board& board, Square from) {
     const Piece pawn = board.at(from);
     if (pawn.type() != PieceType::PAWN) {
         return {};
@@ -1147,7 +1145,7 @@ void append_unique_uci_move(std::vector<Move>& moves, Move candidate) {
         if (next_file < 0 || next_file >= 8) {
             continue;
         }
-        const Square to(next_file + next_rank * 8);
+        const Square to(next_file + (next_rank * 8));
         if (board.at<PieceType>(to) == PieceType::KING) {
             continue;
         }
@@ -1214,12 +1212,11 @@ void append_unique_uci_move(std::vector<Move>& moves, Move candidate) {
     chess::movegen::legalmoves(all_legal_moves, by);
     std::vector<Move> legal_moves;
     for (const Move move : all_legal_moves) {
-        if (move.from() == held_square) {
+        if (move.from() == held_square && by.at<PieceType>(move.to()) != PieceType::KING) {
             legal_moves.push_back(move);
         }
     }
     const std::vector<Move> legal_move_set = move_set(by, held_square, legal_moves, y);
-
 
     std::vector<Move> restricted_moves;
     if (motif.tag == MotifTag::PinAbsolute) {

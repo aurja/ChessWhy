@@ -100,9 +100,7 @@ def get_object(value: JsonValue, key: str) -> JsonObject | None:
     return None if object_value is None else as_object(object_value.get(key))
 
 
-def fail(
-    failures: list[Failure], pointer: str, relation: str, condition: bool
-) -> None:
+def fail(failures: list[Failure], pointer: str, relation: str, condition: bool) -> None:
     if not condition:
         failures.append((pointer, relation))
 
@@ -233,10 +231,14 @@ def check_threat_legality(
     threat_object = as_object(threat)
     if threat_object is None:
         return None, None
-    board = board_from_fen(threat_object.get("root_fen"), f"{pointer}/root_fen", failures)
+    board = board_from_fen(
+        threat_object.get("root_fen"), f"{pointer}/root_fen", failures
+    )
     if board is None:
         return None, None
-    moves = replay_san_line(board, threat_object.get("line"), f"{pointer}/line", failures)
+    moves = replay_san_line(
+        board, threat_object.get("line"), f"{pointer}/line", failures
+    )
     tactic = as_object(threat_object.get("tactic"))
     if tactic is not None:
         _ = check_move_pair(
@@ -258,7 +260,9 @@ def check_move_legality(
     if move_object is None:
         return None
     first_move = check_move_pair(root, move, pointer, failures)
-    line_moves = replay_san_line(root, move_object.get("line"), f"{pointer}/line", failures)
+    line_moves = replay_san_line(
+        root, move_object.get("line"), f"{pointer}/line", failures
+    )
     if first_move is not None and line_moves:
         fail(
             failures,
@@ -428,7 +432,9 @@ def check_parry_relations(
             )
         )
         first_threat_move = (
-            None if not line or threat_root is None else legal_san_move(threat_root, line[0])
+            None
+            if not line or threat_root is None
+            else legal_san_move(threat_root, line[0])
         )
         assessed_move = check_move_pair(root, value, pointer, failures)
         if first_threat_move is None or assessed_move is None:
@@ -443,7 +449,9 @@ def check_parry_relations(
         after_move.push(assessed_move)
         threat_move_legal = after_move.is_legal(first_threat_move)
         if test == "threat_move_illegal":
-            relation = "threat_move_illegal requires the threat's first move to be illegal"
+            relation = (
+                "threat_move_illegal requires the threat's first move to be illegal"
+            )
             condition = not threat_move_legal
         else:
             relation = "searched requires the threat's first move to be legal"
@@ -501,9 +509,7 @@ def piece_square(value: JsonValue) -> tuple[int, str] | None:
         return None
 
 
-def held_to_value(
-    held_square: chess.Square, free_moves: list[str]
-) -> dict[str, str]:
+def held_to_value(held_square: chess.Square, free_moves: list[str]) -> dict[str, str]:
     destinations = sorted(
         {chess.square_name(chess.Move.from_uci(uci).to_square) for uci in free_moves}
     )
@@ -565,6 +571,9 @@ def hypothetical_pawn_captures(
         if not 0 <= target_file < 8 or not 0 <= target_rank < 8:
             continue
         target_square = chess.square(target_file, target_rank)
+        target_piece = board.piece_at(target_square)
+        if target_piece is not None and target_piece.piece_type == chess.KING:
+            continue
         after = board.copy(stack=False)
         _ = after.remove_piece_at(held_square)
         _ = after.remove_piece_at(target_square)
@@ -583,7 +592,6 @@ def hypothetical_pawn_captures(
     return pseudo_moves, legal_moves
 
 
-
 def check_restriction(
     motif: JsonObject,
     restriction: JsonObject,
@@ -594,8 +602,8 @@ def check_restriction(
     tag = motif.get("tag")
     actor = motif.get("actor")
     targets = as_array(motif.get("targets")) or []
-    expected_piece = actor if tag == "overloaded_defender" else (
-        targets[0] if targets else None
+    expected_piece = (
+        actor if tag == "overloaded_defender" else (targets[0] if targets else None)
     )
     held_piece = piece_square(expected_piece)
     actual_piece = piece_square(restriction.get("piece"))
@@ -628,11 +636,20 @@ def check_restriction(
     if by.turn == x_turn:
         by.push(chess.Move.null())
 
+    # A move set never captures a king (the flipped board can leave X in check).
+    def captures_king(move: chess.Move) -> bool:
+        target = by.piece_at(move.to_square)
+        return target is not None and target.piece_type == chess.KING
+
     legal_move_set = {
-        move.uci() for move in by.legal_moves if move.from_square == held_square
+        move.uci()
+        for move in by.legal_moves
+        if move.from_square == held_square and not captures_king(move)
     }
     pseudo_move_set = {
-        move.uci() for move in by.pseudo_legal_moves if move.from_square == held_square
+        move.uci()
+        for move in by.pseudo_legal_moves
+        if move.from_square == held_square and not captures_king(move)
     }
     pawn = by.piece_at(held_square)
     if pawn is not None and pawn.piece_type == chess.PAWN:
@@ -733,7 +750,9 @@ def check_motif_restrictions(
     motif_values = as_array(motifs)
     if motif_values is None:
         return
-    line_moves = replay_san_line(root, line, f"{pointer.rsplit('/motifs', 1)[0]}/line", failures)
+    line_moves = replay_san_line(
+        root, line, f"{pointer.rsplit('/motifs', 1)[0]}/line", failures
+    )
     if line_moves is None:
         return
     for index, value in enumerate(motif_values):
@@ -790,8 +809,7 @@ def check_restrictions_everywhere(
         if key == "candidates":
             moves = as_array(values) or []
             move_pairs = [
-                (f"/candidates/{index}", value)
-                for index, value in enumerate(moves)
+                (f"/candidates/{index}", value) for index, value in enumerate(moves)
             ]
         elif isinstance(values, dict):
             move_pairs = [("/asked_move", values)]
@@ -802,7 +820,11 @@ def check_restrictions_everywhere(
             if move is None:
                 continue
             check_motif_restrictions(
-                move.get("motifs"), root, move.get("line"), f"{pointer}/motifs", failures
+                move.get("motifs"),
+                root,
+                move.get("line"),
+                f"{pointer}/motifs",
+                failures,
             )
             for field in ("creates_threat", "refutation"):
                 threat = as_object(move.get(field))
@@ -980,11 +1002,15 @@ def check_refutation_tactic(
             "a refutation with no plies must have no tactic judgement",
             refutation.get("tactic") is None,
         )
-        check_motif_contributions(refutation.get("motifs"), False, motifs_pointer, failures)
+        check_motif_contributions(
+            refutation.get("motifs"), False, motifs_pointer, failures
+        )
         return False
     tactic_value = refutation.get("tactic")
     if tactic_value is None:
-        check_motif_contributions(refutation.get("motifs"), False, motifs_pointer, failures)
+        check_motif_contributions(
+            refutation.get("motifs"), False, motifs_pointer, failures
+        )
         return False
     root = board_from_fen(
         refutation.get("root_fen"), f"{pointer}/refutation/root_fen", failures
@@ -1000,7 +1026,9 @@ def check_refutation_tactic(
     else:
         move_units = score_units(move.get("eval"))
         alternative = (
-            None if tactic_object is None else as_object(tactic_object.get("alternative"))
+            None
+            if tactic_object is None
+            else as_object(tactic_object.get("alternative"))
         )
         alternative_units = (
             None if alternative is None else score_units(alternative.get("eval"))
@@ -1105,9 +1133,7 @@ def check_tactic_invariants(
                 )
             else:
                 expected_alternative = {
-                    key: second[key]
-                    for key in ("san", "uci", "eval")
-                    if key in second
+                    key: second[key] for key in ("san", "uci", "eval") if key in second
                 }
                 first_units = score_units(first.get("eval"))
                 second_units = score_units(second.get("eval"))
@@ -1271,7 +1297,9 @@ def schema_error_message(error: ValidationError) -> str:
     if path and path[-1] == "more_urgent" and "urgency" in path:
         return "more_urgent must be null iff urgency.rule is quiet"
     if path and path[-1] == "source" and "parries_threat" in path:
-        return "parries_threat.source must be engine iff test is searched, otherwise rule"
+        return (
+            "parries_threat.source must be engine iff test is searched, otherwise rule"
+        )
     return error.message
 
 
@@ -1293,7 +1321,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         Draft202012Validator.check_schema(schema)
     except SchemaError as error:
-        report_failure(arguments.schema, json_pointer(error.absolute_path), error.message)
+        report_failure(
+            arguments.schema, json_pointer(error.absolute_path), error.message
+        )
         return 1
 
     validator = Draft202012Validator(schema)

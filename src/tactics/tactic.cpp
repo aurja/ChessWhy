@@ -212,17 +212,15 @@ struct UciKey {
 }
 
 [[nodiscard]] bool uci_key_less(const UciKey& left, const UciKey& right) {
-    return std::lexicographical_compare(left.characters.begin(),
-                                        left.characters.begin() +
-                                            static_cast<std::ptrdiff_t>(left.size),
-                                        right.characters.begin(),
-                                        right.characters.begin() +
-                                            static_cast<std::ptrdiff_t>(right.size));
+    return std::lexicographical_compare(
+        left.characters.begin(), left.characters.begin() + static_cast<std::ptrdiff_t>(left.size),
+        right.characters.begin(),
+        right.characters.begin() + static_cast<std::ptrdiff_t>(right.size));
 }
 
 void sort_moves_by_uci(const chess::Board& board, std::vector<chess::Move>& moves) {
     const bool chess960 = board.chess960();
-    std::sort(moves.begin(), moves.end(), [chess960](chess::Move left, chess::Move right) {
+    std::ranges::sort(moves, [chess960](chess::Move left, chess::Move right) {
         return uci_key_less(uci_key(left, chess960), uci_key(right, chess960));
     });
 }
@@ -237,13 +235,13 @@ void sort_moves_by_uci(const chess::Board& board, std::vector<chess::Move>& move
         return false;
     }
     const int steps = std::max(abs_file_delta, abs_rank_delta);
-    const int file_step = (file_delta > 0) - (file_delta < 0);
-    const int rank_step = (rank_delta > 0) - (rank_delta < 0);
+    const int file_step = static_cast<int>(file_delta > 0) - static_cast<int>(file_delta < 0);
+    const int rank_step = static_cast<int>(rank_delta > 0) - static_cast<int>(rank_delta < 0);
     for (int step = 0; step <= steps; ++step) {
-        if (square.file() == static_cast<chess::File>(static_cast<int>(first.file()) +
-                                                      step * file_step) &&
-            square.rank() == static_cast<chess::Rank>(static_cast<int>(first.rank()) +
-                                                      step * rank_step)) {
+        if (square.file() ==
+                static_cast<chess::File>(static_cast<int>(first.file()) + (step * file_step)) &&
+            square.rank() ==
+                static_cast<chess::Rank>(static_cast<int>(first.rank()) + (step * rank_step))) {
             return true;
         }
     }
@@ -263,8 +261,8 @@ void append_pawn_move(chess::Square from, chess::Square to, bool promotes,
     }
 }
 
-[[nodiscard]] std::vector<chess::Move>
-pseudo_legal_moves_from(const chess::Board& board, chess::Square from) {
+[[nodiscard]] std::vector<chess::Move> pseudo_legal_moves_from(const chess::Board& board,
+                                                               chess::Square from) {
     std::vector<chess::Move> moves;
     const chess::Piece piece = board.at(from);
     if (piece == chess::Piece::NONE) {
@@ -275,8 +273,7 @@ pseudo_legal_moves_from(const chess::Board& board, chess::Square from) {
         for (int index = 0; index < 64; ++index) {
             const chess::Square to(index);
             const chess::Piece target = board.at(to);
-            if (to == from || target.color() == side ||
-                target.type() == chess::PieceType::KING ||
+            if (to == from || target.color() == side || target.type() == chess::PieceType::KING ||
                 !attacks_square(board, from, to)) {
                 continue;
             }
@@ -295,11 +292,10 @@ pseudo_legal_moves_from(const chess::Board& board, chess::Square from) {
         if (board.at(forward) == chess::Piece::NONE) {
             append_pawn_move(from, forward, next_rank == promotion_rank, moves);
             const int start_rank = side == chess::Color::WHITE ? 1 : 6;
-            const int double_rank = rank + 2 * rank_step;
+            const int double_rank = rank + (2 * rank_step);
             const chess::Square double_forward{chess::File(file), chess::Rank(double_rank)};
             if (rank == start_rank && board.at(double_forward) == chess::Piece::NONE) {
-                moves.push_back(
-                    chess::Move::make<chess::Move::NORMAL>(from, double_forward));
+                moves.push_back(chess::Move::make<chess::Move::NORMAL>(from, double_forward));
             }
         }
         for (const int file_step : {-1, 1}) {
@@ -321,12 +317,13 @@ pseudo_legal_moves_from(const chess::Board& board, chess::Square from) {
 }
 
 [[nodiscard]] std::vector<chess::Move> legal_moves_from(const chess::Board& board,
-                                                         chess::Square from) {
+                                                        chess::Square from) {
     chess::Movelist legal_moves;
     chess::movegen::legalmoves(legal_moves, board);
     std::vector<chess::Move> moves;
     for (const chess::Move move : legal_moves) {
-        if (move.from() == from) {
+        if (move.from() == from &&
+            board.at<chess::PieceType>(move.to()) != chess::PieceType::KING) {
             moves.push_back(move);
         }
     }
@@ -408,15 +405,15 @@ pseudo_legal_moves_from(const chess::Board& board, chess::Square from) {
 }
 
 [[nodiscard]] bool ignored_pin_line_attack(const chess::Board& board, const Motif& motif,
-                                           const chess::Move& reply,
-                                           chess::Square attacker, chess::Square king) {
+                                           const chess::Move& reply, chess::Square attacker,
+                                           chess::Square king) {
     if (motif.tag != MotifTag::PinAbsolute || motif.targets.empty() ||
         attacker != chess::Square(motif.actor.square)) {
         return false;
     }
     const chess::Square held(motif.targets.front().square);
-    return reply.from() == held && board.at(held) == chess::Piece::NONE &&
-           held != attacker && held != king && square_on_segment(attacker, king, held);
+    return reply.from() == held && board.at(held) == chess::Piece::NONE && held != attacker &&
+           held != king && square_on_segment(attacker, king, held);
 }
 
 [[nodiscard]] bool king_safe_after_reply(const chess::Board& board, const Motif& motif,
@@ -438,11 +435,9 @@ pseudo_legal_moves_from(const chess::Board& board, chess::Square from) {
 [[nodiscard]] bool denied_move_answers(const chess::Board& board, const Motif& motif,
                                        std::uint8_t landing) {
     const auto denied = denied_moves(board, motif);
-    return std::ranges::any_of(denied, [&](const chess::Move reply) {
-        return answers(board, motif, reply, landing);
-    });
+    return std::ranges::any_of(
+        denied, [&](const chess::Move reply) { return answers(board, motif, reply, landing); });
 }
-
 
 [[nodiscard]] bool move_touches_motif(const TrackedPieces& pieces, std::size_t count,
                                       chess::Move move, bool castling, bool capture,
@@ -486,22 +481,21 @@ void advance_tracked_pieces(const chess::Board& before, chess::Move move, bool c
 namespace detail {
 
 std::vector<chess::Move> held_piece_move_set(const chess::Board& board, chess::Square held,
-                                            MoveSetLegality legality) {
+                                             MoveSetLegality legality) {
     const chess::Piece piece = board.at(held);
     if (piece == chess::Piece::NONE || piece.color() != board.sideToMove()) {
         return {};
     }
 
-    std::vector<chess::Move> moves =
-        legality == MoveSetLegality::PseudoLegal ? pseudo_legal_moves_from(board, held)
-                                                  : legal_moves_from(board, held);
+    std::vector<chess::Move> moves = legality == MoveSetLegality::PseudoLegal
+                                         ? pseudo_legal_moves_from(board, held)
+                                         : legal_moves_from(board, held);
     if (piece.type() != chess::PieceType::PAWN) {
         return moves;
     }
 
     const chess::Color side = piece.color();
-    const int next_rank = static_cast<int>(held.rank()) +
-                          (side == chess::Color::WHITE ? 1 : -1);
+    const int next_rank = static_cast<int>(held.rank()) + (side == chess::Color::WHITE ? 1 : -1);
     if (next_rank < 0 || next_rank >= 8) {
         return moves;
     }
@@ -532,9 +526,8 @@ std::vector<chess::Move> held_piece_move_set(const chess::Board& board, chess::S
         };
         if (next_rank == promotion_rank) {
             // Promotion type cannot alter attacks on the promoting side's king.
-            const chess::Move queen_move =
-                chess::Move::make<chess::Move::PROMOTION>(held, destination,
-                                                          chess::PieceType::QUEEN);
+            const chess::Move queen_move = chess::Move::make<chess::Move::PROMOTION>(
+                held, destination, chess::PieceType::QUEEN);
             if (!is_legal(queen_move)) {
                 continue;
             }
@@ -578,7 +571,7 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
             continue;
         }
 
-        const std::size_t ply = static_cast<std::size_t>(motif.ply);
+        const auto ply = static_cast<std::size_t>(motif.ply);
         const chess::Board& motif_position = positions[ply];
         TrackedPieces pieces{};
         std::size_t piece_count = 0;
@@ -587,18 +580,17 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
             add_tracked_piece(motif_position, target.square, pieces, piece_count);
         }
 
-        bool direct = is_move_motif(motif.tag) && ply > 0 &&
-                      positions[ply - 1].sideToMove() == tactic_side;
+        bool direct =
+            is_move_motif(motif.tag) && ply > 0 && positions[ply - 1].sideToMove() == tactic_side;
         bool indirect = false;
         bool motif_piece_activity = false;
 
         if (!direct && ply > 0) {
             const chess::Board& before = positions[ply - 1];
             const chess::Move move = line[ply - 1];
-            if (before.sideToMove() == tactic_side &&
-                move.typeOf() != chess::Move::CASTLING) {
+            if (before.sideToMove() == tactic_side && move.typeOf() != chess::Move::CASTLING) {
                 indirect = denied_move_answers(positions[ply], motif,
-                                                static_cast<std::uint8_t>(move.to().index()));
+                                               static_cast<std::uint8_t>(move.to().index()));
             }
         }
 
@@ -621,9 +613,8 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
             const bool touched_piece =
                 move_touches_motif(pieces, piece_count, move, castling, capture, captured);
             if (!indirect && !motif_piece_activity && !touched_piece && x_move && !castling) {
-                indirect = denied_move_answers(
-                    positions[move_index + 1], motif,
-                    static_cast<std::uint8_t>(move.to().index()));
+                indirect = denied_move_answers(positions[move_index + 1], motif,
+                                               static_cast<std::uint8_t>(move.to().index()));
             }
             motif_piece_activity = motif_piece_activity || touched_piece;
             advance_tracked_pieces(before, move, castling, capture, captured, pieces, piece_count);
@@ -698,8 +689,8 @@ std::vector<chess::Move> denied_moves(const chess::Board& board, const Motif& mo
              detail::held_piece_move_set(board, held, detail::MoveSetLegality::Legal)) {
             chess::Board after = board;
             after.makeMove(move);
-            const bool exposes_target = std::ranges::any_of(
-                motif.targets, [&](const PieceOnSquare& target) {
+            const bool exposes_target =
+                std::ranges::any_of(motif.targets, [&](const PieceOnSquare& target) {
                     const chess::Square target_square(target.square);
                     const chess::Piece piece = after.at(target_square);
                     return piece != chess::Piece::NONE && piece == board.at(target_square) &&

@@ -42,7 +42,9 @@ TEST_CASE("UCI move line retains a positive search depth", "[analysis][unit]") {
     const auto shallow =
         chesswhy::engine::parse_info_line("info depth 1 score cp 0 wdl 350 300 350 pv d2d4");
     REQUIRE(shallow.has_value());
-    CHECK(shallow->depth == 1);
+    if (shallow.has_value()) {
+        CHECK(shallow->depth == 1);
+    }
     CHECK_FALSE(chesswhy::engine::parse_info_line("info depth 0 score cp 0 wdl 350 300 350 pv d2d4")
                     .has_value());
 }

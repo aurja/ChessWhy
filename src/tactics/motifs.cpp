@@ -106,8 +106,7 @@ struct RecentCapture {
         const int rank_delta = destination.rank() - held_square.rank();
         same_file = same_file && destination.file() == held_square.file();
         same_rank = same_rank && destination.rank() == held_square.rank();
-        if (file_delta == 0 || rank_delta == 0 ||
-            std::abs(file_delta) != std::abs(rank_delta)) {
+        if (file_delta == 0 || rank_delta == 0 || std::abs(file_delta) != std::abs(rank_delta)) {
             same_diagonal = false;
         } else {
             const int slope = (file_delta > 0) == (rank_delta > 0) ? 1 : -1;
@@ -119,8 +118,7 @@ struct RecentCapture {
     }
 
     if (destinations == 0) {
-        return HeldTo{.kind = HeldTo::Kind::Square,
-                      .name = static_cast<std::string>(held_square)};
+        return HeldTo{.kind = HeldTo::Kind::Square, .name = static_cast<std::string>(held_square)};
     }
     if (same_file) {
         return HeldTo{.kind = HeldTo::Kind::File,
@@ -148,17 +146,17 @@ struct RecentCapture {
             last = next;
         }
         return HeldTo{.kind = HeldTo::Kind::Diagonal,
-                      .name = static_cast<std::string>(first) + "-" +
-                              static_cast<std::string>(last)};
+                      .name =
+                          static_cast<std::string>(first) + "-" + static_cast<std::string>(last)};
     }
 
     const int destination_count = std::popcount(destinations);
     std::string name;
-    name.reserve(static_cast<std::size_t>(destination_count * 3 - 1));
+    name.reserve(static_cast<std::size_t>((destination_count * 3) - 1));
     for (int file = 0; file < 8; ++file) {
         for (int rank = 0; rank < 8; ++rank) {
-            const std::uint64_t destination_bit =
-                std::uint64_t{1} << static_cast<unsigned>((rank * 8) + file);
+            const std::uint64_t destination_bit = std::uint64_t{1}
+                                                  << static_cast<unsigned>((rank * 8) + file);
             if ((destinations & destination_bit) == 0) {
                 continue;
             }
@@ -173,7 +171,7 @@ struct RecentCapture {
 }
 
 [[nodiscard]] std::optional<MotifRestriction> make_restriction(const chess::Board& board,
-                                                                const Motif& motif) {
+                                                               const Motif& motif) {
     const chess::Square held_square = held_piece_square(motif);
     if (held_square == chess::Square::NO_SQ || board.at(held_square) == chess::Piece::NONE) {
         return std::nullopt;
@@ -214,8 +212,7 @@ struct RecentCapture {
     return restriction;
 }
 
-void append_restricted_motif(const chess::Board& board, Motif motif,
-                             std::vector<Motif>& motifs) {
+void append_restricted_motif(const chess::Board& board, Motif motif, std::vector<Motif>& motifs) {
     motif.restriction = make_restriction(board, motif);
     if (motif.restriction) {
         motifs.push_back(std::move(motif));
@@ -357,15 +354,15 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
                 // Relative pins need at least one pawn of exposed material.
                 if (rear_type == chess::PieceType::KING) {
                     append_restricted_motif(
-                        board, make_motif(board, MotifTag::PinAbsolute, side, 0, pinner,
-                                          {first, rear}),
+                        board,
+                        make_motif(board, MotifTag::PinAbsolute, side, 0, pinner, {first, rear}),
                         motifs);
                 } else if (comparison_value(rear_type) >
                                comparison_value(board.at<chess::PieceType>(first)) &&
                            detail::see_without_piece(board, rear, side, first) >= 1) {
                     append_restricted_motif(
-                        board, make_motif(board, MotifTag::PinRelative, side, 0, pinner,
-                                          {first, rear}),
+                        board,
+                        make_motif(board, MotifTag::PinRelative, side, 0, pinner, {first, rear}),
                         motifs);
                 }
             }
