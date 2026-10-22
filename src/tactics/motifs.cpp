@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "move_set_internal.hpp"
 #include "see_internal.hpp"
 
 namespace chesswhy::tactics {
@@ -198,12 +199,11 @@ struct RecentCapture {
     }
     std::ranges::sort(restriction.restricted);
 
-    chess::Movelist legal_moves;
-    chess::movegen::legalmoves(legal_moves, *by);
+    const std::vector<chess::Move> legal_moves =
+        detail::held_piece_move_set(*by, held_square, detail::MoveSetLegality::Legal);
     std::uint64_t free_destinations = 0;
     for (const chess::Move move : legal_moves) {
-        if (move.from() != held_square ||
-            std::ranges::find(denied, move) != denied.end()) {
+        if (std::ranges::find(denied, move) != denied.end()) {
             continue;
         }
         restriction.free.push_back(chess::uci::moveToUci(move, by->chess960()));
@@ -960,6 +960,8 @@ void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) 
             }
 
             PinThreatSelections selected{};
+            // These are X's legal threat moves; hypothetical pawn captures extend only the
+            // held piece's move set, which append_restricted_motif checks before emitting.
             chess::Movelist legal_moves;
             chess::movegen::legalmoves(legal_moves, minus_p);
             std::vector<chess::Move> ordered_moves(legal_moves.begin(), legal_moves.end());

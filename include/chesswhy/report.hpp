@@ -186,13 +186,13 @@ struct HeldTo {
 [[nodiscard]] std::string
 to_string(HeldTo::Kind kind); // "file", "rank", "diagonal", "square", "squares"
 
-// The held piece of a `pin_absolute`, `pin_relative`, `overloaded_defender` or `pin_tactical`
-// motif and its moves (PostM3_EM2 §4.1), computed with the held side to move (the motif's
-// board, or that board after a null move). Source: rule.
+// The held piece of a restricted-movement motif and its moves (PostM3_EM2 §4.1, including
+// hypothetical captures for pawns), computed with the held side to move (the motif's board, or
+// that board after a null move). Source: rule.
 struct MotifRestriction {
     PieceOnSquare piece;                 // the held piece h, as on the motif's board
     std::vector<std::string> restricted; // h's denied moves, UCI, ascending; never empty
-    std::vector<std::string> free;       // h's other legal moves, UCI, ascending
+    std::vector<std::string> free;       // h's other legal moves, UCI ascending
     HeldTo held_to;
     bool operator==(const MotifRestriction&) const = default;
 };

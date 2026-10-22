@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "move_set_internal.hpp"
 #include "see_internal.hpp"
 
 namespace chesswhy::tactics {
@@ -482,6 +483,85 @@ void advance_tracked_pieces(const chess::Board& before, chess::Move move, bool c
 
 } // namespace
 
+namespace detail {
+
+std::vector<chess::Move> held_piece_move_set(const chess::Board& board, chess::Square held,
+                                            MoveSetLegality legality) {
+    const chess::Piece piece = board.at(held);
+    if (piece == chess::Piece::NONE || piece.color() != board.sideToMove()) {
+        return {};
+    }
+
+    std::vector<chess::Move> moves =
+        legality == MoveSetLegality::PseudoLegal ? pseudo_legal_moves_from(board, held)
+                                                  : legal_moves_from(board, held);
+    if (piece.type() != chess::PieceType::PAWN) {
+        return moves;
+    }
+
+    const chess::Color side = piece.color();
+    const int next_rank = static_cast<int>(held.rank()) +
+                          (side == chess::Color::WHITE ? 1 : -1);
+    if (next_rank < 0 || next_rank >= 8) {
+        return moves;
+    }
+    const int promotion_rank = side == chess::Color::WHITE ? 7 : 0;
+    std::array<chess::Move, 8> hypothetical{};
+    std::size_t hypothetical_count = 0;
+    for (const int file_step : {-1, 1}) {
+        const int file = static_cast<int>(held.file()) + file_step;
+        if (file < 0 || file >= 8) {
+            continue;
+        }
+        const chess::Square destination{chess::File(file), chess::Rank(next_rank)};
+        if (board.at<chess::PieceType>(destination) == chess::PieceType::KING ||
+            std::ranges::any_of(moves, [&](const chess::Move move) {
+                return move.from() == held && move.to() == destination;
+            })) {
+            continue;
+        }
+
+        const auto is_legal = [&](chess::Move move) {
+            if (legality == MoveSetLegality::PseudoLegal) {
+                return true;
+            }
+            EditableBoard after(board);
+            after.erase(destination);
+            after.makeMove(move);
+            return !after.isAttacked(after.kingSq(side), ~side);
+        };
+        if (next_rank == promotion_rank) {
+            // Promotion type cannot alter attacks on the promoting side's king.
+            const chess::Move queen_move =
+                chess::Move::make<chess::Move::PROMOTION>(held, destination,
+                                                          chess::PieceType::QUEEN);
+            if (!is_legal(queen_move)) {
+                continue;
+            }
+            constexpr std::array promotions{chess::PieceType::QUEEN, chess::PieceType::ROOK,
+                                            chess::PieceType::BISHOP, chess::PieceType::KNIGHT};
+            for (const chess::PieceType promotion : promotions) {
+                hypothetical[hypothetical_count++] =
+                    chess::Move::make<chess::Move::PROMOTION>(held, destination, promotion);
+            }
+        } else {
+            const chess::Move move = chess::Move::make<chess::Move::NORMAL>(held, destination);
+            if (is_legal(move)) {
+                hypothetical[hypothetical_count++] = move;
+            }
+        }
+    }
+    if (hypothetical_count != 0) {
+        moves.reserve(moves.size() + hypothetical_count);
+        for (std::size_t index = 0; index < hypothetical_count; ++index) {
+            moves.push_back(hypothetical[index]);
+        }
+    }
+    return moves;
+}
+
+} // namespace detail
+
 void judge_contributions(const chess::Board& root, std::span<const chess::Move> line,
                          std::span<Motif> motifs) {
     const std::vector<chess::Board> positions = positions_after(root, line);
@@ -578,7 +658,8 @@ std::vector<chess::Move> denied_moves(const chess::Board& board, const Motif& mo
         }
         const chess::Square actor(motif.actor.square);
         const chess::Square king = board.kingSq(y_side);
-        for (const chess::Move move : pseudo_legal_moves_from(board, held)) {
+        for (const chess::Move move :
+             detail::held_piece_move_set(board, held, detail::MoveSetLegality::PseudoLegal)) {
             if (!square_on_segment(actor, king, move.to())) {
                 denied.push_back(move);
             }
@@ -595,7 +676,8 @@ std::vector<chess::Move> denied_moves(const chess::Board& board, const Motif& mo
         if (board.at(held) == chess::Piece::NONE || board.at(held).color() != y_side) {
             break;
         }
-        for (const chess::Move move : legal_moves_from(board, held)) {
+        for (const chess::Move move :
+             detail::held_piece_move_set(board, held, detail::MoveSetLegality::Legal)) {
             if (square_on_segment(actor, rear, move.to())) {
                 continue;
             }
@@ -612,15 +694,16 @@ std::vector<chess::Move> denied_moves(const chess::Board& board, const Motif& mo
         if (board.at(held) == chess::Piece::NONE || board.at(held).color() != y_side) {
             break;
         }
-        for (const chess::Move move : legal_moves_from(board, held)) {
+        for (const chess::Move move :
+             detail::held_piece_move_set(board, held, detail::MoveSetLegality::Legal)) {
             chess::Board after = board;
             after.makeMove(move);
             const bool exposes_target = std::ranges::any_of(
                 motif.targets, [&](const PieceOnSquare& target) {
                     const chess::Square target_square(target.square);
                     const chess::Piece piece = after.at(target_square);
-                    return piece != chess::Piece::NONE && piece.color() == y_side &&
-                           see(after, target_square, x_side) >= 1;
+                    return piece != chess::Piece::NONE && piece == board.at(target_square) &&
+                           piece.color() == y_side && see(after, target_square, x_side) >= 1;
                 });
             if (exposes_target) {
                 denied.push_back(move);
@@ -636,7 +719,8 @@ std::vector<chess::Move> denied_moves(const chess::Board& board, const Motif& mo
         if (board.at(held) == chess::Piece::NONE || board.at(held).color() != y_side) {
             break;
         }
-        for (const chess::Move move : legal_moves_from(board, held)) {
+        for (const chess::Move move :
+             detail::held_piece_move_set(board, held, detail::MoveSetLegality::Legal)) {
             chess::Board after = board;
             after.makeMove(move);
             if (pin_tactical_threat_enabled(after, motif)) {

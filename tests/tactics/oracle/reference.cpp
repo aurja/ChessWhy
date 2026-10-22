@@ -75,6 +75,11 @@ public:
         }
         placePiece(moving, to);
     }
+    void make_hypothetical_capture(Move move) {
+        erase_for_pin(move.to());
+        key_ = zobrist();
+        makeMove(move);
+    }
 };
 
 [[nodiscard]] Color other(Color color) noexcept {
@@ -1103,6 +1108,88 @@ struct MoveOutcome {
     return {.kind = HeldTo::Kind::Squares, .name = std::move(name)};
 }
 
+[[nodiscard]] bool same_uci_move(Move left, Move right) noexcept {
+    if (left.from() != right.from() || left.to() != right.to()) {
+        return false;
+    }
+    const bool left_is_promotion = left.typeOf() == Move::PROMOTION;
+    const bool right_is_promotion = right.typeOf() == Move::PROMOTION;
+    return left_is_promotion == right_is_promotion &&
+           (!left_is_promotion || left.promotionType() == right.promotionType());
+}
+
+[[nodiscard]] bool has_uci_move(const std::vector<Move>& moves, Move candidate) {
+    return std::ranges::any_of(moves, [candidate](Move move) {
+        return same_uci_move(move, candidate);
+    });
+}
+
+void append_unique_uci_move(std::vector<Move>& moves, Move candidate) {
+    if (!has_uci_move(moves, candidate)) {
+        moves.push_back(candidate);
+    }
+}
+
+[[nodiscard]] std::vector<Move> hypothetical_pawn_captures(const chess::Board& board,
+                                                           Square from) {
+    const Piece pawn = board.at(from);
+    if (pawn.type() != PieceType::PAWN) {
+        return {};
+    }
+    const int next_rank = from.rank() + (pawn.color() == Color::WHITE ? 1 : -1);
+    if (next_rank < 0 || next_rank >= 8) {
+        return {};
+    }
+
+    std::vector<Move> result;
+    for (const int file_delta : {-1, 1}) {
+        const int next_file = from.file() + file_delta;
+        if (next_file < 0 || next_file >= 8) {
+            continue;
+        }
+        const Square to(next_file + next_rank * 8);
+        if (board.at<PieceType>(to) == PieceType::KING) {
+            continue;
+        }
+        if (next_rank == (pawn.color() == Color::WHITE ? 7 : 0)) {
+            for (const PieceType promotion :
+                 {PieceType::QUEEN, PieceType::ROOK, PieceType::BISHOP, PieceType::KNIGHT}) {
+                result.push_back(Move::make<Move::PROMOTION>(from, to, promotion));
+            }
+        } else {
+            result.push_back(Move::make(from, to));
+        }
+    }
+    return result;
+}
+
+[[nodiscard]] bool legal_hypothetical_capture(const chess::Board& board, Move move, Color side) {
+    EditableBoard after(board);
+    after.make_hypothetical_capture(move);
+    const Square king = after.kingSq(side);
+    return king != Square::NO_SQ && !after.isAttacked(king, other(side));
+}
+
+[[nodiscard]] std::vector<Move> move_set(const chess::Board& board, Square held_square,
+                                         const std::vector<Move>& legal_moves, Color side) {
+    std::vector<Move> result = legal_moves;
+    for (const Move move : hypothetical_pawn_captures(board, held_square)) {
+        if (!has_uci_move(result, move) && legal_hypothetical_capture(board, move, side)) {
+            result.push_back(move);
+        }
+    }
+    return result;
+}
+
+[[nodiscard]] std::vector<Move> absolute_pin_candidates(const chess::Board& board,
+                                                        Square held_square) {
+    std::vector<Move> result = pseudo_legal_moves_from(board, held_square);
+    for (const Move move : hypothetical_pawn_captures(board, held_square)) {
+        append_unique_uci_move(result, move);
+    }
+    return result;
+}
+
 [[nodiscard]] std::optional<MotifRestriction> restriction_for(const chess::Board& position,
                                                               const Motif& motif) {
     const Color x = motif.side == Side::White ? Color::WHITE : Color::BLACK;
@@ -1131,11 +1218,13 @@ struct MoveOutcome {
             legal_moves.push_back(move);
         }
     }
+    const std::vector<Move> legal_move_set = move_set(by, held_square, legal_moves, y);
+
 
     std::vector<Move> restricted_moves;
     if (motif.tag == MotifTag::PinAbsolute) {
         const Square king = position.kingSq(y);
-        for (const Move move : pseudo_legal_moves_from(by, held_square)) {
+        for (const Move move : absolute_pin_candidates(by, held_square)) {
             if (!on_segment(Square(motif.actor.square), king, move.to())) {
                 restricted_moves.push_back(move);
             }
@@ -1143,7 +1232,7 @@ struct MoveOutcome {
     } else if (motif.tag == MotifTag::PinRelative) {
         const Square target(motif.targets.at(1).square);
         const Square attacker(motif.actor.square);
-        for (const Move move : legal_moves) {
+        for (const Move move : legal_move_set) {
             chess::Board after = by;
             after.makeMove(move);
             if (!on_segment(attacker, target, move.to()) && see(after, target, x) >= 1) {
@@ -1151,7 +1240,7 @@ struct MoveOutcome {
             }
         }
     } else if (motif.tag == MotifTag::OverloadedDefender) {
-        for (const Move move : legal_moves) {
+        for (const Move move : legal_move_set) {
             chess::Board after = by;
             after.makeMove(move);
             const bool exposes_target =
@@ -1165,7 +1254,7 @@ struct MoveOutcome {
             }
         }
     } else if (motif.tag == MotifTag::PinTactical && motif.threat.has_value()) {
-        for (const Move move : legal_moves) {
+        for (const Move move : legal_move_set) {
             chess::Board after_y = by;
             after_y.makeMove(move);
             chess::Movelist x_moves;
@@ -1207,7 +1296,7 @@ struct MoveOutcome {
         return std::nullopt;
     }
     std::vector<Move> free_moves;
-    for (const Move move : legal_moves) {
+    for (const Move move : legal_move_set) {
         const std::string uci = chess::uci::moveToUci(move);
         if (!std::ranges::binary_search(restricted, uci)) {
             free_moves.push_back(move);

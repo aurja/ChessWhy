@@ -535,8 +535,8 @@
       "title": "T46 restriction is explicit in the text report",
       "source": "constructed: T46 tactical-pin position",
       "args": ["--fen", "8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1"],
-      "text_contains": "at square g5; restricted: g5-g4; free: none",
-      "reason": "The g5 pawn has only its restricted g5-g4 move, leaving it held at g5."
+      "text_contains": "at square g5; restricted: g5-f4, g5-g4, g5-h4; free: none",
+      "reason": "The g5 pawn has restricted g5-f4, g5-g4, and g5-h4 moves, leaving it held at g5."
     }
   ],
   "unit_fixtures": [

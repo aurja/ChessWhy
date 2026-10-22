@@ -74,7 +74,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `StateMotif` | `src/tactics/motifs.cpp` `state_motifs`; `include/chesswhy/report.hpp` `Motif` `MotifTag` | |
 | `MoveMotif` | `src/tactics/motifs.cpp` `append_move_motifs` `append_fork` `append_skewers` `append_discovered_attacks` `append_back_rank_mates` | |
 | `TacticalPin` | `src/tactics/motifs.cpp` `append_pin_tactical` `append_restricted_motif`; `include/chesswhy/tactics.hpp` `MotifOptions` | |
-| `Restriction` | `src/tactics/motifs.cpp` `make_restriction` `held_to` `append_restricted_motif`; `src/tactics/tactic.cpp` `denied_moves`; `include/chesswhy/report.hpp` `MotifRestriction` `HeldTo` | Existence condition: motif dropped when `make_restriction` returns none |
+| `Restriction` | `src/tactics/motifs.cpp` `make_restriction` `held_to` `append_restricted_motif`; `src/tactics/tactic.cpp` `denied_moves` `detail::held_piece_move_set` `detail::MoveSetLegality`; `include/chesswhy/report.hpp` `MotifRestriction` `HeldTo` | Existence condition: motif dropped when `make_restriction` returns none. The move set adds a pawn's hypothetical captures |
 | `FirstAppearance` | `src/tactics/motifs.cpp` `line_motifs` `same_identity` | |
 | `PositionMotifs` | `src/tactics/motifs.cpp` `position_motifs` `motif_less` | |
 | `LineMotifs` | `src/tactics/motifs.cpp` `line_motifs` | |

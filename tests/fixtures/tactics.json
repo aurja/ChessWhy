@@ -18,8 +18,7 @@
       "line_uci": ["d1a4", "b8c6", "d5c6", "b4c3", "b2c3"],
       "margin": null,
       "contributions": [
-        {"tag":"pin_relative","side":"white","ply":0,"actor":"g5","targets":["f6","d8"],"contribution":"none","reason":"The pin on f6 does not change Qa4+, dxc6, or the resulting exchange."},
-        {"tag":"pin_relative","side":"white","ply":1,"actor":"a4","targets":["a7","a8"],"contribution":"none","reason":"The pin on the a7 pawn plays no part; the queen's guard of c6 is the queen's own work (Captain, checkpoint 2)."},
+        {"tag":"pin_relative","side":"white","ply":0,"actor":"g5","targets":["f6","d8"],"contribution":"indirect","reason":"Nf6-d7 would block Qa4+, but the pin denies it (Bxd8 would then win the queen)."},
         {"tag":"fork","side":"white","ply":1,"actor":"a4","targets":["b4","e8"],"contribution":"direct","reason":"Qa4+ checks the king while attacking the bishop on b4."},
         {"tag":"hanging_piece","side":"white","ply":2,"actor":"c6","targets":[],"contribution":"direct","reason":"dxc6 takes the hanging knight on c6."},
         {"tag":"pin_absolute","side":"white","ply":2,"actor":"a4","targets":["c6","e8"],"contribution":"direct","reason":"The queen's pin includes the knight that dxc6 takes."},
@@ -167,7 +166,6 @@
       "contributions": [
         {"tag":"hanging_piece","side":"white","ply":0,"actor":"d4","targets":[],"contribution":"none","reason":"The knight on d4 is not used by Rxh7+ or Qh5#."},
         {"tag":"pin_absolute","side":"white","ply":0,"actor":"h1","targets":["h7","h8"],"contribution":"direct","reason":"Rxh7+ captures the pinned pawn and opens the mating attack."},
-        {"tag":"pin_relative","side":"white","ply":1,"actor":"h7","targets":["g7","e7"],"contribution":"none","reason":"Kxh7 removes the rook before the pin can affect Qh5#."},
         {"tag":"hanging_piece","side":"white","ply":2,"actor":"d4","targets":[],"contribution":"none","reason":"The later hanging-knight state is irrelevant to the mate."}
       ],
       "labels_include": [],
@@ -289,7 +287,8 @@
       "line_uci": ["g4g7"],
       "margin": 1.0,
       "contributions": [
-        {"tag":"back_rank_weakness","side":"white","ply":0,"actor":"g8","targets":[],"contribution":"none","reason":"The queen on g7 attacks f7 and h7, so removing the blockers gives the king no answer to Qxg7#."}
+        {"tag":"back_rank_weakness","side":"white","ply":0,"actor":"g8","targets":[],"contribution":"none","reason":"The queen on g7 attacks f7 and h7, so removing the blockers gives the king no answer to Qxg7#."},
+        {"tag":"pin_absolute","side":"white","ply":0,"actor":"g4","targets":["g7","g8"],"contribution":"direct","reason":"Qxg7# captures the pinned pawn."}
       ],
       "labels_include": [],
       "labels_exclude": []

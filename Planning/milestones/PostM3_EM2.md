@@ -82,7 +82,16 @@ legal move unless it says pseudo-legal; moves that capture a king are ignored (t
 ### 4.1 Restricted and free moves (G6)
 
 For the four restricted-movement tags, the **held piece** h and its **denied moves** on
-a board B with Y to move:
+a board B with Y to move. "Moves of h" below means h's **move set** on B (checkpoint 2,
+Captain, 2026-10-22): h's moves as in §4 (legal; pseudo-legal where the row says so),
+and, when h is a pawn, also a **hypothetical capture** onto each square diagonally in
+front of it that is on the board, whatever stands there (empty, a Y piece, or an X piece,
+where it is a real capture). A hypothetical capture is judged on the board after it: h on
+that square, the square's previous occupant gone; it is a legal move when the Y king is
+not attacked on that board, a pseudo-legal move always. A capture onto the last rank is
+four promotion moves. Reason: a pawn's capture is a way it can move that only an
+occupied square unlocks; "this pawn is pinned, so I can go there" is a valid thought.
+Other pieces use their legal (pseudo-legal) moves only.
 
 | Tag | h | Denied moves of h on B |
 |---|---|---|
@@ -100,7 +109,7 @@ move. Then
 
 - `piece` = h, as on P;
 - `restricted` = h's denied moves on By;
-- `free` = h's legal moves on By that are not restricted;
+- `free` = the legal moves of h's move set on By that are not restricted;
 - `held_to` (K2): how the movement is restricted, from the free moves' destinations
   (distinct squares; promotions to one square count once). Never null:
   - no free move → `{"kind": "square", "name": h's square}`, "at square e5";
@@ -114,27 +123,35 @@ move. Then
     comma-separated, "only to squares a2, d1, g8" ("only to square f3" for one).
 
 Both lists in UCI, sorted ascending as strings. For `pin_absolute` the restricted moves
-are the moves the pin makes illegal; for the others they are legal moves that cost
-something.
+are the moves the pin makes illegal; for the others they are moves that cost something.
+A hypothetical capture appears in either list like any other move.
 
 **Existence condition (K2):** a motif of these four tags exists only if `restricted` is
 non-empty. A piece that cannot move at all, or whose every move stays allowed, is not
-restricted by the motif. Effects known today:
+restricted by the motif. Effects (re-derived 2026-10-22 for hypothetical captures; the
+first version, legal moves only, also dropped T07, T48–T50, T52, T59, C05, C09, C10 ply
+0, C12 and C14 ply 0, and C18's Qg4 pin):
 
 - README root (`r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3`): the
   `pin_tactical` motifs whose p is Rh8 (no legal moves) are dropped.
-- T47 (`q7/8/k7/8/p7/8/7K/1R6 w - - 0 1`): its include turns into an exclude: a4's only
-  move, a3, keeps the a-file blocked.
-- T46 (`8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1`): stays; restricted `[g5g4]`, free `[]`.
-- C fixture pin rows (python-chess scan, 2026-10-22). Pins whose held piece has no
-  restricted move are no longer reported, so their rows go at checkpoint 2:
-  `pin_absolute` C05 ply 0 (none), C09 ply 0 (none), C10 ply 0 (**direct** today:
-  Rxh7+ captures the h7 pawn, but the pin held nothing), C12 plies 2, 4, 6 (none);
-  `pin_relative` C01 ply 1 (none; the a7 pawn's pushes stay on the a-file).
-- C12 and C14 ply 0: the pinned pawn's only capture square holds its own queen, so it
-  has no restricted move and the pin is not reported at ply 0. It first holds at ply 1,
-  after Bxd6, where `e7d6` (`c7d6`) is restricted; the C rows move from ply 0 to ply 1.
-  Rule 3′ therefore counts the X move that made the motif's board (§4.2).
+- T47 (`q7/8/k7/8/p7/8/7K/1R6 w - - 0 1`): stays an include: a4xb3 is restricted (it
+  reopens the a-file), a4-a3 free, held along file a.
+- T46 (`8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1`): stays; restricted `[g5f4, g5g4, g5h4]`,
+  free `[]`, at square g5.
+- T58: restricted `[e5d4, e5f4]`, free `[e5e4]`, along file e. T59: now an include,
+  restricted `[e5d4, e5f4]`, free `[e5e4]`, along file e.
+- T07, T48, T49, T50, T52 keep their includes (each pawn's diagonal capture leaves the
+  line).
+- Y in check: a hypothetical capture that leaves the check standing is not legal, so it
+  is neither restricted (except under `pin_absolute`) nor free. Rows that go:
+  `pin_relative` C01 ply 1 (Qa4+ checks; the a7 pawn has no legal move) and C10 ply 1
+  (Rxh7+ checks; Captain, checkpoint 2: the check holds the g7 pawn, not the pin).
+- C05, C09, C10, C12, C14 keep their ply-0 pin rows (C05: f2xg3 restricted, f2xe3 free;
+  C09: g3xf4, g3xh4 restricted, the queen and rook on those squares being White's own;
+  C10: h7xg6 restricted; C12, C14: the pawn's capture onto d6, its own queen's square,
+  and onto f6 / b6 restricted). C12's later pins at plies 2, 4, 6 stay.
+- C18 (Qxg7#): `pin_absolute` Qg4 → g7, g8 at ply 0 exists (g7xf6, g7xh6 restricted;
+  g7-g6, g7-g5 free) and is **direct** (Qxg7 captures the pawn).
 - Lichess `pin` recall may shift; `tactics_puzzles` must still meet the M2 targets
   (otherwise checkpoint 2).
 
@@ -151,8 +168,8 @@ denied moves (§4.1) on Pⱼ **answers** mvⱼ:
   piece removed, then the king move), the Y king is attacked by no X piece. For
   `pin_absolute`, the actor's attack through the held piece's vacated square is ignored
   (it is the attack the pin itself creates); every other attack counts, the actor's own
-  check included (C10's ply-1 pin by the checking rook Rh7 stays none). This covers
-  king escapes, captures of the checker and interpositions.
+  check included. This covers king escapes, captures of the checker and interpositions.
+  (C10's ply-1 Rh7 pin, first expected to stay none here, is not reported: §4.1.)
 - Otherwise: the denied move captures the X piece on mvⱼ's destination.
 
 Plain meaning (for hand labels): indirect = the motif takes away an answer Y would have
@@ -167,7 +184,8 @@ Expected effects (checked at checkpoint 2):
 | Re8# `6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1` | `back_rank_weakness` (ply 0) | none | indirect (Kf7, Kg7, Kh7 would escape with the blocker gone) |
 | Qxg7# `6k1/5ppp/3rr3/q7/6Q1/8/1B3PPP/6K1 w - - 0 1` | `back_rank_weakness` (ply 0) | indirect | none (f7 and h7 stay attacked by the queen) |
 | C13 | the ply-0 pin | indirect | indirect (Nxf5 is restricted and would recapture) |
-| C12, C14 | the pawn pins | indirect at ply 0 | indirect at ply 1 (the pin first holds after Bxd6; exd6 / cxd6 is restricted and would recapture the move that made the board) |
+| C12, C14 | the pawn pins | indirect at ply 0 | indirect at ply 0 (exd6 / cxd6 is a hypothetical capture onto the pawn's own queen's square, restricted; after Bxd6 it would recapture). The first draft, legal moves only, moved these to ply 1 |
+| Qxg7# `6k1/5ppp/3rr3/q7/6Q1/8/1B3PPP/6K1 w - - 0 1` | `pin_absolute` Qg4 → g7, g8 (ply 0) | — | direct (Qxg7 captures the held pawn) |
 | C01 | `pin_relative` Bg5 → f6, d8 (ply 0) | none | indirect expected: Nf6-d7 would block Qa4+, but the pin denies it (Bxd8 would then win the queen) |
 
 ### 4.3 `removal_of_defender` continuity (G4)
@@ -430,3 +448,7 @@ count line, `Re8#` with `es`, `depth`, and the `back_rank_weakness` row; the JSO
 | 2026-10-22 | New F fixture F31 (T46's board, `text_contains` "at square g5; restricted: g5-g4; free: none") | §10's restriction line needed an end-to-end text check; none of F01–F30 has a restriction |
 | 2026-10-22 | Semantic check (§4.1, §4.6): the `pin_absolute` partition is denied pseudo-legal moves ∪ legal non-denied moves; on-segment pseudo-legal moves that are illegal (side in check) belong to neither list | F09: with the side in check, an on-segment move is neither restricted nor free; the first checker wrongly required every pseudo-legal move in one list |
 | 2026-10-22 | Missing games/openings assets make the digest-identity unit tests FAIL, not SKIP | AGENTS.md: missing assets fail loudly |
+| 2026-10-22 | Checkpoint 2: a held piece is judged by its **move set**: legal moves plus, for a pawn, a **hypothetical capture** onto each square diagonally in front of it, whatever stands there (§4.1, §4.2 effects). T07, T48–T50, T52 keep their includes; T47 stays an include (reverses checkpoint 1's exclude); T59 becomes an include; C05, C09, C10 ply 0, C12, C14 keep their pin rows; C18 gains `pin_absolute` Qg4 (direct); T46, T58 and F31 restriction lists gain the captures | Captain: pawns' movement is restricted to the file because the pin forbids a capture an occupied square would unlock; "this pawn is pinned, so I can go there" is a valid thought. Options asked: every diagonal square (chosen) vs empty/enemy squares only |
+| 2026-10-22 | Checkpoint 2: C10's ply-1 `pin_relative` Rh7 → g7, e7 is not reported (Black is in check; g7 has no legal move); C01's ply-1 Qa4 pin likewise. In check, `pin_absolute` keeps its pseudo-legal restricted moves; the other three tags use legal moves only | Captain: the check holds the pawn, not the pin (Decision 2, option A); "keep as built" for the in-check difference between tags |
+| 2026-10-22 | Checkpoint 2: the approved effects land (C01 Bg5 indirect, C17 indirect, C18 BRW none) | Captain, checkpoint 1 predictions realised |
+| 2026-10-22 | Games digest-identity unit test relabelled `games` | it reads the game table in `assets/`; AGENTS.md: `unit` needs no assets |

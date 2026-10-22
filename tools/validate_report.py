@@ -547,6 +547,43 @@ def held_to_value(
     return {"kind": "squares", "name": ",".join(destinations)}
 
 
+def hypothetical_pawn_captures(
+    board: chess.Board, held_square: chess.Square, pawn: chess.Piece
+) -> tuple[set[str], set[str]]:
+    pseudo_moves: set[str] = set()
+    legal_moves: set[str] = set()
+    direction = 1 if pawn.color == chess.WHITE else -1
+    target_rank = chess.square_rank(held_square) + direction
+    king_square = board.king(pawn.color)
+    promotion_pieces: tuple[int | None, ...] = (
+        (chess.QUEEN, chess.ROOK, chess.BISHOP, chess.KNIGHT)
+        if target_rank == (7 if pawn.color == chess.WHITE else 0)
+        else (None,)
+    )
+    for file_delta in (-1, 1):
+        target_file = chess.square_file(held_square) + file_delta
+        if not 0 <= target_file < 8 or not 0 <= target_rank < 8:
+            continue
+        target_square = chess.square(target_file, target_rank)
+        after = board.copy(stack=False)
+        _ = after.remove_piece_at(held_square)
+        _ = after.remove_piece_at(target_square)
+        after.set_piece_at(target_square, pawn)
+        after.turn = not pawn.color
+        after.ep_square = None
+        is_legal = king_square is None or not after.is_attacked_by(
+            not pawn.color, king_square
+        )
+        for promotion in promotion_pieces:
+            move = chess.Move(held_square, target_square, promotion=promotion)
+            move_uci = move.uci()
+            pseudo_moves.add(move_uci)
+            if is_legal:
+                legal_moves.add(move_uci)
+    return pseudo_moves, legal_moves
+
+
+
 def check_restriction(
     motif: JsonObject,
     restriction: JsonObject,
@@ -591,12 +628,21 @@ def check_restriction(
     if by.turn == x_turn:
         by.push(chess.Move.null())
 
-    legal_moves = sorted(
+    legal_move_set = {
         move.uci() for move in by.legal_moves if move.from_square == held_square
-    )
-    pseudo_moves = sorted(
+    }
+    pseudo_move_set = {
         move.uci() for move in by.pseudo_legal_moves if move.from_square == held_square
-    )
+    }
+    pawn = by.piece_at(held_square)
+    if pawn is not None and pawn.piece_type == chess.PAWN:
+        hypothetical_pseudo, hypothetical_legal = hypothetical_pawn_captures(
+            by, held_square, pawn
+        )
+        pseudo_move_set.update(hypothetical_pseudo)
+        legal_move_set.update(hypothetical_legal)
+    legal_moves = sorted(legal_move_set)
+    pseudo_moves = sorted(pseudo_move_set)
     restricted = as_array(restriction.get("restricted")) or []
     free = as_array(restriction.get("free")) or []
     restricted_uci = [value for value in restricted if isinstance(value, str)]

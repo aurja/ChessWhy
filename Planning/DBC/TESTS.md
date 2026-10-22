@@ -65,7 +65,7 @@ Engine tests need `assets/engines/stockfish` and fail without it.
 | openings names match known positions and mainline ancestors | unit | Current and last-named opening for known positions and transpositions | `OpeningNames`, `LastNamed`, `PositionKey` |
 | openings table load failures identify their source | unit | A missing or broken openings table names the file (E16 at the library level) | `InputError`, `OpeningNames` |
 | opening digest pins match the asset fetch script | unit | The five `kDatasetSha256` pins equal the SHA-256 values `tools/fetch_assets.sh` checks | `DataDigest`, `OpeningNames` |
-| opening dataset identity follows all five loaded file bytes | unit | A byte-identical copy of the five files loads as `kDataset`; one changed byte gives `custom@` and the first 12 hex digits of the digest; missing data fails | `DataDigest`, `OpeningNames` |
+| opening dataset identity follows all five loaded file bytes | engine | A byte-identical copy of the five files loads as `kDataset`; one changed byte gives `custom@` and the first 12 hex digits of the digest; missing data fails (needs the files in `assets/`; label `unit` before checkpoint 2, 2026-10-22) | `DataDigest`, `OpeningNames` |
 
 ## 4. Analysis — `tests/analysis/unit_tests.cpp` (`analysis_unit_tests`)
 
@@ -119,6 +119,8 @@ Rules that turn engine numbers into report facts; no engine runs.
 | removal-of-defender labels reject near misses | unit | Similar positions that must not get the label | `TacticLabel`, `ContributionFixtures` |
 | denied moves and answers apply restricted-reply rules | unit | `denied_moves` per tag (back-rank steps with the blocker removed, pins off the segment, overloaded defender, tactical pin) and `answers` for check and capture replies | `CoDenied`, `CoIndirect`, `Restriction` |
 | restricted movement reports held moves and line constraints | unit | `restriction` lists restricted and free moves on the held side's board; `held_to` is a square, a file, rank or diagonal, or listed squares; motifs without a restricted move are dropped | `Restriction`, `StateMotif`, `TacticalPin` |
+| restricted pawn move sets include hypothetical captures | unit | A pinned pawn's captures onto an empty square, onto its own piece's square and onto the last rank (four promotions each) are restricted moves; its push along the line is free | `Restriction`, `StateMotif` |
+| a held piece other than a pawn without legal moves restricts nothing | unit | An overloaded rook boxed in by its own knights is not reported (existence condition; non-pawns have no hypothetical moves) | `Restriction`, `StateMotif` |
 | tactic fixtures exercise contributions and labels | unit | C fixtures: every hand-labelled contribution and label; `pin_tactical` is checked only where an entry lists it (with `threat`), not in the exact set | `ContributionFixtures`, `Contribution`, `TacticLabel`, `TacticalPin` |
 | pin tactical options and threat ordering are honored | unit | `MotifOptions{.pin_tactical = false}` yields no `pin_tactical` (position and line); order by threat kind, then square (T48's board); a rook that still holds a castling right can be the restricted piece | `TacticalPin`, `TpPiece`, `TpNewThreat`, `TpFound` |
 | pin tactical restrictions do not use expired en passant rights | unit | The restriction board is the position after a null move, so an en-passant capture threat that needs the expired right does not make a `pin_tactical` | `TacticalPin`, `TpMoves`, `TpAnyRestricted`, `Restriction` |
@@ -233,7 +235,7 @@ Program tests (`tests/positional/oracle/`):
 | games table loader rejects malformed headers, rows, and ordering | unit | `Table::load` rejects bad headers, row shapes, counts and order; a row with an illegal move loads, and `find` on its position throws | `GameTable`, `GtRow` |
 | position keys keep only legally capturable en passant squares | unit | After a double pawn step whose only capturing pawn is pinned (9...f5 in `games_edge.pgn`'s first game), the key's en passant field is `-`; with a legal capture (1.e4 a6 2.e5 d5) it keeps `d6` | `PositionKey` |
 | games table digest pin matches the asset fetch script | unit | `kTableSha256` equals the SHA-256 value `tools/fetch_assets.sh` checks | `DataDigest`, `GameTable` |
-| games table identity follows byte-identical pins | unit | A byte-identical copy of the table loads as `kTable`; one changed byte gives `custom@` and the first 12 hex digits; a missing table fails (needs the table in `assets/`) | `DataDigest`, `GameCounts` |
+| games table identity follows byte-identical pins | games | A byte-identical copy of the table loads as `kTable`; one changed byte gives `custom@` and the first 12 hex digits; a missing table fails (needs the table in `assets/`; label `unit` before checkpoint 2, 2026-10-22) | `DataDigest`, `GameCounts` |
 
 Program tests:
 

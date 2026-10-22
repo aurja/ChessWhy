@@ -289,7 +289,7 @@ flowchart LR
 | `StateMotif` | A pattern of the board alone, for both sides: hanging piece, pins, back-rank weakness, overloaded defender, trapped piece, tactical pin; pins, overloaded defenders and tactical pins exist only when they restrict at least one move | state motif, motif tag, existence condition | implemented |
 | `MoveMotif` | A pattern that also needs the move that made the board: fork, skewer, discovered check or attack, double check, back-rank mate, promotion | move motif, motif tag | implemented |
 | `TacticalPin` | A piece held in place because removing it would let the other side make a threat; only when at least one of its moves would let that threat through | `pin_tactical`, existence condition | implemented |
-| `Restriction` | For a pin, overloaded defender or tactical pin: the held piece, how it is held (at its square, along one file, rank or diagonal, or only to the listed squares), its restricted moves (illegal or costly because of the motif) and its free moves, with the held side to move | restricted moves, free moves, held piece, held to, `restriction` | implemented |
+| `Restriction` | For a pin, overloaded defender or tactical pin: the held piece, how it is held (at its square, along one file, rank or diagonal, or only to the listed squares), its restricted moves (illegal or costly because of the motif) and its free moves, with the held side to move. A pawn's moves include a capture onto each square diagonally in front of it, whatever stands there (since 2026-10-22, Captain; before: legal moves only) | restricted moves, free moves, held piece, held to, move set, hypothetical capture, `restriction` | implemented |
 | `FirstAppearance` | Inside a line, a state motif is listed only at a ply where it holds and did not hold at the ply before (before 2026-10-22 worded "where it first holds") | first-appearance rule, motif instance | implemented |
 | `PositionMotifs` | State motifs of the analysed position, both sides | position motifs | implemented |
 | `LineMotifs` | Motifs along a threat, refutation or move line | line motifs | implemented |
@@ -782,8 +782,8 @@ flowchart TD
 | `TpRemove` | Ask what changes if p were gone | `pin_tactical` | implemented |
 | `TpNewThreat` | Threats: fork, skewer, discovered check or attack, double check, back-rank mate, promotion, mate, or winning a piece by static exchange | move motif, SEE | implemented |
 | `TpNone` | Nothing reported | `pin_tactical` | implemented |
-| `TpMoves` | A move of p is restricted when the threat still works after it; the others are free | restricted moves, free moves | implemented |
-| `TpAnyRestricted` | A piece with no legal move, or whose every move closes the threat, is not held in place by it (existence condition) | existence condition | implemented |
+| `TpMoves` | A move of p is restricted when the threat still works after it; the others are free. A pawn p also has a capture onto each square diagonally in front of it (since 2026-10-22) | restricted moves, free moves, move set, hypothetical capture | implemented |
+| `TpAnyRestricted` | A piece with no move, or whose every move closes the threat, is not held in place by it (existence condition); a pawn's diagonal captures count even onto an empty square | existence condition, hypothetical capture | implemented |
 | `TpFound` | Reported as a state motif, with the threat's kind and square and its restricted and free moves | `pin_tactical`, `threat`, `restriction` | implemented |
 | `TpFree` | Nothing reported for p, also when no move of p is restricted | `pin_tactical` | implemented |
 

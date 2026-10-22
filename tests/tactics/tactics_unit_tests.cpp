@@ -551,7 +551,8 @@ TEST_CASE("restricted movement reports held moves and line constraints", "[unit]
     const PieceOnSquare held_overloaded_pawn{
         .square = static_cast<std::uint8_t>(square("d5").index()), .piece = 'p'};
     CHECK(overload_restriction.piece == held_overloaded_pawn);
-    CHECK(overload_restriction.restricted == std::vector<std::string>{"d5d4"});
+    CHECK((overload_restriction.restricted ==
+           std::vector<std::string>{"d5c4", "d5d4", "d5e4"}));
     CHECK(overload_restriction.free.empty());
     const chesswhy::HeldTo overload_held_to{.kind = chesswhy::HeldTo::Kind::Square,
                                             .name = "d5"};
@@ -566,16 +567,59 @@ TEST_CASE("restricted movement reports held moves and line constraints", "[unit]
     const PieceOnSquare held_tactical_pawn{
         .square = static_cast<std::uint8_t>(square("g5").index()), .piece = 'p'};
     CHECK(tactical_restriction.piece == held_tactical_pawn);
-    CHECK(tactical_restriction.restricted == std::vector<std::string>{"g5g4"});
+    CHECK((tactical_restriction.restricted ==
+           std::vector<std::string>{"g5f4", "g5g4", "g5h4"}));
     CHECK(tactical_restriction.free.empty());
     const chesswhy::HeldTo tactical_held_to{.kind = chesswhy::HeldTo::Kind::Square,
                                             .name = "g5"};
     CHECK(tactical_restriction.held_to == tactical_held_to);
+}
 
-    const auto no_restricted_tactical =
-        position_motifs(chess::Board("q7/8/k7/8/p7/8/7K/1R6 w - - 0 1"));
-    CHECK(find_motif(no_restricted_tactical, MotifTag::PinTactical, Side::White, "b1") ==
-          nullptr);
+TEST_CASE("restricted pawn move sets include hypothetical captures", "[unit]") {
+    using chesswhy::tactics::position_motifs;
+
+    const auto empty_capture = position_motifs(
+        chess::Board("4k3/8/8/4p3/8/8/8/K3R3 w - - 0 1"));
+    const Motif* empty_capture_pin =
+        find_motif(empty_capture, MotifTag::PinAbsolute, Side::White, "e1");
+    REQUIRE(empty_capture_pin != nullptr);
+    REQUIRE(empty_capture_pin->restriction.has_value());
+    CHECK((empty_capture_pin->restriction->restricted ==
+           std::vector<std::string>{"e5d4", "e5f4"}));
+    CHECK(empty_capture_pin->restriction->free == std::vector<std::string>{"e5e4"});
+
+    const auto own_piece_capture = position_motifs(
+        chess::Board("4k3/8/8/4p3/3n4/8/8/K3R3 w - - 0 1"));
+    const Motif* own_piece_pin =
+        find_motif(own_piece_capture, MotifTag::PinAbsolute, Side::White, "e1");
+    REQUIRE(own_piece_pin != nullptr);
+    REQUIRE(own_piece_pin->restriction.has_value());
+    CHECK(std::ranges::find(own_piece_pin->restriction->restricted, "e5d4") !=
+          own_piece_pin->restriction->restricted.end());
+
+    const auto promotion_capture = position_motifs(
+        chess::Board("4k3/8/8/8/8/8/4p3/K2NR3 w - - 0 1"));
+    const Motif* promotion_pin =
+        find_motif(promotion_capture, MotifTag::PinAbsolute, Side::White, "e1");
+    REQUIRE(promotion_pin != nullptr);
+    REQUIRE(promotion_pin->restriction.has_value());
+    CHECK((promotion_pin->restriction->restricted ==
+           std::vector<std::string>{"e2d1b", "e2d1n", "e2d1q", "e2d1r", "e2f1b", "e2f1n",
+                                    "e2f1q", "e2f1r"}));
+    CHECK(promotion_pin->restriction->free.empty());
+}
+
+TEST_CASE("a held piece other than a pawn without legal moves restricts nothing", "[unit]") {
+    using chesswhy::tactics::position_motifs;
+
+    const chess::Board boxed_defender("7k/8/3n4/2nrn3/3n4/1N3N2/8/K7 b - - 0 1");
+    chess::Movelist legal_moves;
+    chess::movegen::legalmoves(legal_moves, boxed_defender);
+    CHECK(std::ranges::none_of(legal_moves, [](const chess::Move move) {
+        return move.from() == square("d5");
+    }));
+    CHECK(find_motif(position_motifs(boxed_defender), MotifTag::OverloadedDefender, Side::White,
+                     "d5") == nullptr);
 }
 
 TEST_CASE("state motifs find trapped pieces only when every legal escape stays lost", "[unit]") {

@@ -61,10 +61,10 @@ void judge_contributions(const chess::Board& root, std::span<const chess::Move> 
                          std::span<Motif> motifs);
 
 // PostM3_EM2 §4.1: the held piece's denied moves on `board`, the motif's other side (Y) to
-// move: for `pin_absolute` pseudo-legal moves, otherwise legal moves; for
-// `back_rank_weakness` the king's steps onto a front or diagonal-front square held by a Y
-// piece, legal with that piece removed. Empty for `hanging_piece`, `trapped_piece` and move
-// motifs. Sorted by UCI string.
+// move: legal moves plus legal hypothetical pawn captures; `pin_absolute` uses pseudo-legal
+// moves and includes hypothetical captures regardless of king safety. For `back_rank_weakness`
+// the king's steps onto a front or diagonal-front square held by a Y piece, legal with that
+// piece removed. Empty for `hanging_piece`, `trapped_piece` and move motifs. Sorted by UCI string.
 [[nodiscard]] std::vector<chess::Move> denied_moves(const chess::Board& board, const Motif& motif);
 
 // PostM3_EM2 §4.2: whether `reply`, one of `motif`'s denied moves on `board` (Y to move),

@@ -6,7 +6,16 @@ target_link_libraries(games_unit_tests PRIVATE
     chesswhy_warnings
     chesswhy_paths
 )
-catch_discover_tests(games_unit_tests TEST_PREFIX "games_unit_tests::" PROPERTIES LABELS unit)
+catch_discover_tests(games_unit_tests
+    TEST_PREFIX "games_unit_tests::"
+    TEST_SPEC "~\"games table identity follows byte-identical pins\""
+    PROPERTIES LABELS unit
+)
+catch_discover_tests(games_unit_tests
+    TEST_PREFIX "games_unit_tests::"
+    TEST_SPEC "\"games table identity follows byte-identical pins\""
+    PROPERTIES LABELS games
+)
 
 find_program(ZSTD_EXECUTABLE zstd REQUIRED)
 add_test(

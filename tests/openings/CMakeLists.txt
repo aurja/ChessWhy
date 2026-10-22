@@ -6,4 +6,11 @@ target_link_libraries(openings_unit_tests PRIVATE
     chesswhy_warnings
     chesswhy_paths
 )
-catch_discover_tests(openings_unit_tests PROPERTIES LABELS unit)
+catch_discover_tests(openings_unit_tests
+    TEST_SPEC "~\"opening dataset identity follows all five loaded file bytes\""
+    PROPERTIES LABELS unit
+)
+catch_discover_tests(openings_unit_tests
+    TEST_SPEC "\"opening dataset identity follows all five loaded file bytes\""
+    PROPERTIES LABELS engine
+)
