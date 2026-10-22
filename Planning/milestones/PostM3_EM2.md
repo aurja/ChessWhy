@@ -360,7 +360,7 @@ Batch 1 after checkpoint 1: WP1–WP8. Milestone end: WP9.
 | WP5 fixtures | `tests/fixtures/tactics.json`, `tests/fixtures/motifs.json`, `tests/fixtures/positions.json` (proposals) | §9 rows with reasons; then checkpoint 2 | code |
 | WP6 render | `src/render/*`, `tests/render/*` and goldens | §10 lines in golden tests | analysis |
 | WP7 semantic checker + CTests | `tools/validate_report.py`, `tests/cli/engine_fixture_test.cpp`, `tests/cli/CMakeLists.txt`, `tests/report/CMakeLists.txt` | §4.6 checks; invariant check removed from the C++ harness; `report_schema*` use v5; `RESOURCE_LOCK engine` on `cli_fixture_*` and `cli_rerun_identity`; 14 mutants fail | report code |
-| WP8 digests + P boards | `src/util/sha256.cpp`, `src/util/CMakeLists.txt`, `src/games/games.cpp`, `src/openings/openings.cpp`, their tests, `tests/positional/oracle/positional_oracle.cpp` | §4.5 with FIPS vectors and pin-copy test; custom files report `custom@…`; P boards in the oracle, zero mismatches | template |
+| WP8 digests + P boards | `src/util/sha256.cpp`, `src/util/CMakeLists.txt`, `tests/util/*`, `src/games/games.cpp`, `src/openings/openings.cpp`, their tests, `tests/positional/oracle/positional_oracle.cpp` | §4.5 with FIPS vectors and pin-copy test; custom files report `custom@…`; P boards in the oracle, zero mismatches | template |
 | WP9 docs | `README.md`, `third_party/DEPENDENCIES.md` | §13 | — |
 
 ## 12. Captain's checkpoints
@@ -425,3 +425,4 @@ count line, `Re8#` with `es`, `depth`, and the `back_rank_weakness` row; the JSO
 | 2026-10-22 | Checkpoint 1: K1–K5; `held_to` added to `restriction` (§4.1, §5, §6, §9, §10) | Captain: the report names how the movement is restricted |
 | 2026-10-22 | `held_to` never null: new kind `squares` ("only to squares a2, d1, g8") when the free destinations share no line (§4.1, §4.6, §5, §6, §10) | Captain, option B of the follow-up brief: "Makes more sense that way" |
 | 2026-10-22 | Contract commit: `to_string(HeldTo::Kind)` added to `report.cpp`; digest pins listed in §2; `.restriction = std::nullopt` added to the oracle's `make_motif` so the tree builds (WP3 owns the file) | §2 omitted them; integration fix |
+| 2026-10-22 | Module `util` added to the top-level module list with owner-note `src/util/CMakeLists.txt` and `tests/util/CMakeLists.txt`; WP8 owns `tests/util/*` | the FIPS vector tests need a home; the tree configures while WP8 runs |
