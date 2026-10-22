@@ -294,7 +294,8 @@ Gemma-4-E4B. Only Qwen3.5-0.8B is downloaded now, for build smoke tests.
 
 Native apps on Linux and Windows, possibly Android: chess players should not need
 technical skills to use ChessWhy (Captain, 2026-10-22; replaces the local HTTP API).
-Design and scope are discussed with the Captain later.
+The bar: install with one click, then ask without any setup; no builds, terminals,
+servers or addresses. Design and scope are discussed with the Captain later.
 
 ## 10. Technology
 
