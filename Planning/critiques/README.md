@@ -8,8 +8,8 @@ Requested by the Captain: an adversarial, constructive review of the approaches,
 not of the models or people that produced them. The main session framed and
 integrated the conceptual critiques; task-model agents investigated the facts.
 Five reports were already saved when she requested cheaper drafting; those were
-retained. The remaining five were assigned to `smol` to draft from the task agents' findings.
-Runtime probes exercised the existing implementation.
+retained. `smol` drafted the remaining five from the task agents' findings; the main
+session corrected and integrated them. Runtime probes exercised the existing implementation.
 
 ## Reports
 
@@ -92,3 +92,20 @@ SHA-256 is `0f83d24cc46d2c66c60f16001af5444873bc112b7d028594513426894c12da19`.
 Report-specific commands and selected observations are recorded in the topic
 reports. Historical gate counts remain historical evidence; this investigation
 does not claim to have rerun the full test suites.
+
+## Delivery checks
+
+All ten topic reports are complete. The branch changes only this critique directory.
+
+- Actual CLI JSON/text and direct-UCI probes support the runtime findings;
+  legality checks and schema mutation probes are identified in their reports.
+- `python3 tools/check_dbc.py` passed: 170 nodes, 81 code rows, 113 test rows,
+  eight fixture sections.
+- Document diagnostics reported no issues across the ten reports and this index;
+  all 301 relative links resolved to existing local targets.
+- No full CTest, sanitizer, model benchmark or proposed semantic experiment was
+  run. The existing Release executable was not rebuilt for this investigation.
+
+Local probe artifacts remain outside the branch. Commands, FENs and the relevant
+observations are included in the reports so those conclusions can be challenged
+without relying on an unpublished artifact as their sole explanation.
