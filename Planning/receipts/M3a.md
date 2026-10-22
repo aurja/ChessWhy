@@ -73,8 +73,9 @@ complete.
 
 Lines list every positional change, so long candidate lines carry many rows: F26 and F27
 show 20–25 positional rows per line. This follows the contract (§5, Captain 2026-10-21:
-every ply, every change). Shortening the printed list is a scope proposal for the
-Captain, not part of M3a.
+every ply, every change). Shortening the printed list was offered to the Captain as a
+scope proposal; she kept the full list (2026-10-22, option A): the report and template
+stay as built, and M4 decides what the prose says.
 
 ## Contract changes
 

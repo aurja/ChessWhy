@@ -2,8 +2,8 @@
 
 Updated 2026-10-22.
 
-- Milestone: **M3a and M3b complete on branch `m3`**, merge pending the Captain's
-  approval (checkpoint at milestone end). Receipts `Planning/receipts/M3a.md` and
+- Milestone: **M3a and M3b complete, merged into `main` 2026-10-22** (Captain ran both
+  smoke commands and approved). Receipts `Planning/receipts/M3a.md` and
   `Planning/receipts/M3b.md`; contracts `Planning/milestones/M3a.md` (changes §15) and
   `Planning/milestones/M3b.md` (changes §13). Report v4.
   - M3a: 24 positional tags (`rule`) for pawn structure, king safety, pieces, space,
@@ -20,8 +20,8 @@ Updated 2026-10-22.
     `standard` F fixture 7.80 s (F06).
 - Next: M4 (libllama prose). Four candidate GGUFs are downloaded to `assets/models/`;
   pinning them is an M4 task.
-- Scope proposal from M3a: lines print every positional change (F26/F27 show 20–25 rows
-  per line); a shorter printed list is open for the Captain.
+- Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
+  (F26/F27 show 20–25 rows per line); M4 decides what the prose says.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept
   diagrams; first version approved as the current baseline, Captain reviewing), CODE (concept → source), DEFINITIONS
   (glossary, was `Planning/definitions/TERMINOLOGY.md`), FIXTURES with boards and TESTS,
