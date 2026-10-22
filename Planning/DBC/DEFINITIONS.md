@@ -74,7 +74,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | candidates | A's K best moves with their verdicts | M1 §4.7 |
 | level | `beginner`, `club`, `advanced`: audience of the M4 prose; no effect on analysis | vision §3 |
 | command line | `chesswhy` with flags (`--fen` or `--pgn` with `--game`/`--ply`, `--move`, `--budget`, `--level`, `--json`, `--no-llm`): how a question arrives today | M1 §6 |
-| local HTTP API | Planned: the CLI inputs as JSON over HTTP, bound to `127.0.0.1` only, with engine and model kept loaded between requests. Consumer details are an open decision | vision §9 |
+| native apps | Planned presentation layer: apps on Linux and Windows, possibly Android, so players need no technical setup; design and scope open with the Captain (M6). Called "local HTTP API" before 2026-10-22, when it meant the CLI inputs as JSON over HTTP on `127.0.0.1`; that design is dropped | vision §9 |
 | analysed position | The one position a report is about: the FEN, or the PGN game's position after `--ply` half-moves (default: its final position) | M1 §5 |
 | game mainline | For PGN input: the game's positions from its start to the analysed position, used only to find the last named position | M1 §4.8, §5 |
 | input error | Input that cannot be used (bad flag, invalid FEN, illegal or ambiguous move, missing game or ply): one `chesswhy: error:` line, exit 2, no report | M1 §5, §6 |

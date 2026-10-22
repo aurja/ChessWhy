@@ -29,7 +29,8 @@ small, local, targeted tool, not a chess GUI, trainer or game reviewer.
    and fixed node budgets, so the same input gives the same report. Tests depend on it.
 4. **Small.** Prefer the simplest design that meets a milestone's frozen acceptance
    criteria. New ideas become scope proposals, not blockers.
-5. **Local.** No cloud services at runtime. Linux only.
+5. **Local.** No cloud services at runtime. Linux and Windows; Android possibly later
+   (§9).
 
 ## 3. User-facing behaviour
 
@@ -39,7 +40,6 @@ chesswhy --fen "<FEN>" --move Nf3            # why / why not Nf3 (SAN or UCI: g1
 chesswhy --pgn game.pgn [--game 2] [--ply 31] [--move ...]
          [--level beginner|club|advanced] [--budget quick|standard|deep]
          [--json] [--no-llm] [--threads N]
-chesswhy serve [--port 8765]                 # local HTTP API (M6)
 ```
 
 - PGN: mainline only; variations and comments are ignored. `--ply N` is the position
@@ -290,11 +290,11 @@ Gemma-4-E4B. Only Qwen3.5-0.8B is downloaded now, for build smoke tests.
   (per-move prose, CC BY-SA 4.0, extracted from the Wikibooks dump) as an extra corpus,
   cited with attribution. Decided by the Captain after the base M5 corpus is measured.
 
-## 9. Local HTTP API (M6)
+## 9. Presentation layer (M6)
 
-cpp-httplib, bound to `127.0.0.1` only. `POST /v1/explain` takes the CLI inputs as
-JSON and returns `{report, text}`; `GET /v1/health`. One worker keeps the engine and
-model loaded; requests queue. No authentication, no multi-user features.
+Native apps on Linux and Windows, possibly Android: chess players should not need
+technical skills to use ChessWhy (Captain, 2026-10-22; replaces the local HTTP API).
+Design and scope are discussed with the Captain later.
 
 ## 10. Technology
 
@@ -304,7 +304,6 @@ model loaded; requests queue. No authentication, no multi-user features.
 | Board, FEN, PGN, SAN | Disservin/chess-library | `53e6a84` (2026-07-26) | MIT | single header |
 | JSON | nlohmann/json | v3.12.0 | MIT | report I/O |
 | Tests | Catch2 | v3.16.1 | BSL-1.0 | unit/fixture tests |
-| HTTP | cpp-httplib | v0.61.0 | MIT | M6 |
 | LLM runtime | llama.cpp (`libllama`) | b11712 | MIT | M4 |
 | Engine | Stockfish | 19 (official Linux universal build) | GPL-3.0 | separate process over UCI; never linked, copied or redistributed |
 | Tactics test data | Lichess puzzle DB; committed sample `tests/fixtures/puzzles/test.csv` | 2026-10-05 export `assets/data/lichess_db_puzzle.csv.zst`; source SHA-256 `76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d` | CC0 | 6,157,341 source puzzles; 1,326,623 eligible (`RatingDeviation ≤ 80`, `NbPlays ≥ 1000`, `Popularity ≥ 80`, ≤7 moves); sample 9,300 puzzles (9,301 CSV lines, ≈1.4 MB); M2 validation |
@@ -329,20 +328,20 @@ own plan with frozen acceptance criteria; the bullets below are the intent.
 | M3b | Opening statistics table and builder (Lichess broadcasts, both players 2200+); built in parallel with M3a | move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical — complete, merged into `main` 2026-10-22 (receipt `Planning/receipts/M3b.md`) |
 | M4 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; fact-check rejects seeded false statements |
 | M5 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve |
-| M6 | Local HTTP API | CLI and API return identical reports for the fixture set |
+| M6 | Native apps (Linux, Windows; possibly Android) | to be set with the Captain |
 
 ## 12. Non-goals
 
-Playing engine or GUI; whole-game annotation; opening repertoire training or move
-recommendations from game statistics; online opening explorers; chess variants;
-cloud LLMs; model fine-tuning; Windows/macOS; multi-user or remote serving; endgame
+Playing engine or chess-playing GUI; whole-game annotation; opening repertoire training
+or move recommendations from game statistics; online opening explorers; chess variants;
+cloud LLMs; model fine-tuning; macOS; multi-user or remote serving; endgame
 tablebases; our own evaluation function.
 
 ## 13. Decisions
 
 | Topic | Decision |
 |---|---|
-| Interface | CLI plus local HTTP API |
+| Interface | CLI now; native apps on Linux and Windows, possibly Android (M6, 2026-10-22; the local HTTP API is dropped) |
 | LLM runtime | llama.cpp linked as `libllama` |
 | Model | deferred; benchmark harness in M4, Captain decides |
 | Fact depth | engine facts + tactical motifs + positional facts |
@@ -351,7 +350,7 @@ tablebases; our own evaluation function.
 | Books | method reference and BM25 retrieval corpus |
 | Retrieval | BM25 keyed on concept tags, no embedding model |
 | Scanned books | OCR them |
-| Platform | Linux only |
+| Platform | Linux for development and tests; apps for Linux and Windows, possibly Android (2026-10-22) |
 | Milestone order | breadth first (analysis layers before LLM) |
 | Process | trimmed multi-model workflow (`.omp/AGENTS.md`) |
 | Git | local repository now, remote later |
@@ -360,7 +359,7 @@ tablebases; our own evaluation function.
 | Verdict thresholds | fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder (ES loss, M1) |
 | Openings | names in M1 (lichess chess-openings); game statistics in M3 from Lichess broadcasts over the board, both players 2200+ (online Lichess Elite dropped 2026-10-21); Wikibooks prose is an M5 maybe |
 
-Open for the Captain: default model (M4), HTTP consumer details (M6).
+Open for the Captain: default model (M4), native app design and platforms (M6).
 
 ## 14. Risks
 

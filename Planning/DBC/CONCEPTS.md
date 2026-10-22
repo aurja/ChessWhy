@@ -81,7 +81,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     CommandLine["Command line"]
-    LocalApi["Local HTTP API"]
+    NativeApps["Native apps"]
     FenInput["FEN"]
     PgnInput["PGN game and ply"]
     AskedMove["Asked move"]
@@ -89,9 +89,9 @@ flowchart LR
     AnalysedPosition["Analysed position"]
     GameMainline["Game mainline"]
     InputError["Input error"]
-    CommandLine & LocalApi -->|position text| FenInput & PgnInput
-    CommandLine & LocalApi -->|move text| AskedMove
-    CommandLine & LocalApi -->|options| Settings
+    CommandLine & NativeApps -->|position text| FenInput & PgnInput
+    CommandLine & NativeApps -->|move text| AskedMove
+    CommandLine & NativeApps -->|options| Settings
     FenInput -->|board| AnalysedPosition
     PgnInput -->|board after the ply| AnalysedPosition
     PgnInput -->|earlier positions| GameMainline
@@ -99,13 +99,13 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class LocalApi planned
+    class NativeApps planned
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
 | `CommandLine` | `chesswhy` with flags: the way a question arrives today | command line | implemented |
-| `LocalApi` | The same question as JSON over HTTP on this machine only, with engine and model kept loaded | local HTTP API | planned |
+| `NativeApps` | Apps on Linux and Windows, possibly Android, through which a player asks without technical setup; design open (called `LocalApi`, "local HTTP API", before 2026-10-22: the question as JSON over HTTP on this machine) | native apps | planned |
 | `FenInput` | A position as one FEN string, checked for legality | FEN | implemented |
 | `PgnInput` | A game from a PGN file, mainline only, and the ply to stop at | PGN, ply | implemented |
 | `AskedMove` | The move the user asks about, in SAN or UCI, legal in the position | asked move, SAN | implemented |

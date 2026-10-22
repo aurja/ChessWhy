@@ -7,7 +7,6 @@
 | Disservin/chess-library | `53e6a841dcda7059a2af363d85f785ef1817304a` (master, 2026-07-26) | MIT | board, legal moves, FEN, PGN stream parser, SAN/UCI | M1 |
 | nlohmann/json | `v3.12.0` | MIT | report serialisation | M1 |
 | catchorg/Catch2 | `v3.16.1` | BSL-1.0 | tests | M1 |
-| yhirose/cpp-httplib | `v0.61.0` | MIT | local HTTP API | M6 |
 | ggml-org/llama.cpp | `b11712` | MIT | `libllama` inference | M4 |
 
 Clone with `git clone --recurse-submodules`, or run
