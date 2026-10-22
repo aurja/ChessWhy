@@ -46,9 +46,13 @@ public:
 
     [[nodiscard]] std::optional<OpeningName> find(const chess::Board& board) const;
     [[nodiscard]] std::size_t size() const;
+    // kDataset when every loaded file matches kDatasetSha256, else "custom@<12 hex>"
+    // (PostM3_EM2 §4.5). `describe` copies it into OpeningInfo::dataset.
+    [[nodiscard]] const std::string& dataset() const;
 
 private:
     std::unordered_map<std::string, OpeningName> by_key_;
+    std::string dataset_ = kDataset;
 };
 
 // current: name of `board`, if named. last_named: for PGN input (non-empty mainline),

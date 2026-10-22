@@ -426,3 +426,4 @@ count line, `Re8#` with `es`, `depth`, and the `back_rank_weakness` row; the JSO
 | 2026-10-22 | `held_to` never null: new kind `squares` ("only to squares a2, d1, g8") when the free destinations share no line (§4.1, §4.6, §5, §6, §10) | Captain, option B of the follow-up brief: "Makes more sense that way" |
 | 2026-10-22 | Contract commit: `to_string(HeldTo::Kind)` added to `report.cpp`; digest pins listed in §2; `.restriction = std::nullopt` added to the oracle's `make_motif` so the tree builds (WP3 owns the file) | §2 omitted them; integration fix |
 | 2026-10-22 | Module `util` added to the top-level module list with owner-note `src/util/CMakeLists.txt` and `tests/util/CMakeLists.txt`; WP8 owns `tests/util/*` | the FIPS vector tests need a home; the tree configures while WP8 runs |
+| 2026-10-22 | `openings::Table::dataset()` and private `dataset_` added to `openings.hpp` | WP8: the custom digest must live on the loaded table for `describe` |
