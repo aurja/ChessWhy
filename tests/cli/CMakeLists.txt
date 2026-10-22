@@ -36,7 +36,7 @@ endforeach()
 add_test(NAME report_schema
     COMMAND "${CHESSWHY_PYTHON}"
         "${PROJECT_SOURCE_DIR}/tools/validate_report.py"
-        "${PROJECT_SOURCE_DIR}/schema/report.v4.schema.json"
+        "${PROJECT_SOURCE_DIR}/schema/report.v5.schema.json"
         ${CLI_REPORT_FILES})
 set_tests_properties(report_schema PROPERTIES
     LABELS engine

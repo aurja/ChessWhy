@@ -288,6 +288,7 @@ void set_turn(chess::Board& board, Color side) {
             .targets = std::move(targets),
             .gain = gain,
             .threat = std::nullopt,
+            .restriction = std::nullopt,
             .contribution = std::nullopt};
 }
 

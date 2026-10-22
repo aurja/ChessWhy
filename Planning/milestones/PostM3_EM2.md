@@ -57,11 +57,12 @@ batch 1 (the headers follow the checkpoint 1 designs):
 
 | File | Contents |
 |---|---|
-| `include/chesswhy/report.hpp` | `MotifRestriction`; `Motif::restriction`; `CreatesThreatSkip`; `MoveAssessment::{depth, walked_plies, creates_threat_skipped}`; `PositionInfo::legal_moves`; `kSchemaVersion = 5` (§6) |
+| `include/chesswhy/report.hpp` | `HeldTo`, `MotifRestriction`; `Motif::restriction`; `CreatesThreatSkip`; `MoveAssessment::{depth, walked_plies, creates_threat_skipped}`; `PositionInfo::legal_moves`; `kSchemaVersion = 5` (§6) |
 | `include/chesswhy/tactics.hpp` | `denied_moves`, `answers` (§6) |
 | `include/chesswhy/digest.hpp` | `sha256_hex` (§6) |
+| `include/chesswhy/games.hpp`, `include/chesswhy/openings.hpp` | `kTableSha256`, `kDatasetSha256` (`std::array` of 5, a..e) |
 | `schema/report.v5.schema.json` | replaces `report.v4.schema.json` (deleted; git history keeps it) |
-| `src/report/report.cpp` | `to_string(CreatesThreatSkip)` only, so WP6 does not wait for WP4 |
+| `src/report/report.cpp` | `to_string(CreatesThreatSkip)` and `to_string(HeldTo::Kind)` only, so WP6 does not wait for WP4 |
 
 ## 3. Scope
 
@@ -423,3 +424,4 @@ count line, `Re8#` with `es`, `depth`, and the `back_rank_weakness` row; the JSO
 | 2026-10-22 | Plan frozen (G1–G15) | Captain's approval of the audit decisions, with 5 and 10 changed |
 | 2026-10-22 | Checkpoint 1: K1–K5; `held_to` added to `restriction` (§4.1, §5, §6, §9, §10) | Captain: the report names how the movement is restricted |
 | 2026-10-22 | `held_to` never null: new kind `squares` ("only to squares a2, d1, g8") when the free destinations share no line (§4.1, §4.6, §5, §6, §10) | Captain, option B of the follow-up brief: "Makes more sense that way" |
+| 2026-10-22 | Contract commit: `to_string(HeldTo::Kind)` added to `report.cpp`; digest pins listed in §2; `.restriction = std::nullopt` added to the oracle's `make_motif` so the tree builds (WP3 owns the file) | §2 omitted them; integration fix |

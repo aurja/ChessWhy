@@ -1,6 +1,7 @@
 // Rule-based tactical motif detectors and tactic rules (provenance "rule"). Frozen by
-// Planning/milestones/M2.md (definitions §4, report placement §5, signatures §6) and
-// PostM2_EM1.md (contribution §4.3, removal_of_defender §4.4, signatures §6).
+// Planning/milestones/M2.md (definitions §4, report placement §5, signatures §6),
+// PostM2_EM1.md (contribution §4.3, removal_of_defender §4.4, signatures §6) and
+// PostM3_EM2.md (restricted moves §4.1, contribution rule 3′ §4.2, continuity §4.3).
 // Pure functions of a board and a move list: no engine, no global state, deterministic.
 #pragma once
 
@@ -52,11 +53,26 @@ line_motifs(const chess::Board& root, std::span<const chess::Move> line, MotifOp
 [[nodiscard]] std::vector<TacticLabel> tactic_labels(const chess::Board& root,
                                                      std::span<const chess::Move> line);
 
-// Sets `contribution` (PostM2_EM1 §4.3) on every motif of `motifs`, whose plies lie in
-// 0..line.size() of the tactic sequence `line` played from `root`; X = side to move at
-// `root`. Motifs of the other side get None. `line` holds legal moves, already cut to the
-// walked plies.
+// Sets `contribution` (PostM2_EM1 §4.3 rules 1, 2, 4; PostM3_EM2 §4.2 rule 3′) on every
+// motif of `motifs`, whose plies lie in 0..line.size() of the tactic sequence `line`
+// played from `root`; X = side to move at `root`. Motifs of the other side get None.
+// `line` holds legal moves, already cut to the walked plies.
 void judge_contributions(const chess::Board& root, std::span<const chess::Move> line,
                          std::span<Motif> motifs);
+
+// PostM3_EM2 §4.1: the held piece's denied moves on `board`, the motif's other side (Y) to
+// move: for `pin_absolute` pseudo-legal moves, otherwise legal moves; for
+// `back_rank_weakness` the king's steps onto a front or diagonal-front square held by a Y
+// piece, legal with that piece removed. Empty for `hanging_piece`, `trapped_piece` and move
+// motifs. Sorted by UCI string.
+[[nodiscard]] std::vector<chess::Move> denied_moves(const chess::Board& board, const Motif& motif);
+
+// PostM3_EM2 §4.2: whether `reply`, one of `motif`'s denied moves on `board` (Y to move),
+// answers the X move that produced `board`, whose destination square is `landing`: with Y
+// in check, the Y king is attacked by no X piece after `reply` (for `back_rank_weakness`
+// with the blocking piece removed first; for `pin_absolute` the actor's attack through the
+// vacated square is ignored); otherwise `reply` captures on `landing`.
+[[nodiscard]] bool answers(const chess::Board& board, const Motif& motif, const chess::Move& reply,
+                           std::uint8_t landing);
 
 } // namespace chesswhy::tactics

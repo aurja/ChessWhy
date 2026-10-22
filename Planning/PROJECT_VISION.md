@@ -147,9 +147,10 @@ moves first, had a forcing line):
 - Reasons attached to each verdict: parries or ignores `O`'s threat (D: "parries" means
   the threat no longer wins against the pass baseline, not that it was prevented; a
   checking move only defers it), executes or keeps `S`'s threat, the threat `S` would
-  have after `m` if `O` passed (E; a premise, printed as such), the refutation line and
-  its consequence when `m` is bad, and tactical/positional facts that change (M2–M3),
-  read up to the walked ply the report states.
+  have after `m` if `O` passed (E; a premise, printed as such; when not searched, the
+  reason: `m` checks, ends the game, or leaves `S` no legal move after the pass), the
+  refutation line and its consequence when `m` is bad, and tactical/positional facts
+  that change (M2–M3), read up to the walked ply the report states.
 
 ### 5.5 Tactical motifs (M2) and tactics (PostM2_EM1)
 
@@ -176,7 +177,8 @@ legal move is **forced** (`rule`). On a tactic line each motif gets a contributi
 takes away an answer the defender would have to a tactic move (a recapture, an escape, an
 interposition); `none` when the tactic works without it (PostM3_EM2 §4.2). The tactic label
 `removal_of_defender` (after lichess-puzzler's `capturing_defender`) marks a capture of a
-piece's only defender followed by winning that same piece on its square.
+piece's only defender followed by winning that same piece on its square, the piece still
+standing there when it is captured (PostM3_EM2 §4.3).
 
 ### 5.6 Positional facts (M3a)
 

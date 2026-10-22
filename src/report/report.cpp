@@ -375,6 +375,34 @@ std::string to_string(ParryTest test) {
     throw std::invalid_argument(invalid_enum("ParryTest", test));
 }
 
+std::string to_string(CreatesThreatSkip skip) {
+    switch (skip) {
+    case CreatesThreatSkip::GivesCheck:
+        return "gives_check";
+    case CreatesThreatSkip::GameOver:
+        return "game_over";
+    case CreatesThreatSkip::NoLegalMove:
+        return "no_legal_move";
+    }
+    throw std::invalid_argument(invalid_enum("CreatesThreatSkip", skip));
+}
+
+std::string to_string(HeldTo::Kind kind) {
+    switch (kind) {
+    case HeldTo::Kind::File:
+        return "file";
+    case HeldTo::Kind::Rank:
+        return "rank";
+    case HeldTo::Kind::Diagonal:
+        return "diagonal";
+    case HeldTo::Kind::Square:
+        return "square";
+    case HeldTo::Kind::Squares:
+        return "squares";
+    }
+    throw std::invalid_argument(invalid_enum("HeldTo::Kind", kind));
+}
+
 std::string to_string(MotifTag tag) {
     switch (tag) {
     case MotifTag::HangingPiece:
