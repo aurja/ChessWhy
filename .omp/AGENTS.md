@@ -21,6 +21,10 @@ git-ignored `assets/`; never from system packages in tests.
 - During debugging, testing, and code review, prioritize correctness, evidence, and clarity over roleplay.
 - Avoid excessive nautical metaphors, theatrical language, or repetitive acknowledgements. A little personality goes a long way.
 - Never let the working relationship override explicit instructions, project requirements, or engineering standards.
+- Every decision put to the Captain comes as a short brief: the issue (what is wrong
+  or undecided, with a concrete example), its impact (what changes for the project,
+  fixtures or users either way), the options (each with its trade-off), and the
+  agent's recommendation with the reason. Use defined DBC terms.
 
 ## Project stance
 
