@@ -24,9 +24,14 @@ small, local, targeted tool, not a chess GUI, trainer or game reviewer.
    (deterministic board rule, e.g. "the knight on c3 is pinned"), `book` (reference
    material: retrieved book passages as general advice, opening names) or `games`
    (counts from game collections, §5.7). Heuristic labels are never presented as engine
-   truth, and game counts are never presented as move quality.
+   truth, and game counts are never presented as move quality. Verdicts and losses are
+   engine judgements read through frozen thresholds (§5.4): the scores are the engine's,
+   the cut-offs are ChessWhy's.
 3. **Reproducible.** Default analysis uses Stockfish with `Threads=1`, a fixed hash size
    and fixed node budgets, so the same input gives the same report. Tests depend on it.
+   "Reproducible" means the same configuration (budget, threads, hash, nodes); the report
+   does not identify the engine binary or the ChessWhy revision. Data files are
+   identified by the digest of the loaded bytes (PostM3_EM2).
 4. **Small.** Prefer the simplest design that meets a milestone's frozen acceptance
    criteria. New ideas become scope proposals, not blockers.
 5. **Local.** No cloud services at runtime. Linux and Windows; Android possibly later
@@ -45,7 +50,12 @@ chesswhy --pgn game.pgn [--game 2] [--ply 31] [--move ...]
 - PGN: mainline only; variations and comments are ignored. `--ply N` is the position
   after N half-moves (default: final position); `--game` picks a game from a
   multi-game file (default 1).
-- No move given: list every move that is "fine" (§5.4), best first, with reasons.
+- No move given: list the engine's top candidates (MultiPV order) and judge each one
+  (§5.4). Unlisted moves are not judged and may also be fine; the report says how many
+  legal moves there are.
+- Analysis is position-only: the moves that led to the position (PGN history) are not
+  an input, so repetition and the fifty-move counter beyond the FEN do not affect
+  verdicts.
 - `--json` prints the report. `--no-llm` prints the deterministic template rendering
   (§7.3) instead of model prose. Default output is model prose.
 - `standard` budget: about 10 s of engine time on the development laptop
@@ -94,7 +104,9 @@ are reported for display only; all thresholds use `ES`.
 B is skipped when `S` is in check (the check *is* the problem) and flagged unreliable
 when the position is zugzwang-prone (few non-pawn pieces); the flag is in the report.
 Node budgets per search are split from the `--budget` total; exact numbers are frozen
-in M1 after calibration.
+in M1 after calibration. Candidates keep A's MultiPV order (not re-sorted by score); each
+reports the depth its line reached, and the text names the engine and the budget, since a
+different budget can change a close verdict.
 
 ### 5.2 Threats (vision items 4a, 4b)
 
@@ -105,8 +117,9 @@ first plies of the line:
 1. mate (in `N`);
 2. material: net gain after the line's captures settle, in pawn units;
 3. promotion;
-4. positional only: `ES` swing without material change (with the motif/positional tags
-   that change along the line, M2–M3).
+4. positional only: the residual class — none of mate, material or promotion within
+   the walked plies; no `ES` swing is measured (motif and positional changes along the
+   line, M2–M3, are listed separately).
 
 "White's biggest problem" is Black's threat and vice versa, whichever side is to move.
 
@@ -131,9 +144,12 @@ moves first, had a forcing line):
   moves are graded inaccuracy / mistake / blunder. Frozen in M1 (Captain's decision,
   rescaled to Stockfish 19's WDL curve): fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake
   < 0.27 ≤ blunder.
-- Reasons attached to each verdict: parries or ignores `O`'s threat (D), executes or
-  keeps `S`'s threat, creates a new threat (E), the refutation line and its
-  consequence when `m` is bad, and tactical/positional facts that change (M2–M3).
+- Reasons attached to each verdict: parries or ignores `O`'s threat (D: "parries" means
+  the threat no longer wins against the pass baseline, not that it was prevented; a
+  checking move only defers it), executes or keeps `S`'s threat, the threat `S` would
+  have after `m` if `O` passed (E; a premise, printed as such), the refutation line and
+  its consequence when `m` is bad, and tactical/positional facts that change (M2–M3),
+  read up to the walked ply the report states.
 
 ### 5.5 Tactical motifs (M2) and tactics (PostM2_EM1)
 
@@ -143,13 +159,23 @@ and promotion threats come from engine consequences, not motif detectors. Overlo
 back-rank weakness and the tactical pin (`pin_tactical`: a piece held in place because removing it
 would enable a threat) are validated by fixtures; definitions are in M2 §4 and PostM2_EM1 §4.5.
 Other measured motifs are validated against Lichess puzzle themes (CC0); per-motif recall targets
-are frozen in M2. Pins, overloaded defenders and tactical pins print as "restricted movement".
+are frozen in M2 and measure coverage of Lichess-tagged puzzles, not precision.
+
+Pins, overloaded defenders and tactical pins print as **restricted movement** (Captain,
+2026-10-22): restricted does not mean the piece cannot move at all; it means it cannot move in
+all the ways it otherwise could. Each such motif names the held piece, its **restricted moves**
+(the moves the motif makes illegal or costly) and its **free moves**, and exists only when at
+least one move is restricted (PostM3_EM2 §4.1; that existence condition awaits the Captain's
+checkpoint 1).
 
 PostM2_EM1 judges the best move's line and each refutation as a **tactic** when its expected
 score beats the best alternative first move by the only-move margin (≥ 0.13, `engine`); a lone
-legal move is **forced** (`rule`). On a tactic line each motif gets a contribution (`direct`,
-`indirect` or `none`; provenance `rule`), and the tactic label `removal_of_defender` (after lichess-puzzler's
-`capturing_defender`) marks a capture of a piece's only defender followed by winning the piece.
+legal move is **forced** (`rule`). On a tactic line each motif gets a contribution (`rule`):
+`direct` when the tactic's moves make the motif or capture its pieces; `indirect` when the motif
+takes away an answer the defender would have to a tactic move (a recapture, an escape, an
+interposition); `none` when the tactic works without it (PostM3_EM2 §4.2). The tactic label
+`removal_of_defender` (after lichess-puzzler's `capturing_defender`) marks a capture of a
+piece's only defender followed by winning that same piece on its square.
 
 ### 5.6 Positional facts (M3a)
 
@@ -247,16 +273,34 @@ llama.cpp linked as a library (`libllama`, pinned submodule), one binary. Model 
 GGUF file chosen by config/flag; the chat template comes from the model's metadata.
 Greedy or low-temperature sampling with a fixed seed; bounded output length.
 
-### 7.2 Prompt
+### 7.2 Prompt and fact selection
 
 Level-specific system prompt (`beginner`, `club`, `advanced`) plus a compact fact sheet
 serialised from the report (not raw JSON, to save tokens on a CPU-only machine), plus
 retrieved book passages (M5).
 
+Fact selection (PostM3_EM2, decided 2026-10-22):
+
+- The core claims are mandatory at every level: verdict, refutation, and the conditions
+  they depend on (threat premise, deferred parry, walked plies).
+- Tactic and blunder evidence comes first; root positional features are mentioned only
+  when they are linked to a line or a verdict.
+- A feature that holds at the end of a line is phrased as "holds at the end of the
+  analysed walk", not as a permanent fact.
+- Role phrasing follows the tag (a pin's actor pins, an overloaded defender's actor is
+  the overloaded piece).
+- An empty refutation motif list does not mean "no mechanism"; the prose says the line
+  wins without naming a motif.
+- Near-equal candidates are worded as close ("about as good as"), since a different
+  budget can reorder them (§5.1).
+
 ### 7.3 Fact check and template rendering
 
-After generation, every move, square and piece reference in the text is checked against
-the report. Unsupported references cause one regeneration; a second failure falls back
+The prose is built from **claim units**: each unit states one fact or one relation
+between report fields (who threatens what, at which ply, under which condition). After
+generation, the text is split into claim units and every unit is checked against the
+report, relations included, not only the moves, squares and pieces it names.
+Unsupported claims cause one regeneration; a second failure falls back
 to the deterministic template rendering with a notice. The template renderer is also
 the `--no-llm` output and the readable output of M1–M3.
 Opening names and game counts in the text must match the report's `opening` and
@@ -265,8 +309,9 @@ Opening names and game counts in the text must match the report's `opening` and
 ### 7.4 Model choice
 
 Deferred to the Captain. M4 ships a benchmark harness that runs shortlisted GGUF models
-over fixture reports and records unsupported-reference rate, coverage of key facts
-(threat, urgency, verdict), and prefill/decode speed on the development laptop.
+over fixture reports and records the unsupported-claim rate on a seeded relational test
+set (seeded from the 2026-10-22 audit's cases X1–X13), coverage of key facts (threat,
+urgency, verdict), and prefill/decode speed on the development laptop.
 Initial shortlist (Q4_K_M): Qwen3.5-0.8B, Qwen3.5-2B, Gemma-4-E2B, Qwen3.5-4B,
 Gemma-4-E4B. Only Qwen3.5-0.8B is downloaded now, for build smoke tests.
 
@@ -282,7 +327,9 @@ Gemma-4-E4B. Only Qwen3.5-0.8B is downloaded now, for build smoke tests.
   isolani").
 - Use: top 1–3 short excerpts per answer, cited by book and page, presented as general
   advice. Move notation inside excerpts refers to other games and is marked as such so
-  the fact check does not confuse it with the current position.
+  the fact check does not confuse it with the current position. An excerpt is shown only
+  when it is on topic (it discusses a tag the report carries), applicable (the position
+  has the features the excerpt assumes) and its stance is kept (M5 acceptance).
 - Copyright: books, extracts and indexes stay local and git-ignored; nothing derived
   from them is committed or served beyond localhost.
 - Maybe, if the M5 retrieval proves insufficient for opening positions:
@@ -327,8 +374,9 @@ own plan with frozen acceptance criteria; the bullets below are the intent.
 | PostM2_EM1 | Tactic recognition: a line is a tactic when it gains in engine evaluation against the second-best move (only-move margin); per-motif contribution (direct, indirect, none); `removal_of_defender` as a tactic-side label; tactical pin (`pin_tactical`) and "restricted movement" wording | tactic labels follow mechanically from the engine lines; contribution judgements match hand-labelled fixtures — complete, merged into `main` 2026-10-21 (receipt `Planning/receipts/PostM2_EM1.md`) |
 | M3a | Positional fact detectors and diffs: pawn structure, king safety, pieces, space, development lead, material balance (Captain, 2026-10-21: named structure families and Silman's imbalances move to a later milestone) | hand-labelled fixture positions, including book positions transcribed to FEN — complete, merged into `main` 2026-10-22 (receipt `Planning/receipts/M3a.md`) |
 | M3b | Opening statistics table and builder (Lichess broadcasts, both players 2200+); built in parallel with M3a | move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical — complete, merged into `main` 2026-10-22 (receipt `Planning/receipts/M3b.md`) |
-| M4 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; fact-check rejects seeded false statements |
-| M5 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve |
+| PostM3_EM2 | Fixes from the 2026-10-22 conceptual audit (`Planning/milestones/PostM3_EM2.md`): restricted and free moves for restricted movement; contribution `none` means the tactic works without the motif; `removal_of_defender` continuity; conditions printed in the template (threat premise, deferred parry, skipped threat, walked plies, engine and budget, candidate count); report v5 with a semantic checker; data digests | every fixed finding has a fixture, test or doc row that fails on the old behaviour; all reports pass the semantic checks |
+| M4 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; prose is limited to claim units built from report fields; the fact check rejects every case of a seeded relational test set (wrong move, square or piece, and wrong relations: who threatens whom, which ply, which condition) |
+| M5 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve; each shown excerpt is on topic for the report's tags, applicable to the position's type, and its stance (advice vs. warning) is not inverted in the prose |
 | M6 | Native apps (Linux, Windows; possibly Android) | to be set with the Captain |
 
 ## 12. Non-goals

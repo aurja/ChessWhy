@@ -18,8 +18,10 @@ Updated 2026-10-22.
     the pinned SHA-256. `--games FILE`; a missing or invalid table exits 3.
   - Release and ASan/UBSan CTests 141/141 (107 `unit`, 33 `engine`, 1 `games`); slowest
     `standard` F fixture 7.80 s (F06).
-- Next: M4 (libllama prose). Four candidate GGUFs are downloaded to `assets/models/`;
-  pinning them is an M4 task.
+- Next: PostM3_EM2 (fixes from the 2026-10-22 conceptual audit in `Planning/critiques/`;
+  plan `Planning/milestones/PostM3_EM2.md`, awaiting checkpoint 1), then M4 (libllama
+  prose). Four candidate GGUFs are downloaded to `assets/models/`; pinning them is an M4
+  task.
 - Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
   (F26/F27 show 20–25 rows per line); M4 decides what the prose says.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept
