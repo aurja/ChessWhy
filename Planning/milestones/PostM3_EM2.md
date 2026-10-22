@@ -1,10 +1,10 @@
 # PostM3_EM2 — Critique fixes before prose
 
-Status: **frozen** on branch `postm3-em2` (2026-10-22), except the items the Captain
-approves at the checkpoints in §12: the Deputy's designs marked **(D)** (checkpoint 1,
-before any worker starts) and every fixture mismatch the rule changes cause
-(checkpoint 2). Changes to anything else are contract changes: the orchestrator makes
-them, records them in §15 and tells the Captain.
+Status: **frozen** on branch `postm3-em2` (2026-10-22). Checkpoint 1 passed on
+2026-10-22 (§1): the Deputy's designs, formerly marked (D), are approved, with one
+addition (`held_to`, §4.1). Open: every fixture mismatch the rule changes cause
+(checkpoint 2, §12). Changes to anything else are contract changes: the orchestrator
+makes them, records them in §15 and tells the Captain.
 
 Intent: fix what the conceptual audit (`Planning/critiques/`, 2026-10-22) found before
 M4 puts the report into words. The report must state the conditions its facts depend
@@ -39,10 +39,21 @@ recommendation except 5 and 10, which she changed (G5, G6).
 Accepted with no action: MOT-4 (doc fix only, §13), MOT-5, TAC-2 (M4 note), TAC-3,
 TAC-4, THR-5, POS-4, PRF-3, SRCH-2, SRCH-5.
 
+Checkpoint 1 (2026-10-22), briefed as decisions 1–5; the Captain approved every
+recommendation and added to 2:
+
+| # | Topic | Decision |
+|---|---|---|
+| K1 | Contribution rule 3′ | Approved as in §4.2, including blocks of a check, the move that made the motif's board, and only the absolute pin's own line ignored |
+| K2 | Existence condition | All four restricted-movement tags (§4.1). Added by the Captain: the report says **how** the movement is restricted, "along file x", "along rank y", "along diagonal z" or "at square w" (`held_to`, §4.1) |
+| K3 | `back_rank_weakness` | Denied moves for contribution only; no `restriction` field |
+| K4 | New fields | All five: `legal_moves`, `depth`, `walked_plies`, `creates_threat_skipped`, `restriction` ("We have to do it even if it costs us some development effort") |
+| K5 | Data identity | SHA-256 of the loaded bytes, in-tree implementation; `custom@<12 hex>` for data that is not the shipped data |
+
 ## 2. Contract files
 
 Created by the orchestrator in the contract commit, after checkpoint 1 and before
-batch 1 (the headers depend on the (D) designs):
+batch 1 (the headers follow the checkpoint 1 designs):
 
 | File | Contents |
 |---|---|
@@ -88,13 +99,22 @@ move. Then
 
 - `piece` = h, as on P;
 - `restricted` = h's denied moves on By;
-- `free` = h's legal moves on By that are not restricted.
+- `free` = h's legal moves on By that are not restricted;
+- `held_to` (K2): how the movement is restricted, from the free moves' destinations:
+  - no free move → `{"kind": "square", "name": h's square}`, "at square e5";
+  - every free destination on one file, rank or diagonal through h's square →
+    `{"kind": "file", "name": "e"}` ("along file e"), `{"kind": "rank", "name": "7"}`
+    ("along rank 7") or `{"kind": "diagonal", "name": "a4-e8"}` ("along diagonal
+    a4-e8"; a diagonal is named by its two end squares on the board edge, lower file
+    first). Two different squares share at most one line, so the line is unique;
+  - otherwise null: the free moves go in several directions (a knight, an overloaded
+    queen), and the `free` list is the description.
 
 Both lists in UCI, sorted ascending as strings. For `pin_absolute` the restricted moves
 are the moves the pin makes illegal; for the others they are legal moves that cost
 something.
 
-**Existence condition (D):** a motif of these four tags exists only if `restricted` is
+**Existence condition (K2):** a motif of these four tags exists only if `restricted` is
 non-empty. A piece that cannot move at all, or whose every move stays allowed, is not
 restricted by the motif. Effects known today:
 
@@ -115,10 +135,7 @@ restricted by the motif. Effects known today:
 - Lichess `pin` recall may shift; `tactics_puzzles` must still meet the M2 targets
   (otherwise checkpoint 2).
 
-Alternative for the Captain at checkpoint 1: apply the existence condition to
-`pin_tactical` only, so the M2 pins keep their M2 definitions.
-
-### 4.2 Contribution rule 3′ (G5) (D)
+### 4.2 Contribution rule 3′ (G5, K1)
 
 Replaces PostM2_EM1 §4.3 rule 3. Rules 1, 2 and 4 are unchanged.
 
@@ -204,7 +221,8 @@ with python-chess. A failure prints the JSON pointer and the broken relation. Ch
 12. `creates_threat_skipped` follows from the board (check, game over, no legal move).
 13. The tactic invariants of PostM2_EM1 §9 (moved here from `engine_fixture_test.cpp`).
 14. `restriction` set iff the tag is one of the four; `restricted` non-empty;
-    `restricted` and `free` disjoint and their union is h's moves on By.
+    `restricted` and `free` disjoint and their union is h's moves on By; `held_to`
+    follows §4.1 from `free` and h's square.
 
 Acceptance: 14 hand-made mutants of F reports (one per check, made by a throwaway
 script) each fail with the right pointer; every F report passes.
@@ -224,8 +242,10 @@ re-sorting candidates; new motif tags; prose (M4); the recall-miss scope proposa
 - `MoveAssessment.walked_plies` (int ≥ 0, rule).
 - `MoveAssessment.creates_threat_skipped` (nullable enum, rule) per §4.4.
 - `Motif.restriction` (nullable, after `threat`): `{"piece": {"square": "e5", "piece":
-  "n"}, "restricted": ["e5c6", "e5d7"], "free": []}`, set iff the tag is one of the four
-  restricted-movement tags. Part of no identity.
+  "n"}, "restricted": ["e5c6", "e5d7"], "free": [], "held_to": {"kind": "square",
+  "name": "e5"}}`, set iff the tag is one of the four restricted-movement tags;
+  `held_to` nullable, `kind` one of `file`, `rank`, `diagonal`, `square`. Part of no
+  identity.
 - `games.by_source[].table` and `opening.dataset` computed per §4.5.
 - Descriptions that change meaning: `fine_truncated` = "true iff every candidate is
   fine; false does not mean the unlisted moves are not fine"; `gain` = "static exchange
@@ -237,10 +257,15 @@ re-sorting candidates; new motif tags; prose (M4); the recall-miss scope proposa
 
 ```cpp
 // report.hpp
+struct HeldTo {                                   // PostM3_EM2 §4.1 (K2)
+    enum class Kind : std::uint8_t { File, Rank, Diagonal, Square } kind;
+    std::string name;                             // "e", "7", "a4-e8", "e5"
+};
 struct MotifRestriction {                         // PostM3_EM2 §4.1; source rule
     PieceOnSquare piece;                          // the held piece h, as on P
     std::vector<std::string> restricted;          // UCI, ascending; non-empty
     std::vector<std::string> free;                // UCI, ascending
+    std::optional<HeldTo> held_to;                // null iff free moves span no single line
 };
 // Motif:          std::optional<MotifRestriction> restriction; // set iff one of the four tags
 enum class CreatesThreatSkip : std::uint8_t { GivesCheck, GameOver, NoLegalMove };
@@ -287,10 +312,11 @@ checkpoint 2.
   one-line reason each, without reading WP1's code; margin measured at `standard`.
   Existing C rows change only at checkpoint 2.
 - **T fixtures** (`tests/fixtures/motifs.json`): includes and excludes take an optional
-  `restriction` `{restricted, free}` (matched when given). T46 gains
-  `{restricted: [g5g4], free: []}`; T47's include moves to its excludes; new T57 (README
-  root) excludes every `pin_tactical` with p = h8; new T58, a `pin_relative` with both
-  lists non-empty; new T59, a pawn pinned on its file with no capture (excluded).
+  `restriction` `{restricted, free, held_to}` (matched when given). T46 gains
+  `{restricted: [g5g4], free: [], held_to: square g5}`; T47's include moves to its
+  excludes; new T57 (README root) excludes every `pin_tactical` with p = h8; new T58, a
+  `pin_relative` with both lists non-empty and `held_to` along its pin line; new T59, a
+  pawn pinned on its file with no capture (excluded).
 - **F fixtures**: every existing expectation that does not depend on §4.1–4.3 stays.
   New `equals` rows: `/position/legal_moves` on F01; `/candidates/0/depth` presence via
   the semantic checker only (depth varies by budget); `creates_threat_skipped` on a
@@ -312,7 +338,7 @@ checkpoint 2.
 | Created threat | `Candidate 1 creates threat line: …` | `Candidate 1 creates threat line (if White passes after g6): …`; when null: `Candidate 1 creates threat: not searched (gives check) [rule]` |
 | Deferred parry | `… parries threat: false (deferred_by_check) [rule]` | `… parries threat: false (deferred_by_check: the move checks, so the threat only waits) [rule]` |
 | Walk | none | `Candidate 1 facts read to ply 6 of 10 [rule]` |
-| Restricted movement | `restricted movement (absolute pin): R e1 → n e5, k e8 (ply 0) [rule]` | `restricted movement (absolute pin): R e1 → n e5, k e8; restricted: Ne5-c6, Ne5-d7; free: none (ply 0) [rule]` |
+| Restricted movement | `restricted movement (absolute pin): R e1 → n e5, k e8 (ply 0) [rule]` | `restricted movement (absolute pin): R e1 → n e5, k e8; at square e5; restricted: Ne5-c6, Ne5-d7; free: none (ply 0) [rule]`; "along file e", "along rank 7", "along diagonal a4-e8" likewise; nothing when `held_to` is null |
 | Gain | `hanging_piece: n h6, gain 3 (ply 2) [rule]` | `hanging_piece: n h6, SEE 3 (ply 2) [rule]` |
 
 Moves in restriction lists: piece letter in upper case (none for a pawn), from square,
@@ -336,13 +362,7 @@ Batch 1 after checkpoint 1: WP1–WP8. Milestone end: WP9.
 
 ## 12. Captain's checkpoints
 
-1. Before batch 1: approve the (D) designs: rule 3′ including the interposition effect
-   on C01 and the move that made the motif's board counting (C12, C14 ply 1); the
-   existence condition for all four tags (C05, C09, C10, C12 and C01 rows drop, §4.1)
-   or `pin_tactical` only;
-   `back_rank_weakness` without a `restriction` field; the new fields (`legal_moves`,
-   `depth`, `walked_plies`, `creates_threat_skipped`, `restriction`); the
-   `custom@<12 hex>` ID format and the in-tree SHA-256.
+1. Before batch 1: approve the Deputy's designs. **Passed 2026-10-22** (§1, K1–K5).
 2. After batch 1: every C, T or F fixture whose result changed, and any recall target
    missed, with fixture, motif, both values and the reason. The Captain decides per
    mismatch (rule or label; §15 row). The same invariant failing twice → design note.
@@ -373,7 +393,7 @@ Batch 1 after checkpoint 1: WP1–WP8. Milestone end: WP9.
 1. Release and ASan/UBSan builds warning-free; all `unit`, `engine` and `games` CTests
    pass in both trees.
 2. §4.1: every T fixture passes with its `restriction`; T47 excluded, T46 restricted
-   `[g5g4]`; `tactics_oracle` zero mismatches including `restriction`.
+   `[g5g4]` at square g5; `tactics_oracle` zero mismatches including `restriction`.
 3. §4.2: C fixtures pass after checkpoint 2, including C17 indirect and C18 none.
 4. §4.3: the TAC-5 near miss is not labelled; C05–C09, C11, C15 keep their labels.
 5. §4.4, §5: every F report validates against `report.v5.schema.json` and passes the
@@ -399,3 +419,4 @@ count line, `Re8#` with `es`, `depth`, and the `back_rank_weakness` row; the JSO
 | Date | Change | Reason |
 |---|---|---|
 | 2026-10-22 | Plan frozen (G1–G15) | Captain's approval of the audit decisions, with 5 and 10 changed |
+| 2026-10-22 | Checkpoint 1: K1–K5; `held_to` added to `restriction` (§4.1, §5, §6, §9, §10) | Captain: the report names how the movement is restricted |

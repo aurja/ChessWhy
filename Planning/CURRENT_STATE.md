@@ -19,7 +19,8 @@ Updated 2026-10-22.
   - Release and ASan/UBSan CTests 141/141 (107 `unit`, 33 `engine`, 1 `games`); slowest
     `standard` F fixture 7.80 s (F06).
 - Next: PostM3_EM2 (fixes from the 2026-10-22 conceptual audit in `Planning/critiques/`;
-  plan `Planning/milestones/PostM3_EM2.md`, awaiting checkpoint 1), then M4 (libllama
+  plan `Planning/milestones/PostM3_EM2.md`; checkpoint 1 passed 2026-10-22; next the
+  contract commit (headers, v5 schema), then batch 1), then M4 (libllama
   prose). Four candidate GGUFs are downloaded to `assets/models/`; pinning them is an M4
   task.
 - Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
