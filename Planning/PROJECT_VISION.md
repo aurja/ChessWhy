@@ -164,9 +164,10 @@ are frozen in M2 and measure coverage of Lichess-tagged puzzles, not precision.
 Pins, overloaded defenders and tactical pins print as **restricted movement** (Captain,
 2026-10-22): restricted does not mean the piece cannot move at all; it means it cannot move in
 all the ways it otherwise could. Each such motif names the held piece, how it is held ("at
-square e5", "along file e", "along rank 7", "along diagonal a4-e8"), its **restricted moves**
-(the moves the motif makes illegal or costly) and its **free moves**, and exists only when at
-least one move is restricted (PostM3_EM2 §4.1; approved at checkpoint 1, 2026-10-22).
+square e5", "along file e", "along rank 7", "along diagonal a4-e8", "only to squares a2, d1,
+g8"), its **restricted moves** (the moves the motif makes illegal or costly) and its **free
+moves**, and exists only when at least one move is restricted (PostM3_EM2 §4.1; approved at
+checkpoint 1, 2026-10-22).
 
 PostM2_EM1 judges the best move's line and each refutation as a **tactic** when its expected
 score beats the best alternative first move by the only-move margin (≥ 0.13, `engine`); a lone

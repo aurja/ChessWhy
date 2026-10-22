@@ -45,7 +45,7 @@ recommendation and added to 2:
 | # | Topic | Decision |
 |---|---|---|
 | K1 | Contribution rule 3′ | Approved as in §4.2, including blocks of a check, the move that made the motif's board, and only the absolute pin's own line ignored |
-| K2 | Existence condition | All four restricted-movement tags (§4.1). Added by the Captain: the report says **how** the movement is restricted, "along file x", "along rank y", "along diagonal z" or "at square w" (`held_to`, §4.1) |
+| K2 | Existence condition | All four restricted-movement tags (§4.1). Added by the Captain: the report says **how** the movement is restricted, "along file x", "along rank y", "along diagonal z" or "at square w" (`held_to`, §4.1); when the free moves share no line, "only to squares a2, d1, g8" (Captain, option B of the follow-up brief, 2026-10-22: "Makes more sense that way") |
 | K3 | `back_rank_weakness` | Denied moves for contribution only; no `restriction` field |
 | K4 | New fields | All five: `legal_moves`, `depth`, `walked_plies`, `creates_threat_skipped`, `restriction` ("We have to do it even if it costs us some development effort") |
 | K5 | Data identity | SHA-256 of the loaded bytes, in-tree implementation; `custom@<12 hex>` for data that is not the shipped data |
@@ -100,15 +100,17 @@ move. Then
 - `piece` = h, as on P;
 - `restricted` = h's denied moves on By;
 - `free` = h's legal moves on By that are not restricted;
-- `held_to` (K2): how the movement is restricted, from the free moves' destinations:
+- `held_to` (K2): how the movement is restricted, from the free moves' destinations
+  (distinct squares; promotions to one square count once). Never null:
   - no free move → `{"kind": "square", "name": h's square}`, "at square e5";
   - every free destination on one file, rank or diagonal through h's square →
     `{"kind": "file", "name": "e"}` ("along file e"), `{"kind": "rank", "name": "7"}`
     ("along rank 7") or `{"kind": "diagonal", "name": "a4-e8"}` ("along diagonal
     a4-e8"; a diagonal is named by its two end squares on the board edge, lower file
     first). Two different squares share at most one line, so the line is unique;
-  - otherwise null: the free moves go in several directions (a knight, an overloaded
-    queen), and the `free` list is the description.
+  - otherwise (a knight, an overloaded queen whose safe moves go several ways) →
+    `{"kind": "squares", "name": "a2,d1,g8"}`, the free destinations ascending and
+    comma-separated, "only to squares a2, d1, g8" ("only to square f3" for one).
 
 Both lists in UCI, sorted ascending as strings. For `pin_absolute` the restricted moves
 are the moves the pin makes illegal; for the others they are legal moves that cost
@@ -222,7 +224,7 @@ with python-chess. A failure prints the JSON pointer and the broken relation. Ch
 13. The tactic invariants of PostM2_EM1 §9 (moved here from `engine_fixture_test.cpp`).
 14. `restriction` set iff the tag is one of the four; `restricted` non-empty;
     `restricted` and `free` disjoint and their union is h's moves on By; `held_to`
-    follows §4.1 from `free` and h's square.
+    present and follows §4.1 from `free` and h's square.
 
 Acceptance: 14 hand-made mutants of F reports (one per check, made by a throwaway
 script) each fail with the right pointer; every F report passes.
@@ -244,8 +246,8 @@ re-sorting candidates; new motif tags; prose (M4); the recall-miss scope proposa
 - `Motif.restriction` (nullable, after `threat`): `{"piece": {"square": "e5", "piece":
   "n"}, "restricted": ["e5c6", "e5d7"], "free": [], "held_to": {"kind": "square",
   "name": "e5"}}`, set iff the tag is one of the four restricted-movement tags;
-  `held_to` nullable, `kind` one of `file`, `rank`, `diagonal`, `square`. Part of no
-  identity.
+  `held_to` never null, `kind` one of `file`, `rank`, `diagonal`, `square`, `squares`.
+  Part of no identity.
 - `games.by_source[].table` and `opening.dataset` computed per §4.5.
 - Descriptions that change meaning: `fine_truncated` = "true iff every candidate is
   fine; false does not mean the unlisted moves are not fine"; `gain` = "static exchange
@@ -258,14 +260,14 @@ re-sorting candidates; new motif tags; prose (M4); the recall-miss scope proposa
 ```cpp
 // report.hpp
 struct HeldTo {                                   // PostM3_EM2 §4.1 (K2)
-    enum class Kind : std::uint8_t { File, Rank, Diagonal, Square } kind;
-    std::string name;                             // "e", "7", "a4-e8", "e5"
+    enum class Kind : std::uint8_t { File, Rank, Diagonal, Square, Squares } kind;
+    std::string name;                             // "e", "7", "a4-e8", "e5", "a2,d1,g8"
 };
 struct MotifRestriction {                         // PostM3_EM2 §4.1; source rule
     PieceOnSquare piece;                          // the held piece h, as on P
     std::vector<std::string> restricted;          // UCI, ascending; non-empty
     std::vector<std::string> free;                // UCI, ascending
-    std::optional<HeldTo> held_to;                // null iff free moves span no single line
+    HeldTo held_to;                               // never null (§4.1)
 };
 // Motif:          std::optional<MotifRestriction> restriction; // set iff one of the four tags
 enum class CreatesThreatSkip : std::uint8_t { GivesCheck, GameOver, NoLegalMove };
@@ -338,7 +340,7 @@ checkpoint 2.
 | Created threat | `Candidate 1 creates threat line: …` | `Candidate 1 creates threat line (if White passes after g6): …`; when null: `Candidate 1 creates threat: not searched (gives check) [rule]` |
 | Deferred parry | `… parries threat: false (deferred_by_check) [rule]` | `… parries threat: false (deferred_by_check: the move checks, so the threat only waits) [rule]` |
 | Walk | none | `Candidate 1 facts read to ply 6 of 10 [rule]` |
-| Restricted movement | `restricted movement (absolute pin): R e1 → n e5, k e8 (ply 0) [rule]` | `restricted movement (absolute pin): R e1 → n e5, k e8; at square e5; restricted: Ne5-c6, Ne5-d7; free: none (ply 0) [rule]`; "along file e", "along rank 7", "along diagonal a4-e8" likewise; nothing when `held_to` is null |
+| Restricted movement | `restricted movement (absolute pin): R e1 → n e5, k e8 (ply 0) [rule]` | `restricted movement (absolute pin): R e1 → n e5, k e8; at square e5; restricted: Ne5-c6, Ne5-d7; free: none (ply 0) [rule]`; "along file e", "along rank 7", "along diagonal a4-e8", "only to squares a2, d1, g8" ("only to square f3") likewise |
 | Gain | `hanging_piece: n h6, gain 3 (ply 2) [rule]` | `hanging_piece: n h6, SEE 3 (ply 2) [rule]` |
 
 Moves in restriction lists: piece letter in upper case (none for a pawn), from square,
@@ -420,3 +422,4 @@ count line, `Re8#` with `es`, `depth`, and the `back_rank_weakness` row; the JSO
 |---|---|---|
 | 2026-10-22 | Plan frozen (G1–G15) | Captain's approval of the audit decisions, with 5 and 10 changed |
 | 2026-10-22 | Checkpoint 1: K1–K5; `held_to` added to `restriction` (§4.1, §5, §6, §9, §10) | Captain: the report names how the movement is restricted |
+| 2026-10-22 | `held_to` never null: new kind `squares` ("only to squares a2, d1, g8") when the free destinations share no line (§4.1, §4.6, §5, §6, §10) | Captain, option B of the follow-up brief: "Makes more sense that way" |
