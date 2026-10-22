@@ -5,4 +5,4 @@ target_link_libraries(input_unit_tests PRIVATE
     chesswhy_warnings
     chesswhy_paths
 )
-catch_discover_tests(input_unit_tests PROPERTIES LABELS unit)
+catch_discover_tests(input_unit_tests TEST_PREFIX "input_unit_tests::" PROPERTIES LABELS unit)

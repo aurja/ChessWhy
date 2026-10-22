@@ -74,6 +74,93 @@ template <typename Enum>
     return values;
 }
 
+void serialize_positional_feature_fields(Json& value, const PositionalFeature& feature) {
+    value["tag"] = to_string(feature.tag);
+    value["side"] = to_string(feature.side);
+    Json pieces = Json::array();
+    for (const auto& piece : feature.pieces) {
+        pieces.push_back(serialize_piece_on_square(piece));
+    }
+    value["pieces"] = std::move(pieces);
+    if (feature.file) {
+        value["file"] = std::string(1, static_cast<char>('a' + *feature.file));
+    } else {
+        value["file"] = nullptr;
+    }
+    value["value"] = feature.value ? Json(*feature.value) : Json(nullptr);
+}
+
+[[nodiscard]] Json serialize_positional_feature(const PositionalFeature& feature) {
+    Json value = Json::object();
+    value["source"] = "rule";
+    serialize_positional_feature_fields(value, feature);
+    return value;
+}
+
+[[nodiscard]] Json serialize_positional_features(const std::vector<PositionalFeature>& features) {
+    Json values = Json::array();
+    for (const auto& feature : features) {
+        values.push_back(serialize_positional_feature(feature));
+    }
+    return values;
+}
+
+[[nodiscard]] Json serialize_positional_change(const PositionalChange& change) {
+    Json value = Json::object();
+    value["source"] = "rule";
+    value["ply"] = change.ply;
+    value["change"] = to_string(change.change);
+    value["holds_at_end"] = change.holds_at_end;
+    serialize_positional_feature_fields(value, change.feature);
+    return value;
+}
+
+[[nodiscard]] Json serialize_positional_changes(const std::vector<PositionalChange>& changes) {
+    Json values = Json::array();
+    for (const auto& change : changes) {
+        values.push_back(serialize_positional_change(change));
+    }
+    return values;
+}
+
+[[nodiscard]] Json serialize_game_source(const GameSourceCounts& source) {
+    Json value = Json::object();
+    value["id"] = source.id;
+    value["table"] = source.table;
+    value["platform"] = source.platform;
+    value["players"] = source.players;
+    value["months"] = source.months;
+    value["credit"] = source.credit;
+    value["max_ply"] = source.max_ply;
+    value["min_games"] = source.min_games;
+    value["found"] = source.found;
+    value["games"] = source.games ? Json(*source.games) : Json(nullptr);
+    value["white"] = source.white ? Json(*source.white) : Json(nullptr);
+    value["draws"] = source.draws ? Json(*source.draws) : Json(nullptr);
+    value["black"] = source.black ? Json(*source.black) : Json(nullptr);
+    Json moves = Json::array();
+    for (const auto& move : source.moves) {
+        Json item = Json::object();
+        item["san"] = move.san;
+        item["uci"] = move.uci;
+        item["games"] = move.games;
+        moves.push_back(std::move(item));
+    }
+    value["moves"] = std::move(moves);
+    return value;
+}
+
+[[nodiscard]] Json serialize_games(const GamesInfo& games) {
+    Json value = Json::object();
+    value["source"] = "games";
+    Json by_source = Json::array();
+    for (const auto& source : games.by_source) {
+        by_source.push_back(serialize_game_source(source));
+    }
+    value["by_source"] = std::move(by_source);
+    return value;
+}
+
 [[nodiscard]] Json serialize_tactic_label(const TacticLabel& label) {
     Json value = Json::object();
     value["source"] = "rule";
@@ -172,6 +259,7 @@ template <typename Enum>
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
     value["motifs"] = serialize_motifs(move.motifs);
     value["tactic"] = serialize_optional_tactic(move.tactic);
+    value["positional"] = serialize_positional_changes(move.positional);
     return value;
 }
 
@@ -365,6 +453,70 @@ std::string to_string(TacticLabelTag tag) {
     throw std::invalid_argument(invalid_enum("TacticLabelTag", tag));
 }
 
+std::string to_string(PositionalTag tag) {
+    switch (tag) {
+    case PositionalTag::IsolatedPawn:
+        return "isolated_pawn";
+    case PositionalTag::DoubledPawns:
+        return "doubled_pawns";
+    case PositionalTag::BackwardPawn:
+        return "backward_pawn";
+    case PositionalTag::PassedPawn:
+        return "passed_pawn";
+    case PositionalTag::ConnectedPassedPawns:
+        return "connected_passed_pawns";
+    case PositionalTag::PawnIslands:
+        return "pawn_islands";
+    case PositionalTag::PawnChain:
+        return "pawn_chain";
+    case PositionalTag::CastlingKingside:
+        return "castling_kingside";
+    case PositionalTag::CastlingQueenside:
+        return "castling_queenside";
+    case PositionalTag::KingShieldGap:
+        return "king_shield_gap";
+    case PositionalTag::OpenFileNearKing:
+        return "open_file_near_king";
+    case PositionalTag::HalfOpenFileNearKing:
+        return "half_open_file_near_king";
+    case PositionalTag::KingZoneAttacker:
+        return "king_zone_attacker";
+    case PositionalTag::BishopPair:
+        return "bishop_pair";
+    case PositionalTag::RookOpenFile:
+        return "rook_open_file";
+    case PositionalTag::RookHalfOpenFile:
+        return "rook_half_open_file";
+    case PositionalTag::RookSeventh:
+        return "rook_seventh";
+    case PositionalTag::Outpost:
+        return "outpost";
+    case PositionalTag::BadBishop:
+        return "bad_bishop";
+    case PositionalTag::MobilityLead:
+        return "mobility_lead";
+    case PositionalTag::SpaceLead:
+        return "space_lead";
+    case PositionalTag::DevelopmentLead:
+        return "development_lead";
+    case PositionalTag::MaterialAhead:
+        return "material_ahead";
+    case PositionalTag::ExchangeUp:
+        return "exchange_up";
+    }
+    throw std::invalid_argument(invalid_enum("PositionalTag", tag));
+}
+
+std::string to_string(PositionalChangeKind kind) {
+    switch (kind) {
+    case PositionalChangeKind::Appears:
+        return "appears";
+    case PositionalChangeKind::Disappears:
+        return "disappears";
+    }
+    throw std::invalid_argument(invalid_enum("PositionalChangeKind", kind));
+}
+
 const char* parry_source(ParryTest test) {
     return test == ParryTest::Searched ? "engine" : "rule";
 }
@@ -409,6 +561,7 @@ nlohmann::ordered_json to_json(const Report& report) {
     position["eval_white"] =
         report.position.eval_white ? serialize_eval(*report.position.eval_white) : Json(nullptr);
     position["motifs"] = serialize_motifs(report.position.motifs);
+    position["positional"] = serialize_positional_features(report.position.positional);
     value["position"] = std::move(position);
 
     if (report.threats) {
@@ -456,6 +609,7 @@ nlohmann::ordered_json to_json(const Report& report) {
         opening["last_named"] = nullptr;
     }
     value["opening"] = std::move(opening);
+    value["games"] = serialize_games(report.games);
     return value;
 }
 

@@ -77,7 +77,7 @@ void require_identical(std::string_view name, const std::string& first, const st
 int main() {
     try {
         const Json fixtures = fixture_file();
-        for (const std::string_view id : {"F01", "F03", "F12"}) {
+        for (const std::string_view id : {"F01", "F03", "F12", "F25", "F29", "F30"}) {
             const auto& engine_fixtures = fixtures.at("engine_fixtures");
             const auto fixture = std::ranges::find_if(engine_fixtures, [id](const Json& value) {
                 return value.at("id").get<std::string>() == id;

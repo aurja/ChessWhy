@@ -1,23 +1,27 @@
 # Current state
 
-Updated 2026-10-21.
+Updated 2026-10-22.
 
-- Milestone: **PostM2_EM1 complete, merged into `main`** (Captain, checkpoint 3,
-  2026-10-21). Receipt `Planning/receipts/PostM2_EM1.md`; contract
-  `Planning/milestones/PostM2_EM1.md` (changes §15). Tactic judgement (margin ≥ 0.13 over
-  the next-best first move, search R), contributions `direct`/`indirect`/`none`,
-  `removal_of_defender` tactic label, report v3, new state motif `pin_tactical` with
-  `threat` (14 motif tags), shared "restricted movement" wording. Release and ASan/UBSan
-  CTests 111/111; slowest `standard` F fixture 5.87 s; `tactics_oracle` 0 mismatches
-  (about 23 s in Release).
-- Next: M3, split by the Captain (2026-10-21) into **M3a** (positional facts) and **M3b**
-  (opening statistics), planned together and built in parallel. Contracts not yet drafted.
-  Decided: M3a scope = pawn-structure basics, king safety, pieces, space, development lead,
-  material balance (named structure families and Silman's imbalances later). M3b source =
-  Lichess broadcasts only, both players 2200+, January 2020 onward (online Lichess Elite
-  dropped; broadcast license is CC BY-SA 4.0, was recorded as CC0). Minimum game count
-  and ply limit: frozen after a pilot build (proposed 5 and 40). Still open: where M3a
-  measures before/after changes along a line.
+- Milestone: **M3a and M3b complete, merged into `main` 2026-10-22** (Captain ran both
+  smoke commands and approved). Receipts `Planning/receipts/M3a.md` and
+  `Planning/receipts/M3b.md`; contracts `Planning/milestones/M3a.md` (changes §15) and
+  `Planning/milestones/M3b.md` (changes §13). Report v4.
+  - M3a: 24 positional tags (`rule`) for pawn structure, king safety, pieces, space,
+    development and material. `position.positional` lists the root's features; every
+    candidate and asked-move line lists each change at its ply with `holds_at_end`.
+    70 P feature boards (10 from books) and 7 P lines; `positional_oracle` 0 mismatches
+    on 53,378 boards.
+  - M3b: game counts (`games`) from 81 months of Lichess broadcasts (2020-01..2026-09),
+    both players 2200+, ≤ 40 plies, ≥ 5 games: 263,568 games kept, 117,058 positions,
+    table `lichess_broadcast_2200@e0cb7fab3212`, built by `tools/fetch_assets.sh games`.
+    The Python oracle over all 81 months and a rebuild from a clean directory both give
+    the pinned SHA-256. `--games FILE`; a missing or invalid table exits 3.
+  - Release and ASan/UBSan CTests 141/141 (107 `unit`, 33 `engine`, 1 `games`); slowest
+    `standard` F fixture 7.80 s (F06).
+- Next: M4 (libllama prose). Four candidate GGUFs are downloaded to `assets/models/`;
+  pinning them is an M4 task.
+- Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
+  (F26/F27 show 20–25 rows per line); M4 decides what the prose says.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept
   diagrams; first version approved as the current baseline, Captain reviewing), CODE (concept → source), DEFINITIONS
   (glossary, was `Planning/definitions/TERMINOLOGY.md`), FIXTURES with boards and TESTS,
@@ -26,6 +30,9 @@ Updated 2026-10-21.
   skewers with a pawn behind, discovered attacks on pawns or defended equal pieces.
 - Captain's stance (2026-10-21): comprehensiveness first, conciseness later
   (`pin_tactical` adds about 9.6 reported motifs per puzzle).
+- PostM2_EM1 complete, merged into `main` 2026-10-21 (receipt
+  `Planning/receipts/PostM2_EM1.md`): tactic judgement, contributions,
+  `removal_of_defender`, `pin_tactical`, report v3; CTests 111/111.
 - M2 complete, merged into `main` (receipt `Planning/receipts/M2.md`): 13 motifs, report
   v2, recall targets met, reference implementation 0 mismatches.
 - Decided 2026-10-19/20 (M2 D1–D13): see M2 §1. ChessWhy stays MIT; lichess-puzzler

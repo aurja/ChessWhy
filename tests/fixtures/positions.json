@@ -464,6 +464,61 @@
         "/candidates/0/line": ["Qg7#"],
         "/candidates/1/line": ["Qf8#"]
       }
+    },
+    {"id":"F25","title":"Exchange Ruy Lopez bishop and c-pawn changes","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6","args":["--fen","r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4","--move","Bxc6"],"positional_include":{"/position/positional":[{"tag":"bishop_pair","side":"white"},{"tag":"bishop_pair","side":"black"}],"/asked_move/positional":[{"ply":2,"change":"appears","holds_at_end":true,"tag":"doubled_pawns","side":"black","file":"c"},{"ply":2,"change":"disappears","holds_at_end":true,"tag":"bishop_pair","side":"white"}]},"reason":"The recapture removes White's bishop pair at ply 2 and leaves Black with doubled c-pawns; Black's opposite-coloured bishops remain."},
+    {"id":"F26","title":"Passed pawns in the rook ending","source":"Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (F10 position)","args":["--fen","6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58","--move","a7"],"positional_include":{"/position/positional":[{"tag":"passed_pawn","side":"white","file":"a","pieces":[{"square":"a6","piece":"P"}]},{"tag":"passed_pawn","side":"black","file":"g","pieces":[{"square":"g3","piece":"p"}]},{"tag":"material_ahead","side":"white","value":4}]},"reason":"The a6 and g3 pawns have no enemy pawn in front on their or adjacent files; White has material 6 to Black's 2."},
+    {"id":"F27","title":"Kingside castling loses its right","source":"constructed","args":["--fen","k7/8/8/8/8/8/8/4K2R w K - 0 1","--move","O-O"],"positional_include":{"/asked_move/positional":[{"ply":1,"change":"disappears","holds_at_end":true,"tag":"castling_kingside","side":"white"}]},"reason":"O-O consumes White's remaining kingside castling right."},
+    {"id":"F28","title":"The Exchange Ruy Lopez doubled c-pawns","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6","args":["--fen","r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],"positional_include":{"/position/positional":[{"tag":"doubled_pawns","side":"black","file":"c"},{"tag":"bishop_pair","side":"black"}]},"reason":"Black's c6 and c7 pawns share a file, and its c8 and f8 bishops occupy opposite colours."}
+    ,
+    {
+      "id": "F29",
+      "title": "Starting position game totals, moves, and rendered candidate count",
+      "source": "constructed: standard starting position",
+      "args": [
+        "--fen",
+        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        "--budget",
+        "quick"
+      ],
+      "equals": {
+        "/games/source": "games",
+        "/games/by_source/0/id": "lichess_broadcast",
+        "/games/by_source/0/table": "lichess_broadcast_2200@e0cb7fab3212",
+        "/games/by_source/0/found": true,
+        "/games/by_source/0/games": 262026,
+        "/games/by_source/0/white": 91439,
+        "/games/by_source/0/draws": 105183,
+        "/games/by_source/0/black": 65404
+      },
+      "line_prefix": {
+        "/games/by_source/0/moves": [
+          {"san": "e4", "uci": "e2e4", "games": 123657},
+          {"san": "d4", "uci": "d2d4", "games": 87792},
+          {"san": "Nf3", "uci": "g1f3", "games": 28707}
+        ]
+      },
+      "text_contains": "games: played in 123657 of 262026 games [games]",
+      "reason": "Counts and move frequencies match the pinned table's standard-start row; the rendered candidate count cites games without ranking move quality."
+    },
+    {
+      "id": "F30",
+      "title": "Position after ply 40 is outside the games table",
+      "source": "Korchnoi, Viktor - Karpov, Anatoly, Candidates' final 1974, before 58.a7",
+      "args": [
+        "--fen",
+        "6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58",
+        "--budget",
+        "quick"
+      ],
+      "equals": {
+        "/games/by_source/0/found": false,
+        "/games/by_source/0/games": null,
+        "/games/by_source/0/white": null,
+        "/games/by_source/0/draws": null,
+        "/games/by_source/0/black": null,
+        "/games/by_source/0/moves": []
+      },
+      "reason": "This legal position occurs before White's 58th move (after 114 plies); the games table only retains positions within its first 40 plies."
     }
   ],
   "unit_fixtures": [

@@ -1,4 +1,5 @@
 #include "chesswhy/analysis.hpp"
+#include "chesswhy/positional.hpp"
 #include "chesswhy/tactics.hpp"
 
 #include <cstddef>
@@ -345,6 +346,7 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     result.line_san = san_line(root, line.pv_uci);
     const auto moves = walked_moves(root, line.pv_uci);
     result.motifs = tactics::line_motifs(root, std::span<const chess::Move>(moves));
+    result.positional = positional::line_changes(root, std::span<const chess::Move>(moves));
     result.parries_threat = parry;
     result.creates_threat = std::move(creates_threat);
 
@@ -380,6 +382,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.position.terminal.reset();
     report.position.eval_white.reset();
     report.position.motifs.clear();
+    report.position.positional = positional::features(board);
     report.threats.reset();
     report.candidates.clear();
     report.fine_truncated = false;

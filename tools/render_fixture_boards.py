@@ -7,8 +7,8 @@ Burnett's, used under the BSD option of their GFDL/BSD/GPL triple license.
 
     .venv/bin/python tools/render_fixture_boards.py
 
-Writes Planning/DBC/boards/<ID>.svg for every F, U, T and C fixture, White at
-the bottom, with an arrow for the fixture's asked move (F) or first line move (T, C).
+Writes Planning/DBC/boards/<ID>.svg for every F, U, T, C and P fixture, White at the
+bottom, with an arrow for the fixture's asked move (F) or first line move (T, C, PL).
 """
 
 from __future__ import annotations
@@ -95,6 +95,12 @@ def main() -> None:
     for fixture in load_list("motifs.json", "motif_fixtures"):
         write_board(cast(str, fixture["id"]), *line_fixture(fixture))
     for fixture in load_list("tactics.json", "fixtures"):
+        write_board(cast(str, fixture["id"]), *line_fixture(fixture))
+    for fixture in load_list("positional.json", "features"):
+        write_board(
+            cast(str, fixture["id"]), chess.Board(cast(str, fixture["fen"])), None
+        )
+    for fixture in load_list("positional.json", "lines"):
         write_board(cast(str, fixture["id"]), *line_fixture(fixture))
 
 

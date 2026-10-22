@@ -185,8 +185,9 @@ before that, keep it out of the default targets.
 |Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and `clang-tidy --quiet -p build/release` on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; `python3 tools/check_dbc.py`; the milestone's smoke command once|
 
 - CTest labels: `unit` (no engine, no model), `engine` (needs
-  `assets/engines/stockfish`), `model` (needs a GGUF in `assets/models/`, opt-in).
-  Missing assets make engine/model tests fail loudly, never skip silently.
+  `assets/engines/stockfish` and, from M3b, the game-count table), `games` (needs the
+  broadcast month files from `tools/fetch_assets.sh games`), `model` (needs a GGUF in
+  `assets/models/`, opt-in). Missing assets make tests fail loudly, never skip silently.
 - Engine fixtures are pinned to the Stockfish 19 build in `assets/`; a new
   engine version means re-blessing fixtures as an explicit milestone task.
 - Report pass/fail summaries, not full logs. A skip is not a pass.

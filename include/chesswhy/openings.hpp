@@ -24,8 +24,8 @@ public:
     using std::runtime_error::runtime_error;
 };
 
-// Piece placement, side to move, castling rights, en-passant square only when a legal
-// capture exists (chess-library already normalises it): board.getFen(false).
+// Piece placement, side to move, castling rights, and an en-passant square only when at
+// least one legal en-passant capture exists (no move counters).
 [[nodiscard]] std::string position_key(const chess::Board& board);
 
 class Table {

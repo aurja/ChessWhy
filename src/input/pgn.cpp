@@ -1,7 +1,8 @@
+#include <array>
 #include <charconv>
 #include <cstdint>
 #include <fstream>
-#include <iterator>
+#include <istream>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -32,10 +33,10 @@ bool is_horizontal_space(char value) {
 
 class Lexer {
 public:
-    explicit Lexer(std::string_view text) : text_(text) {}
+    explicit Lexer(std::istream& input) : input_(input) {}
 
     Token next() {
-        while (position_ < text_.size()) {
+        while (has_character()) {
             const char value = peek();
             if (is_space(value)) {
                 consume();
@@ -74,10 +75,24 @@ public:
     }
 
 private:
-    [[nodiscard]] char peek() const { return text_[position_]; }
+    bool has_character() {
+        if (buffer_position_ < buffer_size_) {
+            return true;
+        }
+        if (eof_ || input_.bad()) {
+            return false;
+        }
+        input_.read(buffer_.data(), static_cast<std::streamsize>(buffer_.size()));
+        buffer_size_ = static_cast<std::size_t>(input_.gcount());
+        buffer_position_ = 0;
+        eof_ = input_.eof();
+        return buffer_position_ < buffer_size_;
+    }
+
+    [[nodiscard]] char peek() const { return buffer_[buffer_position_]; }
 
     char consume() {
-        const char value = text_[position_++];
+        const char value = buffer_[buffer_position_++];
         if (value == '\n') {
             line_start_ = true;
         } else if (!is_space(value)) {
@@ -87,17 +102,17 @@ private:
     }
 
     void skip_line() {
-        while (position_ < text_.size() && peek() != '\n') {
+        while (has_character() && peek() != '\n') {
             consume();
         }
-        if (position_ < text_.size()) {
+        if (has_character()) {
             consume();
         }
     }
 
     void skip_brace_comment() {
         consume();
-        while (position_ < text_.size()) {
+        while (has_character()) {
             if (consume() == '}') {
                 return;
             }
@@ -106,7 +121,7 @@ private:
 
     void skip_variation() {
         int depth = 1;
-        while (position_ < text_.size() && depth > 0) {
+        while (has_character() && depth > 0) {
             const char value = peek();
             if (value == '{') {
                 skip_brace_comment();
@@ -125,37 +140,40 @@ private:
     }
 
     Token read_tag() {
-        const auto start = position_;
-        consume(); // [
-        while (position_ < text_.size() && is_horizontal_space(peek())) {
-            consume();
+        std::string raw;
+        const auto take = [&raw, this]() {
+            const char value = consume();
+            raw.push_back(value);
+            return value;
+        };
+        take(); // [
+        while (has_character() && is_horizontal_space(peek())) {
+            take();
         }
 
         std::string key;
-        while (position_ < text_.size() && !is_space(peek()) && peek() != '"' && peek() != ']') {
-            key.push_back(consume());
+        while (has_character() && !is_space(peek()) && peek() != '"' && peek() != ']') {
+            key.push_back(take());
         }
-        while (position_ < text_.size() && is_horizontal_space(peek())) {
-            consume();
+        while (has_character() && is_horizontal_space(peek())) {
+            take();
         }
-        if (key.empty() || position_ == text_.size() || consume() != '"') {
-            return {.kind = TokenKind::word,
-                    .text = std::string(text_.substr(start, position_ - start)),
-                    .value = {}};
+        if (key.empty() || !has_character() || take() != '"') {
+            return {.kind = TokenKind::word, .text = std::move(raw), .value = {}};
         }
 
         std::string value;
         bool closed_quote = false;
-        while (position_ < text_.size()) {
-            const char character = consume();
+        while (has_character()) {
+            const char character = take();
             if (character == '"') {
                 closed_quote = true;
                 break;
             }
-            if (character == '\\' && position_ < text_.size()) {
+            if (character == '\\' && has_character()) {
                 const char escaped = peek();
                 if (escaped == '"' || escaped == '\\') {
-                    value.push_back(consume());
+                    value.push_back(take());
                 } else {
                     value.push_back(character);
                 }
@@ -163,13 +181,11 @@ private:
                 value.push_back(character);
             }
         }
-        while (position_ < text_.size() && is_horizontal_space(peek())) {
-            consume();
+        while (has_character() && is_horizontal_space(peek())) {
+            take();
         }
-        if (!closed_quote || position_ == text_.size() || consume() != ']') {
-            return {.kind = TokenKind::word,
-                    .text = std::string(text_.substr(start, position_ - start)),
-                    .value = {}};
+        if (!closed_quote || !has_character() || take() != ']') {
+            return {.kind = TokenKind::word, .text = std::move(raw), .value = {}};
         }
         return {.kind = TokenKind::tag, .text = std::move(key), .value = std::move(value)};
     }
@@ -177,7 +193,7 @@ private:
     Token read_nag() {
         std::string number;
         consume();
-        while (position_ < text_.size() && peek() >= '0' && peek() <= '9') {
+        while (has_character() && peek() >= '0' && peek() <= '9') {
             number.push_back(consume());
         }
         if (number.empty()) {
@@ -188,7 +204,7 @@ private:
 
     Token read_word() {
         std::string word;
-        while (position_ < text_.size()) {
+        while (has_character()) {
             const char value = peek();
             if (is_space(value) || value == '{' || value == '}' || value == '(' || value == ')' ||
                 value == ';' || value == '$') {
@@ -202,8 +218,11 @@ private:
         return {.kind = TokenKind::word, .text = std::move(word), .value = {}};
     }
 
-    std::string_view text_;
-    std::size_t position_ = 0;
+    std::istream& input_;
+    std::array<char, static_cast<std::size_t>(64) * 1024> buffer_{};
+    std::size_t buffer_position_ = 0;
+    std::size_t buffer_size_ = 0;
+    bool eof_ = false;
     bool line_start_ = true;
 };
 
@@ -302,83 +321,162 @@ void append_move(PgnGame& game, chess::Board& board, std::string_view token,
     game.moves.push_back(std::move(parsed));
 }
 
-std::vector<PgnGame> parse_games(std::string_view text, const std::filesystem::path& path,
-                                 std::optional<int> stop_after = std::nullopt) {
-    Lexer lexer(text);
-    std::vector<PgnGame> games;
-    int game_number = 1;
-    Token token = lexer.next();
-
-    while (token.kind != TokenKind::end) {
-        PgnGame game;
-        game.game = game_number++;
-        while (token.kind == TokenKind::tag) {
-            game.headers.emplace_back(std::move(token.text), std::move(token.value));
-            token = lexer.next();
-        }
-
-        auto board = game_start(game, path);
-        game.start = board;
-        while (token.kind != TokenKind::end && token.kind != TokenKind::tag) {
-            if (token.kind == TokenKind::result) {
-                token = lexer.next();
-                break;
-            }
-            if (token.kind == TokenKind::nag) {
-                if (!game.moves.empty()) {
-                    int nag = 0;
-                    const auto* first = token.text.data();
-                    const auto* last = first + token.text.size();
-                    const auto [end, error] = std::from_chars(first, last, nag);
-                    if (error == std::errc{} && end == last) {
-                        game.moves.back().nags.push_back(nag);
-                    }
-                }
-                token = lexer.next();
-                continue;
-            }
-            if (token.kind == TokenKind::word) {
-                const std::string word = std::move(token.text);
-                token = lexer.next();
-                std::string_view move_token(word);
-                if (strip_move_number(move_token) && move_token.empty()) {
-                    continue;
-                }
-                if (move_token.empty()) {
-                    continue;
-                }
-                append_move(game, board, move_token, path);
-                continue;
-            }
-            token = lexer.next();
-        }
-
-        if (!stop_after.has_value() || game.game == *stop_after) {
-            games.push_back(std::move(game));
-            if (stop_after.has_value()) {
-                return games;
-            }
-        }
+std::string file_error(std::string message, const std::filesystem::path& path) {
+    constexpr std::string_view stream_name = "<stream>";
+    if (message == "cannot read PGN stream") {
+        return "cannot read PGN file " + path.string();
     }
-    return games;
-}
-
-std::string read_file(const std::filesystem::path& path) {
-    std::ifstream stream(path, std::ios::binary);
-    if (!stream.is_open()) {
-        throw InputError("cannot read PGN file " + path.string());
+    for (auto index = message.find(stream_name); index != std::string::npos;
+         index = message.find(stream_name, index + path.string().size())) {
+        message.replace(index, stream_name.size(), path.string());
     }
-    std::string text((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-    if (stream.bad()) {
-        throw InputError("cannot read PGN file " + path.string());
-    }
-    return text;
+    return message;
 }
 
 } // namespace
 
+struct PgnReader::Impl {
+    Impl(std::istream& input, PgnReadOptions options)
+        : input_(input), lexer_(input), options_(options), current_(lexer_.next()) {
+        if (options_.max_plies.has_value() && *options_.max_plies < 0) {
+            throw InputError("max_plies must not be negative");
+        }
+        check_input();
+    }
+
+    std::optional<PgnReadResult> next() {
+        if (finished_ || current_.kind == TokenKind::end) {
+            finished_ = true;
+            return std::nullopt;
+        }
+
+        PgnGame game;
+        game.game = game_number_++;
+        while (current_.kind == TokenKind::tag) {
+            game.headers.emplace_back(std::move(current_.text), std::move(current_.value));
+            advance();
+        }
+
+        std::optional<std::string> error;
+        chess::Board board;
+        try {
+            board = game_start(game, "<stream>");
+            game.start = board;
+        } catch (const InputError& failure) {
+            error = failure.what();
+        }
+
+        while (!error.has_value() && current_.kind != TokenKind::end &&
+               current_.kind != TokenKind::tag) {
+            if (current_.kind == TokenKind::result) {
+                advance();
+                break;
+            }
+            if (current_.kind == TokenKind::nag) {
+                if (!game.moves.empty()) {
+                    int nag = 0;
+                    const auto* first = current_.text.data();
+                    const auto* last = first + current_.text.size();
+                    const auto [end, conversion_error] = std::from_chars(first, last, nag);
+                    if (conversion_error == std::errc{} && end == last) {
+                        game.moves.back().nags.push_back(nag);
+                    }
+                }
+                advance();
+                continue;
+            }
+            if (current_.kind == TokenKind::word) {
+                const std::string word = std::move(current_.text);
+                advance();
+                std::string_view move_token(word);
+                if (strip_move_number(move_token) && move_token.empty()) {
+                    continue;
+                }
+                if (move_token.empty() ||
+                    (options_.max_plies.has_value() &&
+                     game.moves.size() >= static_cast<std::size_t>(*options_.max_plies))) {
+                    continue;
+                }
+                try {
+                    append_move(game, board, move_token, "<stream>");
+                } catch (const InputError& failure) {
+                    error = failure.what();
+                    break;
+                }
+                continue;
+            }
+            advance();
+        }
+
+        if (error.has_value()) {
+            discard_broken_game();
+        }
+        return PgnReadResult{.game = std::move(game), .error = std::move(error)};
+    }
+
+private:
+    void check_input() {
+        if (input_.bad()) {
+            throw InputError("cannot read PGN stream");
+        }
+    }
+
+    void advance() {
+        current_ = lexer_.next();
+        check_input();
+    }
+
+    void discard_broken_game() {
+        while (current_.kind != TokenKind::tag && current_.kind != TokenKind::end) {
+            const bool result = current_.kind == TokenKind::result;
+            advance();
+            if (result) {
+                break;
+            }
+        }
+    }
+
+    std::istream& input_;
+    Lexer lexer_;
+    PgnReadOptions options_;
+    Token current_;
+    int game_number_ = 1;
+    bool finished_ = false;
+};
+PgnReader::PgnReader(std::istream& in, PgnReadOptions options)
+    : impl_(std::make_unique<Impl>(in, options)) {}
+
+PgnReader::~PgnReader() = default;
+PgnReader::PgnReader(PgnReader&&) noexcept = default;
+PgnReader& PgnReader::operator=(PgnReader&&) noexcept = default;
+
+std::optional<PgnReadResult> PgnReader::next() {
+    return impl_->next();
+}
+
 std::vector<PgnGame> read_games(const std::filesystem::path& path) {
-    return parse_games(read_file(path), path);
+    std::ifstream stream(path, std::ios::binary);
+    if (!stream.is_open()) {
+        throw InputError("cannot read PGN file " + path.string());
+    }
+
+    PgnReader reader(stream);
+    std::vector<PgnGame> games;
+    while (true) {
+        std::optional<PgnReadResult> result;
+        try {
+            result = reader.next();
+        } catch (const InputError& error) {
+            throw InputError(file_error(error.what(), path));
+        }
+        if (!result.has_value()) {
+            return games;
+        }
+        if (result->error.has_value()) {
+            throw InputError(file_error(*result->error, path));
+        }
+        games.push_back(std::move(result->game));
+    }
 }
 
 PgnPosition load_pgn(const std::filesystem::path& path, int game, std::optional<int> ply) {
@@ -389,13 +487,34 @@ PgnPosition load_pgn(const std::filesystem::path& path, int game, std::optional<
         throw InputError("ply " + std::to_string(*ply) + " must not be negative");
     }
 
-    auto games = parse_games(read_file(path), path, game);
-    if (games.empty()) {
+    std::ifstream stream(path, std::ios::binary);
+    if (!stream.is_open()) {
+        throw InputError("cannot read PGN file " + path.string());
+    }
+    PgnReader reader(stream);
+    std::optional<PgnGame> selected;
+    while (!selected.has_value()) {
+        std::optional<PgnReadResult> result;
+        try {
+            result = reader.next();
+        } catch (const InputError& error) {
+            throw InputError(file_error(error.what(), path));
+        }
+        if (!result.has_value()) {
+            break;
+        }
+        if (result->error.has_value()) {
+            throw InputError(file_error(*result->error, path));
+        }
+        if (result->game.game == game) {
+            selected = std::move(result->game);
+        }
+    }
+    if (!selected.has_value()) {
         throw InputError("game " + std::to_string(game) + " not found in " + path.string());
     }
-    const auto& selected = games.back();
-    const auto selected_ply = ply.value_or(static_cast<int>(selected.moves.size()));
-    if (static_cast<std::size_t>(selected_ply) > selected.moves.size()) {
+    const auto selected_ply = ply.value_or(static_cast<int>(selected->moves.size()));
+    if (static_cast<std::size_t>(selected_ply) > selected->moves.size()) {
         throw InputError("ply " + std::to_string(selected_ply) + " is out of range for game " +
                          std::to_string(game) + " in " + path.string());
     }
@@ -403,13 +522,12 @@ PgnPosition load_pgn(const std::filesystem::path& path, int game, std::optional<
     PgnPosition result;
     result.game = game;
     result.ply = selected_ply;
-    result.board = selected.start;
+    result.board = selected->start;
     result.mainline.reserve(static_cast<std::size_t>(selected_ply));
     for (int index = 0; index < selected_ply; ++index) {
-        result.board.makeMove(selected.moves[static_cast<std::size_t>(index)].move);
+        result.board.makeMove(selected->moves[static_cast<std::size_t>(index)].move);
         result.mainline.push_back(result.board);
     }
     return result;
 }
-
 } // namespace chesswhy::input

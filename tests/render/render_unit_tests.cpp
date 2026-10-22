@@ -56,6 +56,29 @@ TEST_CASE("motif rows and level-independent output", "[unit]") {
     CHECK(club_text.find("back_rank_weakness: k e8 (ply 0) [rule]") == std::string::npos);
 }
 
+TEST_CASE("positional and game facts render only from report fields", "[unit]") {
+    const std::string rendered = chesswhy::render::text(chesswhy::test_examples::normal_position());
+
+    CHECK(rendered.find("+ mobility_lead: white 12 (ply 1) [rule]") != std::string::npos);
+    CHECK(rendered.find("- castling_kingside: white (ply 1, not at end) [rule]") !=
+          std::string::npos);
+    CHECK(rendered.find("+ doubled_pawns: black, c file: p c6, p c7 (ply 2) [rule]") !=
+          std::string::npos);
+    CHECK(rendered.find("bishop_pair") == std::string::npos);
+    CHECK(rendered.find("games: played in 1140 of 1840 games [games]") != std::string::npos);
+    CHECK(rendered.find("games: not played in these games [games]") != std::string::npos);
+    CHECK(rendered.find("games: 1840 games, both rated 2200 or more "
+                        "(platform: over the board (may include online events relayed as "
+                        "broadcasts); source: Lichess broadcast database, database.lichess.org, "
+                        "CC BY-SA 4.0; months: 2020-01..2026-09): White won 640, draws 790, "
+                        "Black won 410 [games]") != std::string::npos);
+    const std::string not_found =
+        chesswhy::render::text(chesswhy::test_examples::terminal_checkmate());
+    CHECK(not_found.find("games: position not in the table "
+                         "(it keeps positions reached in at least 5 games within the first 40 "
+                         "plies) [games]") != std::string::npos);
+}
+
 TEST_CASE("tactic judgements, labels and contributions render from report fields", "[unit]") {
     const std::string tactic_text =
         chesswhy::render::text(chesswhy::test_examples::tactic_with_labels());

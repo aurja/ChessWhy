@@ -37,20 +37,23 @@ using Clock = std::chrono::steady_clock;
     return Json::parse(input);
 }
 
-[[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args) {
+[[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args,
+                                                    bool json_output = true) {
     std::vector<std::string> args;
-    args.reserve(json_args.size() + 1);
+    args.reserve(json_args.size() + (json_output ? 1U : 0U));
     for (const auto& value : json_args) {
         args.push_back(value.get<std::string>());
     }
-    for (std::size_t index = 0; index + 1 < args.size(); ++index) {
-        if (args[index] == "--pgn") {
-            args[index + 1] =
-                (std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests/fixtures" / args[index + 1])
+    for (std::size_t index = 1; index < args.size(); ++index) {
+        if (args[index - 1] == "--pgn") {
+            args[index] =
+                (std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests/fixtures" / args[index])
                     .string();
         }
     }
-    args.emplace_back("--json");
+    if (json_output) {
+        args.emplace_back("--json");
+    }
     return args;
 }
 
@@ -75,6 +78,25 @@ using Clock = std::chrono::steady_clock;
         throw std::runtime_error("cli::run wrote an unexpected diagnostic: " + error);
     }
     return Json::parse(output);
+}
+
+[[nodiscard]] std::string run_fixture_text(const Json& fixture) {
+    const auto args = fixture_args(fixture.at("args"), false);
+    std::vector<std::string_view> arg_views;
+    arg_views.reserve(args.size());
+    for (const auto& arg : args) {
+        arg_views.emplace_back(arg);
+    }
+
+    const auto options = chesswhy::cli::parse_args(arg_views);
+    std::ostringstream out;
+    std::ostringstream err;
+    const int result = chesswhy::cli::run(options, out, err);
+    if (result != chesswhy::cli::kExitOk || !err.str().empty()) {
+        throw std::runtime_error("text cli::run returned " + std::to_string(result) + ": " +
+                                 err.str());
+    }
+    return out.str();
 }
 
 void check_value(bool condition, std::string_view fixture_id, std::string_view key,
@@ -235,6 +257,30 @@ void check_expectations(const Json& fixture, const Json& report,
                 expectation += side;
                 expectation += ':';
                 expectation += actor;
+                check_value(found, id, expectation, instance, actual, failures);
+            }
+        }
+    }
+    if (fixture.contains("positional_include")) {
+        const auto& expectations = fixture.at("positional_include");
+        for (auto expected_array = expectations.begin(); expected_array != expectations.end();
+             ++expected_array) {
+            const std::string& pointer = expected_array.key();
+            const Json* actual = find_pointer(report, pointer);
+            for (const auto& instance : expected_array.value()) {
+                const bool found =
+                    actual != nullptr && actual->is_array() && instance.is_object() &&
+                    std::ranges::any_of(*actual, [&](const Json& feature) {
+                        if (!feature.is_object()) {
+                            return false;
+                        }
+                        return std::ranges::all_of(instance.items(), [&](const auto& field) {
+                            return feature.contains(field.key()) &&
+                                   feature.at(field.key()) == field.value();
+                        });
+                    });
+                std::string expectation = "positional_include:";
+                expectation += pointer;
                 check_value(found, id, expectation, instance, actual, failures);
             }
         }
@@ -633,6 +679,13 @@ int main(int argc, char* argv[]) {
         std::vector<std::string> failures;
         check_expectations(*found, report, failures);
         check_tactic_invariants(report, fixture_id, failures);
+        if (found->contains("text_contains")) {
+            const std::string expected_text = found->at("text_contains").get<std::string>();
+            const std::string rendered_text = run_fixture_text(*found);
+            const Json actual_text = rendered_text;
+            check_value(rendered_text.find(expected_text) != std::string::npos, fixture_id,
+                        "text_contains", Json(expected_text), &actual_text, failures);
+        }
         if (check_timing && elapsed > 12.0) {
             failures.push_back("fixture " + fixture_id + " wall time: expected <= 12 s, actual " +
                                std::to_string(elapsed) + " s");

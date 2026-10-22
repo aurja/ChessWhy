@@ -1,7 +1,9 @@
-// FEN, PGN and move input. Frozen by Planning/milestones/M1.md §Input.
+// FEN, PGN and move input. Frozen by Planning/milestones/M1.md §Input; PgnReader by M3b §6.
 #pragma once
 
 #include <filesystem>
+#include <istream>
+#include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -62,7 +64,39 @@ struct PgnGame {
 // Every game in file order. Mainline only: comments (brace and ";"), variations (nested),
 // NAGs and move-number indications ("12.", "12...") never become moves. Comment text is
 // not returned. Same InputError rules and messages as load_pgn; load_pgn uses this parser.
+// Implemented on PgnReader: the first broken game throws InputError with its error text.
 [[nodiscard]] std::vector<PgnGame> read_games(const std::filesystem::path& path);
+
+struct PgnReadOptions {
+    // Set: moves after this many half-moves are skipped unread (never parsed, so an
+    // illegal move there is not an error); PgnGame::moves holds at most this many.
+    std::optional<int> max_plies;
+};
+
+struct PgnReadResult {
+    PgnGame game;                     // headers always; moves up to the error or the limit
+    std::optional<std::string> error; // set: this game is broken (an illegal or unreadable
+                                      // move or [FEN]); same text as read_games' InputError
+};
+
+// Streaming reader for large PGN input (M3b §6). Reads one game per next() with the
+// parsing rules of read_games; a broken game is returned with `error` set and reading
+// continues at the next game. PgnGame::game counts every game read, broken ones included.
+class PgnReader {
+public:
+    explicit PgnReader(std::istream& in, PgnReadOptions options = {});
+    ~PgnReader();
+    PgnReader(PgnReader&&) noexcept;
+    PgnReader& operator=(PgnReader&&) noexcept;
+    PgnReader(const PgnReader&) = delete;
+    PgnReader& operator=(const PgnReader&) = delete;
+
+    [[nodiscard]] std::optional<PgnReadResult> next(); // nullopt at end of input
+
+private:
+    struct Impl;
+    std::unique_ptr<Impl> impl_;
+};
 
 // SAN ("Nf3", "O-O", "exf6", "a8=N", check/mate suffixes optional) or UCI ("g1f3",
 // "e1g1", "a7a8n"). Throws InputError for illegal, ambiguous or unparsable text.

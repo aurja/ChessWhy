@@ -20,7 +20,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 |---|---|---|
 | `CommandLine` | `src/cli/cli.cpp` `parse_args` `run`; `include/chesswhy/cli.hpp` `Options` | `chesswhy`; `src/cli/main.cpp` only forwards |
 | `FenInput` | `src/input/fen.cpp` `parse_fen` | Rejects illegal positions and out-of-range counters |
-| `PgnInput` | `src/input/pgn.cpp` `load_pgn` `read_games`; `include/chesswhy/input.hpp` `PgnPosition` `PgnGame`; `src/pgntool/pgntool.cpp` `run` | `chesswhy-pgn` lists the games and plies of a file |
+| `PgnInput` | `src/input/pgn.cpp` `load_pgn` `read_games` `PgnReader`; `include/chesswhy/input.hpp` `PgnPosition` `PgnGame` `PgnReader` `PgnReadOptions`; `src/pgntool/pgntool.cpp` `run` | `chesswhy-pgn` lists the games and plies of a file; `PgnReader` streams games one at a time and stops parsing at `max_plies` |
 | `AskedMove` | `src/input/move.cpp` `parse_move` | SAN or UCI |
 | `Settings` | `include/chesswhy/report.hpp` `Budget` `Level`; `src/cli/cli.cpp` `parse_args` | |
 | `AnalysedPosition` | `include/chesswhy/analysis.hpp` `Request`; `include/chesswhy/report.hpp` `PositionInfo` | |
@@ -91,6 +91,18 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Contribution` | `src/tactics/tactic.cpp` `judge_contributions` | |
 | `TacticLabel` | `src/tactics/tactic.cpp` `tactic_labels`; `include/chesswhy/report.hpp` `TacticLabel` | |
 
+## Positional facts
+
+| Node | Code | Notes |
+|---|---|---|
+| `PawnStructure` | `src/positional/positional.cpp` `add_pawn_features` `features`; `src/analysis/analyse.cpp` `analyse` | `analyse` fills `position.positional` |
+| `KingSafety` | `src/positional/positional.cpp` `add_king_features` `features` | |
+| `PieceActivity` | `src/positional/positional.cpp` `add_piece_features` `features` | |
+| `SpaceDevelopment` | `src/positional/positional.cpp` `mobility` `space` `undeveloped` `add_leads_and_material`; `include/chesswhy/positional.hpp` `kMobilityLead` `kSpaceLead` `kDevelopmentLead` | |
+| `MaterialBalance` | `src/positional/positional.cpp` `add_leads_and_material` | |
+| `PositionalChange` | `src/positional/positional.cpp` `same_identity` `line_changes`; `src/analysis/analyse.cpp` `assess_move` `walked_moves`; `include/chesswhy/report.hpp` `PositionalChange` | Over the same walked plies as the line motifs |
+| `TiedToLine` | `src/render/render.cpp` `write_positional_changes` | Prints only changes along lines; `position.positional` stays in the JSON |
+
 ## Reference knowledge
 
 | Node | Code | Notes |
@@ -98,6 +110,9 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `PositionKey` | `src/openings/openings.cpp` `position_key` | |
 | `OpeningNames` | `src/openings/openings.cpp` `Table` `describe`; `include/chesswhy/openings.hpp` `kDataset`; `include/chesswhy/report.hpp` `OpeningInfo` | Table file fetched by `tools/fetch_assets.sh` |
 | `LastNamed` | `src/openings/openings.cpp` `describe` | |
+| `BroadcastMonths` | `tools/fetch_assets.sh` `fetch_games` | Months and their SHA-256 pinned in the script |
+| `GameTable` | `src/games/games.cpp` `build_table` `Table`; `src/games/main.cpp` `parse_options`; `include/chesswhy/games.hpp` `kTable` `kRatingFloor` `kMaxPly` `kMinGames` | `chesswhy-games` builds the table from PGN on stdin |
+| `GameCounts` | `src/games/games.cpp` `Table`; `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `GamesInfo` `GameSourceCounts` `GameMoveCount`; `src/render/render.cpp` `write_games_summary` `write_game_move_counts` | `run` loads the table once (`--games`) and looks up the analysed position |
 
 ## Report
 
@@ -107,7 +122,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Provenance` | `src/report/report.cpp` `to_json`; `include/chesswhy/report.hpp` `parry_source` | Written as a `source` field beside each fact |
 | `Reproducible` | `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
-| `ReportSchema` | `schema/report.v3.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
+| `ReportSchema` | `schema/report.v4.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/cli.cpp` `run` | `--json` |
 
@@ -131,3 +146,6 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `ReferenceImplementation` | `tests/tactics/oracle/reference.cpp`; `tests/tactics/motif_oracle.cpp` | |
 | `PuzzleSample` | `tools/sample_puzzles.py`; `tests/fixtures/puzzles/` | |
 | `Recall` | `tests/tactics/puzzle_eval.cpp` | |
+| `PositionalFixtures` | `tests/fixtures/positional.json`; `tests/positional/positional_unit_tests.cpp`; `tests/cli/engine_fixture_test.cpp` | F rows: `positional_include` |
+| `PositionalReference` | `tests/positional/oracle/reference.cpp`; `tests/positional/oracle/positional_oracle.cpp`; `tests/positional/oracle/reference_self_check.cpp` | |
+| `GamesOracle` | `tools/count_games.py` `GameCounter` `write_table`; `tests/games/oracle.cmake` | python-chess, development only |

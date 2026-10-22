@@ -1,0 +1,3 @@
+add_library(chesswhy_positional STATIC positional.cpp)
+target_link_libraries(chesswhy_positional PUBLIC chesswhy_headers)
+target_link_libraries(chesswhy_positional PRIVATE chesswhy_tactics chesswhy_warnings)

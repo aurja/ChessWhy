@@ -2,6 +2,7 @@
 #include <filesystem>
 #include <fstream>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -313,4 +314,60 @@ TEST_CASE("PGN replay enforces the 75-move half-move limit", "[input]") {
     CHECK(accepted.board.getFen() ==
           "rnbqkb1r/pppppppp/5n2/8/8/5N2/PPPPPPPP/RNBQKB1R w KQkq - 150 8");
     std::filesystem::remove(path);
+}
+
+TEST_CASE("streaming PGN reader reports a broken game and continues", "[input]") {
+    std::istringstream input("[Event \"Broken\"]\n1. Ke3 *\n\n"
+                             "[Event \"Following\"]\n1. e4 e5 *\n");
+    chesswhy::input::PgnReader reader(input);
+
+    auto broken = reader.next();
+    REQUIRE(broken.has_value());
+    if (broken.has_value()) {
+        const auto& broken_game = *broken;
+        CHECK(broken_game.game.game == 1);
+        REQUIRE(broken_game.error.has_value());
+        if (broken_game.error.has_value()) {
+            CHECK(broken_game.error->find("game 1, move 1") != std::string::npos);
+        }
+        CHECK(broken_game.game.moves.empty());
+    }
+
+    auto following = reader.next();
+    REQUIRE(following.has_value());
+    if (following.has_value()) {
+        const auto& following_game = *following;
+        CHECK(following_game.game.game == 2);
+        CHECK_FALSE(following_game.error.has_value());
+        REQUIRE(following_game.game.moves.size() == 2);
+        CHECK(following_game.game.moves[0].san == "e4");
+        CHECK(following_game.game.moves[1].san == "e5");
+    }
+    CHECK_FALSE(reader.next().has_value());
+}
+
+TEST_CASE("streaming PGN reader skips moves after its ply limit", "[input]") {
+    std::istringstream input("[Event \"Ply limit\"]\n1. e4 e5 2. Nf3 Ke7 *\n"
+                             "[Event \"Following\"]\n1. d4 *\n");
+    chesswhy::input::PgnReader reader(input, {.max_plies = 2});
+
+    auto limited = reader.next();
+    REQUIRE(limited.has_value());
+    if (limited.has_value()) {
+        const auto& limited_game = *limited;
+        CHECK_FALSE(limited_game.error.has_value());
+        REQUIRE(limited_game.game.moves.size() == 2);
+        CHECK(limited_game.game.moves[0].san == "e4");
+        CHECK(limited_game.game.moves[1].san == "e5");
+    }
+
+    auto following = reader.next();
+    REQUIRE(following.has_value());
+    if (following.has_value()) {
+        const auto& following_game = *following;
+        CHECK(following_game.game.game == 2);
+        CHECK_FALSE(following_game.error.has_value());
+        REQUIRE(following_game.game.moves.size() == 1);
+        CHECK(following_game.game.moves[0].san == "d4");
+    }
 }
