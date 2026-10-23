@@ -136,4 +136,20 @@ One completion review (reviewer), one round, scope §14 and the Project stance.
 
 ## Checkpoint 3
 
-Pending: the Captain runs the smoke command and approves the merge of `postm3-em2`.
+2026-10-23: the Captain ran the smoke command ("it worked") and called the milestone good
+after two scoped additions (§15, last two rows), with no further review round:
+
+- **T60** (UG08H after `g2f3 c6d4`): `overloaded_defender` Nd4 → e2, f5 at ply 2,
+  restricted d4-b3, d4-b5, d4-c2, d4-c6, d4-e6, free none; d4-f3, the king capture, is in
+  neither list. The T fixture test and `tactics_oracle` (Release) pass.
+- **`tripled_pawns`**: three or more X pawns on one file; `doubled_pawns` unchanged. P01
+  includes it, P12 excludes it for White's two c-pawns. `positional_oracle` (Release):
+  53,464 boards, 9,307 lines, 0 mismatches; 127 puzzle boards carry the tag.
+
+Gates for the additions: Release build warning-free, Release CTests (118 `unit`, 37
+`engine`/`games` serial), saved F reports validate, clang-format clean, `check_dbc` ok.
+ASan/UBSan and clang-tidy were not rerun for these mirror-of-`doubled_pawns` changes and
+the new fixture (the Captain asked for a light cycle).
+
+Deferred to M4 (Captain): the template does not print `position.motifs`, so the root
+`back_rank_weakness` behind Re8# appears in the JSON only.

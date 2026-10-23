@@ -28,9 +28,10 @@ using chesswhy::PositionalTag;
 using chesswhy::Side;
 using Fields = std::vector<std::string>;
 
-constexpr std::array<PositionalTag, 24> kTags{
+constexpr std::array<PositionalTag, 25> kTags{
     PositionalTag::IsolatedPawn,
     PositionalTag::DoubledPawns,
+    PositionalTag::TripledPawns,
     PositionalTag::BackwardPawn,
     PositionalTag::PassedPawn,
     PositionalTag::ConnectedPassedPawns,
@@ -59,6 +60,7 @@ constexpr std::array<PositionalTag, 24> kTags{
     constexpr std::array<std::string_view, kTags.size()> names{
         "isolated_pawn",
         "doubled_pawns",
+        "tripled_pawns",
         "backward_pawn",
         "passed_pawn",
         "connected_passed_pawns",

@@ -234,7 +234,7 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 | existence condition | (Captain, checkpoint 1, 2026-10-22) A pin, overloaded defender or tactical pin is reported only when its held piece has at least one restricted move, over its move set (from checkpoint 2, 2026-10-22: a pawn's hypothetical captures count). The alternative (for `pin_tactical` only, keeping the M2 pins as they were) was not chosen | PostM3_EM2 §4.1 |
 | claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
 | PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label, `pin_tactical`. Plan `Planning/milestones/PostM2_EM1.md`, receipt `Planning/receipts/PostM2_EM1.md`; complete, merged into `main` 2026-10-21 (branch `postm2-em1`). Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
-| PostM3_EM2 | The milestone after M3a/M3b (Captain's name, 2026-10-22): fixes from the conceptual audit of 2026-10-22 (`Planning/critiques/`) before M4: restricted and free moves, contribution rule 3′, `removal_of_defender` continuity, conditions in the template, report v5 with semantic checks, data digests. Plan `Planning/milestones/PostM3_EM2.md`, branch `postm3-em2` | vision §11 |
+| PostM3_EM2 | The milestone after M3a/M3b (Captain's name, 2026-10-22): fixes from the conceptual audit of 2026-10-22 (`Planning/critiques/`) before M4: restricted and free moves, contribution rule 3′, `removal_of_defender` continuity, conditions in the template, report v5 with semantic checks, data digests; at checkpoint 3 also `tripled_pawns` and T60. Plan `Planning/milestones/PostM3_EM2.md`, receipt `Planning/receipts/PostM3_EM2.md`; complete, merged into `main` 2026-10-23 (branch `postm3-em2`) | vision §11 |
 
 ## 5. Measurement
 
@@ -457,6 +457,7 @@ The tags in plain words (owner X, other side Y):
 |---|---|---|
 | `isolated_pawn` | X pawns on a file with no X pawn on either neighbouring file | pawn structure |
 | `doubled_pawns` | Two or more X pawns on one file | pawn structure |
+| `tripled_pawns` | Three or more X pawns on one file; such a file is also `doubled_pawns` (Captain, checkpoint 3, 2026-10-23) | pawn structure |
 | `backward_pawn` | An X pawn left behind its neighbours whose next square is covered by a Y pawn | pawn structure |
 | `passed_pawn` | The front X pawn of a file with no Y pawn ahead of it on its own or a neighbouring file | pawn structure |
 | `connected_passed_pawns` | X passed pawns on neighbouring files | pawn structure |

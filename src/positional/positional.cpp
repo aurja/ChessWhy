@@ -189,6 +189,10 @@ void add_pawn_features(const chess::Board& board, chess::Color side,
             result.push_back(make_feature(board, PositionalTag::DoubledPawns, side, own,
                                           static_cast<std::uint8_t>(file)));
         }
+        if (own.size() >= 3) {
+            result.push_back(make_feature(board, PositionalTag::TripledPawns, side, own,
+                                          static_cast<std::uint8_t>(file)));
+        }
 
         SquareList backward;
         for (const chess::Square pawn : own) {
@@ -631,6 +635,7 @@ bool same_identity(const PositionalFeature& a, const PositionalFeature& b) {
     switch (a.tag) {
     case PositionalTag::IsolatedPawn:
     case PositionalTag::DoubledPawns:
+    case PositionalTag::TripledPawns:
     case PositionalTag::BackwardPawn:
     case PositionalTag::PassedPawn:
     case PositionalTag::KingShieldGap:

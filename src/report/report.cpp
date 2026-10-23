@@ -504,6 +504,8 @@ std::string to_string(PositionalTag tag) {
         return "isolated_pawn";
     case PositionalTag::DoubledPawns:
         return "doubled_pawns";
+    case PositionalTag::TripledPawns:
+        return "tripled_pawns";
     case PositionalTag::BackwardPawn:
         return "backward_pawn";
     case PositionalTag::PassedPawn:

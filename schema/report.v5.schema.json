@@ -1429,6 +1429,7 @@
           "enum": [
             "isolated_pawn",
             "doubled_pawns",
+            "tripled_pawns",
             "backward_pawn",
             "passed_pawn",
             "connected_passed_pawns",
@@ -1525,6 +1526,7 @@
           "enum": [
             "isolated_pawn",
             "doubled_pawns",
+            "tripled_pawns",
             "backward_pawn",
             "passed_pawn",
             "connected_passed_pawns",

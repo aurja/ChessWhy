@@ -57,6 +57,11 @@ void check_pawn_structure() {
             "isolated doubled pawns are grouped by file in ascending square order");
     require(tagged(board, PositionalTag::DoubledPawns, Side::White).size() == 1,
             "doubled pawns hold with two pawns on one file");
+    const chess::Board tripled("r3q1k1/p1p2rpp/n1p1p3/2p1Pp2/2P2P2/2N2QP1/PP1R3P/2KR4 b - - 6 20");
+    const chess::Board doubled("7k/8/5p2/2P5/5p2/2P5/8/4K3 w - - 0 1");
+    require(tagged(tripled, PositionalTag::TripledPawns, Side::Black).size() == 1 &&
+                tagged(doubled, PositionalTag::TripledPawns, Side::White).empty(),
+            "tripled pawns need at least three pawns on one file");
     const auto passers = tagged(board, PositionalTag::PassedPawn, Side::White);
     require(passers.size() == 5, "only the front pawn on each clear file is passed");
     const auto connected = tagged(board, PositionalTag::ConnectedPassedPawns, Side::White);

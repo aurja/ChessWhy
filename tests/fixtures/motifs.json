@@ -543,6 +543,15 @@
       "line_uci": [],
       "includes": [{"tag": "pin_absolute", "side": "white", "ply": 0, "actor": "e1", "targets": ["e5", "e8"], "restriction": {"restricted": ["e5d4", "e5f4"], "free": ["e5e4"], "held_to": {"kind": "file", "name": "e"}}}],
       "excludes": []
+    },
+    {
+      "id": "T60",
+      "title": "Overloaded knight that gives check has no king capture in its move set",
+      "source": "Lichess puzzle UG08H (test split), after 37.Kf3 Nd4+",
+      "fen": "R7/p2k4/2np4/2p2pR1/2P5/1P4P1/P3r1K1/8 w - - 1 37",
+      "line_uci": ["g2f3", "c6d4"],
+      "includes": [{"tag": "overloaded_defender", "side": "white", "ply": 2, "actor": "d4", "targets": ["e2", "f5"], "restriction": {"restricted": ["d4b3", "d4b5", "d4c2", "d4c6", "d4e6"], "free": [], "held_to": {"kind": "square", "name": "d4"}}}],
+      "excludes": []
     }
   ]
 }

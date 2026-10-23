@@ -372,7 +372,7 @@ flowchart LR
 |---|---|---|---|
 | `AnalysedPosition` | See Question | — | external |
 | `WalkedPlies` | See Threats and urgency | — | external |
-| `PawnStructure` | Isolated, doubled, backward, passed and connected passed pawns, pawn islands, pawn chains. Since 2026-10-21; before, it also held named structures (now `NamedStructures`) | positional fact, `isolated_pawn`, `doubled_pawns`, `backward_pawn`, `passed_pawn`, `connected_passed_pawns`, `pawn_islands`, `pawn_chain` | implemented |
+| `PawnStructure` | Isolated, doubled, tripled, backward, passed and connected passed pawns, pawn islands, pawn chains. Since 2026-10-21; before, it also held named structures (now `NamedStructures`); tripled pawns since 2026-10-23 | positional fact, `isolated_pawn`, `doubled_pawns`, `tripled_pawns`, `backward_pawn`, `passed_pawn`, `connected_passed_pawns`, `pawn_islands`, `pawn_chain` | implemented |
 | `NamedStructures` | Named pawn-structure families (isolated queen's pawn, hanging pawns, Carlsbad and the like); deferred on 2026-10-21, part of `PawnStructure` before | positional fact | planned |
 | `KingSafety` | Castling rights, gaps in the king's pawn shield, open and half-open files next to the king, enemy pieces attacking the squares around it | positional fact, king files, `castling_kingside`, `king_shield_gap`, `open_file_near_king`, `half_open_file_near_king`, `king_zone_attacker` | implemented |
 | `PieceActivity` | Bishop pair, rooks on open or half-open files or the seventh rank, outposts, bad bishops. Mobility moved to `SpaceDevelopment` on 2026-10-21 | positional fact, `bishop_pair`, `rook_open_file`, `rook_half_open_file`, `rook_seventh`, `outpost`, `bad_bishop` | implemented |

@@ -359,6 +359,10 @@ std::vector<PositionalFeature> reference_features(const chess::Board& board) {
                 append(features, PositionalTag::DoubledPawns, side, printed_pieces(board, pawns),
                        static_cast<std::uint8_t>(file));
             }
+            if (pawns.size() >= 3) {
+                append(features, PositionalTag::TripledPawns, side, printed_pieces(board, pawns),
+                       static_cast<std::uint8_t>(file));
+            }
 
             std::vector<Square> backward;
             for (const Square pawn : pawns) {
@@ -716,6 +720,7 @@ bool same_identity(const PositionalFeature& left, const PositionalFeature& right
     switch (left.tag) {
     case PositionalTag::IsolatedPawn:
     case PositionalTag::DoubledPawns:
+    case PositionalTag::TripledPawns:
     case PositionalTag::BackwardPawn:
     case PositionalTag::PassedPawn:
     case PositionalTag::KingShieldGap:

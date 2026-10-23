@@ -71,6 +71,7 @@ enum class TacticLabelTag : std::uint8_t { RemovalOfDefender };
 enum class PositionalTag : std::uint8_t {
     IsolatedPawn,
     DoubledPawns,
+    TripledPawns,
     BackwardPawn,
     PassedPawn,
     ConnectedPassedPawns,
