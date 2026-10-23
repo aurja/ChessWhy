@@ -7,9 +7,9 @@ Burnett's, used under the BSD option of their GFDL/BSD/GPL triple license.
 
     .venv/bin/python tools/render_fixture_boards.py
 
-Writes Planning/DBC/boards/<ID>.svg for every F, U, T, C and P fixture, White at the
-bottom, with an arrow for each move the fixture names in `--moves` (F) or the first
-line move (T, C, PL).
+Writes Planning/DBC/boards/<ID>.svg for every F, U, T, C and P fixture and every
+evaluation position (V), White at the bottom, with an arrow for each move the fixture
+names in `--moves` (F), the first line move (T, C, PL) or the trainer's move (V).
 """
 
 from __future__ import annotations
@@ -116,6 +116,13 @@ def main() -> None:
         )
     for fixture in load_list("positional.json", "lines"):
         write_board(cast(str, fixture["id"]), *line_fixture(fixture))
+    for position in load_list("evaluation.json", "positions"):
+        board = chess.Board(cast(str, position["fen"]))
+        write_board(
+            cast(str, position["id"]),
+            board,
+            [board.parse_san(cast(str, position["move"]))],
+        )
 
 
 if __name__ == "__main__":

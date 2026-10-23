@@ -28,8 +28,8 @@ comments survive. Regenerate the boards after any fixture change:
 .venv/bin/python tools/render_fixture_boards.py   # needs `pip install -r tools/requirements-dev.txt`
 ```
 
-Boards show White at the bottom. The arrow marks the asked move (F) or the first
-move of the line (T, C); a red king square marks check. Rendered with
+Boards show White at the bottom. The arrow marks the asked move (F), the first
+move of the line (T, C) or the trainer's move (V); a red king square marks check. Rendered with
 [python-chess](https://github.com/niklasf/python-chess) (GPL-3.0-or-later, a
 development tool only, never linked into ChessWhy); piece drawings by Colin M.L.
 Burnett, used under their BSD licence option.
@@ -413,17 +413,18 @@ Measured at the standard budget, 2026-10-23.
 
 **Concepts:** `TemplateRendering`, `RestrictedMovement`, `Restriction`, `TacticalPin`, `Refutation`, `Verdict`, `OpportunityJudgement`, `PositionalChange`, `FactSheet`
 
-Evaluation positions V1–V3 (DEFINITIONS §6.2): the Captain gave each one to see whether
-ChessWhy's output supports the explanation a reputed trainer gives, with the language
-model taken out of the experiment. The Deputy ran `--moves top5` (plus one follow-up
-run for V1) and explained the move from the printed text only. No test reads these
-positions and nothing here is a scope proposal. Run 2026-10-24 on `m4` at `standard`.
+Evaluation positions V1–V3 (DEFINITIONS §6.2), stored in `tests/fixtures/evaluation.json`:
+the Captain gave each one to see whether ChessWhy's output supports the explanation a
+reputed trainer gives, with the language model taken out of the experiment. The Deputy
+ran `--moves top5` (plus one follow-up run for V1) and explained the move from the
+printed text only. No test reads these positions and nothing here is a scope proposal.
+Run 2026-10-24 on `m4` at `standard`. The arrow marks the trainer's move.
 
-| ID | Position | The trainer's point | Codebase today | Comments |
-|---|---|---|---|---|
-| V1 | `5k2/7p/pr1pB1p1/2pP4/1P6/6PP/R3qP2/R5K1 b - - 1 33`<br><sub>Navara – Ivanchuk, Wijk aan Zee 2012; a quiet move</sub> | 33...Qe4! because 34.bxc5 fails to 34...Rb1+; main line 34.Rxa6 Rxa6 35.Rxa6 cxb4 and the b-pawn wins. The best move has no reason of its own: it is best because the others fail (Captain's directive: then explain why the other moves do not work) | Eval: White ES 0.00 (−301 cp). Best **Qe4** (ES 1.00); Qd3 okay; Qc4, Qe5 mistakes and Qf3 blunder, all three refuted by bxc5.<br>Why bxc5 fails *against Qe4* is in no row. A second run after Qe4 (`--moves best,bxc5`) shows bxc5 Rb1+ Rxb1 Qxb1+ winning the a2 rook, but judges bxc5 "okay, loss 0.0%": White's ES is already 0.00 (−397 cp). | 2026-10-24 Deputy: half the trainer's answer (the refutations of the others); missing the cross-check of the refutation against the best move |
-| V2 | `1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1`<br><sub>given by the Captain; a loud move</sub> | Bxa4 bxa4 Ba7 Rfc2 Nb4: the c5 bishop is pinned on the c-file again only once Nb4 adds a second attacker on c2; after Rfc2 alone, Rxc2 Rxc2 is an even trade, so there is no pin (Captain's correction of the Deputy) | Eval: White ES 0.25 (−100 cp). Best **Bxa4**, a tactic (wins 2 pawns net by ply 7) and an opportunity (margin 0.25 over Nb4); the only playable move in the top 5.<br>`pin_relative` Rc8 → Bc5, Rc2 at ply 5 (after Nb4), none at ply 4 (after Rfc2): matches the trainer. `hanging_piece` Rc2, SEE 5, at ply 6. | 2026-10-24 Deputy: facts right; I misread them twice (placed the c-file pin before Nb4; read Ba7's `pin_tactical` rows as threats Black could play) |
-| V3 | `8/2p1q2k/3p3p/3P1p1n/3QpPrP/2P1N1PK/1r6/5RR1 b - - 6 47`<br><sub>given by the Captain; a mating attack</sub> | The g3 pawn alone guards h4; remove it and h4 is mate | Eval: mate in 3 for Black. **Qxh4+** and **Rxh4+** both best (Qxh4+ gxh4 Rxh4+ Kxh4 Rh2#); Qf7 okay, Qd7 inaccuracy, Nxg3 mistake (refuted by Nxg4).<br>Ply-0 rows: g3 overloaded defender of f4 and h4; `pin_tactical` "Qe7-h4 checkmate" and "Rg4-h4 checkmate" on g3. | 2026-10-24 Deputy: the key idea is there, stated in five rows on the g3 pawn (I told the Captain six; the sixth holds the g1 rook); about 30 positional rows per mating line; no row says why Rh2 is mate |
+| ID | Board | Position | The trainer's point | Codebase today | Comments |
+|---|---|---|---|---|---|
+| V1 | <img src="boards/V1.svg" width="200" alt="V1"> | `5k2/7p/pr1pB1p1/2pP4/1P6/6PP/R3qP2/R5K1 b - - 1 33`<br><sub>Navara – Ivanchuk, Wijk aan Zee 2012, before 33...Qe4; a quiet move</sub> | 33...Qe4! because 34.bxc5 fails to 34...Rb1+; main line 34.Rxa6 Rxa6 35.Rxa6 cxb4 and the b-pawn wins. The best move has no reason of its own: it is best because the others fail (Captain's directive: then explain why the other moves do not work) | Eval: White ES 0.00 (−301 cp). Best **Qe4** (ES 1.00); Qd3 okay; Qc4, Qe5 mistakes and Qf3 blunder, all three refuted by bxc5.<br>Why bxc5 fails *against Qe4* is in no row. A second run after Qe4 (`--moves best,bxc5`) shows bxc5 Rb1+ Rxb1 Qxb1+ winning the a2 rook, but judges bxc5 "okay, loss 0.0%": White's ES is already 0.00 (−397 cp). | 2026-10-24 Deputy: half the trainer's answer (the refutations of the others); missing the cross-check of the refutation against the best move |
+| V2 | <img src="boards/V2.svg" width="200" alt="V2"> | `1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1`<br><sub>Romanko – Shulakova, Moscow Open 2012, before ...Bxa4; a loud move</sub> | Bxa4 bxa4 Ba7 Rfc2 Nb4: the c5 bishop is pinned on the c-file again only once Nb4 adds a second attacker on c2; after Rfc2 alone, Rxc2 Rxc2 is an even trade, so there is no pin (Captain's correction of the Deputy) | Eval: White ES 0.25 (−100 cp). Best **Bxa4**, a tactic (wins 2 pawns net by ply 7) and an opportunity (margin 0.25 over Nb4); the only playable move in the top 5.<br>`pin_relative` Rc8 → Bc5, Rc2 at ply 5 (after Nb4), none at ply 4 (after Rfc2): matches the trainer. `hanging_piece` Rc2, SEE 5, at ply 6. | 2026-10-24 Deputy: facts right; I misread them twice (placed the c-file pin before Nb4; read Ba7's `pin_tactical` rows as threats Black could play) |
+| V3 | <img src="boards/V3.svg" width="200" alt="V3"> | `8/2p1q2k/3p3p/3P1p1n/3QpPrP/2P1N1PK/1r6/5RR1 b - - 6 47`<br><sub>Hunt – Galdunts, Gold Coast 2000, before 47...Qxh4+; a mating attack</sub> | The g3 pawn alone guards h4; remove it and h4 is mate | Eval: mate in 3 for Black. **Qxh4+** and **Rxh4+** both best (Qxh4+ gxh4 Rxh4+ Kxh4 Rh2#); Qf7 okay, Qd7 inaccuracy, Nxg3 mistake (refuted by Nxg4).<br>Ply-0 rows: g3 overloaded defender of f4 and h4; `pin_tactical` "Qe7-h4 checkmate" and "Rg4-h4 checkmate" on g3. | 2026-10-24 Deputy: the key idea is there, stated in five rows on the g3 pawn (I told the Captain six; the sixth holds the g1 rook); about 30 positional rows per mating line; no row says why Rh2 is mate |
 
 ### 10.1 Reading the output as the explaining model (Deputy, 2026-10-24)
 

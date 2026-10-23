@@ -1,0 +1,23 @@
+{
+  "comment": "Evaluation positions (Planning/DBC/FIXTURES.md §10): the Captain's tests of ChessWhy against trainers' analysis. No test reads this file; tools/render_fixture_boards.py draws their boards, with an arrow on the trainer's move.",
+  "positions": [
+    {
+      "id": "V1",
+      "fen": "5k2/7p/pr1pB1p1/2pP4/1P6/6PP/R3qP2/R5K1 b - - 1 33",
+      "source": "Navara - Ivanchuk, Wijk aan Zee 2012",
+      "move": "Qe4"
+    },
+    {
+      "id": "V2",
+      "fen": "1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1",
+      "source": "Romanko - Shulakova, Moscow Open 2012",
+      "move": "Bxa4"
+    },
+    {
+      "id": "V3",
+      "fen": "8/2p1q2k/3p3p/3P1p1n/3QpPrP/2P1N1PK/1r6/5RR1 b - - 6 47",
+      "source": "Hunt - Galdunts, Gold Coast 2000",
+      "move": "Qxh4+"
+    }
+  ]
+}
