@@ -5,9 +5,8 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-23, M4 batch 3 (fixtures re-blessed on report v6 and `--moves`):
-179 CTests (134 `unit`, 43 `engine`, 2 `games`, no `model` yet), all passing in
-Release.
+**Snapshot:** 2026-10-24, M4 milestone-end gate: 179 CTests (134 `unit`, 43 `engine`,
+2 `games`, no `model` yet), all passing in Release and ASan/UBSan.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.

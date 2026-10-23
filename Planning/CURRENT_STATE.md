@@ -1,6 +1,6 @@
 # Current state
 
-Updated 2026-10-23.
+Updated 2026-10-24.
 
 - Milestone: **M3a and M3b complete, merged into `main` 2026-10-22** (Captain ran both
   smoke commands and approved). Receipts `Planning/receipts/M3a.md` and
@@ -27,17 +27,17 @@ Updated 2026-10-23.
   tag `tripled_pawns` (25 positional tags), T60. Release and ASan/UBSan CTests 155/155
   (118 `unit`, 37 `engine`/`games`; the checkpoint-3 additions were gated in Release
   only); slowest `standard` F fixture 7.91 s (F12).
-- Now: **M4 playable moves and move reports** (Captain's redefinition, 2026-10-23;
-  contract `Planning/milestones/M4.md`, frozen at checkpoint 1 on 2026-10-23, branch
-  `m4`; batches 1–3 = WP1–WP6 done (report v6, move reports, `--moves`, move report
-  text, projection check, fixtures re-blessed with F32–F39 and E19–E22; 179/179
-  CTests green in Release); next: checkpoint 2 (changed expectations, new boards,
-  `--moves playable` sample, open term "width dependence"), then WP7 docs and the
-  milestone-end gate). Milestones
+- Milestone: **M4 playable moves and move reports complete on branch `m4`, awaiting
+  checkpoint 3** (the Captain tries the smoke commands and approves the merge). Receipt
+  `Planning/receipts/M4.md`; contract `Planning/milestones/M4.md` (changes §15). Report
+  v6: one `--moves` flag, verdict scale best/okay/inaccuracy/mistake/blunder, tactic and
+  opportunity, one move report per reported move with a relevance filter, four outputs
+  (`--json` × `--full-report`), projection check; F32–F39, E19–E22. Width dependence
+  accepted as intended at checkpoint 2. Release CTests 179/179 (134 `unit`, 43 `engine`,
+  2 `games`); ASan/UBSan all pass (F32 rerun alone at 1,730 s after the timeout raise).
+  The root `back_rank_weakness` behind Re8# now prints through `root_motifs`. Milestones
   renumbered: M5 = libllama prose (five GGUFs in `assets/models/`; pinning them is an
-  M5 task), M6 = books, M7 = native apps. M4 closes the item deferred on 2026-10-23
-  (the text template does not print `position.motifs`, e.g. the root
-  `back_rank_weakness` behind Re8#) through `root_motifs` in the move report.
+  M5 task), M6 = books, M7 = native apps.
 - Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
   (F26/F27 show 20–25 rows per line). Superseded for the output by M4's relevance
   filter (net change over the walk); the full report keeps every change.
@@ -56,8 +56,10 @@ Updated 2026-10-23.
   v2, recall targets met, reference implementation 0 mismatches.
 - Decided 2026-10-19/20 (M2 D1–D13): see M2 §1. ChessWhy stays MIT; lichess-puzzler
   (AGPL-3.0) is read for definitions only, never copied, and credited.
-- Engine CTests run serially (`-j1`). ASan/UBSan `tactics_oracle` runs for about 25 min
-  (CTest `TIMEOUT 3600` on that test).
+- Engine CTests: the F fixture tests run one at a time only with
+  `CHESSWHY_CHECK_TIMING` on (Release); the ASan tree runs them in parallel. CTest
+  `TIMEOUT 3600` on `tactics_oracle` and the F fixture tests (F32 takes about 29 min
+  under ASan/UBSan).
 - M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine
   analysis, report v1. Release and ASan/UBSan CTests 73/73; slowest `standard` fixture
   6.67 s.
