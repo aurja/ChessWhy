@@ -9,6 +9,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+
 #include <catch2/catch_test_macros.hpp>
 
 #include "../report/example_reports.hpp"
@@ -84,9 +85,9 @@ namespace {
 }
 
 [[nodiscard]] chesswhy::MoveReport report_move(std::optional<int> rank, std::string san,
-                                               std::string uci, chesswhy::Verdict verdict,
-                                               int eval, int loss, int depth,
-                                               std::vector<std::string> line, int walked) {
+                                               std::string uci, chesswhy::Verdict verdict, int eval,
+                                               int loss, int depth, std::vector<std::string> line,
+                                               int walked) {
     chesswhy::MoveReport move;
     move.rank = rank;
     move.san = std::move(san);
@@ -119,44 +120,45 @@ move_report_examples() {
         .playable_count = 4,
         .playable_truncated = false,
     };
-    MoveReport best_move = report_move(1, "g6", "g7g6", Verdict::Best, 978, 0, 17,
-                                       {"g6", "d3", "Bc5", "Nf3"}, 3);
+    MoveReport best_move =
+        report_move(1, "g6", "g7g6", Verdict::Best, 978, 0, 17, {"g6", "d3", "Bc5", "Nf3"}, 3);
     best_move.opportunity = OpportunityJudgement{
-        .alternative = BestAlternative{
-            .san = "Bc5",
-            .uci = "f8c5",
-            .eval = Eval{.es_units = 558, .cp = 15, .mate = std::nullopt},
-        },
+        .alternative =
+            BestAlternative{
+                .san = "Bc5",
+                .uci = "f8c5",
+                .eval = Eval{.es_units = 558, .cp = 15, .mate = std::nullopt},
+            },
         .margin_units = 420,
         .is_opportunity = true,
     };
-    best_move.motifs.push_back(motif(MotifTag::Fork, Side::Black, 2,
-                                     piece_on_square('e', 5, 'N'),
+    best_move.motifs.push_back(motif(MotifTag::Fork, Side::Black, 2, piece_on_square('e', 5, 'N'),
                                      {piece_on_square('c', 6, 'r'), piece_on_square('g', 6, 'k')}));
     best_move.motifs.back().contribution = MotifContribution::Direct;
-    Motif root_motif = motif(MotifTag::BackRankWeakness, Side::Black, 0,
-                             piece_on_square('e', 8, 'k'));
+    Motif root_motif =
+        motif(MotifTag::BackRankWeakness, Side::Black, 0, piece_on_square('e', 8, 'k'));
     root_motif.contribution = MotifContribution::Indirect;
     best_move.root_motifs.push_back(std::move(root_motif));
     best_move.positional.push_back(PositionalChange{
         .ply = 2,
         .change = PositionalChangeKind::Appears,
         .holds_at_end = true,
-        .feature = PositionalFeature{
-            .tag = PositionalTag::IsolatedPawn,
-            .side = Side::White,
-            .pieces = {piece_on_square('c', 2, 'P')},
-            .file = std::nullopt,
-            .value = std::nullopt,
-        },
+        .feature =
+            PositionalFeature{
+                .tag = PositionalTag::IsolatedPawn,
+                .side = Side::White,
+                .pieces = {piece_on_square('c', 2, 'P')},
+                .file = std::nullopt,
+                .value = std::nullopt,
+            },
     });
     best_move.parried_threat = ParriedThreat{
         .threat = threat(Side::White, test_examples::kF03, {"Qxf7#"},
                          consequence(ConsequenceClass::Mate, 0, 1, false, 1)),
         .test = ParryTest::Searched,
     };
-    best_move.created_threat = threat(
-        Side::Black, test_examples::kF03, {"Nxe4"}, consequence(ConsequenceClass::Material, 1, 6));
+    best_move.created_threat = threat(Side::Black, test_examples::kF03, {"Nxe4"},
+                                      consequence(ConsequenceClass::Material, 1, 6));
     best_move.games = 5421;
     best.moves.push_back(std::move(best_move));
 
@@ -170,14 +172,16 @@ move_report_examples() {
     };
     playable.position.legal_moves = 31;
     const std::array<std::pair<const char*, const char*>, 4> playable_sans{{
-        {"Nf6", "g8f6"}, {"d6", "d7d6"}, {"g6", "g7g6"}, {"Bc5", "f8c5"},
+        {"Nf6", "g8f6"},
+        {"d6", "d7d6"},
+        {"g6", "g7g6"},
+        {"Bc5", "f8c5"},
     }};
     for (std::size_t index = 0; index < playable_sans.size(); ++index) {
         const auto [san, uci] = playable_sans[index];
-        playable.moves.push_back(report_move(static_cast<int>(index + 1), san, uci,
-                                             index == 0 ? Verdict::Best : Verdict::Okay,
-                                             978 - static_cast<int>(index) * 15,
-                                             static_cast<int>(index) * 15, 16, {san}, 1));
+        playable.moves.push_back(report_move(
+            static_cast<int>(index + 1), san, uci, index == 0 ? Verdict::Best : Verdict::Okay,
+            978 - static_cast<int>(index) * 15, static_cast<int>(index) * 15, 16, {san}, 1));
     }
 
     auto blunder = base_move_document();
@@ -188,25 +192,25 @@ move_report_examples() {
         .playable_count = 4,
         .playable_truncated = false,
     };
-    MoveReport bad_move = report_move(6, "Nf6", "g8f6", Verdict::Blunder, 534, 700, 12,
-                                      {"Nf6", "Qxf7#"}, 2);
+    MoveReport bad_move =
+        report_move(6, "Nf6", "g8f6", Verdict::Blunder, 534, 700, 12, {"Nf6", "Qxf7#"}, 2);
     bad_move.allows_tactic = true;
-    Threat refutation =
-        threat(Side::White, test_examples::kAfterNf6, {"Qxf7#"},
-               consequence(ConsequenceClass::Mate, 0, 1, false, 1));
+    Threat refutation = threat(Side::White, test_examples::kAfterNf6, {"Qxf7#"},
+                               consequence(ConsequenceClass::Mate, 0, 1, false, 1));
     refutation.is_tactic = true;
     refutation.opportunity = OpportunityJudgement{
-        .alternative = BestAlternative{
-            .san = "Qe2",
-            .uci = "h5e2",
-            .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt},
-        },
+        .alternative =
+            BestAlternative{
+                .san = "Qe2",
+                .uci = "h5e2",
+                .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt},
+            },
         .margin_units = 400,
         .is_opportunity = true,
     };
-    refutation.motifs.push_back(motif(
-        MotifTag::Fork, Side::White, 1, piece_on_square('h', 5, 'Q'),
-        {piece_on_square('f', 7, 'k'), piece_on_square('e', 8, 'k')}));
+    refutation.motifs.push_back(
+        motif(MotifTag::Fork, Side::White, 1, piece_on_square('h', 5, 'Q'),
+              {piece_on_square('f', 7, 'k'), piece_on_square('e', 8, 'k')}));
     refutation.motifs.back().contribution = MotifContribution::Direct;
     bad_move.refutation = std::move(refutation);
     blunder.moves.push_back(std::move(bad_move));
@@ -267,7 +271,6 @@ move_report_examples() {
     });
     return text.find("candidate") != std::string::npos;
 }
-
 
 } // namespace
 
@@ -372,11 +375,14 @@ TEST_CASE("PostM3_EM2 template wording matches its golden lines", "[unit]") {
 }
 
 TEST_CASE("example reports match the golden text", "[unit]") {
-    constexpr std::array<const char*, 8> filenames{
-        "terminal_checkmate.txt",        "side_in_check.txt",
-        "normal_position.txt",           "pgn_opening.txt",
-        "tactic_with_labels.txt",        "forced_opportunity.txt",
-        "negative_margin_opportunity.txt", "refutation_opportunity.txt"};
+    constexpr std::array<const char*, 8> filenames{"terminal_checkmate.txt",
+                                                   "side_in_check.txt",
+                                                   "normal_position.txt",
+                                                   "pgn_opening.txt",
+                                                   "tactic_with_labels.txt",
+                                                   "forced_opportunity.txt",
+                                                   "negative_margin_opportunity.txt",
+                                                   "refutation_opportunity.txt"};
     const auto reports = chesswhy::test_examples::all_reports();
 
     for (std::size_t index = 0; index < reports.size(); ++index) {
@@ -493,19 +499,20 @@ TEST_CASE("non-detailed engine lines omit unsearched details", "[unit]") {
     MoveAssessment& line = report.candidates.front();
     line.detailed = false;
     line.parries_threat = ParryInfo{.parries = true, .test = ParryTest::Searched};
-    line.creates_threat = test_examples::threat(
-        Side::Black, test_examples::kF03, {"Nxe4"},
-        test_examples::consequence(ConsequenceClass::Material, 1, 6));
-    line.refutation = test_examples::threat(
-        Side::White, test_examples::kAfterNf6, {"Qxf7#"},
-        test_examples::consequence(ConsequenceClass::Mate, 0, 1, false, 1));
+    line.creates_threat =
+        test_examples::threat(Side::Black, test_examples::kF03, {"Nxe4"},
+                              test_examples::consequence(ConsequenceClass::Material, 1, 6));
+    line.refutation =
+        test_examples::threat(Side::White, test_examples::kAfterNf6, {"Qxf7#"},
+                              test_examples::consequence(ConsequenceClass::Mate, 0, 1, false, 1));
     line.refutation->is_tactic = true;
     line.refutation->opportunity = OpportunityJudgement{
-        .alternative = BestAlternative{
-            .san = "Qe2",
-            .uci = "h5e2",
-            .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt},
-        },
+        .alternative =
+            BestAlternative{
+                .san = "Qe2",
+                .uci = "h5e2",
+                .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt},
+            },
         .margin_units = 400,
         .is_opportunity = true,
     };
@@ -521,7 +528,6 @@ TEST_CASE("non-detailed engine lines omit unsearched details", "[unit]") {
     CHECK(line_text.find("creates threat") == std::string::npos);
     CHECK(line_text.find("Opportunity:") == std::string::npos);
 }
-
 
 TEST_CASE("position evaluation renders the mate score when available", "[unit]") {
     auto report = chesswhy::test_examples::normal_position();

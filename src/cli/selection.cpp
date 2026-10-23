@@ -85,8 +85,7 @@ ResolvedMoves resolve_moves(const chess::Board& board, std::optional<std::string
                 const chess::Move move = input::parse_move(board, item);
                 if (std::find(result.asked.begin(), result.asked.end(), move) ==
                     result.asked.end()) {
-                    result.selection.moves.push_back(
-                        chess::uci::moveToUci(move, board.chess960()));
+                    result.selection.moves.push_back(chess::uci::moveToUci(move, board.chess960()));
                     result.asked.push_back(move);
                 }
             }

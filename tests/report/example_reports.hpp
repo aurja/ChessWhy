@@ -250,10 +250,10 @@ inline constexpr const char* kAfterE4E5 =
     asked.refutation->motifs.back().contribution = MotifContribution::Direct;
     asked.refutation->opportunity = OpportunityJudgement{
         .forced = false,
-        .alternative = BestAlternative{
-            .san = "Qe2",
-            .uci = "h5e2",
-            .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt}},
+        .alternative =
+            BestAlternative{.san = "Qe2",
+                            .uci = "h5e2",
+                            .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt}},
         .margin_units = 300,
         .is_opportunity = true};
     asked.positional.push_back(
@@ -399,7 +399,6 @@ inline constexpr const char* kAfterE4E5 =
     return report;
 }
 
-
 [[nodiscard]] inline Report negative_margin_opportunity() {
     Report report = base_report(kF03, Side::Black);
     MoveAssessment best = move("d6", "d7d6", {"d6"}, 1000, kF03);
@@ -422,10 +421,10 @@ inline constexpr const char* kAfterE4E5 =
     MoveAssessment best = move("d6", "d7d6", {"d6"}, 1234, kF03);
     best.opportunity = OpportunityJudgement{
         .forced = false,
-        .alternative = BestAlternative{
-            .san = "g6",
-            .uci = "g7g6",
-            .eval = Eval{.es_units = 1234, .cp = 12, .mate = std::nullopt}},
+        .alternative =
+            BestAlternative{.san = "g6",
+                            .uci = "g7g6",
+                            .eval = Eval{.es_units = 1234, .cp = 12, .mate = std::nullopt}},
         .margin_units = 0,
         .is_opportunity = false};
     report.candidates.push_back(std::move(best));
@@ -719,10 +718,14 @@ inline void add_schema_refutation_judgements(Report& report) {
 }
 
 [[nodiscard]] inline std::array<Report, 8> all_reports() {
-    return {terminal_checkmate(),        side_in_check(),
-            normal_position(),           pgn_opening(),
-            tactic_with_labels(),        forced_opportunity(),
-            negative_margin_opportunity(), refutation_opportunity()};
+    return {terminal_checkmate(),
+            side_in_check(),
+            normal_position(),
+            pgn_opening(),
+            tactic_with_labels(),
+            forced_opportunity(),
+            negative_margin_opportunity(),
+            refutation_opportunity()};
 }
 
 } // namespace chesswhy::test_examples

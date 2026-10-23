@@ -3,8 +3,6 @@
 #include "chesswhy/move_report.hpp"
 #include "chesswhy/openings.hpp"
 #include "chesswhy/render.hpp"
-#include "output.hpp"
-#include "selection.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -18,6 +16,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 #include <nlohmann/json.hpp>
+
+#include "output.hpp"
+#include "selection.hpp"
 
 #ifndef CHESSWHY_SOURCE_DIR
 #error "CHESSWHY_SOURCE_DIR must be provided by chesswhy_paths"
@@ -176,8 +177,8 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     const auto custom_games = chesswhy::cli::parse_args(games_args);
     CHECK(custom_games.games == std::filesystem::path("/tmp/games.tsv"));
     constexpr std::string_view moves = "Nf3,best,top3,e4";
-    const std::vector<std::string_view> moves_args{"--fen", fen, "--moves", moves,
-                                                   "--json", "--full-report"};
+    const std::vector<std::string_view> moves_args{"--fen", fen,      "--moves",
+                                                   moves,   "--json", "--full-report"};
     const auto selected_moves = chesswhy::cli::parse_args(moves_args);
     CHECK(selected_moves.moves == moves);
     CHECK(selected_moves.json);
@@ -215,8 +216,7 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     expect_error({"--fen", fen, "--mystery"}, "--mystery");
     expect_error({}, "exactly one of --fen or --pgn");
     expect_error({"--fen", fen, "--move", "Nf6"}, "unknown flag --move");
-    expect_error({"--fen", fen, "--moves", "Nf3", "--moves", "e4"},
-                 "duplicate flag --moves");
+    expect_error({"--fen", fen, "--moves", "Nf3", "--moves", "e4"}, "duplicate flag --moves");
     const std::vector<std::string_view> missing_games_args{"--fen", fen, "--games",
                                                            "/nonexistent/games.tsv"};
     const auto missing_games = chesswhy::cli::parse_args(missing_games_args);
@@ -232,8 +232,8 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
 
 TEST_CASE("CLI move selection parses keywords, topN and moves", "[cli][unit]") {
     using Keyword = chesswhy::Selection::Keyword;
-    const auto board = chesswhy::input::parse_fen(
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    const auto board =
+        chesswhy::input::parse_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     const auto defaults = chesswhy::cli::detail::resolve_moves(board, std::nullopt);
     CHECK(defaults.selection.keywords == std::vector<Keyword>{Keyword::Best});
@@ -265,33 +265,30 @@ TEST_CASE("CLI move selection parses keywords, topN and moves", "[cli][unit]") {
     CHECK(top.selection.moves.empty());
     CHECK(top.asked.empty());
 
-    for (const auto& [san, uci] :
-         std::vector<std::pair<std::string_view, std::string_view>>{
+    for (const auto& [san, uci] : std::vector<std::pair<std::string_view, std::string_view>>{
              {"Nf3", "g1f3"}, {"g1f3", "g1f3"}, {"e4", "e2e4"}, {"e2e4", "e2e4"}}) {
         INFO("asked move " << san);
         const auto parsed = chesswhy::cli::detail::resolve_moves(board, san);
         CHECK(parsed.selection.keywords.empty());
         CHECK_FALSE(parsed.selection.top.has_value());
         CHECK(parsed.selection.moves == std::vector<std::string>{std::string(uci)});
-        CHECK(parsed.asked == std::vector<chess::Move>{
-                                  chesswhy::input::parse_move(board, san)});
+        CHECK(parsed.asked == std::vector<chess::Move>{chesswhy::input::parse_move(board, san)});
     }
 
     const auto combined = chesswhy::cli::detail::resolve_moves(
         board, "all,blunders,best,mistakes,unplayable,playable,inaccuracies,"
-              "top2,Nf3,g1f3,e4,e2e4,top5");
-    CHECK(combined.selection.keywords ==
-          std::vector<Keyword>{Keyword::Best, Keyword::Playable, Keyword::Inaccuracies,
-                              Keyword::Mistakes, Keyword::Blunders, Keyword::Unplayable,
-                              Keyword::All});
+               "top2,Nf3,g1f3,e4,e2e4,top5");
+    CHECK(combined.selection.keywords == std::vector<Keyword>{Keyword::Best, Keyword::Playable,
+                                                              Keyword::Inaccuracies,
+                                                              Keyword::Mistakes, Keyword::Blunders,
+                                                              Keyword::Unplayable, Keyword::All});
     CHECK(combined.selection.top == 5);
     CHECK(combined.selection.moves == std::vector<std::string>{"g1f3", "e2e4"});
-    CHECK(combined.asked ==
-          std::vector<chess::Move>{chesswhy::input::parse_move(board, "Nf3"),
-                                   chesswhy::input::parse_move(board, "e4")});
+    CHECK(combined.asked == std::vector<chess::Move>{chesswhy::input::parse_move(board, "Nf3"),
+                                                     chesswhy::input::parse_move(board, "e4")});
 
     const auto expect_selection_error = [board](std::string_view value,
-                                                 std::string_view diagnostic) {
+                                                std::string_view diagnostic) {
         try {
             (void)chesswhy::cli::detail::resolve_moves(board, value);
             FAIL("move selection accepted invalid input");
@@ -303,8 +300,7 @@ TEST_CASE("CLI move selection parses keywords, topN and moves", "[cli][unit]") {
     expect_selection_error("top0", "invalid value for --moves: top0");
     expect_selection_error("top", "invalid value for --moves: top");
     expect_selection_error("foo", "cannot parse move foo");
-    constexpr std::string_view fen =
-        "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    constexpr std::string_view fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     const std::vector<std::pair<std::string_view, std::string_view>> invalid_selections{
         {"Nf3,,e4", "empty item in --moves"},
         {"top0", "invalid value for --moves: top0"},

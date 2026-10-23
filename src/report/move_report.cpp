@@ -37,7 +37,8 @@ using Json = nlohmann::ordered_json;
     case Selection::Keyword::All:
         return "all";
     }
-    throw std::invalid_argument(invalid_enum("Selection::Keyword", static_cast<unsigned int>(keyword)));
+    throw std::invalid_argument(
+        invalid_enum("Selection::Keyword", static_cast<unsigned int>(keyword)));
 }
 
 [[nodiscard]] bool playable(Verdict verdict) {
@@ -62,7 +63,8 @@ using Json = nlohmann::ordered_json;
     case Selection::Keyword::All:
         return true;
     }
-    throw std::invalid_argument(invalid_enum("Selection::Keyword", static_cast<unsigned int>(keyword)));
+    throw std::invalid_argument(
+        invalid_enum("Selection::Keyword", static_cast<unsigned int>(keyword)));
 }
 
 [[nodiscard]] bool selected_from_a(const Selection& selection, const MoveAssessment& move,
@@ -90,8 +92,7 @@ using Json = nlohmann::ordered_json;
     return result;
 }
 
-[[nodiscard]] bool has_games_for_move(const GamesInfo& games, std::string_view uci,
-                                     int& result) {
+[[nodiscard]] bool has_games_for_move(const GamesInfo& games, std::string_view uci, int& result) {
     if (games.by_source.empty() || !games.by_source.front().found) {
         return false;
     }
@@ -202,9 +203,8 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
         pieces.push_back(serialize_piece_on_square(piece));
     }
     value["pieces"] = std::move(pieces);
-    value["file"] = feature.file
-                         ? Json(std::string(1, static_cast<char>('a' + *feature.file)))
-                         : Json(nullptr);
+    value["file"] =
+        feature.file ? Json(std::string(1, static_cast<char>('a' + *feature.file))) : Json(nullptr);
     value["value"] = feature.value ? Json(*feature.value) : Json(nullptr);
 }
 
@@ -255,14 +255,14 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
         value["alternative"] = nullptr;
     }
     value["margin"] = opportunity.margin_units
-                           ? Json(static_cast<double>(*opportunity.margin_units) / 2000.0)
-                           : Json(nullptr);
+                          ? Json(static_cast<double>(*opportunity.margin_units) / 2000.0)
+                          : Json(nullptr);
     value["is_opportunity"] = opportunity.is_opportunity;
     return value;
 }
 
-[[nodiscard]] Json serialize_optional_opportunity(
-    const std::optional<OpportunityJudgement>& opportunity) {
+[[nodiscard]] Json
+serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opportunity) {
     return opportunity ? serialize_opportunity(*opportunity) : Json(nullptr);
 }
 
@@ -380,9 +380,9 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["side_to_move"] = to_string(position.side_to_move);
     value["in_check"] = position.in_check;
     value["legal_moves"] = position.legal_moves;
-    value["terminal"] =
-        position.terminal ? Json(to_string(*position.terminal)) : Json(nullptr);
-    value["eval_white"] = position.eval_white ? serialize_eval(*position.eval_white) : Json(nullptr);
+    value["terminal"] = position.terminal ? Json(to_string(*position.terminal)) : Json(nullptr);
+    value["eval_white"] =
+        position.eval_white ? serialize_eval(*position.eval_white) : Json(nullptr);
     return value;
 }
 

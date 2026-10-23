@@ -1,4 +1,5 @@
 #include "chesswhy/render.hpp"
+
 #include "chesswhy/move_report.hpp"
 
 #include <algorithm>
@@ -125,9 +126,9 @@ void write_header(std::ostringstream& output, const EngineInfo& engine, Budget b
     output << "Engine: " << engine.name << " (Threads=" << engine.threads
            << ", Hash=" << engine.hash_mb << " MB) [rule]\n";
     const NodeBudget& nodes = engine.nodes;
-    output << "Budget: " << to_string(budget) << ", nodes A=" << nodes.a
-           << ", B=" << nodes.b << ", C=" << nodes.c << ", D=" << nodes.d << ", E=" << nodes.e
-           << ", R=" << nodes.r << " [rule]\n";
+    output << "Budget: " << to_string(budget) << ", nodes A=" << nodes.a << ", B=" << nodes.b
+           << ", C=" << nodes.c << ", D=" << nodes.d << ", E=" << nodes.e << ", R=" << nodes.r
+           << " [rule]\n";
 }
 
 void write_header(std::ostringstream& output, const Report& report) {
@@ -232,8 +233,7 @@ void write_motif(std::ostringstream& output, const Motif& motif, bool use) {
     output << ") [rule]\n";
 }
 
-void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs,
-                  bool use = false) {
+void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs, bool use = false) {
     for (const auto& motif : motifs) {
         write_motif(output, motif, use);
     }
@@ -355,7 +355,6 @@ void write_threat(std::ostringstream& output, const std::string& label,
     write_tactic_labels(output, threat->tactic_labels);
     write_motifs(output, threat->motifs);
     write_consequence(output, label + " consequence", threat->consequence);
-
 }
 void write_positional_change(std::ostringstream& output, const PositionalChange& change,
                              std::optional<int> horizon = std::nullopt) {
@@ -561,10 +560,9 @@ void write_selection(std::ostringstream& output, const MoveReportDocument& docum
         if (has_item) {
             output << " and ";
         }
-        const auto move = std::find_if(document.moves.begin(), document.moves.end(),
-                                       [&uci](const MoveReport& report) {
-                                           return report.uci == uci;
-                                       });
+        const auto move =
+            std::find_if(document.moves.begin(), document.moves.end(),
+                         [&uci](const MoveReport& report) { return report.uci == uci; });
         output << (move == document.moves.end() ? uci : move->san);
         has_item = true;
     }
@@ -612,23 +610,23 @@ void write_move_games(std::ostringstream& output, const MoveReport& move,
     if (!source.games) {
         throw std::bad_optional_access{};
     }
-    output << "Played in " << *move.games << " of " << *source.games << " games ("
-           << source.credit << ") [games]\n";
+    output << "Played in " << *move.games << " of " << *source.games << " games (" << source.credit
+           << ") [games]\n";
 }
 
 void write_move_report_threat(std::ostringstream& output, const MoveReport& move,
                               Side side_to_move) {
     if (move.parried_threat) {
         const ParriedThreat& parried = *move.parried_threat;
-        output << "Parries " << side_name(parried.threat.side) << "'s threat: "
-               << san_line(parried.threat.line_san) << " (";
+        output << "Parries " << side_name(parried.threat.side)
+               << "'s threat: " << san_line(parried.threat.line_san) << " (";
         write_consequence_summary(output, parried.threat.consequence, parried.threat.side, true);
         output << ") [" << parry_source(parried.test) << "]\n";
     }
     if (move.created_threat) {
         const Side passing_side = side_to_move == Side::White ? Side::Black : Side::White;
-        output << "Threatens (if " << side_name(passing_side) << " passes): "
-               << san_line(move.created_threat->line_san) << " (";
+        output << "Threatens (if " << side_name(passing_side)
+               << " passes): " << san_line(move.created_threat->line_san) << " (";
         write_consequence_summary(output, move.created_threat->consequence,
                                   move.created_threat->side, true);
         output << ") [engine]\n";
@@ -810,8 +808,7 @@ std::string text(const Report& report) {
         output << label << ": " << asked_move.san << " (" << asked_move.uci << "), "
                << to_string(asked_move.verdict)
                << ", in_multipv: " << boolean(asked_move.in_multipv) << " [engine]\n";
-        write_move_details(output, label, asked_move, report.games,
-                           report.position.side_to_move);
+        write_move_details(output, label, asked_move, report.games, report.position.side_to_move);
     }
     if (report.asked_moves.empty()) {
         output << "Asked move: null [rule]\n";

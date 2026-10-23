@@ -55,12 +55,9 @@ using namespace chesswhy;
     games.moves.push_back(GameMoveCount{.san = "a3", .uci = "a2a3", .games = 4});
     report.games.by_source.push_back(std::move(games));
     report.candidates = {
-        assessment("a3", "a2a3", Verdict::Best),
-        assessment("b3", "b2b3", Verdict::Best),
-        assessment("c3", "c2c3", Verdict::Okay),
-        assessment("d3", "d2d3", Verdict::Inaccuracy),
-        assessment("e3", "e2e3", Verdict::Mistake),
-        assessment("f3", "f2f3", Verdict::Blunder),
+        assessment("a3", "a2a3", Verdict::Best),    assessment("b3", "b2b3", Verdict::Best),
+        assessment("c3", "c2c3", Verdict::Okay),    assessment("d3", "d2d3", Verdict::Inaccuracy),
+        assessment("e3", "e2e3", Verdict::Mistake), assessment("f3", "f2f3", Verdict::Blunder),
     };
     return report;
 }
@@ -86,13 +83,14 @@ using namespace chesswhy;
         .ply = ply,
         .change = PositionalChangeKind::Appears,
         .holds_at_end = holds,
-        .feature = PositionalFeature{
-            .tag = tag,
-            .side = side,
-            .pieces = {},
-            .file = std::nullopt,
-            .value = value,
-        },
+        .feature =
+            PositionalFeature{
+                .tag = tag,
+                .side = side,
+                .pieces = {},
+                .file = std::nullopt,
+                .value = value,
+            },
     };
 }
 
@@ -133,13 +131,12 @@ TEST_CASE("move reports select the keyword sets and preserve A order", "[unit]")
                   std::vector<std::string>{"a2a3", "b2b3", "c2c3", "d2d3", "e2e3", "f2f3"}},
     };
     for (const auto& [keyword, expected] : cases) {
-        report.input.selection =
-            Selection{.keywords = {keyword}, .top = std::nullopt, .moves = {}};
+        report.input.selection = Selection{.keywords = {keyword}, .top = std::nullopt, .moves = {}};
         CHECK(ucis(move_reports(report)) == expected);
     }
 
-    report.input.selection = Selection{
-        .keywords = {Keyword::Inaccuracies}, .top = std::nullopt, .moves = {}};
+    report.input.selection =
+        Selection{.keywords = {Keyword::Inaccuracies}, .top = std::nullopt, .moves = {}};
     report.candidates[3].verdict = Verdict::Okay;
     CHECK(ucis(move_reports(report)).empty());
 }
@@ -155,8 +152,8 @@ TEST_CASE("move report selection unions top, keywords, and asked moves once", "[
     report.playable_truncated = true;
 
     const auto document = move_reports(report);
-    CHECK(ucis(document) == std::vector<std::string>{"a2a3", "b2b3", "c2c3", "e2e3", "h2h3",
-                                                      "g2g3"});
+    CHECK(ucis(document) ==
+          std::vector<std::string>{"a2a3", "b2b3", "c2c3", "e2e3", "h2h3", "g2g3"});
     CHECK(document.moves[0].rank == 1);
     CHECK(document.moves[1].rank == 2);
     CHECK_FALSE(document.moves[4].rank.has_value());
@@ -164,26 +161,23 @@ TEST_CASE("move report selection unions top, keywords, and asked moves once", "[
     CHECK(document.selection.lines_searched == 6);
     CHECK(document.selection.playable_count == 3);
     CHECK(document.selection.playable_truncated == report.playable_truncated);
-    report.input.selection =
-        Selection{.keywords = {}, .top = 4, .moves = {}};
-    CHECK(ucis(move_reports(report)) ==
-          std::vector<std::string>{"a2a3", "b2b3", "c2c3", "d2d3"});
+    report.input.selection = Selection{.keywords = {}, .top = 4, .moves = {}};
+    CHECK(ucis(move_reports(report)) == std::vector<std::string>{"a2a3", "b2b3", "c2c3", "d2d3"});
 
     report.input.selection =
         Selection{.keywords = {}, .top = std::nullopt, .moves = {"g2g3", "b2b3", "h2h3"}};
-    CHECK(ucis(move_reports(report)) ==
-          std::vector<std::string>{"b2b3", "g2g3", "h2h3"});
+    CHECK(ucis(move_reports(report)) == std::vector<std::string>{"b2b3", "g2g3", "h2h3"});
 }
 
 TEST_CASE("move report headers copy only the M4 position and game fields", "[unit]") {
     using Keyword = chesswhy::Selection::Keyword;
     auto report = base_report();
     report.input.moves = "all";
-    report.input.selection = Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
+    report.input.selection =
+        Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
     report.position.motifs.push_back(motif_with(MotifContribution::Direct));
-    report.position.positional.push_back(positional_change(PositionalTag::MobilityLead, Side::White,
-                                                           12, 1, true)
-                                              .feature);
+    report.position.positional.push_back(
+        positional_change(PositionalTag::MobilityLead, Side::White, 12, 1, true).feature);
     report.games.by_source.front().moves.push_back(
         GameMoveCount{.san = "c3", .uci = "c2c3", .games = 3});
 
@@ -208,16 +202,18 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
     CHECK(move_reports(report).moves.empty());
 }
 
-TEST_CASE("move report relevance filter keeps conditional fields and drops irrelevant ones", "[unit]") {
+TEST_CASE("move report relevance filter keeps conditional fields and drops irrelevant ones",
+          "[unit]") {
     using Keyword = chesswhy::Selection::Keyword;
     auto report = base_report();
-    report.input.selection = Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
+    report.input.selection =
+        Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
     auto& best = report.candidates[0];
     auto& okay = report.candidates[2];
     best.opportunity = OpportunityJudgement{.forced = true,
-                                             .alternative = std::nullopt,
-                                             .margin_units = std::nullopt,
-                                             .is_opportunity = false};
+                                            .alternative = std::nullopt,
+                                            .margin_units = std::nullopt,
+                                            .is_opportunity = false};
     best.motifs = {motif_with(MotifContribution::Direct), motif_with(MotifContribution::Indirect),
                    motif_with(MotifContribution::None), Motif{}};
     best.root_motifs = best.motifs;
@@ -243,11 +239,10 @@ TEST_CASE("move report relevance filter keeps conditional fields and drops irrel
     blunder.refutation->motifs = {motif_with(MotifContribution::Direct),
                                   motif_with(MotifContribution::Indirect),
                                   motif_with(MotifContribution::None), Motif{}};
-    blunder.refutation->opportunity =
-        OpportunityJudgement{.forced = false,
-                             .alternative = std::nullopt,
-                             .margin_units = std::nullopt,
-                             .is_opportunity = true};
+    blunder.refutation->opportunity = OpportunityJudgement{.forced = false,
+                                                           .alternative = std::nullopt,
+                                                           .margin_units = std::nullopt,
+                                                           .is_opportunity = true};
     auto& playable_move_with_refutation = report.candidates[1];
     playable_move_with_refutation.refutation = threat(ConsequenceClass::Mate);
 
@@ -301,7 +296,8 @@ TEST_CASE("move report relevance filter keeps conditional fields and drops irrel
 TEST_CASE("move report created threat keeps only the specified consequence classes", "[unit]") {
     using Keyword = chesswhy::Selection::Keyword;
     auto report = base_report();
-    report.input.selection = Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
+    report.input.selection =
+        Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
     report.candidates[0].creates_threat = threat(ConsequenceClass::Material);
     report.candidates[1].creates_threat = threat(ConsequenceClass::Promotion);
     report.candidates[2].creates_threat = threat(ConsequenceClass::Positional);
@@ -335,17 +331,17 @@ TEST_CASE("move report JSON uses the v6 moves shape and stable key order", "[uni
     CHECK(keys(json) == std::vector<std::string>{"schema_version", "document", "input", "engine",
                                                  "position", "selection", "opening", "games",
                                                  "moves"});
-    CHECK(keys(json["selection"]) ==
-          std::vector<std::string>{"keywords", "top", "moves", "lines_searched", "playable_count",
-                                   "playable_truncated"});
+    CHECK(keys(json["selection"]) == std::vector<std::string>{"keywords", "top", "moves",
+                                                              "lines_searched", "playable_count",
+                                                              "playable_truncated"});
     CHECK(keys(json["moves"][0]) ==
-          std::vector<std::string>{"rank", "san", "uci", "eval", "depth", "loss", "verdict",
-                                   "gives_check", "line", "walked_plies", "consequence",
-                                   "is_tactic", "allows_tactic", "opportunity", "motifs",
-                                   "root_motifs", "tactic_labels", "positional", "parried_threat",
-                                   "created_threat", "refutation", "games"});
-    CHECK(keys(json["moves"][0]["parried_threat"]) ==
-          std::vector<std::string>{"threat", "test"});
+          std::vector<std::string>{
+              "rank",        "san",           "uci",           "eval",           "depth",
+              "loss",        "verdict",       "gives_check",   "line",           "walked_plies",
+              "consequence", "is_tactic",     "allows_tactic", "opportunity",    "motifs",
+              "root_motifs", "tactic_labels", "positional",    "parried_threat", "created_threat",
+              "refutation",  "games"});
+    CHECK(keys(json["moves"][0]["parried_threat"]) == std::vector<std::string>{"threat", "test"});
     CHECK(json["schema_version"] == 6);
     CHECK(json["document"] == "moves");
 }

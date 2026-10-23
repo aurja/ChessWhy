@@ -1,6 +1,4 @@
 #include "chesswhy/cli.hpp"
-#include "output.hpp"
-#include "selection.hpp"
 
 #include "chesswhy/analysis.hpp"
 #include "chesswhy/engine.hpp"
@@ -16,6 +14,9 @@
 #include <system_error>
 #include <utility>
 #include <vector>
+
+#include "output.hpp"
+#include "selection.hpp"
 
 #ifndef CHESSWHY_ASSETS_DIR
 #error "CHESSWHY_ASSETS_DIR must be provided by chesswhy_paths"
@@ -242,13 +243,12 @@ int run(const Options& options, std::ostream& out, std::ostream& err) {
         report.engine.threads = options.threads;
         report.engine.hash_mb = 64;
         report.engine.reproducible = options.threads == 1;
-        analysis::analyse(
-            engine,
-            analysis::Request{.board = board,
-                              .selection = report.input.selection,
-                              .asked = std::move(resolved_moves.asked),
-                              .budget = options.budget},
-            report);
+        analysis::analyse(engine,
+                          analysis::Request{.board = board,
+                                            .selection = report.input.selection,
+                                            .asked = std::move(resolved_moves.asked),
+                                            .budget = options.budget},
+                          report);
         report.opening = openings::describe(opening_table, board, mainline);
 
         detail::write_output(options, report, out);
