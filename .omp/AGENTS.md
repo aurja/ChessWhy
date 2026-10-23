@@ -195,6 +195,8 @@ before that, keep it out of the default targets.
 - Engine fixtures are pinned to the Stockfish 19 build in `assets/`; a new
   engine version means re-blessing fixtures as an explicit milestone task.
 - Report pass/fail summaries, not full logs. A skip is not a pass.
+- Outside the gates, run only the tests that exercise the code you are investigating
+  or changed (`ctest -R <name>` or one label), not the whole suite.
 - clang-tidy reports tens of thousands of suppressed warnings per unit from
   libstdc++/glibc headers (not our code); `--quiet` hides that summary.
 
