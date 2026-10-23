@@ -408,3 +408,91 @@ Measured at the standard budget, 2026-10-23.
 | F37 | <img src="boards/F37.svg" width="200" alt="F37"> | `r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17`<br>`--moves Bd2`; `--moves blunders`<br><sub>Gunsberg - Chigorin, Havana 1890, before 17.Kf1 (F03's board)</sub> | the asked move is a blunder: loses more than 0.10 and allows a tactic; `--moves blunders` selects it | Eval: White ES 0.48 (−26 cp). Best **Kf1**.<br>Asked **Bd2**: blunder, loses 0.47 ES, allows a tactic (refutation Qxb2 Qd1 Qa3).<br>`blunders`: Bd2 only.<br>Test passes. | |
 | F38 | <img src="boards/F38.svg" width="200" alt="F38"> | `1r1q1rk1/4b1pp/4b3/1p1pPp2/3p1P2/8/1PBB2PP/R2Q1RK1 w - f6 0 18`<br>Asked: **exf6**<br><sub>Lasker - Schlechter, Wch10 1910, before 18.exf6 (F11's board)</sub> | an even pawn trade (exf6 e.p., Bxf6) that loses more than 0.10: the trade itself wins no material, allows no tactic, and the recapture line is not a tactic (R1) | Eval: White ES 0.88 (+124 cp). Best **Bd3**.<br>Asked **exf6**: mistake, loses 0.37 ES; material 0; not a tactic; allows no tactic. Refutation Bxf6 Bd3 Qd7 is not a tactic.<br>Test passes; slowest default run of the suite (7.4 s). | |
 | F39 | <img src="boards/F39.svg" width="200" alt="F39"> | `6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1`<br><sub>constructed: Re8#</sub> | the move report of Re8# holds the `back_rank_weakness` of Black's king g8 as a root motif with contribution `indirect` (`side` White, the side that benefits) | Eval: mate in 1 for White.<br>Best **Re8#**, a tactic; an opportunity (margin 1.00 over g3).<br>Move report: `root_motifs` = `back_rank_weakness` White, actor k g8, indirect.<br>Test passes. | 2026-10-23 Deputy: the fixture first expected `side` black (from M4 §9's "Black's `back_rank_weakness`"); a motif's `side` is the side that benefits (DEFINITIONS, motif fields), as F04's `/position/motifs` expectation (White's back-rank weakness on Black's king g8) already uses, so the expectation was corrected to white. |
+
+## 10. Evaluation positions — the Captain's tests against trainers' analysis (no CTest)
+
+**Concepts:** `TemplateRendering`, `RestrictedMovement`, `Restriction`, `TacticalPin`, `Refutation`, `Verdict`, `OpportunityJudgement`, `PositionalChange`, `FactSheet`
+
+Evaluation positions V1–V3 (DEFINITIONS §6.2): the Captain gave each one to see whether
+ChessWhy's output supports the explanation a reputed trainer gives, with the language
+model taken out of the experiment. The Deputy ran `--moves top5` (plus one follow-up
+run for V1) and explained the move from the printed text only. No test reads these
+positions and nothing here is a scope proposal. Run 2026-10-24 on `m4` at `standard`.
+
+| ID | Position | The trainer's point | Codebase today | Comments |
+|---|---|---|---|---|
+| V1 | `5k2/7p/pr1pB1p1/2pP4/1P6/6PP/R3qP2/R5K1 b - - 1 33`<br><sub>Navara – Ivanchuk, Wijk aan Zee 2012; a quiet move</sub> | 33...Qe4! because 34.bxc5 fails to 34...Rb1+; main line 34.Rxa6 Rxa6 35.Rxa6 cxb4 and the b-pawn wins. The best move has no reason of its own: it is best because the others fail (Captain's directive: then explain why the other moves do not work) | Eval: White ES 0.00 (−301 cp). Best **Qe4** (ES 1.00); Qd3 okay; Qc4, Qe5 mistakes and Qf3 blunder, all three refuted by bxc5.<br>Why bxc5 fails *against Qe4* is in no row. A second run after Qe4 (`--moves best,bxc5`) shows bxc5 Rb1+ Rxb1 Qxb1+ winning the a2 rook, but judges bxc5 "okay, loss 0.0%": White's ES is already 0.00 (−397 cp). | 2026-10-24 Deputy: half the trainer's answer (the refutations of the others); missing the cross-check of the refutation against the best move |
+| V2 | `1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1`<br><sub>given by the Captain; a loud move</sub> | Bxa4 bxa4 Ba7 Rfc2 Nb4: the c5 bishop is pinned on the c-file again only once Nb4 adds a second attacker on c2; after Rfc2 alone, Rxc2 Rxc2 is an even trade, so there is no pin (Captain's correction of the Deputy) | Eval: White ES 0.25 (−100 cp). Best **Bxa4**, a tactic (wins 2 pawns net by ply 7) and an opportunity (margin 0.25 over Nb4); the only playable move in the top 5.<br>`pin_relative` Rc8 → Bc5, Rc2 at ply 5 (after Nb4), none at ply 4 (after Rfc2): matches the trainer. `hanging_piece` Rc2, SEE 5, at ply 6. | 2026-10-24 Deputy: facts right; I misread them twice (placed the c-file pin before Nb4; read Ba7's `pin_tactical` rows as threats Black could play) |
+| V3 | `8/2p1q2k/3p3p/3P1p1n/3QpPrP/2P1N1PK/1r6/5RR1 b - - 6 47`<br><sub>given by the Captain; a mating attack</sub> | The g3 pawn alone guards h4; remove it and h4 is mate | Eval: mate in 3 for Black. **Qxh4+** and **Rxh4+** both best (Qxh4+ gxh4 Rxh4+ Kxh4 Rh2#); Qf7 okay, Qd7 inaccuracy, Nxg3 mistake (refuted by Nxg4).<br>Ply-0 rows: g3 overloaded defender of f4 and h4; `pin_tactical` "Qe7-h4 checkmate" and "Rg4-h4 checkmate" on g3. | 2026-10-24 Deputy: the key idea is there, stated in five rows on the g3 pawn (I told the Captain six; the sixth holds the g1 rook); about 30 positional rows per mating line; no row says why Rh2 is mate |
+
+### 10.1 Reading the output as the explaining model (Deputy, 2026-10-24)
+
+What follows is the Deputy's account, as the model that turned ChessWhy's text into
+explanations for V1–V3: which rows carried the explanation, which were jargon or noise,
+and what was missing.
+
+**Useful: the explanation was built from these.**
+
+- The move line itself (verdict, ES, loss, mate distance) and "N playable moves among
+  the top 5". These told me at once what kind of answer to give: an only move, one of
+  two equal mates, a choice among several fine moves.
+- The engine line in SAN. Every other row hangs off it; without it no row means anything.
+- `Tactic: wins 2 pawns net by ply 7` and `Tactic: mate in 3`. One line that says the
+  move is forcing and what it wins.
+- `Opportunity: margin 0.25 over Nb4`, when it is under the best move: "only move" in
+  one row.
+- `Refuted by`, `Threatens (if White passes)` and `Parries White's threat`. These
+  answered "why not that move" and "what does it do" directly, as lines I could quote.
+- A few `Uses` rows were the explanation: V3's overloaded defender on g3 (f4 and h4),
+  V2's `pin_relative` at ply 5 and `hanging_piece` Rc2 SEE 5. When a row names the held
+  piece, what it is held to, and the ply, it is the trainer's sentence in data form.
+- The provenance tags. They told me which claims I could state as engine fact and
+  which as a rule's label.
+
+**Jargon or noise: rows I had to read past, or that misled me.**
+
+- The `By ply N` positional rows. V3 has about 30 per mating line (`isolated_pawn`,
+  `pawn_islands`, `mobility_lead`, `king_zone_attacker` coming and going); none bears
+  on a mate in 3. `material_ahead` rows flip at every capture ("− white 4", "+ black
+  1") and show the half-finished exchange, not the outcome, which the tactic row
+  already gives.
+- The restricted and free move lists ("restricted: Bc5-a3, Bc5-b4, …; free: …").
+  "Held at square c5" or "along file c" was all I used; the move lists only cost
+  reading.
+- The same held piece reported under several tags: V3's g3 pawn five times (overloaded
+  defender, then `pin_tactical` for two checkmates and two captures); V2's c5 bishop
+  as relative pin, "Ba7-f2 capture" and "Ba7-e3 fork". I had to merge them myself, and
+  merging them was the explanation.
+- `pin_tactical` labels such as "(tactic: Ba7-f2 capture)". They read like moves
+  available now; they mean "if the held piece moved, this would follow". This misled me
+  in V2.
+- "(ply 5)" not tied to a move, and `Uses` rows not in line order (ply-0 rows come
+  last). I had to count plies against the line by hand; I got it wrong in V2.
+- `direct` / `indirect`. I never used them; they did not change what I would say.
+- The side encoded by letter case ("b a7 → B c5, R f2"). Compact, but one more thing to
+  decode on every row.
+- Under a refuted move, `Opportunity` and `Uses` rows that belong to the refutation
+  (V1 Qc4: "margin 0.39 over Ra3", which is White's). Nothing says whose they are.
+- ES at the extremes: V1's bxc5 "okay, loss 0.0%" while it loses a rook, because the
+  position was already lost. The header ES is White's; the per-move ES is the mover's.
+- Header rows that never help an explanation: `Budget: nodes A=…`, `Current opening:
+  null` in a middlegame.
+
+**Missing: what I had to infer, or could not say.**
+
+- Why a pin is a pin: the exchange that makes moving the front piece cost material
+  ("if Bc5 moves: Rxc2 Rxc2 Nxc2 wins the exchange"). With it, V2's rows check
+  themselves against the Captain's rule; without it I misplaced the pin.
+- When a fact begins and why: "the pin appears at ply 5 because Nb4 adds a second
+  attacker on c2".
+- Comparisons between moves: why bxc5 refutes Qc4 but fails against Qe4 (V1); why Bxa4
+  must come before Ba7 (V2). The refutation lines contain the answers, but no row puts
+  the two side by side.
+- Why the final move is mate: the king's flight squares and what covers them (V3's
+  Rh2#).
+- Loss in material or centipawns beside the ES when the ES is saturated (V1).
+
+In all three positions ChessWhy reported no wrong fact. The Deputy's two mistakes in V2
+were misreadings of correct rows. For M5 [inference]: a small model is likely to misread
+these rows more often than the Deputy did, so the useful rows above are the ones a fact
+sheet should lead with.
