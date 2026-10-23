@@ -181,7 +181,7 @@ move_report_examples() {
         const auto [san, uci] = playable_sans[index];
         playable.moves.push_back(report_move(
             static_cast<int>(index + 1), san, uci, index == 0 ? Verdict::Best : Verdict::Okay,
-            978 - static_cast<int>(index) * 15, static_cast<int>(index) * 15, 16, {san}, 1));
+            978 - (static_cast<int>(index) * 15), static_cast<int>(index) * 15, 16, {san}, 1));
     }
 
     auto blunder = base_move_document();
@@ -266,7 +266,7 @@ move_report_examples() {
 }
 
 [[nodiscard]] bool contains_candidate(std::string text) {
-    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char character) {
+    std::ranges::transform(text, text.begin(), [](unsigned char character) {
         return static_cast<char>(std::tolower(character));
     });
     return text.find("candidate") != std::string::npos;

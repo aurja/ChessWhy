@@ -6,14 +6,31 @@ provenance. It also reports tactical motifs: deterministic patterns of one posit
 needed, the move that produced it), with `rule` provenance; a motif states that the pattern is
 present and claims no gain. Pins, overloaded defenders and tactical pins are reported as
 "restricted movement"; a tactical pin holds a piece because moving it would leave a specified
-threat available. The best move and each refutation are judged as tactics: a tactic is a
-line whose expected score beats the next-best move by at least 0.13 (`engine`); a position with
-one legal move is marked forced (`rule`). On a tactic line every motif gets a contribution
-(`direct`, `indirect` or `none`), and the rule label `removal_of_defender` marks a capture that
-takes away a piece's only defender. The current release renders a report without a language
-model; verbalisation is planned for M5 (M4 brings playable moves and per-move reports).
+threat available.
 
-In report v5, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
+Every judged move gets a verdict from its loss in expected score (ES) against the best move:
+
+| Verdict | Rule |
+|---|---|
+| `best` | the engine's top line, or another line with exactly the same score (e.g. two mates in 1) |
+| `okay` | any other move losing at most 0.05 ES |
+| `inaccuracy` | loses more than 0.05 and at most 0.10 ES |
+| `mistake` | loses more than 0.10 ES and allows no tactic |
+| `blunder` | loses more than 0.10 ES and allows a tactic |
+
+`best` and `okay` moves are **playable**. A line is a **tactic** when the side playing it mates
+or wins at least 1 pawn net against best replies over the walked plies (a move *allows a tactic*
+when its own line does that for the opponent). A line is an **opportunity** when every
+alternative is clearly worse: its margin over the next-best move is at least 0.13 ES (`engine`).
+A line can be either, both or neither; a position with one legal move is marked forced
+(`rule`). On a tactic or opportunity line every motif gets a contribution (`direct`,
+`indirect` or `none`), and the rule label `removal_of_defender` marks a capture that takes away a
+piece's only defender. Engine scores depend on the search: asking for more moves widens the
+search, so the same move can get a different verdict in a different request; each request is
+reproducible. The current release renders reports without a language model; verbalisation is
+planned for M5.
+
+In report v6, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
 `restriction` object. Its `piece` is the held piece (the first target for either pin or a tactical
 pin, the actor for an overloaded defender); `restricted` and `free` are sorted UCI move lists.
 `restricted` contains moves the motif denies or makes costly: an absolute pin includes pseudo-legal
@@ -29,10 +46,10 @@ the previous occupant is removed.
 
 Positional facts in `position.positional` describe pawn structure, king safety, pieces, space/development
 and material; per-line `positional` entries record features appearing or disappearing, with `rule`
-provenance. Lichess broadcast counts use `games` provenance and never judge a move: text reports show
-`games: 262026 games ... [games]` under a position and `games: played in N of M games [games]` under
-a candidate. Reports credit the source as `Lichess broadcast database, database.lichess.org`
-under CC BY-SA 4.0.
+provenance. Lichess broadcast counts use `games` provenance and never judge a move: the full report
+text shows `games: 262026 games ... [games]` under the position, and each move shows
+`Played in N of M games (...) [games]`. Reports credit the source as `Lichess broadcast database,
+database.lichess.org` under CC BY-SA 4.0.
 
 Loaded data digests use the in-tree SHA-256 implementation. When the loaded bytes match their
 pins, `games.table` reports `lichess_broadcast_2200@e0cb7fab3212` and `opening.dataset` reports
@@ -86,38 +103,67 @@ ctest --preset asan
 
 ## Use
 
-Explain a position and a candidate move (the FEN example used by the M1 smoke check):
+Explain a position's best move (the default) or the moves named by `--moves`:
 
 ```sh
-build/release/chesswhy --fen "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3" --move Nf6
+build/release/chesswhy --fen "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3" --moves playable
 ```
 
-Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves from the game's start, with 0 denoting the initial position. Before White's move N, use ply `2(N−1)`; before Black's move N, use ply `2N−1`. `--move` accepts SAN or UCI; `--json` selects a version 5 JSON report, and budgets are `quick`, `standard` (default), or `deep`.
+`--moves` takes a comma-separated list without spaces; the result is the union of its items:
+
+| Item | Selects |
+|---|---|
+| a move (SAN or UCI) | that move, judged even when the engine did not list it |
+| `best` | the engine's top line only (the default) |
+| `topN` | the engine's first N lines, whatever their verdict (e.g. `top3`) |
+| `playable` | every `best` or `okay` move |
+| `inaccuracies`, `mistakes`, `blunders` | every move with that verdict |
+| `unplayable` | every inaccuracy, mistake and blunder |
+| `all` | every legal move |
+
+The keywords from `playable` to `all` judge every legal move and take several times the default
+time. `--json` chooses the format and `--full-report` the content, independently:
+
+| Flags | Output |
+|---|---|
+| none | move report text: one section per selected move |
+| `--json` | move report document (`schema/moves.v6.schema.json`) |
+| `--full-report` | full report text: every computed fact |
+| `--json --full-report` | full report JSON (`schema/report.v6.schema.json`) |
+
+A move report keeps the move's verdict, line, consequence, tactic and opportunity judgements and
+refutation, and only the threats, motifs and positional changes that bear on that move; every
+field is a field of the full report or a filter of one.
+
+Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves from the game's start, with 0 denoting the initial position. Before White's move N, use ply `2(N−1)`; before Black's move N, use ply `2N−1`. Budgets are `quick`, `standard` (default), or `deep`.
 `--games FILE` selects the broadcast-count table (default
 `assets/data/games/lichess_broadcast_2200.tsv`). A missing or invalid table fails with exit 3 and one
 `chesswhy: error: ...` line.
 
 Analysis is position-only: PGN history selects the position but is not an input to the searches or
-rules. The fine set contains only the `fine`-verdict moves among the engine's top K candidates for
-that position; unlisted moves are not judged and may also be fine. `fine_truncated` is true iff the
-engine returned all K candidates and every one is fine; this does not classify unlisted moves.
-
+rules. The playable moves listed are those among the lines the engine searched; with `best` or
+`topN`, unlisted moves are not judged and may also be playable. `playable_truncated` is true iff
+the engine returned all K lines, K is less than the number of legal moves, and every line is
+playable.
 
 ```sh
-build/release/chesswhy --pgn tests/fixtures/two_games.pgn --game 1 --ply 2 --json --budget quick
+build/release/chesswhy --pgn tests/fixtures/two_games.pgn --game 1 --ply 2 --json --full-report --budget quick
 ```
 
-Save a `--json` report as `report.json`, then run the semantic checker (add more report paths after
-the schema to validate multiple files):
+Save the full report JSON as `full.json` and the move report document of the same command (without
+`--full-report`) as `moves.json`, then run the semantic checker; it picks each document's schema
+from its `document` field (add more paths to validate several files):
 
 ```sh
-.venv/bin/python tools/validate_report.py schema/report.v5.schema.json report.json
+.venv/bin/python tools/validate_report.py schema/report.v6.schema.json full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v6.schema.json --projection full.json moves.json
 ```
 
 The checker validates the schema first, then checks report relations it cannot express: loss and
 verdict thresholds, FEN side/check/legal-move counts, legal move pairs and lines, the asked-move
-copy, tactic invariants, and held-piece restriction moves and `held_to`. It uses python-jsonschema
-and python-chess from the development requirements.
+copy, tactic and opportunity relations, and held-piece restriction moves and `held_to`.
+`--projection` also checks that every move report field is the full report's field or a filter
+of one. It uses python-jsonschema and python-chess from the development requirements.
 
 
 List a PGN's mainline plies as TSV, including the FEN before and after each move:

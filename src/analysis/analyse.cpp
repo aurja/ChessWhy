@@ -162,7 +162,8 @@ void judge_refutation(engine::Engine& engine, const NodeBudget& budget,
         .uci = chess::uci::moveToUci(alternative_move, root.chess960()),
         .eval = eval_for(alternative_line, root.sideToMove(), root.sideToMove()),
     };
-    const int margin_units = 2000 - refuted_move_eval.es_units - judgement.alternative->eval.es_units;
+    const int margin_units =
+        2000 - refuted_move_eval.es_units - judgement.alternative->eval.es_units;
     judgement.margin_units = margin_units;
     judgement.is_opportunity = is_opportunity_margin(margin_units);
     refutation.opportunity = judgement;
@@ -402,9 +403,8 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
             const auto searched = engine.search(request);
             nodes_searched += searched.nodes;
             const auto& created_line = first_line(searched);
-            result.creates_threat =
-                make_threat(null_after_move, created_line.pv_uci, created_line,
-                            report_side(null_after_move.sideToMove()));
+            result.creates_threat = make_threat(null_after_move, created_line.pv_uci, created_line,
+                                                report_side(null_after_move.sideToMove()));
         }
     }
 
@@ -415,10 +415,10 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
                          *result.refutation);
     }
 }
-[[nodiscard]] bool selected_by_selection(const Selection& selection,
-                                         const MoveAssessment& move, std::size_t line_index) {
-    bool selected = selection.top.has_value() &&
-                    line_index < static_cast<std::size_t>(*selection.top);
+[[nodiscard]] bool selected_by_selection(const Selection& selection, const MoveAssessment& move,
+                                         std::size_t line_index) {
+    bool selected =
+        selection.top.has_value() && line_index < static_cast<std::size_t>(*selection.top);
     for (const auto keyword : selection.keywords) {
         switch (keyword) {
         case Selection::Keyword::Best:
@@ -569,12 +569,10 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
             throw engine::EngineError("Stockfish MultiPV line has an empty principal variation");
         }
         const Eval line_eval = eval_for(line, side_to_move, side_to_move);
-        const bool same_score_as_best =
-            index == 0 || same_score(line_eval, best_eval);
-        auto candidate = assess_move(board, line, best_line, line.pv_uci.front(), true,
-                                     same_score_as_best,
-                                     index == 0 ? root_opportunity : std::nullopt,
-                                     report.position.motifs);
+        const bool same_score_as_best = index == 0 || same_score(line_eval, best_eval);
+        auto candidate =
+            assess_move(board, line, best_line, line.pv_uci.front(), true, same_score_as_best,
+                        index == 0 ? root_opportunity : std::nullopt, report.position.motifs);
         const bool selected = selected_by_selection(request.selection, candidate, index);
         if (is_detailed_line(static_cast<int>(index + 1), selected)) {
             complete_move_details(engine, budget, report.engine.nodes_searched, board, line,
@@ -586,10 +584,11 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.playable_truncated =
         a_result.lines.size() == static_cast<std::size_t>(lines) &&
         lines < report.position.legal_moves &&
-        std::ranges::all_of(report.candidates, [](const MoveAssessment& move) {
-            return move.verdict == Verdict::Best || move.verdict == Verdict::Okay;
-        });
-
+        std::ranges::all_of(
+            report.candidates,
+            [](const MoveAssessment& move) {
+                return move.verdict == Verdict::Best || move.verdict == Verdict::Okay;
+            });
 
     if (in_check) {
         threats.urgency =
@@ -597,9 +596,9 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     } else if (own_rank < 2 && opponent_rank < 2) {
         threats.urgency = Urgency{.more_urgent = std::nullopt, .rule = UrgencyRule::Quiet};
     } else if (own_rank != opponent_rank) {
-        const auto urgent = own_rank > opponent_rank ? report_side(side_to_move) : report_side(opponent);
-        threats.urgency =
-            Urgency{.more_urgent = urgent, .rule = UrgencyRule::ConsequenceClass};
+        const auto urgent =
+            own_rank > opponent_rank ? report_side(side_to_move) : report_side(opponent);
+        threats.urgency = Urgency{.more_urgent = urgent, .rule = UrgencyRule::ConsequenceClass};
     } else {
         const auto& best_move = report.candidates.front();
         if (!best_move.parries_threat.has_value()) {
@@ -638,14 +637,12 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         report.engine.nodes_searched += c_result.nodes;
         const auto& line = first_line(c_result);
         if (line.pv_uci.empty() || line.pv_uci.front() != asked_uci) {
-            throw engine::EngineError(
-                "Stockfish search C did not return the requested move first");
+            throw engine::EngineError("Stockfish search C did not return the requested move first");
         }
-        auto assessment =
-            assess_move(board, line, best_line, asked_uci, false, false, std::nullopt,
-                        report.position.motifs);
-        complete_move_details(engine, budget, report.engine.nodes_searched, board, line,
-                              assessment, opponent_rank, opponent_line);
+        auto assessment = assess_move(board, line, best_line, asked_uci, false, false, std::nullopt,
+                                      report.position.motifs);
+        complete_move_details(engine, budget, report.engine.nodes_searched, board, line, assessment,
+                              opponent_rank, opponent_line);
         report.asked_moves.push_back(std::move(assessment));
     }
 }

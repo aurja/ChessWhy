@@ -33,7 +33,7 @@ struct MoveReport {
     std::vector<PositionalChange> positional; // net change (§4.6)
     std::optional<ParriedThreat> parried_threat;
     std::optional<Threat> created_threat; // mate, material or promotion; no motifs
-    std::optional<Threat> refutation; // motifs filtered (§4.6)
+    std::optional<Threat> refutation;     // motifs filtered (§4.6)
     std::optional<int> games;
 };
 

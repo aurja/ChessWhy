@@ -560,9 +560,8 @@ void write_selection(std::ostringstream& output, const MoveReportDocument& docum
         if (has_item) {
             output << " and ";
         }
-        const auto move =
-            std::find_if(document.moves.begin(), document.moves.end(),
-                         [&uci](const MoveReport& report) { return report.uci == uci; });
+        const auto move = std::ranges::find_if(
+            document.moves, [&uci](const MoveReport& report) { return report.uci == uci; });
         output << (move == document.moves.end() ? uci : move->san);
         has_item = true;
     }

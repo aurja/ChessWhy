@@ -70,14 +70,12 @@ TEST_CASE("JSON follows v6 report key order", "[unit]") {
     const auto report = test_examples::normal_position();
     const auto json = to_json(report);
     const auto pgn = to_json(test_examples::pgn_opening());
-    CHECK(keys(json) == std::vector<std::string>{"schema_version", "document", "input", "engine",
-                                                 "position", "threats", "candidates",
-                                                 "playable_truncated", "asked_moves", "opening",
-                                                 "games"});
+    CHECK(keys(json) == std::vector<std::string>{
+                            "schema_version", "document", "input", "engine", "position", "threats",
+                            "candidates", "playable_truncated", "asked_moves", "opening", "games"});
     CHECK(keys(json["input"]) == std::vector<std::string>{"source", "fen", "pgn_game", "pgn_ply",
                                                           "moves", "selection", "level", "budget"});
-    CHECK(keys(json["input"]["selection"]) ==
-          std::vector<std::string>{"keywords", "top", "moves"});
+    CHECK(keys(json["input"]["selection"]) == std::vector<std::string>{"keywords", "top", "moves"});
     CHECK(json["input"]["selection"]["moves"][0] == "g8f6");
     CHECK(keys(json["engine"]) == std::vector<std::string>{"name", "threads", "hash_mb", "multipv",
                                                            "reproducible", "nodes",
@@ -91,9 +89,9 @@ TEST_CASE("JSON follows v6 report key order", "[unit]") {
           std::vector<std::string>{"source", "es", "cp", "mate"});
     CHECK(keys(json["threats"]) ==
           std::vector<std::string>{"white", "black", "null_move_reliable", "urgency"});
-    const std::vector<std::string> threat_keys{"source", "side", "root_fen", "line", "consequence",
-                                               "motifs", "is_tactic", "opportunity",
-                                               "tactic_labels"};
+    const std::vector<std::string> threat_keys{"source",    "side",        "root_fen",
+                                               "line",      "consequence", "motifs",
+                                               "is_tactic", "opportunity", "tactic_labels"};
     CHECK(keys(json["threats"]["white"]) == threat_keys);
     CHECK(keys(json["threats"]["black"]) == threat_keys);
     CHECK(json["threats"]["white"]["opportunity"].is_null());
@@ -101,11 +99,30 @@ TEST_CASE("JSON follows v6 report key order", "[unit]") {
           std::vector<std::string>{"source", "class", "mate_in", "material", "promotes", "plies"});
     CHECK(keys(json["threats"]["urgency"]) ==
           std::vector<std::string>{"source", "more_urgent", "rule"});
-    const std::vector<std::string> move_keys{
-        "source", "san", "uci", "eval", "depth", "loss", "verdict", "in_multipv", "gives_check",
-        "line", "walked_plies", "consequence", "is_tactic", "allows_tactic", "detailed",
-        "parries_threat", "creates_threat", "creates_threat_skipped", "refutation", "motifs",
-        "opportunity", "tactic_labels", "root_motifs", "positional"};
+    const std::vector<std::string> move_keys{"source",
+                                             "san",
+                                             "uci",
+                                             "eval",
+                                             "depth",
+                                             "loss",
+                                             "verdict",
+                                             "in_multipv",
+                                             "gives_check",
+                                             "line",
+                                             "walked_plies",
+                                             "consequence",
+                                             "is_tactic",
+                                             "allows_tactic",
+                                             "detailed",
+                                             "parries_threat",
+                                             "creates_threat",
+                                             "creates_threat_skipped",
+                                             "refutation",
+                                             "motifs",
+                                             "opportunity",
+                                             "tactic_labels",
+                                             "root_motifs",
+                                             "positional"};
     CHECK(keys(json["candidates"][0]) == move_keys);
     CHECK(keys(json["candidates"][0]["creates_threat"]) == threat_keys);
     CHECK(json["candidates"][0]["refutation"].is_null());
@@ -191,8 +208,9 @@ TEST_CASE("opportunity judgements and tactic-line fields serialize in v6", "[uni
     using namespace chesswhy;
 
     const auto forced = to_json(test_examples::forced_opportunity());
-    CHECK(forced["candidates"][0]["opportunity"].dump() ==
-          R"({"source":"rule","forced":true,"alternative":null,"margin":null,"is_opportunity":false})");
+    CHECK(
+        forced["candidates"][0]["opportunity"].dump() ==
+        R"({"source":"rule","forced":true,"alternative":null,"margin":null,"is_opportunity":false})");
 
     const auto tactic = to_json(test_examples::tactic_with_labels());
     const auto& judgement = tactic["candidates"][0]["opportunity"];
@@ -226,7 +244,6 @@ TEST_CASE("opportunity judgements and tactic-line fields serialize in v6", "[uni
     CHECK(refutation["candidates"][1]["refutation"]["tactic_labels"].size() == 1);
     CHECK(refutation["candidates"][1]["refutation"]["motifs"][0]["contribution"] == "direct");
 }
-
 
 TEST_CASE("scores and optional values are serialized", "[unit]") {
     using namespace chesswhy;

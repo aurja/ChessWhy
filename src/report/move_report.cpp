@@ -3,6 +3,7 @@
 #include "chesswhy/positional.hpp"
 
 #include <algorithm>
+#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -458,15 +459,14 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     result.root_motifs = relevant_motifs(assessment.root_motifs);
     result.tactic_labels = assessment.tactic_labels;
 
-    for (auto change = assessment.positional.rbegin(); change != assessment.positional.rend();
-         ++change) {
-        if (!change->holds_at_end ||
-            std::ranges::any_of(result.positional, [change](const PositionalChange& later) {
-                return positional::same_identity(later.feature, change->feature);
+    for (const auto& change : std::views::reverse(assessment.positional)) {
+        if (!change.holds_at_end ||
+            std::ranges::any_of(result.positional, [&change](const PositionalChange& later) {
+                return positional::same_identity(later.feature, change.feature);
             })) {
             continue;
         }
-        result.positional.push_back(*change);
+        result.positional.push_back(change);
     }
     std::ranges::reverse(result.positional);
 

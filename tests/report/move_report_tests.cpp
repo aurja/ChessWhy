@@ -64,6 +64,7 @@ using namespace chesswhy;
 
 [[nodiscard]] std::vector<std::string> ucis(const MoveReportDocument& document) {
     std::vector<std::string> result;
+    result.reserve(document.moves.size());
     for (const auto& move : document.moves) {
         result.push_back(move.uci);
     }
@@ -186,7 +187,17 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
     CHECK(document.input.moves == "all");
     CHECK(document.engine.multipv == 6);
     CHECK(document.position.fen == report.position.fen);
-    CHECK(document.position.eval_white->es_units == report.position.eval_white->es_units);
+    REQUIRE(document.position.eval_white.has_value());
+    REQUIRE(report.position.eval_white.has_value());
+    if (!document.position.eval_white.has_value()) {
+        return;
+    }
+    const auto& document_eval_white = *document.position.eval_white;
+    if (!report.position.eval_white.has_value()) {
+        return;
+    }
+    const auto& report_eval_white = *report.position.eval_white;
+    CHECK(document_eval_white.es_units == report_eval_white.es_units);
     CHECK(document.selection.selection.keywords == report.input.selection.keywords);
     CHECK(document.opening.dataset == report.opening.dataset);
     CHECK(document.games.size() == 1);
@@ -274,20 +285,42 @@ TEST_CASE("move report relevance filter keeps conditional fields and drops irrel
     CHECK(best_report.positional[0].feature.value == 20);
     CHECK(best_report.positional[1].feature.side == Side::Black);
     REQUIRE(best_report.parried_threat.has_value());
-    CHECK(best_report.parried_threat->test == ParryTest::ThreatMoveIllegal);
-    CHECK(best_report.parried_threat->threat.line_san == report.threats->black->line_san);
-    CHECK(best_report.parried_threat->threat.motifs.empty());
-    CHECK_FALSE(best_report.parried_threat->threat.is_tactic.has_value());
-    CHECK(best_report.created_threat->consequence.cls == ConsequenceClass::Mate);
-    CHECK(best_report.created_threat->motifs.empty());
+    if (!best_report.parried_threat.has_value()) {
+        return;
+    }
+    const auto& parried_threat = *best_report.parried_threat;
+    REQUIRE(report.threats.has_value());
+    REQUIRE(report.threats->black.has_value());
+    const auto& black_threat = *report.threats->black;
+    CHECK(parried_threat.test == ParryTest::ThreatMoveIllegal);
+    CHECK(parried_threat.threat.line_san == black_threat.line_san);
+    CHECK(parried_threat.threat.motifs.empty());
+    CHECK_FALSE(parried_threat.threat.is_tactic.has_value());
+    REQUIRE(best_report.created_threat.has_value());
+    if (!best_report.created_threat.has_value()) {
+        return;
+    }
+    const auto& created_threat = *best_report.created_threat;
+    CHECK(created_threat.consequence.cls == ConsequenceClass::Mate);
+    CHECK(created_threat.motifs.empty());
     CHECK_FALSE(okay_report.parried_threat.has_value());
     CHECK_FALSE(okay_report.created_threat.has_value());
     CHECK_FALSE(okay_report.opportunity.has_value());
     CHECK_FALSE(document.moves[1].refutation.has_value());
     CHECK(blunder_report.refutation.has_value());
-    CHECK(blunder_report.refutation->motifs.size() == 2);
-    CHECK(blunder_report.refutation->motifs[1].contribution == MotifContribution::Indirect);
-    CHECK(blunder_report.refutation->opportunity->is_opportunity);
+    REQUIRE(blunder_report.refutation.has_value());
+    if (!blunder_report.refutation.has_value()) {
+        return;
+    }
+    const auto& refutation = *blunder_report.refutation;
+    CHECK(refutation.motifs.size() == 2);
+    CHECK(refutation.motifs[1].contribution == MotifContribution::Indirect);
+    REQUIRE(refutation.opportunity.has_value());
+    if (!refutation.opportunity.has_value()) {
+        return;
+    }
+    const auto& opportunity = *refutation.opportunity;
+    CHECK(opportunity.is_opportunity);
     CHECK(okay_report.tactic_labels.empty());
     CHECK_FALSE(blunder_report.games.has_value());
     CHECK(best_report.games == report.games.by_source.front().moves.front().games);

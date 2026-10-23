@@ -121,17 +121,24 @@ to_string(CreatesThreatSkip skip);                 // "gives_check", "game_over"
 
 struct Selection {
     enum class Keyword : std::uint8_t {
-        Best, Playable, Inaccuracies, Mistakes, Blunders, Unplayable, All };
-    std::vector<Keyword> keywords;           // enum order, each once
-    std::optional<int> top;                  // largest topN; >= 1
-    std::vector<std::string> moves;          // asked moves, UCI, typed order, each once
+        Best,
+        Playable,
+        Inaccuracies,
+        Mistakes,
+        Blunders,
+        Unplayable,
+        All
+    };
+    std::vector<Keyword> keywords;  // enum order, each once
+    std::optional<int> top;         // largest topN; >= 1
+    std::vector<std::string> moves; // asked moves, UCI, typed order, each once
 };
 
 struct InputInfo {
     InputSource source = InputSource::Fen;
-    std::string fen;                 // analysed position, full FEN as produced by chess-library
-    std::optional<int> pgn_game;     // 1-based, set iff source == Pgn
-    std::optional<int> pgn_ply;      // half-moves played from the game's start position, iff Pgn
+    std::string fen;                  // analysed position, full FEN as produced by chess-library
+    std::optional<int> pgn_game;      // 1-based, set iff source == Pgn
+    std::optional<int> pgn_ply;       // half-moves played from the game's start position, iff Pgn
     std::optional<std::string> moves; // --moves exactly as typed
     Selection selection;
     Level level = Level::Club;
@@ -240,10 +247,10 @@ struct BestAlternative {
 
 // Opportunity judgement of a line (M4 §4.4). Source: engine, or rule iff forced.
 struct OpportunityJudgement {
-    bool forced = false;                         // the line's root has exactly one legal move
+    bool forced = false;                        // the line's root has exactly one legal move
     std::optional<BestAlternative> alternative; // null iff forced
-    std::optional<int> margin_units;             // line ES - alternative ES; null iff forced
-    bool is_opportunity = false;                 // margin_units >= analysis::kOpportunityMarginUnits
+    std::optional<int> margin_units;            // line ES - alternative ES; null iff forced
+    bool is_opportunity = false;                // margin_units >= analysis::kOpportunityMarginUnits
 };
 
 // A positional feature of one board (M3a §4). Source: rule. Identity per the tag's
@@ -291,7 +298,7 @@ struct Threat {
     std::string root_fen;
     std::vector<std::string> line_san; // at most 10 plies
     Consequence consequence;
-    std::vector<Motif> motifs; // plies 1..consequence.plies of the line (M2 §5)
+    std::vector<Motif> motifs;     // plies 1..consequence.plies of the line (M2 §5)
     std::optional<bool> is_tactic; // set iff a refutation (§4.3)
     std::optional<OpportunityJudgement> opportunity;
     std::vector<TacticLabel> tactic_labels; // empty unless a tactic line
@@ -323,10 +330,10 @@ struct MoveAssessment {
     std::optional<Threat> creates_threat;    // search E
     std::optional<CreatesThreatSkip> creates_threat_skipped; // null iff creates_threat is set
     std::optional<Threat> refutation; // opponent reply line; set iff verdict is not playable
-    std::vector<Motif> motifs; // plies 1..walked_plies of `line_san`
+    std::vector<Motif> motifs;        // plies 1..walked_plies of `line_san`
     std::optional<OpportunityJudgement> opportunity; // A line 1
     std::vector<TacticLabel> tactic_labels;
-    std::vector<Motif> root_motifs; // §4.5; empty unless a tactic line
+    std::vector<Motif> root_motifs;           // §4.5; empty unless a tactic line
     std::vector<PositionalChange> positional; // M3a §5 over plies 1..walked_plies of line_san
 };
 

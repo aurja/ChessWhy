@@ -55,7 +55,9 @@ dropped (M1 §9). Verdicts below are on the M4 scale (best, okay, inaccuracy, mi
 blunder); "Asked" moves are the fixture's `--moves` items.
 All F fixtures pass when run one at a time; under `ctest -j8` on the 8-core
 laptop, eight of them exceeded the 12-second timing check (`CHESSWHY_CHECK_TIMING`),
-which is a load effect, not a wrong result.
+which is a load effect, not a wrong result. So the F tests run one at a time only when
+the timing check is on; without it they run in parallel (from 2026-10-23), since a
+report does not depend on load (`Threads=1`, fixed node budgets).
 
 | ID | Board | Position | Fixture claims | Codebase today | Comments |
 |---|---|---|---|---|---|

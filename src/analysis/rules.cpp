@@ -29,17 +29,12 @@ int es_units(const engine::Line& line) {
 }
 
 bool judges_every_move(const Selection& selection) {
-    for (const auto keyword : selection.keywords) {
-        if (keyword == Selection::Keyword::Playable ||
-            keyword == Selection::Keyword::Inaccuracies ||
-            keyword == Selection::Keyword::Mistakes ||
-            keyword == Selection::Keyword::Blunders ||
-            keyword == Selection::Keyword::Unplayable ||
-            keyword == Selection::Keyword::All) {
-            return true;
-        }
-    }
-    return false;
+    return std::ranges::any_of(selection.keywords, [](Selection::Keyword keyword) {
+        return keyword == Selection::Keyword::Playable ||
+               keyword == Selection::Keyword::Inaccuracies ||
+               keyword == Selection::Keyword::Mistakes || keyword == Selection::Keyword::Blunders ||
+               keyword == Selection::Keyword::Unplayable || keyword == Selection::Keyword::All;
+    });
 }
 
 int multipv_lines(const Selection& selection, int legal_moves) {
@@ -49,14 +44,13 @@ int multipv_lines(const Selection& selection, int legal_moves) {
     if (judges_every_move(selection)) {
         return legal_moves;
     }
-    const int requested = selection.top.has_value() ? std::max(kMinMultiPv, *selection.top)
-                                                    : kMinMultiPv;
+    const int requested =
+        selection.top.has_value() ? std::max(kMinMultiPv, *selection.top) : kMinMultiPv;
     return std::min(legal_moves, requested);
 }
 bool is_detailed_line(int line_number, bool selected) {
     return line_number >= 1 && (line_number <= kDetailedLines || selected);
 }
-
 
 std::uint64_t search_a_nodes(Budget budget, int lines) {
     if (lines <= 0) {

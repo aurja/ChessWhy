@@ -116,9 +116,7 @@ TEST_CASE("tactic and allows-tactic use the move's line consequence", "[analysis
                                           .material = 0,
                                           .promotes = false,
                                           .plies = 0},
-                              Eval{.es_units = 1000,
-                                   .cp = std::nullopt,
-                                   .mate = std::nullopt}));
+                              Eval{.es_units = 1000, .cp = std::nullopt, .mate = std::nullopt}));
     CHECK(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
                                     .mate_in = std::nullopt,
                                     .material = 0,
@@ -156,23 +154,21 @@ TEST_CASE("selection sets Search A width and nodes", "[analysis][unit]") {
 
     const Selection top_three{.keywords = {}, .top = 3, .moves = {}};
     CHECK(multipv_lines(top_three, 31) == 5);
-    CHECK(search_a_nodes(chesswhy::Budget::Standard,
-                         multipv_lines(top_three, 31)) == 1'000'000);
+    CHECK(search_a_nodes(chesswhy::Budget::Standard, multipv_lines(top_three, 31)) == 1'000'000);
     const Selection top_seven{.keywords = {}, .top = 7, .moves = {}};
     CHECK(multipv_lines(top_seven, 31) == 7);
-    CHECK(search_a_nodes(chesswhy::Budget::Standard,
-                         multipv_lines(top_seven, 31)) == 1'400'000);
+    CHECK(search_a_nodes(chesswhy::Budget::Standard, multipv_lines(top_seven, 31)) == 1'400'000);
     CHECK(multipv_lines(top_seven, 4) == 4);
 
-    constexpr std::array whole_board_keywords{
-        Keyword::Playable, Keyword::Inaccuracies, Keyword::Mistakes,
-        Keyword::Blunders, Keyword::Unplayable, Keyword::All};
+    constexpr std::array whole_board_keywords{Keyword::Playable,   Keyword::Inaccuracies,
+                                              Keyword::Mistakes,   Keyword::Blunders,
+                                              Keyword::Unplayable, Keyword::All};
     for (const auto keyword : whole_board_keywords) {
         const Selection selection{.keywords = {keyword}, .top = std::nullopt, .moves = {}};
         CHECK(judges_every_move(selection));
         CHECK(multipv_lines(selection, 31) == 31);
-        CHECK(search_a_nodes(chesswhy::Budget::Standard,
-                             multipv_lines(selection, 31)) == 6'200'000);
+        CHECK(search_a_nodes(chesswhy::Budget::Standard, multipv_lines(selection, 31)) ==
+              6'200'000);
         CHECK(multipv_lines(selection, 3) == 3);
     }
     CHECK(multipv_lines(best, 0) == 0);

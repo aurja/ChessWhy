@@ -196,7 +196,6 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     return labels;
 }
 
-
 [[nodiscard]] Json serialize_opportunity(const OpportunityJudgement& opportunity) {
     Json value = Json::object();
     value["source"] = opportunity.forced ? "rule" : "engine";
@@ -210,9 +209,9 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     } else {
         value["alternative"] = nullptr;
     }
-    value["margin"] =
-        opportunity.margin_units ? Json(static_cast<double>(*opportunity.margin_units) / 2000.0)
-                                 : Json(nullptr);
+    value["margin"] = opportunity.margin_units
+                          ? Json(static_cast<double>(*opportunity.margin_units) / 2000.0)
+                          : Json(nullptr);
     value["is_opportunity"] = opportunity.is_opportunity;
     return value;
 }
@@ -622,7 +621,8 @@ nlohmann::ordered_json to_json(const Report& report) {
         }
     }
     selection["keywords"] = std::move(keywords);
-    selection["top"] = report.input.selection.top ? Json(*report.input.selection.top) : Json(nullptr);
+    selection["top"] =
+        report.input.selection.top ? Json(*report.input.selection.top) : Json(nullptr);
     selection["moves"] = report.input.selection.moves;
     input["selection"] = std::move(selection);
     input["level"] = to_string(report.input.level);

@@ -10,6 +10,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
 #include <chess.hpp>
 
 namespace chesswhy::analysis {
@@ -36,7 +37,6 @@ struct Request {
 // report.position, report.threats, report.candidates, report.playable_truncated and
 // report.asked_moves. Runs no search for a terminal position.
 void analyse(engine::Engine& engine, const Request& request, Report& report);
-
 
 // ---- Pure rules (unit-tested without an engine) ----
 

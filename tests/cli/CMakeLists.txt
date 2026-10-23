@@ -30,8 +30,12 @@ foreach(index RANGE 0 ${CLI_FIXTURE_LAST_INDEX})
         COMMAND cli_fixture_test "${fixture_id}" "$<BOOL:${CHESSWHY_CHECK_TIMING}>")
     set_tests_properties(cli_fixture_${fixture_id} PROPERTIES
         LABELS engine
-        FIXTURES_SETUP cli_report_${fixture_id}
-        RESOURCE_LOCK engine)
+        FIXTURES_SETUP cli_report_${fixture_id})
+    if(CHESSWHY_CHECK_TIMING)
+        # Timed runs must not share cores; untimed reports do not depend on load
+        # (Threads=1, fixed node budgets), so they run in parallel.
+        set_tests_properties(cli_fixture_${fixture_id} PROPERTIES RESOURCE_LOCK engine)
+    endif()
     set(report_prefix "${CMAKE_CURRENT_BINARY_DIR}/reports/${fixture_id}")
     list(APPEND CLI_FULL_REPORT_FILES "${report_prefix}.full.json")
     list(APPEND CLI_MOVES_REPORT_FILES "${report_prefix}.moves.json")
@@ -93,4 +97,4 @@ set_tests_properties(report_schema PROPERTIES
     FIXTURES_REQUIRED "${CLI_REPORT_FIXTURES}")
 
 add_test(NAME cli_rerun_identity COMMAND cli_identity_test)
-set_tests_properties(cli_rerun_identity PROPERTIES LABELS engine RESOURCE_LOCK engine)
+set_tests_properties(cli_rerun_identity PROPERTIES LABELS engine)

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -37,7 +38,7 @@ using Clock = std::chrono::steady_clock;
     return Json::parse(input);
 }
 
-enum class OutputMode { FullJson, MovesJson, Text, FullText };
+enum class OutputMode : std::uint8_t { FullJson, MovesJson, Text, FullText };
 
 [[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args, OutputMode mode) {
     std::vector<std::string> args;
