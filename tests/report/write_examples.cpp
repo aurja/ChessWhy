@@ -20,8 +20,8 @@ int main(int argc, char** argv) noexcept {
         constexpr std::array<const char*, 8> filenames{
             "terminal_checkmate.json",        "side_in_check.json",
             "normal_position.json",           "pgn_opening.json",
-            "tactic_with_labels.json",        "forced_judgement.json",
-            "negative_margin_judgement.json", "refutation_judgement.json"};
+            "tactic_with_labels.json",        "forced_opportunity.json",
+            "negative_margin_opportunity.json", "refutation_opportunity.json"};
         const auto reports = chesswhy::test_examples::schema_reports();
         for (std::size_t index = 0; index < reports.size(); ++index) {
             std::ofstream output(output_directory / filenames[index], std::ios::binary);

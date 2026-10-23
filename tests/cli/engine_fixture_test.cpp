@@ -170,11 +170,12 @@ void check_expectations(const Json& fixture, const Json& report,
             if (candidates != nullptr && candidates->is_array()) {
                 found = std::ranges::any_of(*candidates, [&](const Json& candidate) {
                     return candidate.value("san", std::string{}) == san.get<std::string>() &&
-                           candidate.value("verdict", std::string{}) == "fine";
+                           (candidate.value("verdict", std::string{}) == "best" ||
+                            candidate.value("verdict", std::string{}) == "okay");
                 });
             }
-            const Json expected = {{"san", san}, {"verdict", "fine"}};
-            check_value(found, id, "fine_includes:" + san.get<std::string>(), expected,
+            const Json expected = {{"san", san}, {"verdict", "best or okay"}};
+            check_value(found, id, "playable_includes:" + san.get<std::string>(), expected,
                         found ? &expected : nullptr, failures);
         }
     }

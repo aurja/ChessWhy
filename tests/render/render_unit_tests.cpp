@@ -22,7 +22,7 @@ namespace {
         if (line.starts_with("Engine:") || line.starts_with("Budget:") ||
             line.starts_with("Candidates:") || line.starts_with("Candidate 1:") ||
             line.starts_with("Candidate 1 facts read to ply") ||
-            line.starts_with("Asked move facts read to ply") ||
+            line.starts_with("Asked move 1 facts read to ply") ||
             line.find("parries threat: false (deferred_by_check") != std::string::npos ||
             line.find("creates threat line (if") != std::string::npos ||
             line.find("creates threat: not searched") != std::string::npos ||
@@ -58,7 +58,7 @@ TEST_CASE("PostM3_EM2 template wording matches its golden lines", "[unit]") {
     candidate.uci = "g7g6";
     candidate.eval.es_units = 960;
     candidate.loss_units = 0;
-    candidate.verdict = Verdict::Fine;
+    candidate.verdict = Verdict::Best;
     candidate.depth = 16;
     candidate.line_san = {"g6", "Nf6", "Qe5", "d6", "Qf4", "Nc6", "d4", "g5", "Be3", "Bg7"};
     candidate.walked_plies = 6;
@@ -132,7 +132,10 @@ TEST_CASE("PostM3_EM2 template wording matches its golden lines", "[unit]") {
     skipped.gives_check = true;
     skipped.parries_threat = ParryInfo{.parries = false, .test = ParryTest::DeferredByCheck};
     skipped.creates_threat_skipped = CreatesThreatSkip::GivesCheck;
-    report.asked_move = std::move(skipped);
+    report.asked_moves.push_back(std::move(skipped));
+    report.input.moves = "Nf6";
+    report.input.selection.keywords.clear();
+    report.input.selection.moves = {"g8f6"};
 
     const std::string path =
         std::string(CHESSWHY_SOURCE_DIR) + "/tests/render/golden/postm3_em2_template.txt";
@@ -147,8 +150,8 @@ TEST_CASE("example reports match the golden text", "[unit]") {
     constexpr std::array<const char*, 8> filenames{
         "terminal_checkmate.txt",        "side_in_check.txt",
         "normal_position.txt",           "pgn_opening.txt",
-        "tactic_with_labels.txt",        "forced_judgement.txt",
-        "negative_margin_judgement.txt", "refutation_judgement.txt"};
+        "tactic_with_labels.txt",        "forced_opportunity.txt",
+        "negative_margin_opportunity.txt", "refutation_opportunity.txt"};
     const auto reports = chesswhy::test_examples::all_reports();
 
     for (std::size_t index = 0; index < reports.size(); ++index) {
@@ -185,7 +188,7 @@ TEST_CASE("motif rows and level-independent output", "[unit]") {
     report.input.level = chesswhy::Level::Beginner;
     CHECK(chesswhy::render::text(report) == club_text);
     CHECK(club_text.find("fork: N e5 → r c6, k g6 (ply 3) [rule]") != std::string::npos);
-    CHECK(club_text.find("hanging_piece: n d5, SEE 3 (ply 1) [rule]") != std::string::npos);
+    CHECK(club_text.find("promotion: Q e8 (ply 1) [rule]") != std::string::npos);
     CHECK(club_text.find("skewer: q f6 → R f1 (ply 1) [rule]") == std::string::npos);
     CHECK(club_text.find("back_rank_weakness: k e8 (ply 0) [rule]") == std::string::npos);
 }
@@ -213,46 +216,35 @@ TEST_CASE("positional and game facts render only from report fields", "[unit]") 
                          "plies) [games]") != std::string::npos);
 }
 
-TEST_CASE("tactic judgements, labels and contributions render from report fields", "[unit]") {
+TEST_CASE("opportunities, tactic labels and contributions render from report fields", "[unit]") {
     const std::string tactic_text =
         chesswhy::render::text(chesswhy::test_examples::tactic_with_labels());
-    CHECK(tactic_text.find("tactic: next best g6 is 0.49 worse [engine]") != std::string::npos);
+    CHECK(tactic_text.find("opportunity: next best g6 is 0.49 worse [engine]") !=
+          std::string::npos);
     CHECK(tactic_text.find("removal_of_defender: b d5 → N d5, R e4 (ply 1) [rule]") !=
           std::string::npos);
     CHECK(tactic_text.find("fork: n f3 → K e1, Q d4 (ply 1, direct) [rule]") != std::string::npos);
-    CHECK(tactic_text.find("restricted movement (absolute pin): R e1 → n e5, k e8; at square e5; "
-                           "restricted: Ne5-c6, Ne5-d7; free: none (ply 0) [rule]") !=
-          std::string::npos);
-    CHECK(tactic_text.find("restricted movement (relative pin): B b1 → n c2, q e4; at square c2; "
-                           "restricted: Nc2-b4; free: none (ply 0) [rule]") != std::string::npos);
-    CHECK(tactic_text.find("restricted movement (overloaded defender): n d5 → R e4, Q c4; "
-                           "at square d5; restricted: Nd5-e7; free: none (ply 1) [rule]") !=
-          std::string::npos);
-    CHECK(tactic_text.find("restricted movement (tactic: Nd5-f4 fork): n d5 → "
-                           "P g3, Q e2, K g2; at square g3; restricted: g3-g4; free: none "
-                           "(ply 1, direct) [rule]") != std::string::npos);
     CHECK(tactic_text.find("back_rank_weakness: k e8") == std::string::npos);
-    const auto asked_copy_report = chesswhy::test_examples::tactic_with_asked_move();
-    const std::string asked_copy_text = chesswhy::render::text(asked_copy_report);
-    const std::size_t asked_line = asked_copy_text.find("Asked move line: Nf6 Qxf7# [engine]");
-    REQUIRE(asked_line != std::string::npos);
-    CHECK(asked_copy_text.find("tactic: next best g6 is 0.49 worse [engine]", asked_line) !=
-          std::string::npos);
+
+    const std::string asked_text =
+        chesswhy::render::text(chesswhy::test_examples::normal_position());
+    CHECK(asked_text.find("Asked move 1 line: Nf6 Qxf7# [engine]") != std::string::npos);
+    CHECK(asked_text.find("Asked move 1 refutation line: Qxf7# [engine]") != std::string::npos);
 
     const std::string forced_text =
-        chesswhy::render::text(chesswhy::test_examples::forced_judgement());
+        chesswhy::render::text(chesswhy::test_examples::forced_opportunity());
     CHECK(forced_text.find("forced: only legal move [rule]") != std::string::npos);
-    CHECK(forced_text.find("tactic:") == std::string::npos);
+    CHECK(forced_text.find("opportunity:") == std::string::npos);
 
     const std::string negative_text =
-        chesswhy::render::text(chesswhy::test_examples::negative_margin_judgement());
-    CHECK(negative_text.find("tactic:") == std::string::npos);
+        chesswhy::render::text(chesswhy::test_examples::negative_margin_opportunity());
+    CHECK(negative_text.find("opportunity:") == std::string::npos);
     CHECK(negative_text.find("forced:") == std::string::npos);
 
     const std::string refutation_text =
-        chesswhy::render::text(chesswhy::test_examples::refutation_judgement());
-    CHECK(refutation_text.find("Candidate 1 refutation line: Qxf7# [engine]\n"
-                               "tactic: next best Qe2 is 0.20 worse [engine]\n"
+        chesswhy::render::text(chesswhy::test_examples::refutation_opportunity());
+    CHECK(refutation_text.find("Candidate 2 refutation line: Qxf7# [engine]\n"
+                               "opportunity: next best Qe2 is 0.20 worse [engine]\n"
                                "removal_of_defender: b d5 → N d5, R e4 (ply 1) [rule]") !=
           std::string::npos);
     CHECK(refutation_text.find("fork: Q h5 → k f7, k e8 (ply 1, direct) [rule]") !=

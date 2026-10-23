@@ -188,33 +188,38 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["targets"] = std::move(targets);
     return value;
 }
+[[nodiscard]] Json serialize_tactic_labels(const std::vector<TacticLabel>& values) {
+    Json labels = Json::array();
+    for (const auto& label : values) {
+        labels.push_back(serialize_tactic_label(label));
+    }
+    return labels;
+}
 
-[[nodiscard]] Json serialize_tactic(const TacticJudgement& tactic) {
+
+[[nodiscard]] Json serialize_opportunity(const OpportunityJudgement& opportunity) {
     Json value = Json::object();
-    value["source"] = tactic.forced ? "rule" : "engine";
-    value["forced"] = tactic.forced;
-    if (tactic.alternative) {
+    value["source"] = opportunity.forced ? "rule" : "engine";
+    value["forced"] = opportunity.forced;
+    if (opportunity.alternative) {
         Json alternative = Json::object();
-        alternative["san"] = tactic.alternative->san;
-        alternative["uci"] = tactic.alternative->uci;
-        alternative["eval"] = serialize_eval(tactic.alternative->eval);
+        alternative["san"] = opportunity.alternative->san;
+        alternative["uci"] = opportunity.alternative->uci;
+        alternative["eval"] = serialize_eval(opportunity.alternative->eval);
         value["alternative"] = std::move(alternative);
     } else {
         value["alternative"] = nullptr;
     }
-    value["margin"] = tactic.margin_units ? Json(static_cast<double>(*tactic.margin_units) / 2000.0)
-                                          : Json(nullptr);
-    value["is_tactic"] = tactic.is_tactic;
-    Json labels = Json::array();
-    for (const auto& label : tactic.labels) {
-        labels.push_back(serialize_tactic_label(label));
-    }
-    value["labels"] = std::move(labels);
+    value["margin"] =
+        opportunity.margin_units ? Json(static_cast<double>(*opportunity.margin_units) / 2000.0)
+                                 : Json(nullptr);
+    value["is_opportunity"] = opportunity.is_opportunity;
     return value;
 }
 
-[[nodiscard]] Json serialize_optional_tactic(const std::optional<TacticJudgement>& tactic) {
-    return tactic ? serialize_tactic(*tactic) : Json(nullptr);
+[[nodiscard]] Json
+serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opportunity) {
+    return opportunity ? serialize_opportunity(*opportunity) : Json(nullptr);
 }
 
 [[nodiscard]] Json serialize_consequence(const Consequence& consequence) {
@@ -236,7 +241,9 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["line"] = threat.line_san;
     value["consequence"] = serialize_consequence(threat.consequence);
     value["motifs"] = serialize_motifs(threat.motifs);
-    value["tactic"] = serialize_optional_tactic(threat.tactic);
+    value["is_tactic"] = threat.is_tactic ? Json(*threat.is_tactic) : Json(nullptr);
+    value["opportunity"] = serialize_optional_opportunity(threat.opportunity);
+    value["tactic_labels"] = serialize_tactic_labels(threat.tactic_labels);
     return value;
 }
 
@@ -260,6 +267,10 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["gives_check"] = move.gives_check;
     value["line"] = move.line_san;
     value["walked_plies"] = move.walked_plies;
+    value["consequence"] = serialize_consequence(move.consequence);
+    value["is_tactic"] = move.is_tactic;
+    value["allows_tactic"] = move.allows_tactic;
+    value["detailed"] = move.detailed;
     if (move.parries_threat) {
         Json parry = Json::object();
         parry["source"] = parry_source(move.parries_threat->test);
@@ -275,7 +286,9 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
         move.creates_threat_skipped ? Json(to_string(*move.creates_threat_skipped)) : Json(nullptr);
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
     value["motifs"] = serialize_motifs(move.motifs);
-    value["tactic"] = serialize_optional_tactic(move.tactic);
+    value["opportunity"] = serialize_optional_opportunity(move.opportunity);
+    value["tactic_labels"] = serialize_tactic_labels(move.tactic_labels);
+    value["root_motifs"] = serialize_motifs(move.root_motifs);
     value["positional"] = serialize_positional_changes(move.positional);
     return value;
 }
@@ -352,8 +365,10 @@ std::string to_string(ConsequenceClass cls) {
 
 std::string to_string(Verdict verdict) {
     switch (verdict) {
-    case Verdict::Fine:
-        return "fine";
+    case Verdict::Best:
+        return "best";
+    case Verdict::Okay:
+        return "okay";
     case Verdict::Inaccuracy:
         return "inaccuracy";
     case Verdict::Mistake:
@@ -571,17 +586,48 @@ const char* parry_source(ParryTest test) {
 nlohmann::ordered_json to_json(const Report& report) {
     Json value = Json::object();
     value["schema_version"] = report.schema_version;
+    value["document"] = "full";
 
     Json input = Json::object();
     input["source"] = to_string(report.input.source);
     input["fen"] = report.input.fen;
     input["pgn_game"] = report.input.pgn_game ? Json(*report.input.pgn_game) : Json(nullptr);
     input["pgn_ply"] = report.input.pgn_ply ? Json(*report.input.pgn_ply) : Json(nullptr);
-    input["move"] = report.input.move ? Json(*report.input.move) : Json(nullptr);
+    input["moves"] = report.input.moves ? Json(*report.input.moves) : Json(nullptr);
+    Json selection = Json::object();
+    Json keywords = Json::array();
+    for (const auto keyword : report.input.selection.keywords) {
+        switch (keyword) {
+        case Selection::Keyword::Best:
+            keywords.push_back("best");
+            break;
+        case Selection::Keyword::Playable:
+            keywords.push_back("playable");
+            break;
+        case Selection::Keyword::Inaccuracies:
+            keywords.push_back("inaccuracies");
+            break;
+        case Selection::Keyword::Mistakes:
+            keywords.push_back("mistakes");
+            break;
+        case Selection::Keyword::Blunders:
+            keywords.push_back("blunders");
+            break;
+        case Selection::Keyword::Unplayable:
+            keywords.push_back("unplayable");
+            break;
+        case Selection::Keyword::All:
+            keywords.push_back("all");
+            break;
+        }
+    }
+    selection["keywords"] = std::move(keywords);
+    selection["top"] = report.input.selection.top ? Json(*report.input.selection.top) : Json(nullptr);
+    selection["moves"] = report.input.selection.moves;
+    input["selection"] = std::move(selection);
     input["level"] = to_string(report.input.level);
     input["budget"] = to_string(report.input.budget);
     value["input"] = std::move(input);
-
     Json engine = Json::object();
     engine["name"] = report.engine.name;
     engine["threads"] = report.engine.threads;
@@ -641,8 +687,12 @@ nlohmann::ordered_json to_json(const Report& report) {
         candidates.push_back(serialize_move(candidate));
     }
     value["candidates"] = std::move(candidates);
-    value["fine_truncated"] = report.fine_truncated;
-    value["asked_move"] = report.asked_move ? serialize_move(*report.asked_move) : Json(nullptr);
+    value["playable_truncated"] = report.playable_truncated;
+    Json asked_moves = Json::array();
+    for (const auto& asked_move : report.asked_moves) {
+        asked_moves.push_back(serialize_move(asked_move));
+    }
+    value["asked_moves"] = std::move(asked_moves);
 
     Json opening = Json::object();
     opening["source"] = "book";

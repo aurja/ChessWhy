@@ -21,10 +21,11 @@ struct Options {
     std::optional<std::filesystem::path> pgn;
     int game = 1;
     std::optional<int> ply;
-    std::optional<std::string> move;
+    std::optional<std::string> moves;
     Level level = Level::Club;
     Budget budget = Budget::Standard;
     bool json = false;
+    bool full_report = false;
     bool no_llm = false; // accepted; M1 always renders the template
     int threads = 1;
     std::filesystem::path engine;   // default: <assets>/engines/stockfish

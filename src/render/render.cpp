@@ -134,7 +134,7 @@ void write_candidate_count(std::ostringstream& output, const Report& report) {
            << " legal moves (engine's top " << count << ')';
     if (report.position.legal_moves > 0 &&
         count < static_cast<std::size_t>(report.position.legal_moves)) {
-        output << "; unlisted moves are not judged and may also be fine";
+        output << "; unlisted moves are not judged and may also be playable";
     }
     output << " [rule]\n";
 }
@@ -234,31 +234,29 @@ void write_tactic_labels(std::ostringstream& output, const std::vector<TacticLab
     }
 }
 
-void write_tactic(std::ostringstream& output, const std::optional<TacticJudgement>& tactic) {
-    if (!tactic) {
+void write_opportunity(std::ostringstream& output,
+                       const std::optional<OpportunityJudgement>& opportunity) {
+    if (!opportunity) {
         return;
     }
-    if (tactic->forced) {
+    if (opportunity->forced) {
         output << "forced: only legal move [rule]\n";
         return;
     }
-    if (!tactic->is_tactic) {
+    if (!opportunity->is_opportunity || !opportunity->alternative.has_value() ||
+        !opportunity->margin_units.has_value()) {
         return;
     }
 
-    if (!tactic->alternative.has_value() || !tactic->margin_units.has_value()) {
-        return;
-    }
-    const TacticAlternative& alternative = tactic->alternative.value();
-    const int margin_units = tactic->margin_units.value();
+    const BestAlternative& alternative = *opportunity->alternative;
+    const int margin_units = *opportunity->margin_units;
     const auto flags = output.flags();
     const auto precision = output.precision();
-    output << "tactic: next best " << alternative.san << " is " << std::fixed
+    output << "opportunity: next best " << alternative.san << " is " << std::fixed
            << std::setprecision(2) << static_cast<double>(margin_units) / 2000.0
            << " worse [engine]\n";
     output.flags(flags);
     output.precision(precision);
-    write_tactic_labels(output, tactic->labels);
 }
 
 void write_consequence(std::ostringstream& output, const std::string& label,
@@ -281,10 +279,12 @@ void write_threat(std::ostringstream& output, const std::string& label,
         return;
     }
     output << label << " line: " << san_line(threat->line_san) << " [engine]\n";
+    write_opportunity(output, threat->opportunity);
+    write_tactic_labels(output, threat->tactic_labels);
     write_motifs(output, threat->motifs);
     write_consequence(output, label + " consequence", threat->consequence);
-}
 
+}
 void write_positional_changes(std::ostringstream& output,
                               const std::vector<PositionalChange>& changes) {
     for (const auto& change : changes) {
@@ -362,11 +362,15 @@ void write_games_summary(std::ostringstream& output, const GamesInfo& games) {
 void write_move_details(std::ostringstream& output, const std::string& label,
                         const MoveAssessment& move, const GamesInfo& games, Side side_to_move) {
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
+    if (!move.detailed) {
+        return;
+    }
     write_walk(output, label, move);
     write_positional_changes(output, move.positional);
     write_game_move_counts(output, move, games);
-    write_tactic(output, move.tactic);
-    if (move.verdict == Verdict::Fine) {
+    write_opportunity(output, move.opportunity);
+    write_tactic_labels(output, move.tactic_labels);
+    if (move.verdict == Verdict::Best || move.verdict == Verdict::Okay) {
         write_motifs(output, move.motifs);
     }
     if (move.parries_threat) {
@@ -400,7 +404,8 @@ void write_move_details(std::ostringstream& output, const std::string& label,
     if (move.refutation) {
         output << label << " refutation line: " << san_line(move.refutation->line_san)
                << " [engine]\n";
-        write_tactic(output, move.refutation->tactic);
+        write_opportunity(output, move.refutation->opportunity);
+        write_tactic_labels(output, move.refutation->tactic_labels);
         write_motifs(output, move.refutation->motifs);
         write_consequence(output, label + " refutation consequence", move.refutation->consequence);
     } else {
@@ -475,13 +480,16 @@ std::string text(const Report& report) {
         write_move_details(output, label, candidate, report.games, report.position.side_to_move);
     }
 
-    if (report.asked_move) {
-        output << "Asked move: " << report.asked_move->san << " (" << report.asked_move->uci
-               << "), " << to_string(report.asked_move->verdict)
-               << ", in_multipv: " << boolean(report.asked_move->in_multipv) << " [engine]\n";
-        write_move_details(output, "Asked move", *report.asked_move, report.games,
+    for (std::size_t index = 0; index < report.asked_moves.size(); ++index) {
+        const auto& asked_move = report.asked_moves[index];
+        const std::string label = "Asked move " + std::to_string(index + 1);
+        output << label << ": " << asked_move.san << " (" << asked_move.uci << "), "
+               << to_string(asked_move.verdict)
+               << ", in_multipv: " << boolean(asked_move.in_multipv) << " [engine]\n";
+        write_move_details(output, label, asked_move, report.games,
                            report.position.side_to_move);
-    } else {
+    }
+    if (report.asked_moves.empty()) {
         output << "Asked move: null [rule]\n";
     }
 

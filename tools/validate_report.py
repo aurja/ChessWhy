@@ -24,7 +24,9 @@ Failure: TypeAlias = tuple[str, str]
 RESTRICTED_TAGS = frozenset(
     {"pin_absolute", "pin_relative", "overloaded_defender", "pin_tactical"}
 )
-VERDICT_THRESHOLDS = (60, 260, 540)
+PLAYABLE_UNITS = 100
+INACCURACY_UNITS = 200
+OPPORTUNITY_MARGIN_UNITS = 260
 
 
 class Arguments(argparse.Namespace):
@@ -121,14 +123,12 @@ def number_units(value: JsonValue) -> int | None:
     return round(float(value) * 2000)
 
 
-def verdict_for_loss(loss_units: int) -> str:
-    if loss_units <= VERDICT_THRESHOLDS[0]:
-        return "fine"
-    if loss_units < VERDICT_THRESHOLDS[1]:
-        return "inaccuracy"
-    if loss_units < VERDICT_THRESHOLDS[2]:
-        return "mistake"
-    return "blunder"
+def verdicts_for_loss(loss_units: int) -> frozenset[str]:
+    if loss_units <= PLAYABLE_UNITS:
+        return frozenset({"best", "okay"})
+    if loss_units <= INACCURACY_UNITS:
+        return frozenset({"inaccuracy"})
+    return frozenset({"mistake", "blunder"})
 
 
 def side_name(color: chess.Color) -> str:
@@ -239,12 +239,12 @@ def check_threat_legality(
     moves = replay_san_line(
         board, threat_object.get("line"), f"{pointer}/line", failures
     )
-    tactic = as_object(threat_object.get("tactic"))
-    if tactic is not None:
+    opportunity = as_object(threat_object.get("opportunity"))
+    if opportunity is not None:
         _ = check_move_pair(
             board,
-            tactic.get("alternative"),
-            f"{pointer}/tactic/alternative",
+            opportunity.get("alternative"),
+            f"{pointer}/opportunity/alternative",
             failures,
         )
     return board, moves
@@ -270,12 +270,12 @@ def check_move_legality(
             "the first line move must equal the assessed SAN/UCI move",
             first_move == line_moves[0],
         )
-    tactic = as_object(move_object.get("tactic"))
-    if tactic is not None:
+    opportunity = as_object(move_object.get("opportunity"))
+    if opportunity is not None:
         _ = check_move_pair(
             root,
-            tactic.get("alternative"),
-            f"{pointer}/tactic/alternative",
+            opportunity.get("alternative"),
+            f"{pointer}/opportunity/alternative",
             failures,
         )
     for field in ("creates_threat", "refutation"):
@@ -287,13 +287,15 @@ def check_move_legality(
 
 def check_score_relations(report: JsonObject, failures: list[Failure]) -> None:
     candidates = as_array(report.get("candidates")) or []
-    asked_move = report.get("asked_move")
+    asked_moves = as_array(report.get("asked_moves")) or []
     assessed: list[tuple[str, JsonValue]] = [
         (f"/candidates/{index}", candidate)
         for index, candidate in enumerate(candidates)
     ]
-    if isinstance(asked_move, dict):
-        assessed.append(("/asked_move", asked_move))
+    assessed.extend(
+        (f"/asked_moves/{index}", move)
+        for index, move in enumerate(asked_moves)
+    )
     if not candidates:
         return
     best_units = score_units(get_object(candidates[0], "eval"))
@@ -314,13 +316,13 @@ def check_score_relations(report: JsonObject, failures: list[Failure]) -> None:
             f"loss must equal max(0, candidate[0] ES units - move ES units) = {expected_loss}",
             actual_loss == expected_loss,
         )
-        expected_verdict = verdict_for_loss(expected_loss)
+        expected_verdicts = verdicts_for_loss(expected_loss)
         fail(
             failures,
             f"{pointer}/verdict",
-            f"verdict must be {expected_verdict!r} for {expected_loss} loss units "
-            + "(thresholds 60/260/540)",
-            move_object.get("verdict") == expected_verdict,
+            f"verdict must be one of {sorted(expected_verdicts)!r} for {expected_loss} loss units "
+            "(thresholds 100/200)",
+            move_object.get("verdict") in expected_verdicts,
         )
 
 
@@ -361,14 +363,13 @@ def check_terminal_relations(report: JsonObject, failures: list[Failure]) -> Non
         "a terminal position must have no candidate moves",
         not candidates,
     )
-    asked = as_object(report.get("asked_move"))
-    if asked is not None:
-        fail(
-            failures,
-            "/asked_move/refutation",
-            "a terminal position must have no asked-move refutation search fields",
-            asked.get("refutation") is None,
-        )
+    asked_moves = as_array(report.get("asked_moves")) or []
+    fail(
+        failures,
+        "/asked_moves",
+        "a terminal position must have no asked-move assessments",
+        not asked_moves,
+    )
 
 
 def check_urgency(report: JsonObject, failures: list[Failure]) -> None:
@@ -401,8 +402,10 @@ def check_parry_relations(
     move_pairs: list[tuple[str, JsonValue]] = [
         (f"/candidates/{index}", value) for index, value in enumerate(moves)
     ]
-    if isinstance(report.get("asked_move"), dict):
-        move_pairs.append(("/asked_move", report["asked_move"]))
+    move_pairs.extend(
+        (f"/asked_moves/{index}", value)
+        for index, value in enumerate(as_array(report.get("asked_moves")) or [])
+    )
     for pointer, value in move_pairs:
         move_object = as_object(value)
         if move_object is None:
@@ -804,17 +807,9 @@ def check_restrictions_everywhere(
     check_motif_restrictions(
         position.get("motifs"), root, [], "/position/motifs", failures
     )
-    for key in ("candidates", "asked_move"):
-        values = report.get(key)
-        if key == "candidates":
-            moves = as_array(values) or []
-            move_pairs = [
-                (f"/candidates/{index}", value) for index, value in enumerate(moves)
-            ]
-        elif isinstance(values, dict):
-            move_pairs = [("/asked_move", values)]
-        else:
-            move_pairs = []
+    for key in ("candidates", "asked_moves"):
+        values = as_array(report.get(key)) or []
+        move_pairs = [(f"/{key}/{index}", value) for index, value in enumerate(values)]
         for pointer, move_value in move_pairs:
             move = as_object(move_value)
             if move is None:
@@ -882,25 +877,23 @@ def check_motif_contributions(
         )
 
 
-def check_non_tactic_labels(
-    tactic: JsonObject | None,
-    expected_tactic: bool,
-    pointer: str,
+def check_line_labels(
+    labels_value: JsonValue, expected_tactic_line: bool, pointer: str,
     failures: list[Failure],
 ) -> None:
-    if tactic is None or expected_tactic:
+    labels = as_array(labels_value)
+    if expected_tactic_line:
         return
-    labels = as_array(tactic.get("labels"))
     fail(
         failures,
-        f"{pointer}/labels",
-        "labels must be empty when is_tactic is false",
+        pointer,
+        "tactic_labels must be empty outside a tactic line",
         labels is not None and not labels,
     )
 
 
-def check_tactic_judgement(
-    tactic_value: JsonValue,
+def check_opportunity_judgement(
+    opportunity_value: JsonValue,
     pointer: str,
     forced_expected: bool,
     expected_margin: int | None,
@@ -908,29 +901,33 @@ def check_tactic_judgement(
     first_move_uci: str | None,
     failures: list[Failure],
 ) -> bool:
-    tactic = as_object(tactic_value)
+    opportunity = as_object(opportunity_value)
     fail(
         failures,
         pointer,
-        "a judged tactic line must contain a judgement object",
-        tactic is not None,
+        "a judged line must contain an opportunity object",
+        opportunity is not None,
     )
-    if tactic is None:
+    if opportunity is None:
         return False
-    expected_tactic = expected_margin is not None and expected_margin >= 260
+    expected_opportunity = (
+        not forced_expected
+        and expected_margin is not None
+        and expected_margin >= OPPORTUNITY_MARGIN_UNITS
+    )
     fail(
         failures,
         f"{pointer}/source",
-        "tactic source must be rule iff the line is forced, otherwise engine",
-        tactic.get("source") == ("rule" if forced_expected else "engine"),
+        "opportunity source must be rule iff the line is forced, otherwise engine",
+        opportunity.get("source") == ("rule" if forced_expected else "engine"),
     )
     fail(
         failures,
         f"{pointer}/forced",
         f"forced must be {forced_expected} from the number of legal root moves",
-        tactic.get("forced") == forced_expected,
+        opportunity.get("forced") == forced_expected,
     )
-    alternative = tactic.get("alternative")
+    alternative = opportunity.get("alternative")
     if forced_expected:
         fail(
             failures,
@@ -942,7 +939,7 @@ def check_tactic_judgement(
             failures,
             f"{pointer}/margin",
             "forced lines must have no margin",
-            tactic.get("margin") is None,
+            opportunity.get("margin") is None,
         )
     else:
         actual_alternative = as_object(alternative)
@@ -967,7 +964,7 @@ def check_tactic_judgement(
                 "refutation alternative must differ from the refutation's first move",
                 actual_alternative.get("uci") != first_move_uci,
             )
-        actual_margin = number_units(tactic.get("margin"))
+        actual_margin = number_units(opportunity.get("margin"))
         fail(
             failures,
             f"{pointer}/margin",
@@ -976,46 +973,40 @@ def check_tactic_judgement(
         )
     fail(
         failures,
-        f"{pointer}/is_tactic",
-        f"is_tactic must be {expected_tactic} for the computed margin "
-        + "(threshold 260 units; forced lines are never tactics)",
-        tactic.get("is_tactic") == expected_tactic,
+        f"{pointer}/is_opportunity",
+        f"is_opportunity must be {expected_opportunity} for the computed margin "
+        "(threshold 260 units; forced lines are never opportunities)",
+        opportunity.get("is_opportunity") == expected_opportunity,
     )
-    check_non_tactic_labels(tactic, expected_tactic, pointer, failures)
-    return expected_tactic
+    return expected_opportunity
 
 
-def check_refutation_tactic(
-    move: JsonObject,
-    pointer: str,
-    failures: list[Failure],
+def check_refutation(
+    move: JsonObject, pointer: str, failures: list[Failure]
 ) -> bool:
     refutation = as_object(move.get("refutation"))
     if refutation is None:
         return False
+    allows_tactic = move.get("allows_tactic") is True
+    fail(
+        failures,
+        f"{pointer}/refutation/is_tactic",
+        "a refutation is a tactic iff the refuted move allows a tactic",
+        refutation.get("is_tactic") == allows_tactic,
+    )
     line = as_array(refutation.get("line")) or []
     motifs_pointer = f"{pointer}/refutation/motifs"
     if not line:
         fail(
             failures,
-            f"{pointer}/refutation/tactic",
-            "a refutation with no plies must have no tactic judgement",
-            refutation.get("tactic") is None,
+            f"{pointer}/refutation/opportunity",
+            "a refutation with no plies must have no opportunity judgement",
+            refutation.get("opportunity") is None,
         )
-        check_motif_contributions(
-            refutation.get("motifs"), False, motifs_pointer, failures
-        )
-        return False
-    tactic_value = refutation.get("tactic")
-    fail(
-        failures,
-        f"{pointer}/refutation/tactic",
-        "a refutation with plies must have a tactic judgement",
-        tactic_value is not None,
-    )
-    if tactic_value is None:
-        check_motif_contributions(
-            refutation.get("motifs"), False, motifs_pointer, failures
+        check_motif_contributions(refutation.get("motifs"), False, motifs_pointer, failures)
+        check_line_labels(
+            refutation.get("tactic_labels"), False,
+            f"{pointer}/refutation/tactic_labels", failures
         )
         return False
     root = board_from_fen(
@@ -1026,54 +1017,58 @@ def check_refutation_tactic(
     forced = root.legal_moves.count() == 1
     first_move = legal_san_move(root, line[0])
     first_uci = None if first_move is None else root.uci(first_move)
-    tactic_object = as_object(tactic_value)
+    opportunity = as_object(refutation.get("opportunity"))
     if forced:
         margin = None
     else:
         move_units = score_units(move.get("eval"))
-        alternative = (
-            None
-            if tactic_object is None
-            else as_object(tactic_object.get("alternative"))
-        )
-        alternative_units = (
-            None if alternative is None else score_units(alternative.get("eval"))
-        )
+        alternative = None if opportunity is None else as_object(opportunity.get("alternative"))
+        alternative_units = None if alternative is None else score_units(alternative.get("eval"))
         margin = (
             None
             if move_units is None or alternative_units is None
             else (2000 - move_units) - alternative_units
         )
-    is_tactic = check_tactic_judgement(
-        tactic_value,
-        f"{pointer}/refutation/tactic",
+    is_opportunity = check_opportunity_judgement(
+        refutation.get("opportunity"),
+        f"{pointer}/refutation/opportunity",
         forced,
         margin,
         None,
         first_uci,
         failures,
     )
-    check_motif_contributions(
-        refutation.get("motifs"), is_tactic, motifs_pointer, failures
+    tactic_line = allows_tactic or is_opportunity
+    check_motif_contributions(refutation.get("motifs"), tactic_line, motifs_pointer, failures)
+    check_line_labels(
+        refutation.get("tactic_labels"), tactic_line,
+        f"{pointer}/refutation/tactic_labels", failures
     )
-    return is_tactic
+    return tactic_line
 
 
-def check_move_tactic_annotations(
-    move_value: JsonValue,
-    pointer: str,
-    root_line: bool,
-    root_tactic: bool,
-    failures: list[Failure],
+def check_move_annotations(
+    move_value: JsonValue, pointer: str, failures: list[Failure]
 ) -> None:
     move = as_object(move_value)
     if move is None:
         return
+    opportunity = as_object(move.get("opportunity"))
+    is_opportunity = opportunity is not None and opportunity.get("is_opportunity") is True
+    tactic_line = move.get("is_tactic") is True or is_opportunity
+    check_motif_contributions(move.get("motifs"), tactic_line, f"{pointer}/motifs", failures)
     check_motif_contributions(
-        move.get("motifs"),
-        root_line and root_tactic,
-        f"{pointer}/motifs",
-        failures,
+        move.get("root_motifs"), tactic_line, f"{pointer}/root_motifs", failures
+    )
+    if not tactic_line:
+        fail(
+            failures,
+            f"{pointer}/root_motifs",
+            "root_motifs must be empty outside a tactic line",
+            move.get("root_motifs") == [],
+        )
+    check_line_labels(
+        move.get("tactic_labels"), tactic_line, f"{pointer}/tactic_labels", failures
     )
     created = as_object(move.get("creates_threat"))
     if created is not None:
@@ -1082,11 +1077,21 @@ def check_move_tactic_annotations(
         )
         fail(
             failures,
-            f"{pointer}/creates_threat/tactic",
-            "created-threat lines are not tactic-judged",
-            created.get("tactic") is None,
+            f"{pointer}/creates_threat/is_tactic",
+            "created-threat lines do not carry a tactic flag",
+            created.get("is_tactic") is None,
         )
-    _ = check_refutation_tactic(move, pointer, failures)
+        fail(
+            failures,
+            f"{pointer}/creates_threat/opportunity",
+            "created-threat lines do not carry an opportunity judgement",
+            created.get("opportunity") is None,
+        )
+        check_line_labels(
+            created.get("tactic_labels"), False,
+            f"{pointer}/creates_threat/tactic_labels", failures
+        )
+    _ = check_refutation(move, pointer, failures)
 
 
 def check_tactic_invariants(
@@ -1097,34 +1102,25 @@ def check_tactic_invariants(
         return
     terminal = position.get("terminal") is not None
     candidates = as_array(report.get("candidates")) or []
-    root_tactic = False
     if not terminal:
         legal_moves = root.legal_moves.count() if root is not None else 0
         first = as_object(candidates[0]) if candidates else None
-        first_tactic = None if first is None else as_object(first.get("tactic"))
+        opportunity = None if first is None else as_object(first.get("opportunity"))
         if first is None:
             fail(
-                failures,
-                "/candidates/0/tactic",
-                "a non-terminal root must have a best candidate with a tactic judgement",
+                failures, "/candidates/0/opportunity",
+                "a non-terminal root must have a best candidate with an opportunity judgement",
                 False,
             )
-        elif first_tactic is None:
+        elif opportunity is None:
             fail(
-                failures,
-                "/candidates/0/tactic",
-                "a non-terminal root must have a tactic judgement object",
+                failures, "/candidates/0/opportunity",
+                "a non-terminal root must have an opportunity judgement object",
                 False,
             )
         elif legal_moves == 1:
-            root_tactic = check_tactic_judgement(
-                first_tactic,
-                "/candidates/0/tactic",
-                True,
-                None,
-                None,
-                None,
-                failures,
+            _ = check_opportunity_judgement(
+                opportunity, "/candidates/0/opportunity", True, None, None, None, failures
             )
         else:
             second = as_object(candidates[1]) if len(candidates) >= 2 else None
@@ -1132,10 +1128,8 @@ def check_tactic_invariants(
             expected_alternative: JsonObject | None = None
             if second is None:
                 fail(
-                    failures,
-                    "/candidates/1",
-                    "a non-forced root must have a second candidate",
-                    False,
+                    failures, "/candidates/1",
+                    "a non-forced root must have a second candidate", False
                 )
             else:
                 expected_alternative = {
@@ -1145,9 +1139,9 @@ def check_tactic_invariants(
                 second_units = score_units(second.get("eval"))
                 if first_units is not None and second_units is not None:
                     expected_margin = first_units - second_units
-            root_tactic = check_tactic_judgement(
-                first_tactic,
-                "/candidates/0/tactic",
+            _ = check_opportunity_judgement(
+                opportunity,
+                "/candidates/0/opportunity",
                 False,
                 expected_margin,
                 expected_alternative,
@@ -1161,66 +1155,36 @@ def check_tactic_invariants(
         if index > 0:
             fail(
                 failures,
-                f"/candidates/{index}/tactic",
-                "only candidates[0] has a root tactic judgement",
-                candidate.get("tactic") is None,
+                f"/candidates/{index}/opportunity",
+                "only candidates[0] has a root opportunity judgement",
+                candidate.get("opportunity") is None,
             )
-        check_move_tactic_annotations(
-            candidate,
-            f"/candidates/{index}",
-            index == 0,
-            root_tactic,
-            failures,
-        )
-    check_motif_contributions(
-        position.get("motifs"), root_tactic, "/position/motifs", failures
-    )
+        check_move_annotations(candidate, f"/candidates/{index}", failures)
+
+    check_motif_contributions(position.get("motifs"), False, "/position/motifs", failures)
     threats = as_object(report.get("threats"))
     if threats is not None:
-        own_side = position.get("side_to_move")
         for color in ("white", "black"):
             threat = as_object(threats.get(color))
             if threat is None:
                 continue
             check_motif_contributions(
-                threat.get("motifs"),
-                color == own_side and root_tactic,
-                f"/threats/{color}/motifs",
-                failures,
+                threat.get("motifs"), False, f"/threats/{color}/motifs", failures
             )
-            fail(
-                failures,
-                f"/threats/{color}/tactic",
-                "root threat lines are not tactic-judged",
-                threat.get("tactic") is None,
+            for field in ("is_tactic", "opportunity"):
+                fail(
+                    failures,
+                    f"/threats/{color}/{field}",
+                    "root threat lines do not carry tactic judgements",
+                    threat.get(field) is None,
+                )
+            check_line_labels(
+                threat.get("tactic_labels"), False,
+                f"/threats/{color}/tactic_labels", failures
             )
-    asked = as_object(report.get("asked_move"))
-    if asked is not None:
-        matching_index: int | None = None
-        matching_candidate: JsonObject | None = None
-        asked_uci = asked.get("uci")
-        for index, candidate_value in enumerate(candidates):
-            candidate = as_object(candidate_value)
-            if candidate is not None and candidate.get("uci") == asked_uci:
-                matching_index = index
-                matching_candidate = candidate
-                break
-        expected_tactic = (
-            None if matching_candidate is None else matching_candidate.get("tactic")
-        )
-        fail(
-            failures,
-            "/asked_move/tactic",
-            "asked_move tactic must copy its candidate judgement, or be null outside MultiPV",
-            asked.get("tactic") == expected_tactic,
-        )
-        check_move_tactic_annotations(
-            asked,
-            "/asked_move",
-            matching_index == 0,
-            root_tactic,
-            failures,
-        )
+
+    for index, asked in enumerate(as_array(report.get("asked_moves")) or []):
+        check_move_annotations(asked, f"/asked_moves/{index}", failures)
 
 
 def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> None:
@@ -1241,30 +1205,11 @@ def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> Non
     if root is not None:
         for index, value in enumerate(as_array(report.get("candidates")) or []):
             check_threat_skip(value, f"/candidates/{index}", root, failures)
-        asked = report.get("asked_move")
-        if isinstance(asked, dict):
-            check_threat_skip(asked, "/asked_move", root, failures)
-        for index, value in enumerate(as_array(report.get("candidates")) or []):
             _ = check_move_legality(value, f"/candidates/{index}", root, failures)
-        asked = report.get("asked_move")
-        if isinstance(asked, dict):
-            _ = check_move_legality(asked, "/asked_move", root, failures)
-        candidates = as_array(report.get("candidates")) or []
-        if isinstance(asked, dict):
-            asked_uci = asked.get("uci")
-            for index, candidate_value in enumerate(candidates):
-                candidate = as_object(candidate_value)
-                if candidate is None or candidate.get("uci") != asked_uci:
-                    continue
-                fields = sorted(set(candidate) | set(asked))
-                for field in fields:
-                    fail(
-                        failures,
-                        f"/asked_move/{field.replace('~', '~0').replace('/', '~1')}",
-                        f"asked_move field {field!r} must equal candidates[{index}]",
-                        asked.get(field) == candidate.get(field),
-                    )
-                break
+        for index, asked in enumerate(as_array(report.get("asked_moves")) or []):
+            pointer = f"/asked_moves/{index}"
+            check_threat_skip(asked, pointer, root, failures)
+            _ = check_move_legality(asked, pointer, root, failures)
         games = get_object(report, "games")
         sources = [] if games is None else as_array(games.get("by_source")) or []
         for source_index, source_value in enumerate(sources):
@@ -1299,7 +1244,7 @@ def schema_error_message(error: ValidationError) -> str:
     if path and path[-1] == "mate_in" and "consequence" in path:
         return "consequence.mate_in must be set iff consequence.class is mate"
     if path and path[-1] == "refutation":
-        return "refutation must be set iff verdict is not fine"
+        return "refutation must be set iff verdict is not playable"
     if path and path[-1] == "more_urgent" and "urgency" in path:
         return "more_urgent must be null iff urgency.rule is quiet"
     if path and path[-1] == "source" and "parries_threat" in path:

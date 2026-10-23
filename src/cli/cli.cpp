@@ -6,6 +6,7 @@
 #include "chesswhy/input.hpp"
 #include "chesswhy/openings.hpp"
 #include "chesswhy/render.hpp"
+#include <chess.hpp>
 
 #include <charconv>
 #include <exception>
@@ -126,10 +127,10 @@ Options parse_args(std::span<const std::string_view> args) {
             }
             options.ply = parse_integer(value_after(args, index, flag), flag, 0);
         } else if (flag == "--move") {
-            if (options.move) {
+            if (options.moves) {
                 usage_error("duplicate flag --move");
             }
-            options.move = std::string(value_after(args, index, flag));
+            options.moves = std::string(value_after(args, index, flag));
         } else if (flag == "--level") {
             const std::string_view value = value_after(args, index, flag);
             if (value == "beginner") {
@@ -216,18 +217,23 @@ int run(const Options& options, std::ostream& out, std::ostream& err) {
             throw input::InputError("exactly one of --fen or --pgn must be supplied");
         }
 
-        std::optional<chess::Move> asked_move;
-        if (options.move) {
+        std::vector<chess::Move> asked_moves;
+        report.input.selection.keywords = {Selection::Keyword::Best};
+        if (options.moves) {
             chess::Movelist legal_moves;
             chess::movegen::legalmoves(legal_moves, board);
             if (legal_moves.empty()) {
-                throw input::InputError("illegal move " + *options.move);
+                throw input::InputError("illegal move " + *options.moves);
             }
-            asked_move = input::parse_move(board, *options.move);
+            const chess::Move asked_move = input::parse_move(board, *options.moves);
+            asked_moves.push_back(asked_move);
+            report.input.selection.keywords.clear();
+            report.input.selection.moves.push_back(
+                chess::uci::moveToUci(asked_move, board.chess960()));
         }
 
         report.input.fen = board.getFen();
-        report.input.move = options.move;
+        report.input.moves = options.moves;
         report.input.level = options.level;
         report.input.budget = options.budget;
 
@@ -242,7 +248,10 @@ int run(const Options& options, std::ostream& out, std::ostream& err) {
         report.engine.reproducible = options.threads == 1;
         analysis::analyse(
             engine,
-            analysis::Request{.board = board, .asked = asked_move, .budget = options.budget},
+            analysis::Request{.board = board,
+                              .selection = report.input.selection,
+                              .asked = std::move(asked_moves),
+                              .budget = options.budget},
             report);
         report.opening = openings::describe(opening_table, board, mainline);
 

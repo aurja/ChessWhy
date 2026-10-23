@@ -49,23 +49,144 @@ TEST_CASE("UCI move line retains a positive search depth", "[analysis][unit]") {
                     .has_value());
 }
 
-TEST_CASE("verdict boundaries are inclusive at fine, mistake and blunder", "[analysis][unit]") {
+TEST_CASE("verdict boundaries use the playable and inaccuracy cutoffs", "[analysis][unit]") {
     using chesswhy::Verdict;
-    using chesswhy::analysis::verdict_for_loss;
+    using chesswhy::analysis::verdict;
 
-    CHECK(verdict_for_loss(0) == Verdict::Fine);
-    CHECK(verdict_for_loss(60) == Verdict::Fine);
-    CHECK(verdict_for_loss(61) == Verdict::Inaccuracy);
-    CHECK(verdict_for_loss(259) == Verdict::Inaccuracy);
-    CHECK(verdict_for_loss(260) == Verdict::Mistake);
-    CHECK(verdict_for_loss(539) == Verdict::Mistake);
-    CHECK(verdict_for_loss(540) == Verdict::Blunder);
+    CHECK(verdict(0, true, false) == Verdict::Best);
+    CHECK(verdict(100, true, false) == Verdict::Best);
+    CHECK(verdict(100, false, false) == Verdict::Okay);
+    CHECK(verdict(101, false, false) == Verdict::Inaccuracy);
+    CHECK(verdict(200, false, false) == Verdict::Inaccuracy);
+    CHECK(verdict(201, false, false) == Verdict::Mistake);
+    CHECK(verdict(201, false, true) == Verdict::Blunder);
 }
 
-TEST_CASE("tactic margin boundary is inclusive", "[analysis][unit]") {
-    CHECK_FALSE(chesswhy::analysis::is_tactic_margin(259));
-    CHECK(chesswhy::analysis::is_tactic_margin(260));
-    CHECK_FALSE(chesswhy::analysis::is_tactic_margin(-1));
+TEST_CASE("same score compares cp or mate, not expected score", "[analysis][unit]") {
+    using chesswhy::Eval;
+    using chesswhy::analysis::same_score;
+
+    CHECK(same_score(Eval{.es_units = 1000, .cp = 12, .mate = std::nullopt},
+                     Eval{.es_units = 1200, .cp = 12, .mate = std::nullopt}));
+    CHECK_FALSE(same_score(Eval{.es_units = 1000, .cp = 12, .mate = std::nullopt},
+                           Eval{.es_units = 1000, .cp = 13, .mate = std::nullopt}));
+    CHECK(same_score(Eval{.es_units = 1000, .cp = std::nullopt, .mate = 2},
+                     Eval{.es_units = 900, .cp = std::nullopt, .mate = 2}));
+    CHECK_FALSE(same_score(Eval{.es_units = 1000, .cp = std::nullopt, .mate = 2},
+                           Eval{.es_units = 1000, .cp = 12, .mate = std::nullopt}));
+    CHECK_FALSE(same_score(Eval{.es_units = 1000, .cp = std::nullopt, .mate = 2},
+                           Eval{.es_units = 1000, .cp = std::nullopt, .mate = 3}));
+}
+
+TEST_CASE("tactic and allows-tactic use the move's line consequence", "[analysis][unit]") {
+    using chesswhy::Consequence;
+    using chesswhy::ConsequenceClass;
+    using chesswhy::Eval;
+    using chesswhy::analysis::allows_tactic;
+    using chesswhy::analysis::is_tactic;
+
+    CHECK(is_tactic(Consequence{.cls = ConsequenceClass::Mate,
+                                .mate_in = std::nullopt,
+                                .material = 0,
+                                .promotes = false,
+                                .plies = 0}));
+    CHECK(is_tactic(Consequence{.cls = ConsequenceClass::Material,
+                                .mate_in = std::nullopt,
+                                .material = 0,
+                                .promotes = false,
+                                .plies = 0}));
+    CHECK_FALSE(is_tactic(Consequence{.cls = ConsequenceClass::Promotion,
+                                      .mate_in = std::nullopt,
+                                      .material = 0,
+                                      .promotes = false,
+                                      .plies = 0}));
+    CHECK_FALSE(is_tactic(Consequence{.cls = ConsequenceClass::Positional,
+                                      .mate_in = std::nullopt,
+                                      .material = 0,
+                                      .promotes = false,
+                                      .plies = 0}));
+    CHECK(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
+                                    .mate_in = std::nullopt,
+                                    .material = -1,
+                                    .promotes = false,
+                                    .plies = 0},
+                        Eval{.es_units = 1000, .cp = std::nullopt, .mate = std::nullopt}));
+    CHECK_FALSE(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
+                                          .mate_in = std::nullopt,
+                                          .material = 0,
+                                          .promotes = false,
+                                          .plies = 0},
+                              Eval{.es_units = 1000,
+                                   .cp = std::nullopt,
+                                   .mate = std::nullopt}));
+    CHECK(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
+                                    .mate_in = std::nullopt,
+                                    .material = 0,
+                                    .promotes = false,
+                                    .plies = 0},
+                        Eval{.es_units = 1000, .cp = std::nullopt, .mate = -1}));
+    CHECK_FALSE(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
+                                          .mate_in = std::nullopt,
+                                          .material = 0,
+                                          .promotes = false,
+                                          .plies = 0},
+                              Eval{.es_units = 1000, .cp = std::nullopt, .mate = 1}));
+}
+
+TEST_CASE("opportunity margin boundary is inclusive", "[analysis][unit]") {
+    using chesswhy::analysis::is_opportunity_margin;
+
+    CHECK_FALSE(is_opportunity_margin(259));
+    CHECK(is_opportunity_margin(260));
+    CHECK_FALSE(is_opportunity_margin(-1));
+}
+
+TEST_CASE("selection sets Search A width and nodes", "[analysis][unit]") {
+    using chesswhy::Selection;
+    using Keyword = Selection::Keyword;
+    using chesswhy::analysis::judges_every_move;
+    using chesswhy::analysis::multipv_lines;
+    using chesswhy::analysis::search_a_nodes;
+
+    const Selection best{.keywords = {Keyword::Best}, .top = std::nullopt, .moves = {}};
+    CHECK_FALSE(judges_every_move(best));
+    CHECK(multipv_lines(best, 31) == 5);
+    CHECK(multipv_lines(best, 3) == 3);
+    CHECK(search_a_nodes(chesswhy::Budget::Standard, multipv_lines(best, 31)) == 1'000'000);
+
+    const Selection top_three{.keywords = {}, .top = 3, .moves = {}};
+    CHECK(multipv_lines(top_three, 31) == 5);
+    CHECK(search_a_nodes(chesswhy::Budget::Standard,
+                         multipv_lines(top_three, 31)) == 1'000'000);
+    const Selection top_seven{.keywords = {}, .top = 7, .moves = {}};
+    CHECK(multipv_lines(top_seven, 31) == 7);
+    CHECK(search_a_nodes(chesswhy::Budget::Standard,
+                         multipv_lines(top_seven, 31)) == 1'400'000);
+    CHECK(multipv_lines(top_seven, 4) == 4);
+
+    constexpr std::array whole_board_keywords{
+        Keyword::Playable, Keyword::Inaccuracies, Keyword::Mistakes,
+        Keyword::Blunders, Keyword::Unplayable, Keyword::All};
+    for (const auto keyword : whole_board_keywords) {
+        const Selection selection{.keywords = {keyword}, .top = std::nullopt, .moves = {}};
+        CHECK(judges_every_move(selection));
+        CHECK(multipv_lines(selection, 31) == 31);
+        CHECK(search_a_nodes(chesswhy::Budget::Standard,
+                             multipv_lines(selection, 31)) == 6'200'000);
+        CHECK(multipv_lines(selection, 3) == 3);
+    }
+    CHECK(multipv_lines(best, 0) == 0);
+}
+
+TEST_CASE("first five and selected lines are detailed", "[analysis][unit]") {
+    using chesswhy::analysis::is_detailed_line;
+
+    for (int rank = 1; rank <= chesswhy::analysis::kDetailedLines; ++rank) {
+        CHECK(is_detailed_line(rank, false));
+    }
+    CHECK_FALSE(is_detailed_line(6, false));
+    CHECK(is_detailed_line(6, true));
+    CHECK_FALSE(is_detailed_line(0, true));
 }
 
 TEST_CASE("null move reliability depends on side-to-move non-pawn material", "[analysis][unit]") {

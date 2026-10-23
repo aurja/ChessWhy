@@ -14,14 +14,14 @@ set_tests_properties(report_schema_examples PROPERTIES
 
 add_test(NAME report_schema_unit
     COMMAND "${CHESSWHY_PYTHON}" "${PROJECT_SOURCE_DIR}/tools/validate_report.py"
-        "${PROJECT_SOURCE_DIR}/schema/report.v5.schema.json"
+        "${PROJECT_SOURCE_DIR}/schema/report.v6.schema.json"
         "${report_examples_dir}/terminal_checkmate.json"
         "${report_examples_dir}/side_in_check.json"
         "${report_examples_dir}/normal_position.json"
         "${report_examples_dir}/pgn_opening.json"
         "${report_examples_dir}/tactic_with_labels.json"
-        "${report_examples_dir}/forced_judgement.json"
-        "${report_examples_dir}/negative_margin_judgement.json"
-        "${report_examples_dir}/refutation_judgement.json")
+        "${report_examples_dir}/forced_opportunity.json"
+        "${report_examples_dir}/negative_margin_opportunity.json"
+        "${report_examples_dir}/refutation_opportunity.json")
 set_tests_properties(report_schema_unit PROPERTIES
     FIXTURES_REQUIRED report_schema_examples LABELS unit)

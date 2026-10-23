@@ -32,12 +32,12 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | Node | Code | Notes |
 |---|---|---|
 | `NodeBudget` | `src/analysis/rules.cpp` `node_budget`; `include/chesswhy/report.hpp` `NodeBudget` `EngineInfo` | Nodes per search kind and budget |
-| `SearchA` | `src/analysis/analyse.cpp` `analyse`; `include/chesswhy/analysis.hpp` `kMultiPv` | |
+| `SearchA` | `src/analysis/analyse.cpp` `analyse`; `src/analysis/rules.cpp` `multipv_lines` `judges_every_move` `search_a_nodes`; `include/chesswhy/analysis.hpp` `kMinMultiPv` | K from the selection; each line keeps its share of A's nodes |
 | `SearchB` | `src/analysis/analyse.cpp` `analyse` | Null move on a copy of the board |
-| `SearchC` | `src/analysis/analyse.cpp` `analyse` | Only when the asked move is not among A's lines |
-| `SearchD` | `src/analysis/analyse.cpp` `search_parry` | |
-| `SearchE` | `src/analysis/analyse.cpp` `assess_move` | |
-| `SearchR` | `src/analysis/analyse.cpp` `judge_refutation` | |
+| `SearchC` | `src/analysis/analyse.cpp` `analyse` | Once per asked move not among A's lines, in typed order |
+| `SearchD` | `src/analysis/analyse.cpp` `search_parry`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
+| `SearchE` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
+| `SearchR` | `src/analysis/analyse.cpp` `judge_refutation`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
 | `StockfishProcess` | `src/engine/engine.cpp` `Engine` `search`; `include/chesswhy/engine.hpp` `SearchRequest` `SearchResult` `Line` `MultiPvCollector` `EngineError`; `src/engine/info_line.cpp` `parse_info_line` | Talks UCI; never linked |
 | `ExpectedScore` | `src/analysis/rules.cpp` `es_units`; `src/analysis/analyse.cpp` `eval_for`; `include/chesswhy/report.hpp` `Eval` | |
 
@@ -57,10 +57,11 @@ Rules, checked by `python3 tools/check_dbc.py`:
 
 | Node | Code | Notes |
 |---|---|---|
-| `CandidateMove` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `walked_plies`; `include/chesswhy/report.hpp` `MoveAssessment` | `depth`, `walked_plies` |
+| `CandidateMove` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `walked_plies` `is_detailed_line`; `include/chesswhy/report.hpp` `MoveAssessment` | `depth`, `walked_plies`, `detailed` |
 | `Loss` | `src/analysis/analyse.cpp` `assess_move` | |
-| `Verdict` | `src/analysis/rules.cpp` `verdict_for_loss`; `include/chesswhy/analysis.hpp` `kFineUnits` `kMistakeUnits` `kBlunderUnits`; `include/chesswhy/report.hpp` `Verdict` | |
-| `PlayableSet` | `src/analysis/analyse.cpp` `analyse` `legal_move_count`; `include/chesswhy/report.hpp` `Report` `PositionInfo` | `fine_truncated` (becomes `playable_truncated`), `legal_moves` |
+| `AllowsTactic` | `src/analysis/rules.cpp` `allows_tactic` `consequence`; `src/analysis/analyse.cpp` `assess_move` | `allows_tactic`, read along the move's own line from the analysed position |
+| `Verdict` | `src/analysis/rules.cpp` `verdict` `same_score`; `include/chesswhy/analysis.hpp` `kPlayableUnits` `kInaccuracyUnits`; `include/chesswhy/report.hpp` `Verdict` | |
+| `PlayableSet` | `src/analysis/analyse.cpp` `analyse` `legal_move_count`; `include/chesswhy/report.hpp` `Report` `PositionInfo` | `playable_truncated`, `legal_moves` |
 | `ParryTest` | `src/analysis/analyse.cpp` `search_parry` `pseudo_legal_uci`; `include/chesswhy/report.hpp` `ParryInfo` `ParryTest` `parry_source` | |
 | `CreatedThreat` | `src/analysis/analyse.cpp` `assess_move` `has_legal_moves`; `include/chesswhy/report.hpp` `CreatesThreatSkip` | `creates_threat_skipped` |
 | `Refutation` | `src/analysis/analyse.cpp` `assess_move` `make_threat` | |
@@ -84,9 +85,10 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | Node | Code | Notes |
 |---|---|---|
 | `JudgedLine` | `src/analysis/analyse.cpp` `analyse` `judge_refutation` | The best line is judged in `analyse` |
-| `BestAlternative` | `src/analysis/analyse.cpp` `judge_refutation`; `include/chesswhy/report.hpp` `TacticAlternative` | |
-| `OnlyMoveMargin` | `src/analysis/rules.cpp` `is_tactic_margin`; `include/chesswhy/analysis.hpp` `kTacticMarginUnits` | |
-| `OpportunityJudgement` | `src/analysis/analyse.cpp` `judge_refutation` `legal_move_count`; `include/chesswhy/report.hpp` `TacticJudgement` | |
+| `BestAlternative` | `src/analysis/analyse.cpp` `judge_refutation`; `include/chesswhy/report.hpp` `BestAlternative` | |
+| `OnlyMoveMargin` | `src/analysis/rules.cpp` `is_opportunity_margin`; `include/chesswhy/analysis.hpp` `kOpportunityMarginUnits` | |
+| `OpportunityJudgement` | `src/analysis/analyse.cpp` `judge_refutation` `legal_move_count`; `include/chesswhy/report.hpp` `OpportunityJudgement` | |
+| `TacticTest` | `src/analysis/rules.cpp` `is_tactic` `consequence`; `src/analysis/analyse.cpp` `assess_move` | `is_tactic` on every move line and refutation |
 | `TacticLine` | `src/analysis/analyse.cpp` `analyse` `judge_refutation` | |
 | `TacticSequence` | `src/analysis/analyse.cpp` `walked_moves` | |
 | `Contribution` | `src/tactics/tactic.cpp` `judge_contributions` `denied_moves` `answers`; `include/chesswhy/tactics.hpp` `denied_moves` `answers` | |
@@ -124,7 +126,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Provenance` | `src/report/report.cpp` `to_json`; `include/chesswhy/report.hpp` `parry_source` | Written as a `source` field beside each fact |
 | `Reproducible` | `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
-| `ReportSchema` | `schema/report.v5.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
+| `ReportSchema` | `schema/report.v6.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
 | `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` | Run by CTest `report_schema` on every F report |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/cli.cpp` `run` | `--json` |

@@ -5,9 +5,9 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-22, M3 completion-review fixes (legal en passant in the position
-key, mainline-only Python oracle): 141 CTests (107 `unit`, 33 `engine`, 1 `games`, no
-`model` yet), all passing in Release; `tactics_unit_tests` has 26 test cases.
+**Snapshot:** 2026-10-23, M4 batch 1 (report v6 core cutover): 159 CTests (122 `unit`,
+35 `engine`, 2 `games`, no `model` yet). `unit` passes in Release; most `engine` tests
+fail on pre-v6 fixture expectations until the fixtures are re-blessed in M4.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -75,8 +75,12 @@ Rules that turn engine numbers into report facts; no engine runs.
 |---|---|---|---|
 | analysis node budgets match the frozen search table | unit | Node counts per search and budget equal the plan's table | `NodeBudget`, `Settings` |
 | expected score keeps WDL units exact | unit | ES computed from WDL without rounding drift | `ExpectedScore` |
-| verdict boundaries are inclusive at fine, mistake and blunder | unit | ES losses exactly at the thresholds: 60 fine, 260 mistake, 540 blunder (WDL units) | `Loss`, `Verdict`, `ExpectedScore` |
-| tactic margin boundary is inclusive | unit | A margin exactly at the tactic threshold counts as a tactic | `OnlyMoveMargin`, `OpportunityJudgement` |
+| verdict boundaries use the playable and inaccuracy cutoffs | unit | Loss 100/101 and 200/201 WDL units; best vs okay by the same-score flag; above 200 mistake or, when the move allows a tactic, blunder | `Verdict`, `VdPlayable`, `VdBest`, `VdOkay`, `VdSmall`, `VdBlunder`, `VdMistake` |
+| same score compares cp or mate, not expected score | unit | Same cp with different ES is the same score; cp 12 vs 13, mate vs cp and mate 2 vs 3 are not | `VdSameScore` |
+| tactic and allows-tactic use the move's line consequence | unit | Mate and material classes are tactics, promotion and positional are not; material −1 or a negative mate allows a tactic, material 0 or a positive mate does not | `TacticTest`, `AllowsTactic`, `VdAllows` |
+| opportunity margin boundary is inclusive | unit | 260 WDL units is an opportunity margin, 259 is not | `OnlyMoveMargin`, `TjMargin` |
+| selection sets Search A width and nodes | unit | `best` and `top3` give five lines, `top7` seven, every whole-board keyword every legal move; nodes are 200k per line at standard; fewer legal moves cap the width | `SearchA`, `NodeBudget` |
+| first five and selected lines are detailed | unit | Lines 1–5 are detailed, later lines only when selected | `CandidateMove`, `SearchD`, `SearchE`, `SearchR` |
 | consequence rank follows the frozen class table | unit | Order mate > material > promotion > positional | `CqIsMate`, `CqIsMaterial`, `CqIsPromotion`, `CqIsPositional` |
 | positive mate score takes precedence over other consequence classes | unit | A positive mate score makes the line class mate | `CqMate`, `CqIsMate`, `Consequence` |
 | quiet consequence is positional and a knight capture is material | unit | Basic class assignment | `CqIsPositional`, `CqIsMaterial`, `CqMaterial` |
@@ -140,12 +144,12 @@ Program tests:
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| report_JSON follows schema key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
+| report_JSON follows v6 report key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
 | report_enum values use the schema spellings | unit | Nine report enums serialise to the schema's strings | `ReportSchema`, `JsonOutput` |
 | report_scores and optional values are serialized | unit | ES, cp, mate and nulls | `ExpectedScore`, `ReportSchema`, `JsonOutput` |
-| report_motif JSON uses the schema v5 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
-| report_tactic judgements and motif contributions serialize in report v5 | unit | Tactic judgement, labels and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLabel`, `Contribution` |
-| report_v5 analysis fields and restriction serialize | unit | `legal_moves`, `depth`, `walked_plies`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
+| report_motif JSON uses the schema v6 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
+| report_opportunity judgements and tactic-line fields serialize in v6 | unit | Opportunity judgement, `is_tactic`, `allows_tactic`, tactic labels, root motifs and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLine`, `TacticLabel`, `Contribution` |
+| report_v6 analysis fields and restriction serialize | unit | `legal_moves`, `playable_truncated`, `depth`, `walked_plies`, `detailed`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
 
 Program tests:
 
@@ -163,7 +167,7 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | render_example reports match the golden text | unit | The eight example reports render byte for byte as the golden files | `TemplateRendering`, `ExplanationText`, `ReportDocument` |
 | render_position evaluation renders the mate score when available | unit | The mate score is shown alongside ES | `TemplateRendering`, `ExpectedScore` |
 | render_motif rows and level-independent output | unit | Motif rows; output does not change with `--level` where it should not | `ExplanationText`, `StateMotif`, `TacticalPin`, `TemplateRendering` |
-| render_tactic judgements, labels and contributions render from report fields | unit | Tactic text uses only report fields; pins, overloaded defenders and `pin_tactical` print as "restricted movement (absolute pin / relative pin / overloaded defender / tactic: Nd5-f4 fork)" | `OpportunityJudgement`, `TacticLabel`, `Contribution`, `RestrictedMovement` |
+| render_opportunities, tactic labels and contributions render from report fields | unit | Opportunity text uses only report fields; pins, overloaded defenders and `pin_tactical` print as "restricted movement (absolute pin / relative pin / overloaded defender / tactic: Nd5-f4 fork)" | `OpportunityJudgement`, `TacticLabel`, `Contribution`, `RestrictedMovement` |
 | render_positional and game facts render only from report fields | unit | Positional change rows (`+`/`−`, ply, `not at end`, value) under each line, `position.positional` not printed; the games row after the opening (found or not in the table) and the per-move row; no ranking words | `TemplateRendering`, `TiedToLine`, `GameCounts` |
 | render_PostM3_EM2 template wording matches its golden lines | unit | Conditions ("if Black passes", deferred parry, skip reason, facts read to ply k of n, engine and budget, candidates of legal moves), `SEE` for a capture and held-to wording render as in the plan | `TemplateRendering`, `Conditions`, `RestrictedMovement` |
 

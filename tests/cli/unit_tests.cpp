@@ -151,10 +151,11 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     CHECK_FALSE(defaults.pgn.has_value());
     CHECK(defaults.game == 1);
     CHECK_FALSE(defaults.ply.has_value());
-    CHECK_FALSE(defaults.move.has_value());
+    CHECK_FALSE(defaults.moves.has_value());
     CHECK(defaults.level == chesswhy::Level::Club);
     CHECK(defaults.budget == chesswhy::Budget::Standard);
     CHECK_FALSE(defaults.json);
+    CHECK_FALSE(defaults.full_report);
     CHECK_FALSE(defaults.no_llm);
     CHECK(defaults.threads == 1);
     CHECK(defaults.engine == std::filesystem::path(CHESSWHY_ASSETS_DIR) / "engines/stockfish");
@@ -165,6 +166,9 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     const std::vector<std::string_view> games_args{"--fen", fen, "--games", "/tmp/games.tsv"};
     const auto custom_games = chesswhy::cli::parse_args(games_args);
     CHECK(custom_games.games == std::filesystem::path("/tmp/games.tsv"));
+    const std::vector<std::string_view> move_args{"--fen", fen, "--move", "Nf3"};
+    const auto asked_move = chesswhy::cli::parse_args(move_args);
+    CHECK(asked_move.moves == "Nf3");
 
     const std::vector<std::string_view> help_args{"--help"};
     const auto help = chesswhy::cli::parse_args(help_args);
