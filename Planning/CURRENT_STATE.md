@@ -65,6 +65,7 @@ Updated 2026-10-23.
 - System packages from `.omp/RESOURCE_WISHLIST.md` §1 (git-ignored): all installed;
   `.venv/` holds the schema validator.
 - Decided 2026-10-17: license MIT; verdict thresholds 0.03 / 0.13 / 0.27.
-- Open decisions for the Captain: M4 refinements R1–R7 (checkpoint 1), default model
+- Open decisions for the Captain: M4 refinements R1, R2, R4–R8 (checkpoint 1; the
+  `--moves` flag and R3 decided 2026-10-23), default model
   (M5), native app design and platforms (M7; decided 2026-10-22: native apps on Linux
   and Windows, possibly Android, replace the local HTTP API).

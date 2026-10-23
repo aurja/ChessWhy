@@ -62,7 +62,7 @@ flowchart LR
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
-| `Question` | What the user asks: a position, optionally one move to judge or how many playable moves to report, with a budget and an audience level | FEN, asked move, `--playable`, budget, level | partial |
+| `Question` | What the user asks: a position and which moves to report (asked moves, the best move, the top N, or every move of a kind), with a budget and an audience level | FEN, asked move, `--moves`, budget, level | partial |
 | `Searches` | Stockfish searches with fixed node budgets; the only source of evaluations and lines | A, null move, ES | partial |
 | `Threats` | What each side would do if it were its move, what that achieves, and which threat matters more | threat, consequence, urgency | implemented |
 | `Verdicts` | How much each move loses against the best, which moves are playable, and why: parry, new threat, refutation, an allowed tactic | verdict, loss, playable move | partial |
@@ -84,25 +84,26 @@ flowchart LR
     NativeApps["Native apps"]
     FenInput["FEN"]
     PgnInput["PGN game and ply"]
-    AskedMove["Asked move"]
+    AskedMove["Asked moves"]
     Settings["Budget and level"]
     AnalysedPosition["Analysed position"]
     GameMainline["Game mainline"]
     InputError["Input error"]
-    PlayableRequest["Playable moves requested"]
+    MoveRequest["Moves requested"]
     CommandLine & NativeApps -->|position text| FenInput & PgnInput
-    CommandLine & NativeApps -->|move text| AskedMove
+    CommandLine & NativeApps -->|moves to report| MoveRequest
+    MoveRequest -->|move items| AskedMove
     CommandLine & NativeApps -->|options| Settings
-    CommandLine -->|options| PlayableRequest
     FenInput -->|board| AnalysedPosition
     PgnInput -->|board after the ply| AnalysedPosition
     PgnInput -->|earlier positions| GameMainline
     FenInput & PgnInput & AskedMove -->|rejected input| InputError
-    PlayableRequest & AskedMove -->|both given| InputError
+    MoveRequest -->|empty item or bad top count| InputError
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class NativeApps,PlayableRequest planned
+    class NativeApps,MoveRequest planned
+    class AskedMove partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -111,8 +112,8 @@ flowchart LR
 | `NativeApps` | Apps on Linux and Windows, possibly Android, through which a player asks without technical setup; design open (called `LocalApi`, "local HTTP API", before 2026-10-22: the question as JSON over HTTP on this machine) | native apps | planned |
 | `FenInput` | A position as one FEN string, checked for legality | FEN | implemented |
 | `PgnInput` | A game from a PGN file, mainline only, and the ply to stop at | PGN, ply | implemented |
-| `AskedMove` | The move the user asks about, in SAN or UCI, legal in the position | asked move, SAN | implemented |
-| `PlayableRequest` | How many playable moves to report: none given means the best move only, a number means at most that many, `all` means every playable move; not allowed together with an asked move | `--playable`, selection | planned |
+| `AskedMove` | The moves the user asks about, each in SAN or UCI and legal in the position; several may be asked at once, each reported once (one move only before 2026-10-23) | asked move, SAN | partial |
+| `MoveRequest` | Which moves to report, as one list: asked moves and keywords for the best move, the top N moves, every playable move, every move of one or all not-playable verdicts, or every legal move; nothing given means the best move. Keywords that judge every legal move are slow and say so in the help (called `PlayableRequest`, "how many playable moves", before the 2026-10-23 revision; never built) | `--moves`, whole-board keyword, selection | planned |
 | `Settings` | Search budget (quick, standard, deep) and audience level; the level does not change the analysis | budget, level | implemented |
 | `AnalysedPosition` | The board every fact is about, with side to move `S` and opponent `O`; position-only: the moves that led to it are not an input to the analysis | analysed position, S | implemented |
 | `GameMainline` | The positions of a PGN game from its start to the analysed one, used to name the last opening reached | game mainline | implemented |
@@ -148,7 +149,7 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,AskedMove external
-    class SearchA,SearchD,SearchE,SearchR partial
+    class SearchA,SearchC,SearchD,SearchE,SearchR partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -156,9 +157,9 @@ flowchart LR
 | `AnalysedPosition` | See Question | — | external |
 | `AskedMove` | See Question | — | external |
 | `NodeBudget` | Every search stops after a fixed number of nodes, one thread, fixed hash: the same input gives the same report | budget, nodes, reproducible | implemented |
-| `SearchA` | The best moves from the position, each with its line; the first line is `S`'s threat. Five lines, more when more playable moves are requested, every legal move for all of them | A, MultiPV K, PV | partial |
+| `SearchA` | The best moves from the position, each with its line; the first line is `S`'s threat. Five lines, N for a top-N request above five, every legal move when the request needs every move judged | A, MultiPV K, PV, whole-board keyword | partial |
 | `SearchB` | `S` passes; what `O` would play is `O`'s threat. Skipped when `S` is in check | B, null move | implemented |
-| `SearchC` | Search restricted to the asked move when it is not among A's five | C | implemented |
+| `SearchC` | Search restricted to one asked move when it is not among A's lines; once per such move | C | partial |
 | `SearchD` | After a move, `O` must play its threat move: does the threat still work? Only for detailed lines | D, detailed line | partial |
 | `SearchE` | After a move, `S` moves again: which threat the move created. Only for detailed lines | E, detailed line | partial |
 | `SearchR` | After a move that is not playable, `O`'s best move other than the refutation, to judge the refutation as an opportunity; only for detailed lines | R, detailed line | partial |
@@ -248,7 +249,7 @@ flowchart LR
 | `SearchD` | See Engine searches | — | external |
 | `SearchE` | See Engine searches | — | external |
 | `OpponentThreat` | See Threats and urgency | — | external |
-| `CandidateMove` | A move being judged: one of A's lines in engine order (five, or more when more playable moves are requested), or the asked move, with the depth its line reached and how many plies its facts were read from; only detailed lines get the parry test, created threat and the refutation's opportunity judgement | candidates, asked move, line depth, `walked_plies`, detailed line | partial |
+| `CandidateMove` | A move being judged: one of A's lines in engine order (five, more for a top-N request, every legal move when every move must be judged), or an asked move outside them, with the depth its line reached and how many plies its facts were read from; only detailed lines get the parry test, created threat and the refutation's opportunity judgement | candidates, asked move, line depth, `walked_plies`, detailed line | partial |
 | `Loss` | How much expected score the move gives up against the best move | loss | implemented |
 | `AllowsTactic` | Does the move let the opponent win at least a pawn or mate? Read along the move's own line from the analysed position, so an even trade allows nothing | allows a tactic | planned |
 | `Verdict` | best or okay (playable), inaccuracy, mistake or blunder, from the loss, the same-score test against the top line and whether the move allows a tactic (called fine, inaccuracy, mistake or blunder from the loss alone before 2026-10-23) | verdict, playable move | partial |
@@ -469,8 +470,8 @@ flowchart LR
     RelevanceFilter["Relevance filter"]
     MoveReport["Move report"]
     ProjectionCheck["Projection check"]
-    PlayableRequest["Playable moves requested"]
-    AskedMove["Asked move"]
+    MoveRequest["Moves requested"]
+    AskedMove["Asked moves"]
     Explanation["Explanation"]
     Fact -->|with its source| Provenance
     Provenance -->|fields| ReportDocument
@@ -478,7 +479,7 @@ flowchart LR
     ReportSchema -.->|validates| ReportDocument
     SemanticCheck -.->|checks relations between fields| ReportDocument
     RerunIdentity -.->|checks| ReportDocument
-    PlayableRequest & AskedMove -->|request| MoveSelection
+    MoveRequest & AskedMove -->|request| MoveSelection
     ReportDocument -->|A's lines and their verdicts| MoveSelection
     MoveSelection -->|selected moves| RelevanceFilter
     ReportDocument -->|facts of each selected move| RelevanceFilter
@@ -490,7 +491,7 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class Explanation,PlayableRequest,AskedMove external
+    class Explanation,MoveRequest,AskedMove external
     class ReportDocument,JsonOutput partial
     class MoveSelection,RelevanceFilter,MoveReport,ProjectionCheck planned
 ```
@@ -505,11 +506,11 @@ flowchart LR
 | `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves | semantic check | implemented |
 | `RerunIdentity` | Two fresh runs on the same input give the same bytes | rerun identity | implemented |
 | `JsonOutput` | A report printed as it is, for programs and for checking: the move report document by default, the full report on request (before 2026-10-23: the one report) | JSON output, move report document, `--full-report` | partial |
-| `MoveSelection` | Which moves get a move report: the best move, the top N playable moves, every playable move, or the asked move | selection, playable move | planned |
+| `MoveSelection` | Which moves get a move report: everything the request names, together and each once, in the engine's order with asked moves outside A last; a keyword that matches no move adds nothing | selection, playable move, asked move | planned |
 | `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute, the net positional change over its walk; other moves and their facts are left out | relevance filter | planned |
 | `MoveReport` | The output for one selected move, each fact copied unchanged from the full report with its provenance | move report | planned |
 | `ProjectionCheck` | Every move report fact equals the full-report field it came from, with the filter written a second time independently | projection check | planned |
-| `PlayableRequest` | See Question | — | external |
+| `MoveRequest` | See Question | — | external |
 | `AskedMove` | See Question | — | external |
 | `Explanation` | See L1 | — | external |
 

@@ -380,7 +380,7 @@ positional claims (F25–F28) are in section 1.
 
 ## 9. M4 fixtures — playable moves and move reports (planned)
 
-**Concepts:** `EngineFixtures`, `InputFixtures`, `PlayableRequest`, `InputError`, `SearchA`, `PlayableSet`, `Verdict`, `VdBest`, `VdSameScore`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `RelevanceFilter`, `MoveReport`, `ProjectionCheck`
+**Concepts:** `EngineFixtures`, `InputFixtures`, `MoveRequest`, `AskedMove`, `InputError`, `SearchA`, `PlayableSet`, `Verdict`, `VdBest`, `VdSameScore`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `RelevanceFilter`, `MoveReport`, `ProjectionCheck`
 
 Planned in `Planning/milestones/M4.md` §9; not built yet. The coding worker picks the
 boards marked "to pick", measured at the standard budget. Boards are rendered when the
@@ -388,12 +388,12 @@ fixtures land in `tests/fixtures/positions.json`.
 
 | ID | Board | Position | Fixture claims | Codebase today | Comments |
 |---|---|---|---|---|---|
-| F32 | planned | `r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3`<br><sub>constructed: Italian Game after 1.e4 e5 2.Nf3 Nc6 3.Bc4</sub> | no flag: one move report (Nf6, best); `--playable 2`: two; `--playable all`: every playable move, and the playable count equals the number of move reports | Not built. Today's text prints five candidates with every line's motifs and positional changes (197 lines). | |
-| F33 | planned | `6k1/5ppp/8/8/8/8/5PPP/R3R1K1 w - - 0 1`<br>`--playable 2`<br><sub>constructed: two mates in one</sub> | `Ra8#` and `Re8#` both best (same mate distance) | Not built. | |
+| F32 | planned | `r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3`<br><sub>constructed: Italian Game after 1.e4 e5 2.Nf3 Nc6 3.Bc4</sub> | no flag: one move report (Nf6, best); `--moves top2`: two; `--moves top6`: six, at least one not playable; `--moves playable`: every playable move, and the playable count equals the number of move reports; `--moves all`: 31, every one detailed; `--moves best,h6`: Nf6 and h6 | Not built. Today's text prints five candidates with every line's motifs and positional changes (197 lines). | |
+| F33 | planned | `6k1/5ppp/8/8/8/8/5PPP/R3R1K1 w - - 0 1`<br>`--moves top2`<br><sub>constructed: two mates in one</sub> | `Ra8#` and `Re8#` both best (same mate distance); with no flag, one move report | Not built. | |
 | F34 | planned | to pick: a queen hanging to two pieces | line 1 is a tactic and not an opportunity | Not built. | |
 | F35 | planned | to pick: an only move with a positional consequence | line 1 is an opportunity and not a tactic | Not built. | |
-| F36 | planned | to pick; asked with `--move` | the asked move is a mistake: loses more than 0.10 and allows no tactic | Not built. | |
-| F37 | planned | to pick; asked with `--move` | the asked move is a blunder: loses more than 0.10 and allows a tactic | Not built. | |
+| F36 | planned | to pick; asked with `--moves` | the asked move is a mistake: loses more than 0.10 and allows no tactic; `--moves mistakes` selects it | Not built. | |
+| F37 | planned | to pick; asked with `--moves` | the asked move is a blunder: loses more than 0.10 and allows a tactic; `--moves blunders` selects it | Not built. | |
 | F38 | planned | to pick: an even trade | the trade allows no tactic; its recapture is not a tactic (counted from the analysed position) | Not built. | |
 | F39 | planned | `6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1`<br><sub>constructed: Re8#</sub> | the move report of Re8# holds Black's `back_rank_weakness` as a root motif with contribution `indirect` | Not built. Today the text does not print the position's motifs. | |
-| E (M4) | — | `--move Nf6 --playable 2`; `--playable 0`; `--playable x`; `--json --full-report` | exit 2, one `chesswhy: error:` line; the first and last with the exact messages `use either --move or --playable, not both` and `use either --json or --full-report, not both` | Not built. | |
+| E (M4) | — | `--moves Nf3,,e4`; `--moves top0`; `--moves foo`; `--move Nf6`; `--json --full-report` | exit 2, one `chesswhy: error:` line with the exact messages `empty item in --moves`, `invalid value for --moves: top0`, today's unreadable-move message, `unknown flag --move` and `use either --json or --full-report, not both` | Not built. | |

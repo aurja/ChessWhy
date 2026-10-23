@@ -41,9 +41,11 @@ small, local, targeted tool, not a chess GUI, trainer or game reviewer.
 
 ```text
 chesswhy --fen "<FEN>"                       # the best move + why
-chesswhy --fen "<FEN>" --playable 3          # the top 3 playable moves (or: --playable all)
-chesswhy --fen "<FEN>" --move Nf3            # why / why not Nf3 (SAN or UCI: g1f3)
-chesswhy --pgn game.pgn [--game 2] [--ply 31] [--move ... | --playable N|all]
+chesswhy --fen "<FEN>" --moves top3          # the engine's top 3 moves
+chesswhy --fen "<FEN>" --moves Nf3           # why / why not Nf3 (SAN or UCI: g1f3)
+chesswhy --fen "<FEN>" --moves best,Nf3      # my move next to the best one
+chesswhy --fen "<FEN>" --moves playable      # every playable move (slow)
+chesswhy --pgn game.pgn [--game 2] [--ply 31] [--moves ITEM[,ITEM...]]
          [--level beginner|club|advanced] [--budget quick|standard|deep]
          [--json | --full-report] [--no-llm] [--threads N]
 ```
@@ -51,10 +53,12 @@ chesswhy --pgn game.pgn [--game 2] [--ply 31] [--move ... | --playable N|all]
 - PGN: mainline only; variations and comments are ignored. `--ply N` is the position
   after N half-moves (default: final position); `--game` picks a game from a
   multi-game file (default 1).
-- No move given: report the best move; `--playable N` reports at most the top N
-  **playable moves** (verdict best or okay) in MultiPV order, fewer when fewer exist;
-  `--playable all` reports every playable move. `--move` reports only that move,
-  whatever its verdict; `--move` with `--playable` is an input error. The output never
+- `--moves` names what to report as a comma-separated list without spaces; items
+  combine, each move reported once. An item is a move (SAN or UCI) or a keyword:
+  `best` (the engine's top line; the default), `topN` (the engine's first N lines,
+  whatever their verdict), `playable` (verdict best or okay), `inaccuracies`,
+  `mistakes`, `blunders`, `unplayable` (all three), `all` (every legal move). The
+  last six judge every legal move and are slow; `--help` says so. The output never
   calls a move a "candidate": chess literature uses the word for moves considered, many
   of them rejected (Captain, 2026-10-23; M4).
 - Analysis is position-only: the moves that led to the position (PGN history) are not
@@ -102,7 +106,7 @@ are reported for display only; all thresholds use `ES`.
 
 | ID | Position | Search | Purpose |
 |---|---|---|---|
-| A | current, `S` to move | MultiPV `K`: 5, or N for `--playable N` > 5, or every legal move for `--playable all`; 1/5 of A's budget per line | best moves, `S`'s threat (A's PV), playable moves |
+| A | current, `S` to move | MultiPV `K`: 5, or N for `topN` > 5, or every legal move for `playable`, `inaccuracies`, `mistakes`, `blunders`, `unplayable`, `all`; 1/5 of A's budget per line | best moves, `S`'s threat (A's PV), playable moves |
 | B | null move: same placement, `O` to move, en-passant square cleared | single PV | `O`'s threat (what `O` does if `S` passes) |
 | C(m) | after move `m` | `go searchmoves m` from the current position, or the A entry if `m` is in the MultiPV | verdict and refutation line for `m` |
 | D(m, t) | after `m`, `O` to move | `searchmoves t`, where `t` is `O`'s threat move from B | does `m` parry the threat? |
@@ -395,7 +399,7 @@ own plan with frozen acceptance criteria; the bullets below are the intent.
 | M3a | Positional fact detectors and diffs: pawn structure, king safety, pieces, space, development lead, material balance (Captain, 2026-10-21: named structure families and Silman's imbalances move to a later milestone) | hand-labelled fixture positions, including book positions transcribed to FEN — complete, merged into `main` 2026-10-22 (receipt `Planning/receipts/M3a.md`) |
 | M3b | Opening statistics table and builder (Lichess broadcasts, both players 2200+); built in parallel with M3a | move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical — complete, merged into `main` 2026-10-22 (receipt `Planning/receipts/M3b.md`) |
 | PostM3_EM2 | Fixes from the 2026-10-22 conceptual audit (`Planning/milestones/PostM3_EM2.md`): restricted and free moves for restricted movement; contribution `none` means the tactic works without the motif; `removal_of_defender` continuity; conditions printed in the template (threat premise, deferred parry, skipped threat, walked plies, engine and budget, candidate count); report v5 with a semantic checker; data digests | every fixed finding has a fixture, test or doc row that fails on the old behaviour; all reports pass the semantic checks |
-| M4 | Playable moves and move reports (`Planning/milestones/M4.md`): `--playable N`/`all`, verdict scale best/okay/inaccuracy/mistake/blunder, tactic (mate or material) and opportunity (only-move margin), one move report per reported move with a relevance filter, JSON and template text from the same move reports | every rule has a fixture or test that fails on the old behaviour; every move report fact is a full-report field (projection check); the output never says "candidate" |
+| M4 | Playable moves and move reports (`Planning/milestones/M4.md`): one `--moves` flag (asked moves, `best`, `topN`, verdict keywords, `all`), verdict scale best/okay/inaccuracy/mistake/blunder, tactic (mate or material) and opportunity (only-move margin), one move report per reported move with a relevance filter, JSON and template text from the same move reports | every rule has a fixture or test that fails on the old behaviour; every move report fact is a full-report field (projection check); the output never says "candidate" |
 | M5 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; prose is limited to claim units built from move report fields; the fact check rejects every case of a seeded relational test set (wrong move, square or piece, and wrong relations: who threatens whom, which ply, which condition) |
 | M6 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve; each shown excerpt is on topic for the report's tags, applicable to the position's type, and its stance (advice vs. warning) is not inverted in the prose |
 | M7 | Native apps (Linux, Windows; possibly Android) | to be set with the Captain |

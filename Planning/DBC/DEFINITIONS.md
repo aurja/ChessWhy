@@ -72,11 +72,13 @@ Read these first. Each word is used in two or more senses in the plans.
 | budget | `quick`, `standard` (default) or `deep`: fixed node counts per search kind | M1 §3 |
 | reproducible | Threads = 1, Hash 64 MB, fixed nodes, `ucinewgame` before each search: the same input gives a byte-identical report. Means the same configuration only: the report does not identify the engine binary or the ChessWhy revision (stated 2026-10-22) | M1 §3, PostM3_EM2 G11 |
 | rerun identity | The acceptance check that two fresh runs give byte-identical JSON | M1 §14 |
-| asked move | The move given with `--move`: the user's "why (not) this move?" | M1 §4.7 |
+| asked move | A move the user names in the `--moves` list: the user's "why (not) this move?". From M4 (Captain, 2026-10-23) a request may name several; before, the single move given with `--move` | M1 §4.7, M4 §4.1 |
 | candidates | A's K best moves with their verdicts, in A's MultiPV order (not re-sorted by score). An internal analysis term: from M4 the output never calls a move a "candidate", because chess literature uses the word for moves *considered*, many of them rejected; the output shows **playable moves** instead (Captain, 2026-10-23) | M1 §4.7, PostM3_EM2 G9 |
 | playable move | **Decided for M4 (Captain, 2026-10-23):** a move the engine judges worth playing: loss ≤ 0.05 ES against the best move, i.e. verdict best or okay (see verdict). Not a claim about which moves a human would consider | — |
-| `--playable` | **Decided for M4 (Captain, 2026-10-23):** how many playable moves to report: absent → the best one (A's line 1); `N` (integer ≥ 1) → the top N playable moves in A's MultiPV order, fewer when fewer moves are playable; `all` → every playable move. Given together with `--move` it is an input error: exit 2, `use either --move or --playable, not both` | M4 §1 P2, §4.1 |
-| selection | **Planned (M4):** the moves that get a move report: best → A's line 1; top N → the first N playable lines of A; all → every playable line of A; move → the asked move. Recorded as `input.selection` (`request` best, top, all or move; `n` for top) | M4 §4.1 |
+| `--playable` | Retired before it was built (Captain, 2026-10-23): `--moves` replaces it. Was: how many playable moves to report (`N` or `all`), an input error together with `--move` | M4 §1 P2, §15 |
+| `--moves` | **Decided for M4 (Captain, 2026-10-23):** the one flag that names the moves to report; replaces `--move` and the never-built `--playable`. Its value is a comma-separated list without spaces; each item is an asked move (SAN or UCI) or a keyword: `best` (A's line 1 only, even when other moves tie), `topN` (A's first N lines whatever their verdict, e.g. `top3`), `playable`, `inaccuracies`, `mistakes`, `blunders`, `unplayable` (inaccuracies, mistakes and blunders), `all` (every legal move). Items combine as a union, each move reported once. No flag means `--moves best`. `--help` warns that every whole-board keyword is slow | M4 §1 P2, §4.1 |
+| whole-board keyword | **Planned (M4):** a `--moves` keyword that needs a verdict for every legal move: `playable`, `inaccuracies`, `mistakes`, `blunders`, `unplayable`, `all`. Any of them sets A's MultiPV K to the number of legal moves, so the run takes several times the default time | M4 §4.1 |
+| selection | **Planned (M4):** the moves that get a move report: the union of what each `--moves` item selects, in A's MultiPV order, then asked moves outside A in the order typed. A keyword that matches no move selects nothing. Recorded as `input.selection` (`keywords`, the largest `top`, asked `moves` in UCI). Until the `--moves` revision of 2026-10-23 the plan was one request: best, top N playable, all playable, or one asked move | M4 §4.1 |
 | detailed line | **Planned (M4):** an A line that gets the per-move searches D, E and R: A's first five lines and every selected move. Other lines (`detailed: false`) keep verdict, line, consequence, motifs and the refutation line, without parry, created threat or the refutation's opportunity judgement | M4 §4.1, R4 |
 | move report | **Decided for M4 (Captain, 2026-10-23):** the output for one selected move: its verdict, line, consequence, tactic and opportunity, refutation, and only the parried threat, created threat, motifs, root motifs and positional changes the relevance filter keeps, each with its provenance; the JSON and text outputs are built from move reports | M4 §1 P8, §4.6 |
 | relevance filter | **Decided for M4 (Captain, 2026-10-23, D3):** the pure rule that turns one move of the full report into a move report. Keeps verdict, line and refutation; `O`'s threat only when the move parries it; a created threat only when its class is mate, material or promotion; line and root motifs only with contribution direct or indirect; positional facts only as the net change over the walk (changes that hold at the end, the last per feature). Drops other moves, `S`'s own threat, urgency and threat-line motifs | M4 §4.6 |
@@ -87,7 +89,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | line depth | The search depth the engine reached on a candidate's line (or on search C for an asked move outside A); JSON `MoveAssessment.depth`, `engine` provenance. Lines of one MultiPV search can end at different depths | PostM3_EM2 §5 |
 | `legal_moves` | The number of legal moves in the analysed position (`position.legal_moves`, `rule`), printed beside the candidate count so the reader sees how many moves were not judged | PostM3_EM2 §5 |
 | level | `beginner`, `club`, `advanced`: audience of the M5 prose; no effect on analysis | vision §3 |
-| command line | `chesswhy` with flags (`--fen` or `--pgn` with `--game`/`--ply`, `--move`, `--budget`, `--level`, `--json`, `--no-llm`; from M4 `--playable` and `--full-report`): how a question arrives today | M1 §6, M4 §4.1 |
+| command line | `chesswhy` with flags (`--fen` or `--pgn` with `--game`/`--ply`, `--budget`, `--level`, `--json`, `--no-llm`; `--move` until M4, then `--moves` and `--full-report`): how a question arrives today | M1 §6, M4 §4.1 |
 | native apps | Planned presentation layer: apps on Linux and Windows, possibly Android, so players need no technical setup; design and scope open with the Captain (M7; M6 before the 2026-10-23 renumbering). Called "local HTTP API" before 2026-10-22, when it meant the CLI inputs as JSON over HTTP on `127.0.0.1`; that design is dropped | vision §9 |
 | analysed position | The one position a report is about: the FEN, or the PGN game's position after `--ply` half-moves (default: its final position). Position-only: the moves that led to it are not an input to the searches or rules, so repetitions in the game do not change a verdict | M1 §5, PostM3_EM2 G15 |
 | game mainline | For PGN input: the game's positions from its start to the analysed position, used only to find the last named position | M1 §4.8, §5 |
@@ -101,15 +103,15 @@ Read these first. Each word is used in two or more senses in the plans.
 
 | Search | From | Answers |
 |---|---|---|
-| A | current position, MultiPV 5 | best moves, `S`'s threat, `eval_white` |
+| A | current position, MultiPV K (5; from M4 more for `topN` and every legal move for a whole-board keyword) | best moves, `S`'s threat, `eval_white` |
 | B | null move (`O` to move) | `O`'s threat and its first move `t` |
-| C | current position, `searchmoves m` | the asked move when it is not among A's lines |
+| C | current position, `searchmoves m` | each asked move that is not among A's lines |
 | D(m) | after `m`, `searchmoves t` | does `m` parry `O`'s threat? |
 | E(m) | after `m`, null move | which threat `m` creates |
 | R(m) | after a move `m` that is not fine, `searchmoves` all of `O`'s legal moves except the refutation's first | `O`'s best alternative to the refutation, for the refutation's tactic judgement (§4.5) |
 
 Node counts per budget: M1 §3; R (same size as D and E): PostM2_EM1 §3. Order: A, B, per
-candidate D, E, R; then C, D, E, R for an asked move outside A.
+candidate D, E, R; then C, D, E, R for each asked move outside A.
 
 ### 3.3 Threats and consequences
 
@@ -148,7 +150,7 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 | allows a tactic | **Planned (M4 R1, checkpoint 1):** along the move's own line (the move, then best play, from the analysed position, over its walked plies) `S` loses at least 1 pawn net, or the engine scores a mate against `S`. Counted from before the move, so an even trade (`Nxd5 exd5`) allows nothing. The refutation of such a move is a tactic | M4 §4.3 |
 | fine set | Retired in M4 (Captain, 2026-10-23); the playable moves among A's lines replace it. Was: the fine moves among the candidates; ChessWhy judges the engine's top K moves only, so unlisted moves are not judged and may also be fine. Before 2026-10-22: "all moves with verdict fine", which the tool never computed | vision §3, §5.4, PostM3_EM2 G8 |
 | `fine_truncated` | Renamed `playable_truncated` in M4 (planned). Was: true iff all K of A's lines are fine, so more fine moves may exist than are listed. False does not mean the unlisted moves are not fine | M1 §4.7, PostM3_EM2 §5 |
-| `playable_truncated` | **Planned (M4):** true iff A returned all K lines, K is less than the legal moves, and every line is playable, so more playable moves may exist than A listed. Always false for `--playable all` | M4 §4.1 |
+| `playable_truncated` | **Planned (M4):** true iff A returned all K lines, K is less than the legal moves, and every line is playable, so more playable moves may exist than A listed. Always false with a whole-board keyword | M4 §4.1 |
 
 ## 4. Tactical motifs
 
