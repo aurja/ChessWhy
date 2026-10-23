@@ -374,7 +374,7 @@
       }
     },
     "fine_truncated": {
-      "description": "true iff every candidate is fine; false does not mean the unlisted moves are not fine",
+      "description": "true iff search A returned all K lines and every one is fine; false does not mean the unlisted moves are not fine",
       "type": "boolean"
     },
     "asked_move": {

@@ -1,6 +1,6 @@
 # Current state
 
-Updated 2026-10-22.
+Updated 2026-10-23.
 
 - Milestone: **M3a and M3b complete, merged into `main` 2026-10-22** (Captain ran both
   smoke commands and approved). Receipts `Planning/receipts/M3a.md` and
@@ -19,16 +19,16 @@ Updated 2026-10-22.
   - Release and ASan/UBSan CTests 141/141 (107 `unit`, 33 `engine`, 1 `games`); slowest
     `standard` F fixture 7.80 s (F06).
 - In progress: PostM3_EM2 (fixes from the 2026-10-22 conceptual audit in `Planning/critiques/`;
-  plan `Planning/milestones/PostM3_EM2.md`, branch `postm3-em2`). Checkpoint 1 passed,
-  contract commit done, batch 1 (WP1–WP8) committed 2026-10-22 (`2d4d837`): report v5,
-  restricted and free moves with the existence condition, contribution rule 3′, data
-  digests, semantic checker (14 mutants rejected), conditions in the text. Checkpoint 2
-  (Captain, 2026-10-22): a held pawn's move set includes hypothetical captures onto both
-  diagonal-front squares (T07, T48–T50, T52, T47, T59 reported; C fixtures re-set); C10's
-  ply-1 pin dropped (in check). Release CTests all green (117 `unit`, 37 `engine`/`games`
-  serial). Next: WP9 docs, milestone gates, completion review, receipt; then M4
-  (libllama prose). Four candidate
-  GGUFs are downloaded to `assets/models/`; pinning them is an M4 task.
+  plan `Planning/milestones/PostM3_EM2.md`, branch `postm3-em2`, receipt
+  `Planning/receipts/PostM3_EM2.md`). All work packages done: report v5, restricted and
+  free moves over the move set (hypothetical pawn captures, checkpoint 2), contribution
+  rule 3′, `removal_of_defender` continuity, data digests, semantic checker (14 mutants
+  rejected), conditions in the text. Gate fix 2026-10-23: a move set never captures a
+  king. Full gate green: Release and ASan/UBSan CTests 155/155 each (118 `unit`, 37
+  `engine`/`games`), slowest `standard` F fixture 7.91 s (F12); oracles 0 mismatches.
+  Completion review done (one blocker in the semantic checker, fixed). Next: checkpoint 3
+  (Captain runs the smoke command and approves the merge); then M4 (libllama prose). Four
+  candidate GGUFs are downloaded to `assets/models/`; pinning them is an M4 task.
 - Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
   (F26/F27 show 20–25 rows per line); M4 decides what the prose says.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept

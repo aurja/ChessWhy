@@ -383,8 +383,8 @@ struct Report {
     PositionInfo position;
     std::optional<Threats> threats;         // null iff terminal
     std::vector<MoveAssessment> candidates; // search A, MultiPV order; empty iff terminal
-    bool fine_truncated = false; // every candidate is fine; false does not mean the unlisted
-                                 // moves are not fine
+    bool fine_truncated = false; // A returned all K lines and every one is fine; false does
+                                 // not mean the unlisted moves are not fine
     std::optional<MoveAssessment> asked_move;
     OpeningInfo opening;
     GamesInfo games; // after opening; always set, also for terminal positions

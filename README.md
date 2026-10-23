@@ -99,8 +99,8 @@ Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves fr
 
 Analysis is position-only: PGN history selects the position but is not an input to the searches or
 rules. The fine set contains only the `fine`-verdict moves among the engine's top K candidates for
-that position; unlisted moves are not judged and may also be fine. `fine_truncated` is true iff all
-K candidates are fine; this does not classify unlisted moves.
+that position; unlisted moves are not judged and may also be fine. `fine_truncated` is true iff the
+engine returned all K candidates and every one is fine; this does not classify unlisted moves.
 
 
 ```sh

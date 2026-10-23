@@ -1007,6 +1007,12 @@ def check_refutation_tactic(
         )
         return False
     tactic_value = refutation.get("tactic")
+    fail(
+        failures,
+        f"{pointer}/refutation/tactic",
+        "a refutation with plies must have a tactic judgement",
+        tactic_value is not None,
+    )
     if tactic_value is None:
         check_motif_contributions(
             refutation.get("motifs"), False, motifs_pointer, failures

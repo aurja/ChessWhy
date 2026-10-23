@@ -91,9 +91,12 @@ that square, the square's previous occupant gone; it is a legal move when the Y 
 not attacked on that board, a pseudo-legal move always. A capture onto the last rank is
 four promotion moves. Reason: a pawn's capture is a way it can move that only an
 occupied square unlocks; "this pawn is pinned, so I can go there" is a valid thought.
-Other pieces use their legal (pseudo-legal) moves only. No move of the move set captures a
-king, hypothetical or not (gate, 2026-10-23): B with Y to move can leave X in check, and a
-king capture is not a chess move.
+Other pieces use their legal (pseudo-legal) moves only. When h's own moves already hold a
+move to such a square (a real capture or en passant), that move stands in and no
+hypothetical capture is added there (review, 2026-10-23: with
+`4Q3/8/2B5/3pP3/4r3/5k2/8/K7 w - d6 0 1`, e5-d6 is judged as en passant, d5 gone). No
+move of the move set captures a king, hypothetical or not (gate, 2026-10-23): B with Y to
+move can leave X in check, and a king capture is not a chess move.
 
 | Tag | h | Denied moves of h on B |
 |---|---|---|
@@ -457,3 +460,5 @@ count line, `Re8#` with `es`, `depth`, and the `back_rank_weakness` row; the JSO
 | 2026-10-22 | Checkpoint 2: the approved effects land (C01 Bg5 indirect, C17 indirect, C18 BRW none) | Captain, checkpoint 1 predictions realised |
 | 2026-10-22 | Games digest-identity unit test relabelled `games` | it reads the game table in `assets/`; AGENTS.md: `unit` needs no assets |
 | 2026-10-23 | Gate: a move set never contains a move that captures a king (§4.1); production, oracle and semantic checker all drop it | ASan oracle abort on puzzle UG08H after `g2f3 c6d4`: White is in check from Nd4; with Black given the move, `d4f3` took the king and SEE ran on a kingless board (Release computed on it silently). Regression unit test "held move restrictions never include capturing a king" |
+| 2026-10-23 | Review: where a pawn's own moves hold a move to a diagonal-front square (real capture or en passant), that move stands in for the hypothetical capture (§4.1); documents the built behaviour of production and oracle | Review scope proposal: en passant and the hypothetical capture share a UCI but differ on the board (d5 gone or kept); the real move wins because it is the chess move |
+| 2026-10-23 | Review: the semantic checker requires a tactic judgement on every refutation with plies (§4.6 item 13); `fine_truncated` wording says "A returned all K lines and every one is fine", as computed since M1 | Review blocker: F12 with `/candidates/2/refutation/tactic` set to null passed the checker; the C++ check it replaced rejected it. Nit: the old wording omitted the K-lines condition |
