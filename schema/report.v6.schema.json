@@ -1,25 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/report.v5.schema.json",
-  "title": "ChessWhy report, schema version 5",
+  "$id": "https://chesswhy.local/schema/report.v6.schema.json",
+  "title": "ChessWhy full report, schema version 6",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
+    "document",
     "input",
     "engine",
     "position",
     "threats",
     "candidates",
-    "fine_truncated",
-    "asked_move",
+    "playable_truncated",
+    "asked_moves",
     "opening",
     "games"
   ],
   "properties": {
     "schema_version": {
-      "description": "Schema version of the report; this schema accepts version 5 [rule].",
-      "const": 5
+      "description": "Schema version of the report; this schema accepts version 6 [rule].",
+      "const": 6
+    },
+    "document": {
+      "description": "Kind of report document emitted by this schema [rule].",
+      "const": "full"
     },
     "input": {
       "description": "Metadata about the analyzed input [rule].",
@@ -30,7 +35,8 @@
         "fen",
         "pgn_game",
         "pgn_ply",
-        "move",
+        "moves",
+        "selection",
         "level",
         "budget"
       ],
@@ -62,12 +68,60 @@
           ],
           "minimum": 0
         },
-        "move": {
-          "description": "The --move value exactly as supplied, or null when no move was requested [rule].",
+        "moves": {
+          "description": "The --moves value exactly as supplied, or null when no moves were requested [rule].",
           "type": [
             "string",
             "null"
           ]
+        },
+        "selection": {
+          "description": "Normalized move selection used to size Search A and choose reported moves [rule].",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "keywords",
+            "top",
+            "moves"
+          ],
+          "properties": {
+            "keywords": {
+              "description": "Selected keywords in the fixed enum order, each once [rule].",
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "best",
+                  "playable",
+                  "inaccuracies",
+                  "mistakes",
+                  "blunders",
+                  "unplayable",
+                  "all"
+                ]
+              }
+            },
+            "top": {
+              "description": "Largest topN selection, or null when no topN was given [rule].",
+              "oneOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "moves": {
+              "description": "Asked move UCIs in typed order, each once [rule].",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[a-h][1-8][a-h][1-8][qrbn]?$"
+              }
+            }
+          }
         },
         "level": {
           "description": "Requested explanation level [rule].",
@@ -116,9 +170,9 @@
           "minimum": 1
         },
         "multipv": {
-          "description": "MultiPV width used for candidate search [engine].",
+          "description": "MultiPV width K requested for candidate search [engine].",
           "type": "integer",
-          "minimum": 1
+          "minimum": 0
         },
         "reproducible": {
           "description": "same configuration (budget, threads, hash, nodes) gives the same report",
@@ -138,9 +192,9 @@
           ],
           "properties": {
             "A": {
-              "description": "Node budget for MultiPV K from the current position [rule].",
+              "description": "Scaled node budget for MultiPV K from the current position [rule].",
               "type": "integer",
-              "minimum": 1
+              "minimum": 0
             },
             "B": {
               "description": "Node budget for the null-move search with the opponent to move [rule].",
@@ -238,7 +292,22 @@
             "$ref": "#/$defs/positional_feature"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "motifs": {
+              "items": {
+                "properties": {
+                  "contribution": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "threats": {
       "description": "Threat searches and urgency for the analyzed position; null iff terminal [engine/rule].",
@@ -373,20 +442,16 @@
         "$ref": "#/$defs/move"
       }
     },
-    "fine_truncated": {
-      "description": "true iff search A returned all K lines and every one is fine; false does not mean the unlisted moves are not fine",
+    "playable_truncated": {
+      "description": "true iff Search A returned all K lines, K is less than legal moves, and every A line is playable [rule].",
       "type": "boolean"
     },
-    "asked_move": {
-      "description": "Separately assessed move supplied by the user, or null when none was requested [engine].",
-      "oneOf": [
-        {
-          "$ref": "#/$defs/move"
-        },
-        {
-          "type": "null"
-        }
-      ]
+    "asked_moves": {
+      "description": "Asked moves outside Search A, assessed by Search C in typed order [engine].",
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/move"
+      }
     },
     "opening": {
       "description": "Opening-book identification for the analyzed position [book].",
@@ -635,7 +700,9 @@
         "line",
         "consequence",
         "motifs",
-        "tactic"
+        "is_tactic",
+        "opportunity",
+        "tactic_labels"
       ],
       "properties": {
         "source": {
@@ -662,16 +729,34 @@
           "description": "Tactical motifs in the threat line [rule].",
           "$ref": "#/$defs/motifs"
         },
-        "tactic": {
-          "description": "Tactic judgement for the threat line, or null when none is reported [engine/rule].",
+        "is_tactic": {
+          "description": "Whether this is a refutation of a move that allows a tactic; null unless a refutation [rule].",
           "oneOf": [
             {
-              "$ref": "#/$defs/tactic"
+              "type": "boolean"
             },
             {
               "type": "null"
             }
           ]
+        },
+        "opportunity": {
+          "description": "Opportunity judgement for a judged line, or null [engine/rule].",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/opportunity"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tactic_labels": {
+          "description": "Rule-derived labels for this tactic line; empty otherwise [rule].",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tactic_label"
+          }
         }
       }
     },
@@ -690,12 +775,18 @@
         "gives_check",
         "line",
         "walked_plies",
+        "consequence",
+        "is_tactic",
+        "allows_tactic",
+        "detailed",
         "parries_threat",
         "creates_threat",
         "creates_threat_skipped",
         "refutation",
         "motifs",
-        "tactic",
+        "opportunity",
+        "tactic_labels",
+        "root_motifs",
         "positional"
       ],
       "properties": {
@@ -728,9 +819,10 @@
           "maximum": 1
         },
         "verdict": {
-          "description": "Verdict derived from the move's expected-score loss [engine].",
+          "description": "Verdict from loss, exact score equality, and whether the move allows a tactic [engine].",
           "enum": [
-            "fine",
+            "best",
+            "okay",
             "inaccuracy",
             "mistake",
             "blunder"
@@ -752,6 +844,22 @@
           "description": "Number of line plies from which motif and positional facts were read [rule].",
           "type": "integer",
           "minimum": 0
+        },
+        "consequence": {
+          "description": "Rule-derived consequence of this move's own line from the analyzed position [rule].",
+          "$ref": "#/$defs/consequence"
+        },
+        "is_tactic": {
+          "description": "Whether this move's own line has consequence class mate or material [rule].",
+          "type": "boolean"
+        },
+        "allows_tactic": {
+          "description": "Whether the move loses at least one pawn net or is mated along its own line [rule].",
+          "type": "boolean"
+        },
+        "detailed": {
+          "description": "Whether Search D, E and R were run for this selected or first-five line [rule].",
+          "type": "boolean"
         },
         "parries_threat": {
           "description": "Whether this move parries the opponent's threat, or null when no class-mate/material threat exists or the side to move is in check [rule].",
@@ -792,10 +900,36 @@
           ]
         },
         "creates_threat": {
-          "description": "Threat found after this move, or null when the threat search was skipped [engine].",
+          "description": "Threat found after this move, or null when the search is skipped [engine].",
           "oneOf": [
             {
-              "$ref": "#/$defs/threat"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/threat"
+                },
+                {
+                  "properties": {
+                    "is_tactic": {
+                      "type": "null"
+                    },
+                    "opportunity": {
+                      "type": "null"
+                    },
+                    "tactic_labels": {
+                      "maxItems": 0
+                    },
+                    "motifs": {
+                      "items": {
+                        "properties": {
+                          "contribution": {
+                            "type": "null"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
             },
             {
               "type": "null"
@@ -816,10 +950,21 @@
           ]
         },
         "refutation": {
-          "description": "Opponent's refutation line, set iff the verdict is not fine [engine].",
+          "description": "Opponent's refutation line, set iff verdict is not playable [engine].",
           "oneOf": [
             {
-              "$ref": "#/$defs/threat"
+              "allOf": [
+                {
+                  "$ref": "#/$defs/threat"
+                },
+                {
+                  "properties": {
+                    "is_tactic": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              ]
             },
             {
               "type": "null"
@@ -830,16 +975,27 @@
           "description": "Tactical motifs in the move line [rule].",
           "$ref": "#/$defs/motifs"
         },
-        "tactic": {
-          "description": "Tactic judgement of this move line, or null when none is reported [engine/rule].",
+        "opportunity": {
+          "description": "Opportunity judgement for A's first line, or null [engine/rule].",
           "oneOf": [
             {
-              "$ref": "#/$defs/tactic"
+              "$ref": "#/$defs/opportunity"
             },
             {
               "type": "null"
             }
           ]
+        },
+        "tactic_labels": {
+          "description": "Rule-derived labels for this tactic line; empty otherwise [rule].",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tactic_label"
+          }
+        },
+        "root_motifs": {
+          "description": "Position motifs with contributions judged against this tactic line [rule].",
+          "$ref": "#/$defs/motifs"
         },
         "positional": {
           "description": "Positional feature changes along this move line [rule].",
@@ -854,7 +1010,10 @@
           "if": {
             "properties": {
               "verdict": {
-                "const": "fine"
+                "enum": [
+                  "best",
+                  "okay"
+                ]
               }
             }
           },
@@ -868,26 +1027,47 @@
           "else": {
             "properties": {
               "refutation": {
-                "$ref": "#/$defs/threat"
+                "allOf": [
+                  {
+                    "$ref": "#/$defs/threat"
+                  },
+                  {
+                    "properties": {
+                      "is_tactic": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                ]
               }
             }
           }
         },
         {
           "if": {
-            "properties": {
-              "creates_threat": {
-                "type": "null"
+            "anyOf": [
+              {
+                "properties": {
+                  "detailed": {
+                    "const": false
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "creates_threat": {
+                    "type": "null"
+                  }
+                }
               }
-            }
+            ]
           },
           "then": {
             "properties": {
               "creates_threat_skipped": {
-                "enum": [
-                  "gives_check",
-                  "game_over",
-                  "no_legal_move"
+                "type": [
+                  "string",
+                  "null"
                 ]
               }
             }
@@ -931,6 +1111,201 @@
                     "const": "rule"
                   }
                 }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "consequence": {
+                "properties": {
+                  "class": {
+                    "enum": [
+                      "mate",
+                      "material"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "is_tactic": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "is_tactic": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "allows_tactic": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "refutation": {
+                "properties": {
+                  "is_tactic": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "allows_tactic": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "refutation": {
+                "properties": {
+                  "is_tactic": {
+                    "const": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "detailed": {
+                "const": false
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parries_threat": {
+                "type": "null"
+              },
+              "creates_threat": {
+                "type": "null"
+              },
+              "creates_threat_skipped": {
+                "type": "null"
+              },
+              "refutation": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/$defs/threat"
+                      },
+                      {
+                        "properties": {
+                          "opportunity": {
+                            "type": "null"
+                          }
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "allOf": [
+              {
+                "properties": {
+                  "is_tactic": {
+                    "const": false
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "opportunity": {
+                    "oneOf": [
+                      {
+                        "type": "null"
+                      },
+                      {
+                        "properties": {
+                          "is_opportunity": {
+                            "const": false
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "motifs": {
+                "items": {
+                  "properties": {
+                    "contribution": {
+                      "type": "null"
+                    }
+                  }
+                }
+              },
+              "tactic_labels": {
+                "maxItems": 0
+              },
+              "root_motifs": {
+                "maxItems": 0
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "blunder"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allows_tactic": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "mistake"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "allows_tactic": {
+                "const": false
               }
             }
           }
@@ -1275,7 +1650,7 @@
         }
       }
     },
-    "tactic": {
+    "opportunity": {
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -1283,19 +1658,18 @@
         "forced",
         "alternative",
         "margin",
-        "is_tactic",
-        "labels"
+        "is_opportunity"
       ],
       "properties": {
         "source": {
-          "description": "Provenance of the tactic judgement: engine, or rule iff the line is forced [engine/rule].",
+          "description": "Provenance of the opportunity judgement: engine, or rule iff the line is forced [engine/rule].",
           "enum": [
             "engine",
             "rule"
           ]
         },
         "forced": {
-          "description": "Whether the line's root has exactly one legal move [rule].",
+          "description": "Whether the judged line's root has exactly one legal move [rule].",
           "type": "boolean"
         },
         "alternative": {
@@ -1320,7 +1694,7 @@
                   "pattern": "^[a-h][1-8][a-h][1-8][qrbn]?$"
                 },
                 "eval": {
-                  "description": "Expected-score evaluation of the alternative from the tactic side's point of view [engine].",
+                  "description": "Expected-score evaluation of the alternative from the judged line's side point of view [engine].",
                   "$ref": "#/$defs/eval"
                 }
               }
@@ -1339,16 +1713,9 @@
           "minimum": -1,
           "maximum": 1
         },
-        "is_tactic": {
-          "description": "Whether the line's expected-score margin meets the tactic threshold [engine].",
+        "is_opportunity": {
+          "description": "Whether the only-move margin is at least 0.13 expected score [engine].",
           "type": "boolean"
-        },
-        "labels": {
-          "description": "Rule-derived tactic labels for this line [rule].",
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/tactic_label"
-          }
         }
       },
       "allOf": [
@@ -1371,7 +1738,7 @@
               "margin": {
                 "type": "null"
               },
-              "is_tactic": {
+              "is_opportunity": {
                 "const": false
               }
             }
@@ -1393,15 +1760,33 @@
         {
           "if": {
             "properties": {
-              "is_tactic": {
-                "const": false
+              "margin": {
+                "type": "number",
+                "minimum": 0.13
               }
             }
           },
           "then": {
             "properties": {
-              "labels": {
-                "maxItems": 0
+              "is_opportunity": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "margin": {
+                "type": "number",
+                "maximum": 0.1295
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "is_opportunity": {
+                "const": false
               }
             }
           }

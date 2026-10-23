@@ -5,7 +5,6 @@
 #include "chesswhy/games.hpp"
 #include "chesswhy/input.hpp"
 #include "chesswhy/openings.hpp"
-#include "chesswhy/render.hpp"
 
 #include <charconv>
 #include <exception>
@@ -13,9 +12,11 @@
 #include <string>
 #include <string_view>
 #include <system_error>
+#include <utility>
 #include <vector>
 
-#include <nlohmann/json.hpp>
+#include "output.hpp"
+#include "selection.hpp"
 
 #ifndef CHESSWHY_ASSETS_DIR
 #error "CHESSWHY_ASSETS_DIR must be provided by chesswhy_paths"
@@ -29,10 +30,14 @@ namespace {
 }
 
 [[nodiscard]] std::string usage() {
-    return "Usage: chesswhy (--fen FEN | --pgn FILE [--game N] [--ply N]) [--move MOVE]\n"
+    return "Usage: chesswhy (--fen FEN | --pgn FILE [--game N] [--ply N]) [--moves LIST]\n"
            "                [--level beginner|club|advanced] [--budget quick|standard|deep]\n"
-           "                [--json] [--no-llm] [--threads N] [--engine PATH] [--openings DIR]\n"
-           "                [--games FILE] [--help]\n";
+           "                [--json] [--full-report] [--no-llm] [--threads N] [--engine PATH]\n"
+           "                [--openings DIR] [--games FILE] [--help]\n"
+           "--moves items (comma-separated, no spaces): SAN/UCI move, best, topN,\n"
+           "              playable, inaccuracies, mistakes, blunders, unplayable, all. Each "
+           "whole-board keyword searches every legal move and takes "
+           "several times the default time.\n";
 }
 
 [[noreturn]] void usage_error(std::string_view message) {
@@ -99,6 +104,8 @@ Options parse_args(std::span<const std::string_view> args) {
 
     bool seen_game = false;
     bool seen_json = false;
+    bool seen_moves = false;
+    bool seen_full_report = false;
     bool seen_no_llm = false;
     bool seen_threads = false;
     bool seen_engine = false;
@@ -125,11 +132,9 @@ Options parse_args(std::span<const std::string_view> args) {
                 usage_error("duplicate flag --ply");
             }
             options.ply = parse_integer(value_after(args, index, flag), flag, 0);
-        } else if (flag == "--move") {
-            if (options.move) {
-                usage_error("duplicate flag --move");
-            }
-            options.move = std::string(value_after(args, index, flag));
+        } else if (flag == "--moves") {
+            reject_duplicate(seen_moves, flag);
+            options.moves = std::string(value_after(args, index, flag));
         } else if (flag == "--level") {
             const std::string_view value = value_after(args, index, flag);
             if (value == "beginner") {
@@ -155,6 +160,9 @@ Options parse_args(std::span<const std::string_view> args) {
         } else if (flag == "--json") {
             reject_duplicate(seen_json, flag);
             options.json = true;
+        } else if (flag == "--full-report") {
+            reject_duplicate(seen_full_report, flag);
+            options.full_report = true;
         } else if (flag == "--no-llm") {
             reject_duplicate(seen_no_llm, flag);
             options.no_llm = true;
@@ -216,18 +224,13 @@ int run(const Options& options, std::ostream& out, std::ostream& err) {
             throw input::InputError("exactly one of --fen or --pgn must be supplied");
         }
 
-        std::optional<chess::Move> asked_move;
-        if (options.move) {
-            chess::Movelist legal_moves;
-            chess::movegen::legalmoves(legal_moves, board);
-            if (legal_moves.empty()) {
-                throw input::InputError("illegal move " + *options.move);
-            }
-            asked_move = input::parse_move(board, *options.move);
-        }
+        const std::optional<std::string_view> typed_moves =
+            options.moves ? std::optional<std::string_view>(*options.moves) : std::nullopt;
+        auto resolved_moves = detail::resolve_moves(board, typed_moves);
+        report.input.selection = std::move(resolved_moves.selection);
+        report.input.moves = options.moves;
 
         report.input.fen = board.getFen();
-        report.input.move = options.move;
         report.input.level = options.level;
         report.input.budget = options.budget;
 
@@ -240,17 +243,15 @@ int run(const Options& options, std::ostream& out, std::ostream& err) {
         report.engine.threads = options.threads;
         report.engine.hash_mb = 64;
         report.engine.reproducible = options.threads == 1;
-        analysis::analyse(
-            engine,
-            analysis::Request{.board = board, .asked = asked_move, .budget = options.budget},
-            report);
+        analysis::analyse(engine,
+                          analysis::Request{.board = board,
+                                            .selection = report.input.selection,
+                                            .asked = std::move(resolved_moves.asked),
+                                            .budget = options.budget},
+                          report);
         report.opening = openings::describe(opening_table, board, mainline);
 
-        if (options.json) {
-            out << to_json(report).dump(2) << '\n';
-        } else {
-            out << render::text(report);
-        }
+        detail::write_output(options, report, out);
         return kExitOk;
     } catch (const input::InputError& error) {
         write_error(err, error.what());

@@ -69,7 +69,7 @@ inline constexpr const char* kAfterE4E5 =
 [[nodiscard]] inline MoveAssessment move(std::string san, std::string uci,
                                          std::vector<std::string> line, int es_units,
                                          std::string root_fen, Side threat_side = Side::Black,
-                                         Verdict verdict = Verdict::Fine, int loss_units = 0) {
+                                         Verdict verdict = Verdict::Best, int loss_units = 0) {
     MoveAssessment value;
     value.san = std::move(san);
     value.uci = std::move(uci);
@@ -91,6 +91,7 @@ inline constexpr const char* kAfterE4E5 =
     report.input.fen = fen;
     report.input.level = Level::Club;
     report.input.budget = Budget::Standard;
+    report.input.selection.keywords = {Selection::Keyword::Best};
     report.engine.name = "Stockfish 19";
     report.engine.threads = 1;
     report.engine.hash_mb = 64;
@@ -124,6 +125,8 @@ inline constexpr const char* kAfterE4E5 =
     report.position.in_check = true;
     report.position.terminal = Terminal::Checkmate;
     report.position.eval_white.reset();
+    report.engine.multipv = 0;
+    report.engine.nodes.a = 0;
     report.engine.nodes_searched = 0;
     return report;
 }
@@ -147,7 +150,7 @@ inline constexpr const char* kAfterE4E5 =
     only_move.eval = Eval{.es_units = 1800, .cp = 500, .mate = std::nullopt};
     only_move.depth = 12;
     only_move.loss_units = 0;
-    only_move.verdict = Verdict::Fine;
+    only_move.verdict = Verdict::Best;
     only_move.in_multipv = true;
     only_move.gives_check = false;
     only_move.line_san = {"g6", "Qxg6"};
@@ -161,13 +164,14 @@ inline constexpr const char* kAfterE4E5 =
 
 [[nodiscard]] inline Report normal_position() {
     Report report = base_report(kF03, Side::Black);
-    report.input.move = "Nf6";
+    report.input.moves = "Nf6";
+    report.input.selection.keywords.clear();
+    report.input.selection.moves = {"g8f6"};
     report.position.eval_white = Eval{.es_units = 1234, .cp = 45, .mate = std::nullopt};
     report.position.motifs.push_back(
         motif(MotifTag::HangingPiece, Side::White, 0, piece_on_square('d', 5, 'n'), {}, 3));
     report.position.motifs.push_back(
         motif(MotifTag::BackRankWeakness, Side::White, 0, piece_on_square('e', 8, 'k')));
-
     report.position.positional.push_back(PositionalFeature{.tag = PositionalTag::BishopPair,
                                                            .side = Side::White,
                                                            .pieces = {},
@@ -219,12 +223,12 @@ inline constexpr const char* kAfterE4E5 =
     report.candidates.push_back(move("Qf6", "d8f6", {"Qf6"}, 1234, kF03));
     report.candidates.push_back(move("Qe7", "d8e7", {"Qe7"}, 1234, kF03));
     report.candidates.push_back(move("Bc5", "f8c5", {"Bc5"}, 1234, kF03));
-    report.fine_truncated = true;
+    report.playable_truncated = true;
 
     MoveAssessment asked;
     asked.san = "Nf6";
     asked.uci = "g8f6";
-    asked.eval = Eval{.es_units = 534, .cp = -230, .mate = std::nullopt};
+    asked.eval = Eval{.es_units = 534, .cp = std::nullopt, .mate = -1};
     asked.depth = 12;
     asked.loss_units = 700;
     asked.verdict = Verdict::Blunder;
@@ -232,16 +236,26 @@ inline constexpr const char* kAfterE4E5 =
     asked.gives_check = false;
     asked.line_san = {"Nf6", "Qxf7#"};
     asked.walked_plies = static_cast<int>(asked.line_san.size());
-    asked.motifs.push_back(motif(MotifTag::Skewer, Side::Black, 1, piece_on_square('f', 6, 'q'),
-                                 {piece_on_square('f', 1, 'R')}));
+    asked.consequence = consequence(ConsequenceClass::Positional, 0, 2);
+    asked.allows_tactic = true;
     asked.parries_threat = ParryInfo{.parries = false, .test = ParryTest::Searched};
     asked.creates_threat =
         threat(Side::Black, "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 4 4",
                {"Nxe4"}, consequence(ConsequenceClass::Positional, 0, 6));
     asked.refutation = threat(Side::White, kAfterNf6, {"Qxf7#"},
                               consequence(ConsequenceClass::Mate, 0, 1, false, 1));
+    asked.refutation->is_tactic = true;
     asked.refutation->motifs.push_back(
         motif(MotifTag::HangingPiece, Side::White, 1, piece_on_square('d', 5, 'n'), {}, 3));
+    asked.refutation->motifs.back().contribution = MotifContribution::Direct;
+    asked.refutation->opportunity = OpportunityJudgement{
+        .forced = false,
+        .alternative =
+            BestAlternative{.san = "Qe2",
+                            .uci = "h5e2",
+                            .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt}},
+        .margin_units = 300,
+        .is_opportunity = true};
     asked.positional.push_back(
         PositionalChange{.ply = 1,
                          .change = PositionalChangeKind::Disappears,
@@ -261,7 +275,7 @@ inline constexpr const char* kAfterE4E5 =
                              .pieces = {piece_on_square('c', 6, 'p'), piece_on_square('c', 7, 'p')},
                              .file = 2,
                              .value = std::nullopt}});
-    report.asked_move = std::move(asked);
+    report.asked_moves.push_back(std::move(asked));
     return report;
 }
 
@@ -287,7 +301,7 @@ inline constexpr const char* kAfterE4E5 =
     report.candidates.push_back(move("Bc4", "f1c4", {"Bc4", "Nc6"}, 1234, kAfterE4E5, Side::White));
     report.candidates.push_back(move("d4", "d2d4", {"d4", "exd4"}, 1234, kAfterE4E5, Side::White));
     report.candidates.push_back(move("f4", "f2f4", {"f4", "exf4"}, 1234, kAfterE4E5, Side::White));
-    report.fine_truncated = true;
+    report.playable_truncated = true;
 
     report.opening.current = OpeningName{.eco = "C20", .name = "King's Pawn Game"};
     report.opening.last_named =
@@ -305,13 +319,13 @@ inline constexpr const char* kAfterE4E5 =
     return label;
 }
 
-[[nodiscard]] inline Report forced_judgement() {
+[[nodiscard]] inline Report forced_opportunity() {
     Report report = base_report(kF02, Side::Black);
     report.position.in_check = true;
     MoveAssessment only_move = move("g6", "g7g6", {"g6", "Qxg6"}, 1800, kF02);
-    TacticJudgement tactic;
-    tactic.forced = true;
-    only_move.tactic = std::move(tactic);
+    OpportunityJudgement opportunity;
+    opportunity.forced = true;
+    only_move.opportunity = std::move(opportunity);
     report.candidates.push_back(std::move(only_move));
     return report;
 }
@@ -361,52 +375,59 @@ inline constexpr const char* kAfterE4E5 =
         .square = piece_on_square('f', 4, 'P').square,
     };
     best.motifs.back().contribution = MotifContribution::Direct;
-    TacticJudgement tactic;
-    tactic.alternative = TacticAlternative{
+
+    OpportunityJudgement opportunity;
+    opportunity.alternative = BestAlternative{
         .san = "g6",
         .uci = "g7g6",
         .eval = Eval{.es_units = 254, .cp = -230, .mate = std::nullopt},
     };
-    tactic.margin_units = 980;
-    tactic.is_tactic = true;
-    tactic.labels.push_back(removal_label());
-    best.tactic = std::move(tactic);
+    opportunity.margin_units = 980;
+    opportunity.is_opportunity = true;
+    best.opportunity = std::move(opportunity);
+    best.tactic_labels.push_back(removal_label());
+    best.consequence = consequence(ConsequenceClass::Material, 1, 2);
+    best.is_tactic = true;
 
     report.position.motifs.push_back(
         motif(MotifTag::BackRankWeakness, Side::Black, 0, piece_on_square('e', 8, 'k')));
-    report.position.motifs.back().contribution = MotifContribution::Indirect;
+    best.root_motifs.push_back(report.position.motifs.back());
+    best.root_motifs.back().contribution = MotifContribution::Indirect;
     report.candidates.push_back(std::move(best));
     MoveAssessment alternative = move("g6", "g7g6", {"g6", "Qxf7#"}, 254, kF03);
     report.candidates.push_back(std::move(alternative));
     return report;
 }
 
-[[nodiscard]] inline Report tactic_with_asked_move() {
-    Report report = tactic_with_labels();
-    report.input.move = report.candidates.front().san;
-    report.asked_move = report.candidates.front();
-    return report;
-}
-
-[[nodiscard]] inline Report negative_margin_judgement() {
+[[nodiscard]] inline Report negative_margin_opportunity() {
     Report report = base_report(kF03, Side::Black);
     MoveAssessment best = move("d6", "d7d6", {"d6"}, 1000, kF03);
-    TacticJudgement tactic;
-    tactic.alternative = TacticAlternative{
+    OpportunityJudgement opportunity;
+    opportunity.alternative = BestAlternative{
         .san = "g6",
         .uci = "g7g6",
         .eval = Eval{.es_units = 1100, .cp = 10, .mate = std::nullopt},
     };
-    tactic.margin_units = -100;
-    best.tactic = std::move(tactic);
+    opportunity.margin_units = -100;
+    best.opportunity = std::move(opportunity);
     report.candidates.push_back(std::move(best));
     MoveAssessment alternative = move("g6", "g7g6", {"g6"}, 1100, kF03);
     report.candidates.push_back(std::move(alternative));
     return report;
 }
 
-[[nodiscard]] inline Report refutation_judgement() {
+[[nodiscard]] inline Report refutation_opportunity() {
     Report report = base_report(kF03, Side::Black);
+    MoveAssessment best = move("d6", "d7d6", {"d6"}, 1234, kF03);
+    best.opportunity = OpportunityJudgement{
+        .forced = false,
+        .alternative =
+            BestAlternative{.san = "g6",
+                            .uci = "g7g6",
+                            .eval = Eval{.es_units = 1234, .cp = 12, .mate = std::nullopt}},
+        .margin_units = 0,
+        .is_opportunity = false};
+    report.candidates.push_back(std::move(best));
     MoveAssessment candidate =
         move("Nf6", "g8f6", {"Nf6", "Qxf7#"}, 534, kF03, Side::Black, Verdict::Blunder, 700);
     candidate.refutation = threat(Side::White, kAfterNf6, {"Qxf7#"},
@@ -415,16 +436,20 @@ inline constexpr const char* kAfterE4E5 =
         motif(MotifTag::Fork, Side::White, 1, piece_on_square('h', 5, 'Q'),
               {piece_on_square('f', 7, 'k'), piece_on_square('e', 8, 'k')}));
     candidate.refutation->motifs.back().contribution = MotifContribution::Direct;
-    TacticJudgement tactic;
-    tactic.alternative = TacticAlternative{
+    candidate.refutation->is_tactic = true;
+    OpportunityJudgement opportunity;
+    opportunity.alternative = BestAlternative{
         .san = "Qe2",
         .uci = "h5e2",
         .eval = Eval{.es_units = 1066, .cp = 1000, .mate = std::nullopt},
     };
-    tactic.margin_units = 400;
-    tactic.is_tactic = true;
-    tactic.labels.push_back(removal_label(Side::White));
-    candidate.refutation->tactic = std::move(tactic);
+    opportunity.margin_units = 400;
+    opportunity.is_opportunity = true;
+    candidate.refutation->opportunity = std::move(opportunity);
+    candidate.refutation->tactic_labels.push_back(removal_label(Side::White));
+    candidate.eval = Eval{.es_units = 534, .cp = std::nullopt, .mate = -1};
+    candidate.consequence = consequence(ConsequenceClass::Positional, 0, 2);
+    candidate.allows_tactic = true;
     report.candidates.push_back(std::move(candidate));
     return report;
 }
@@ -432,6 +457,7 @@ inline constexpr const char* kAfterE4E5 =
 [[nodiscard]] inline Report schema_base_report(const char* fen, Side side, int white_es_units) {
     Report report = base_report(fen, side);
     report.position.eval_white = Eval{.es_units = white_es_units, .cp = 0, .mate = std::nullopt};
+    report.engine.multipv = std::min(5, report.position.legal_moves);
     report.engine.nodes = {
         .a = 1'000'000, .b = 200'000, .c = 200'000, .d = 100'000, .e = 100'000, .r = 100'000};
 
@@ -457,7 +483,7 @@ inline constexpr const char* kAfterE4E5 =
                                                 int depth, std::vector<std::string> line,
                                                 int walked, bool gives_check = false,
                                                 int loss_units = 0,
-                                                Verdict verdict = Verdict::Fine) {
+                                                Verdict verdict = Verdict::Best) {
     MoveAssessment result;
     result.san = std::move(san);
     result.uci = std::move(uci);
@@ -480,10 +506,10 @@ inline void add_schema_root_judgement(Report& report) {
     chess::Movelist legal_moves;
     chess::movegen::legalmoves(legal_moves, root);
     MoveAssessment& best = report.candidates.front();
+    OpportunityJudgement judgement;
     if (legal_moves.size() == 1) {
-        TacticJudgement judgement;
         judgement.forced = true;
-        best.tactic = std::move(judgement);
+        best.opportunity = std::move(judgement);
         return;
     }
 
@@ -499,14 +525,13 @@ inline void add_schema_root_judgement(Report& report) {
 
     const std::string alternative_uci = chess::uci::moveToUci(*alternative_move);
     const std::string alternative_san = chess::uci::moveToSan(root, *alternative_move);
-    TacticJudgement judgement;
-    judgement.alternative = TacticAlternative{
+    judgement.alternative = BestAlternative{
         .san = alternative_san,
         .uci = alternative_uci,
         .eval = Eval{.es_units = best.eval.es_units, .cp = 0, .mate = std::nullopt},
     };
     judgement.margin_units = 0;
-    best.tactic = std::move(judgement);
+    best.opportunity = std::move(judgement);
 
     MoveAssessment alternative = schema_move(alternative_san, alternative_uci, best.eval.es_units,
                                              best.depth, {alternative_san}, 1);
@@ -545,13 +570,14 @@ inline void add_schema_refutation_judgements(Report& report) {
             continue;
         }
         Threat& refutation = *candidate.refutation;
+        refutation.is_tactic = candidate.allows_tactic;
         const chess::Board root(refutation.root_fen);
         chess::Movelist legal_moves;
         chess::movegen::legalmoves(legal_moves, root);
-        TacticJudgement judgement;
+        OpportunityJudgement judgement;
         if (legal_moves.size() == 1) {
             judgement.forced = true;
-            refutation.tactic = std::move(judgement);
+            refutation.opportunity = std::move(judgement);
             continue;
         }
         const chess::Move refutation_move = chess::uci::parseSan(root, refutation.line_san.front());
@@ -561,13 +587,13 @@ inline void add_schema_refutation_judgements(Report& report) {
             continue;
         }
         const int alternative_es_units = 2000 - candidate.eval.es_units;
-        judgement.alternative = TacticAlternative{
+        judgement.alternative = BestAlternative{
             .san = chess::uci::moveToSan(root, *alternative_move),
             .uci = chess::uci::moveToUci(*alternative_move),
             .eval = Eval{.es_units = alternative_es_units, .cp = 0, .mate = std::nullopt},
         };
         judgement.margin_units = 0;
-        refutation.tactic = std::move(judgement);
+        refutation.opportunity = std::move(judgement);
     }
 }
 
@@ -587,7 +613,7 @@ inline void add_schema_refutation_judgements(Report& report) {
     MoveAssessment candidate = schema_move("Rxe1+", "e7e1", 1000, 8, {"Rxe1+"}, 1, true);
     candidate.creates_threat_skipped = CreatesThreatSkip::GivesCheck;
     report.candidates.push_back(std::move(candidate));
-    report.fine_truncated = true;
+    report.playable_truncated = false;
     add_schema_root_judgement(report);
     return report;
 }
@@ -600,7 +626,7 @@ inline void add_schema_refutation_judgements(Report& report) {
         threat(Side::White, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", {"Nf3"},
                consequence(ConsequenceClass::Positional, 0, 1));
     report.candidates.push_back(std::move(candidate));
-    report.fine_truncated = true;
+    report.playable_truncated = false;
     add_schema_root_judgement(report);
     return report;
 }
@@ -611,7 +637,7 @@ inline void add_schema_refutation_judgements(Report& report) {
     MoveAssessment candidate = schema_move("Qb6", "b5b6", 1000, 8, {"Qb6"}, 1);
     candidate.creates_threat_skipped = CreatesThreatSkip::GameOver;
     report.candidates.push_back(std::move(candidate));
-    report.fine_truncated = true;
+    report.playable_truncated = false;
     add_schema_root_judgement(report);
     return report;
 }
@@ -629,19 +655,27 @@ inline void add_schema_refutation_judgements(Report& report) {
     blunder.creates_threat =
         threat(Side::Black, "r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNBQK1NR b KQkq - 5 4",
                {"Rg8"}, consequence(ConsequenceClass::Positional, 0, 1));
+    blunder.eval.cp = std::nullopt;
+    blunder.eval.mate = -1;
+    blunder.allows_tactic = true;
     blunder.refutation = threat(Side::White, kAfterNf6, {"Qxf7#"},
                                 consequence(ConsequenceClass::Mate, 0, 1, false, 1));
     report.candidates.push_back(std::move(blunder));
     add_schema_root_judgement(report);
     add_schema_refutation_judgements(report);
-    report.fine_truncated = false;
+    report.playable_truncated = false;
     return report;
 }
 
 [[nodiscard]] inline Report schema_asked_example() {
     Report report = schema_refutation_example();
-    report.input.move = "d6";
-    report.asked_move = report.candidates.front();
+    report.input.moves = "g6";
+    report.input.selection.keywords.clear();
+    report.input.selection.moves = {"g7g6"};
+    MoveAssessment asked = schema_move("g6", "g7g6", 1234, 16, {"g6"}, 1);
+    asked.in_multipv = false;
+    asked.verdict = Verdict::Okay;
+    report.asked_moves.push_back(std::move(asked));
     return report;
 }
 
@@ -653,7 +687,7 @@ inline void add_schema_refutation_judgements(Report& report) {
                {"Nc6"}, consequence(ConsequenceClass::Positional, 0, 1));
     report.candidates.push_back(std::move(candidate));
     add_schema_root_judgement(report);
-    report.fine_truncated = true;
+    report.playable_truncated = false;
     return report;
 }
 
@@ -671,23 +705,27 @@ inline void add_schema_refutation_judgements(Report& report) {
                {"Nxe5"}, consequence(ConsequenceClass::Positional, 0, 1));
     report.candidates.push_back(std::move(candidate));
     add_schema_root_judgement(report);
-    report.fine_truncated = true;
+    report.playable_truncated = false;
     return report;
 }
 
 [[nodiscard]] inline std::array<Report, 8> schema_reports() {
     Report terminal = terminal_checkmate();
-    terminal.fine_truncated = true;
+    terminal.playable_truncated = false;
     return {std::move(terminal),    schema_check_example(),     schema_example(),
             schema_quiet_example(), schema_stalemate_example(), schema_refutation_example(),
             schema_asked_example(), schema_pgn_example()};
 }
 
 [[nodiscard]] inline std::array<Report, 8> all_reports() {
-    return {terminal_checkmate(),        side_in_check(),
-            normal_position(),           pgn_opening(),
-            tactic_with_labels(),        forced_judgement(),
-            negative_margin_judgement(), refutation_judgement()};
+    return {terminal_checkmate(),
+            side_in_check(),
+            normal_position(),
+            pgn_opening(),
+            tactic_with_labels(),
+            forced_opportunity(),
+            negative_margin_opportunity(),
+            refutation_opportunity()};
 }
 
 } // namespace chesswhy::test_examples

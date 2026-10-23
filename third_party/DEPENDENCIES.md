@@ -7,7 +7,7 @@
 | Disservin/chess-library | `53e6a841dcda7059a2af363d85f785ef1817304a` (master, 2026-07-26) | MIT | board, legal moves, FEN, PGN stream parser, SAN/UCI | M1 |
 | nlohmann/json | `v3.12.0` | MIT | report serialisation | M1 |
 | catchorg/Catch2 | `v3.16.1` | BSL-1.0 | tests | M1 |
-| ggml-org/llama.cpp | `b11712` | MIT | `libllama` inference | M4 |
+| ggml-org/llama.cpp | `b11712` | MIT | `libllama` inference | M5 (pinned 2026-10-23 as "M4", before the milestones were renumbered) |
 
 Clone with `git clone --recurse-submodules`, or run
 `git submodule update --init --recursive`. Change a pin only as an explicit task and

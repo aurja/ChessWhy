@@ -2,6 +2,7 @@
 #include "chesswhy/positional.hpp"
 #include "chesswhy/tactics.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 #include <ranges>
@@ -102,13 +103,19 @@ constexpr int kParryMarginUnits = 60;
     return moves.size();
 }
 
-[[nodiscard]] std::optional<TacticJudgement>
-judge_refutation(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& nodes_searched,
-                 const chess::Board& root, std::span<const std::string> pv_uci,
-                 const Eval& refuted_move_eval, Threat& refutation) {
+void annotate_threat_line(const chess::Board& root, std::span<const chess::Move> moves,
+                          Threat& threat) {
+    tactics::judge_contributions(root, moves, threat.motifs);
+    threat.tactic_labels = tactics::tactic_labels(root, moves);
+}
+
+void judge_refutation(engine::Engine& engine, const NodeBudget& budget,
+                      std::uint64_t& nodes_searched, const chess::Board& root,
+                      std::span<const std::string> pv_uci, const Eval& refuted_move_eval,
+                      Threat& refutation) {
     const auto line_moves = walked_moves(root, pv_uci);
     if (line_moves.empty()) {
-        return std::nullopt;
+        return;
     }
 
     chess::Movelist legal_moves;
@@ -117,10 +124,14 @@ judge_refutation(engine::Engine& engine, const NodeBudget& budget, std::uint64_t
         throw engine::EngineError("Stockfish refutation has a move after a terminal position");
     }
 
-    TacticJudgement judgement;
+    OpportunityJudgement judgement;
     if (legal_moves.size() == 1) {
         judgement.forced = true;
-        return judgement;
+        refutation.opportunity = judgement;
+        if (refutation.is_tactic.value_or(false)) {
+            annotate_threat_line(root, line_moves, refutation);
+        }
+        return;
     }
 
     const auto refutation_first = line_moves.front();
@@ -146,21 +157,19 @@ judge_refutation(engine::Engine& engine, const NodeBudget& budget, std::uint64_t
         throw engine::EngineError("Stockfish search R returned an invalid alternative move");
     }
 
-    TacticAlternative alternative{
+    judgement.alternative = BestAlternative{
         .san = chess::uci::moveToSan(root, alternative_move),
         .uci = chess::uci::moveToUci(alternative_move, root.chess960()),
         .eval = eval_for(alternative_line, root.sideToMove(), root.sideToMove()),
     };
-    const int margin_units = 2000 - refuted_move_eval.es_units - alternative.eval.es_units;
-    judgement.alternative = std::move(alternative);
+    const int margin_units =
+        2000 - refuted_move_eval.es_units - judgement.alternative->eval.es_units;
     judgement.margin_units = margin_units;
-    judgement.is_tactic = is_tactic_margin(margin_units);
-    if (judgement.is_tactic) {
-        const auto moves = std::span<const chess::Move>(line_moves);
-        tactics::judge_contributions(root, moves, refutation.motifs);
-        judgement.labels = tactics::tactic_labels(root, moves);
+    judgement.is_opportunity = is_opportunity_margin(margin_units);
+    refutation.opportunity = judgement;
+    if (refutation.is_tactic.value_or(false) || judgement.is_opportunity) {
+        annotate_threat_line(root, line_moves, refutation);
     }
-    return judgement;
 }
 
 [[nodiscard]] bool pseudo_legal_uci(const chess::Board& board, std::string_view uci) {
@@ -292,12 +301,11 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     return ParryInfo{.parries = !threat_works, .test = ParryTest::Searched};
 }
 
-[[nodiscard]] MoveAssessment assess_move(engine::Engine& engine, const NodeBudget& budget,
-                                         std::uint64_t& nodes_searched, const chess::Board& root,
-                                         const engine::Line& line, const engine::Line& best_line,
-                                         std::string_view uci, bool in_multipv,
-                                         int opponent_threat_rank,
-                                         const std::optional<engine::Line>& opponent_line) {
+[[nodiscard]] MoveAssessment assess_move(const chess::Board& root, const engine::Line& line,
+                                         const engine::Line& best_line, std::string_view uci,
+                                         bool in_multipv, bool same_score_as_best,
+                                         std::optional<OpportunityJudgement> opportunity,
+                                         const std::vector<Motif>& root_motifs) {
     if (line.pv_uci.empty()) {
         throw engine::EngineError("Stockfish search returned an empty principal variation");
     }
@@ -308,40 +316,7 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
 
     chess::Board after_move = root;
     after_move.makeMove(move);
-    const bool gives_check = after_move.inCheck();
-    const bool has_reply = has_legal_moves(after_move);
-    const bool mates = gives_check && !has_reply;
-
-    std::optional<ParryInfo> parry;
-    if (!root.inCheck() && opponent_threat_rank >= 2 && opponent_line.has_value() &&
-        !opponent_line->pv_uci.empty()) {
-        parry = search_parry(engine, budget, nodes_searched, after_move, gives_check, mates,
-                             opponent_line->pv_uci.front(), *opponent_line);
-    }
-
-    std::optional<Threat> creates_threat;
-    std::optional<CreatesThreatSkip> creates_threat_skipped;
-    if (gives_check) {
-        creates_threat_skipped = CreatesThreatSkip::GivesCheck;
-    } else if (!has_reply) {
-        creates_threat_skipped = CreatesThreatSkip::GameOver;
-    } else {
-        chess::Board null_after_move = after_move;
-        null_after_move.makeNullMove();
-        if (!has_legal_moves(null_after_move)) {
-            creates_threat_skipped = CreatesThreatSkip::NoLegalMove;
-        } else {
-            engine::SearchRequest request;
-            request.fen = null_after_move.getFen();
-            request.nodes = budget.e;
-            request.multipv = 1;
-            const auto searched = engine.search(request);
-            nodes_searched += searched.nodes;
-            const auto& line = first_line(searched);
-            creates_threat = make_threat(null_after_move, line.pv_uci, line,
-                                         report_side(null_after_move.sideToMove()));
-        }
-    }
+    const auto moves = walked_moves(root, line.pv_uci);
 
     MoveAssessment result;
     result.san = chess::uci::moveToSan(root, move);
@@ -349,19 +324,29 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     result.eval = eval_for(line, root.sideToMove(), root.sideToMove());
     result.depth = line.depth;
     result.loss_units = std::max(0, es_units(best_line) - es_units(line));
-    result.verdict = verdict_for_loss(result.loss_units);
+    result.consequence = consequence(root, line.pv_uci, line);
+    result.is_tactic = is_tactic(result.consequence);
+    result.allows_tactic = allows_tactic(result.consequence, result.eval);
+    result.verdict = verdict(result.loss_units, same_score_as_best, result.allows_tactic);
     result.in_multipv = in_multipv;
-    result.gives_check = gives_check;
+    result.gives_check = after_move.inCheck();
     result.line_san = san_line(root, line.pv_uci);
-    const auto moves = walked_moves(root, line.pv_uci);
     result.walked_plies = static_cast<int>(moves.size());
-    result.motifs = tactics::line_motifs(root, std::span<const chess::Move>(moves));
-    result.positional = positional::line_changes(root, std::span<const chess::Move>(moves));
-    result.parries_threat = parry;
-    result.creates_threat = std::move(creates_threat);
-    result.creates_threat_skipped = creates_threat_skipped;
+    result.motifs = tactics::line_motifs(root, moves);
+    result.positional = positional::line_changes(root, moves);
+    result.detailed = false;
+    result.opportunity = std::move(opportunity);
 
-    if (result.verdict != Verdict::Fine) {
+    const bool tactic_line =
+        result.is_tactic || (result.opportunity && result.opportunity->is_opportunity);
+    if (tactic_line) {
+        tactics::judge_contributions(root, moves, result.motifs);
+        result.tactic_labels = tactics::tactic_labels(root, moves);
+        result.root_motifs = root_motifs;
+        tactics::judge_contributions(root, moves, result.root_motifs);
+    }
+
+    if (result.verdict != Verdict::Best && result.verdict != Verdict::Okay) {
         const auto pv = std::span<const std::string>(line.pv_uci);
         const auto reply = pv.size() > 1 ? pv.subspan(1) : std::span<const std::string>();
         engine::Line reply_line;
@@ -370,10 +355,97 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
         }
         result.refutation =
             make_threat(after_move, reply, reply_line, report_side(after_move.sideToMove()));
-        result.refutation->tactic = judge_refutation(engine, budget, nodes_searched, after_move,
-                                                     reply, result.eval, *result.refutation);
+        result.refutation->is_tactic = result.allows_tactic;
+        if (result.allows_tactic) {
+            const auto refutation_moves = walked_moves(after_move, reply);
+            annotate_threat_line(after_move, refutation_moves, *result.refutation);
+        }
     }
     return result;
+}
+
+void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
+                           std::uint64_t& nodes_searched, const chess::Board& root,
+                           const engine::Line& line, MoveAssessment& result,
+                           int opponent_threat_rank,
+                           const std::optional<engine::Line>& opponent_line) {
+    result.detailed = true;
+    const auto move = detail::legal_move(root, result.uci);
+    if (move == chess::Move::NO_MOVE) {
+        throw engine::EngineError("Stockfish returned an illegal principal variation move");
+    }
+    chess::Board after_move = root;
+    after_move.makeMove(move);
+    const bool has_reply = has_legal_moves(after_move);
+    const bool mates = result.gives_check && !has_reply;
+
+    if (!root.inCheck() && opponent_threat_rank >= 2 && opponent_line.has_value() &&
+        !opponent_line->pv_uci.empty()) {
+        result.parries_threat =
+            search_parry(engine, budget, nodes_searched, after_move, result.gives_check, mates,
+                         opponent_line->pv_uci.front(), *opponent_line);
+    }
+
+    if (result.gives_check) {
+        result.creates_threat_skipped = CreatesThreatSkip::GivesCheck;
+    } else if (!has_reply) {
+        result.creates_threat_skipped = CreatesThreatSkip::GameOver;
+    } else {
+        chess::Board null_after_move = after_move;
+        null_after_move.makeNullMove();
+        if (!has_legal_moves(null_after_move)) {
+            result.creates_threat_skipped = CreatesThreatSkip::NoLegalMove;
+        } else {
+            engine::SearchRequest request;
+            request.fen = null_after_move.getFen();
+            request.nodes = budget.e;
+            request.multipv = 1;
+            const auto searched = engine.search(request);
+            nodes_searched += searched.nodes;
+            const auto& created_line = first_line(searched);
+            result.creates_threat = make_threat(null_after_move, created_line.pv_uci, created_line,
+                                                report_side(null_after_move.sideToMove()));
+        }
+    }
+
+    if (result.refutation.has_value()) {
+        const auto pv = std::span<const std::string>(line.pv_uci);
+        const auto reply = pv.size() > 1 ? pv.subspan(1) : std::span<const std::string>();
+        judge_refutation(engine, budget, nodes_searched, after_move, reply, result.eval,
+                         *result.refutation);
+    }
+}
+[[nodiscard]] bool selected_by_selection(const Selection& selection, const MoveAssessment& move,
+                                         std::size_t line_index) {
+    bool selected =
+        selection.top.has_value() && line_index < static_cast<std::size_t>(*selection.top);
+    for (const auto keyword : selection.keywords) {
+        switch (keyword) {
+        case Selection::Keyword::Best:
+            selected = selected || line_index == 0;
+            break;
+        case Selection::Keyword::Playable:
+            selected = selected || move.verdict == Verdict::Best || move.verdict == Verdict::Okay;
+            break;
+        case Selection::Keyword::Inaccuracies:
+            selected = selected || move.verdict == Verdict::Inaccuracy;
+            break;
+        case Selection::Keyword::Mistakes:
+            selected = selected || move.verdict == Verdict::Mistake;
+            break;
+        case Selection::Keyword::Blunders:
+            selected = selected || move.verdict == Verdict::Blunder;
+            break;
+        case Selection::Keyword::Unplayable:
+            selected = selected || move.verdict == Verdict::Inaccuracy ||
+                       move.verdict == Verdict::Mistake || move.verdict == Verdict::Blunder;
+            break;
+        case Selection::Keyword::All:
+            selected = true;
+            break;
+        }
+    }
+    return selected || std::ranges::find(selection.moves, move.uci) != selection.moves.end();
 }
 
 } // namespace
@@ -384,7 +456,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     const auto opponent = ~side_to_move;
     const bool in_check = board.inCheck();
 
-    report.engine.multipv = kMultiPv;
+    report.input.selection = request.selection;
     report.engine.nodes = node_budget(request.budget);
     report.engine.nodes_searched = 0;
     report.position.fen = board.getFen();
@@ -396,11 +468,14 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.position.positional = positional::features(board);
     report.threats.reset();
     report.candidates.clear();
-    report.fine_truncated = false;
-    report.asked_move.reset();
+    report.asked_moves.clear();
+    report.playable_truncated = false;
 
     const auto root_legal_moves = legal_move_count(board);
     report.position.legal_moves = static_cast<int>(root_legal_moves);
+    const int lines = multipv_lines(request.selection, report.position.legal_moves);
+    report.engine.multipv = lines;
+    report.engine.nodes.a = search_a_nodes(request.budget, lines);
     if (root_legal_moves == 0) {
         report.position.terminal = in_check ? Terminal::Checkmate : Terminal::Stalemate;
         return;
@@ -412,7 +487,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     engine::SearchRequest a_request;
     a_request.fen = board.getFen();
     a_request.nodes = budget.a;
-    a_request.multipv = kMultiPv;
+    a_request.multipv = lines;
     const auto a_result = engine.search(a_request);
     report.engine.nodes_searched += a_result.nodes;
     if (a_result.lines.empty()) {
@@ -423,7 +498,32 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
             "Stockfish search A returned fewer than two principal variations");
     }
     const auto& best_line = a_result.lines.front();
+    const Eval best_eval = eval_for(best_line, side_to_move, side_to_move);
     report.position.eval_white = eval_for(best_line, side_to_move, chess::Color::WHITE);
+
+    std::optional<OpportunityJudgement> root_opportunity;
+    OpportunityJudgement root_judgement;
+    if (root_legal_moves == 1) {
+        root_judgement.forced = true;
+    } else {
+        const auto& alternative_line = a_result.lines[1];
+        if (alternative_line.pv_uci.empty()) {
+            throw engine::EngineError("Stockfish MultiPV line has an empty principal variation");
+        }
+        const auto alternative_move = detail::legal_move(board, alternative_line.pv_uci.front());
+        if (alternative_move == chess::Move::NO_MOVE) {
+            throw engine::EngineError("Stockfish returned an illegal principal variation move");
+        }
+        root_judgement.alternative = BestAlternative{
+            .san = chess::uci::moveToSan(board, alternative_move),
+            .uci = chess::uci::moveToUci(alternative_move, board.chess960()),
+            .eval = eval_for(alternative_line, side_to_move, side_to_move),
+        };
+        const int margin_units = best_eval.es_units - root_judgement.alternative->eval.es_units;
+        root_judgement.margin_units = margin_units;
+        root_judgement.is_opportunity = is_opportunity_margin(margin_units);
+    }
+    root_opportunity = std::move(root_judgement);
 
     std::optional<engine::Line> opponent_line;
     std::optional<Threat> opponent_threat;
@@ -463,92 +563,87 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         in_check ? std::optional<bool>() : std::optional<bool>(!null_move_prone(board));
 
     report.candidates.reserve(a_result.lines.size());
-    for (const auto& line : a_result.lines) {
+    for (std::size_t index = 0; index < a_result.lines.size(); ++index) {
+        const auto& line = a_result.lines[index];
         if (line.pv_uci.empty()) {
             throw engine::EngineError("Stockfish MultiPV line has an empty principal variation");
         }
-        report.candidates.push_back(assess_move(engine, budget, report.engine.nodes_searched, board,
-                                                line, best_line, line.pv_uci.front(), true,
-                                                opponent_rank, opponent_line));
-    }
-
-    report.fine_truncated = a_result.lines.size() == static_cast<std::size_t>(kMultiPv) &&
-                            std::ranges::all_of(report.candidates, [](const MoveAssessment& move) {
-                                return move.verdict == Verdict::Fine;
-                            });
-
-    TacticJudgement root_tactic;
-    if (root_legal_moves == 1) {
-        root_tactic.forced = true;
-    } else {
-        const auto& alternative = report.candidates[1];
-        root_tactic.alternative = TacticAlternative{
-            .san = alternative.san, .uci = alternative.uci, .eval = alternative.eval};
-        const int margin_units = report.candidates[0].eval.es_units - alternative.eval.es_units;
-        root_tactic.margin_units = margin_units;
-        root_tactic.is_tactic = is_tactic_margin(margin_units);
-    }
-    if (root_tactic.is_tactic) {
-        const auto moves = walked_moves(board, best_line.pv_uci);
-        const auto line = std::span<const chess::Move>(moves);
-        tactics::judge_contributions(board, line, report.position.motifs);
-        tactics::judge_contributions(board, line, report.candidates[0].motifs);
-        auto& own_threat = side_to_move == chess::Color::WHITE ? threats.white : threats.black;
-        if (own_threat.has_value()) {
-            tactics::judge_contributions(board, line, own_threat->motifs);
+        const Eval line_eval = eval_for(line, side_to_move, side_to_move);
+        const bool same_score_as_best = index == 0 || same_score(line_eval, best_eval);
+        auto candidate =
+            assess_move(board, line, best_line, line.pv_uci.front(), true, same_score_as_best,
+                        index == 0 ? root_opportunity : std::nullopt, report.position.motifs);
+        const bool selected = selected_by_selection(request.selection, candidate, index);
+        if (is_detailed_line(static_cast<int>(index + 1), selected)) {
+            complete_move_details(engine, budget, report.engine.nodes_searched, board, line,
+                                  candidate, opponent_rank, opponent_line);
         }
-        root_tactic.labels = tactics::tactic_labels(board, line);
+        report.candidates.push_back(std::move(candidate));
     }
-    report.candidates[0].tactic = std::move(root_tactic);
+
+    report.playable_truncated =
+        a_result.lines.size() == static_cast<std::size_t>(lines) &&
+        lines < report.position.legal_moves &&
+        std::ranges::all_of(
+            report.candidates,
+            [](const MoveAssessment& move) {
+                return move.verdict == Verdict::Best || move.verdict == Verdict::Okay;
+            });
 
     if (in_check) {
         threats.urgency =
             Urgency{.more_urgent = report_side(opponent), .rule = UrgencyRule::InCheck};
+    } else if (own_rank < 2 && opponent_rank < 2) {
+        threats.urgency = Urgency{.more_urgent = std::nullopt, .rule = UrgencyRule::Quiet};
+    } else if (own_rank != opponent_rank) {
+        const auto urgent =
+            own_rank > opponent_rank ? report_side(side_to_move) : report_side(opponent);
+        threats.urgency = Urgency{.more_urgent = urgent, .rule = UrgencyRule::ConsequenceClass};
     } else {
-        if (own_rank < 2 && opponent_rank < 2) {
-            threats.urgency = Urgency{.more_urgent = std::nullopt, .rule = UrgencyRule::Quiet};
-        } else if (own_rank != opponent_rank) {
-            const auto urgent =
-                own_rank > opponent_rank ? report_side(side_to_move) : report_side(opponent);
-            threats.urgency = Urgency{.more_urgent = urgent, .rule = UrgencyRule::ConsequenceClass};
-        } else {
-            const auto& best_move = report.candidates.front();
-            if (!best_move.parries_threat.has_value()) {
-                throw engine::EngineError("Threat urgency requires the best move's parry search");
-            }
-            const bool parries = best_move.parries_threat->parries;
-            threats.urgency =
-                Urgency{.more_urgent = parries ? report_side(opponent) : report_side(side_to_move),
-                        .rule = parries ? UrgencyRule::Parry : UrgencyRule::Counterattack};
+        const auto& best_move = report.candidates.front();
+        if (!best_move.parries_threat.has_value()) {
+            throw engine::EngineError("Threat urgency requires the best move's parry search");
         }
+        const bool parries = best_move.parries_threat->parries;
+        threats.urgency =
+            Urgency{.more_urgent = parries ? report_side(opponent) : report_side(side_to_move),
+                    .rule = parries ? UrgencyRule::Parry : UrgencyRule::Counterattack};
     }
     report.threats = std::move(threats);
 
-    if (request.asked.has_value()) {
-        const auto asked_uci = chess::uci::moveToUci(*request.asked, board.chess960());
+    for (const auto asked_move : request.asked) {
+        const auto asked_uci = chess::uci::moveToUci(asked_move, board.chess960());
         const auto found =
-            std::ranges::find_if(report.candidates, [&asked_uci](const MoveAssessment& move) {
-                return move.uci == asked_uci;
+            std::ranges::find_if(report.candidates, [&asked_uci](const MoveAssessment& candidate) {
+                return candidate.uci == asked_uci;
             });
         if (found != report.candidates.end()) {
-            report.asked_move = *found;
-        } else {
-            engine::SearchRequest c_request;
-            c_request.fen = board.getFen();
-            c_request.nodes = budget.c;
-            c_request.multipv = 1;
-            c_request.searchmoves_uci.push_back(asked_uci);
-            const auto c_result = engine.search(c_request);
-            report.engine.nodes_searched += c_result.nodes;
-            const auto& line = first_line(c_result);
-            if (line.pv_uci.empty() || line.pv_uci.front() != asked_uci) {
-                throw engine::EngineError(
-                    "Stockfish search C did not return the requested move first");
-            }
-            report.asked_move =
-                assess_move(engine, budget, report.engine.nodes_searched, board, line, best_line,
-                            asked_uci, false, opponent_rank, opponent_line);
+            continue;
         }
+        const bool already_assessed =
+            std::ranges::any_of(report.asked_moves, [&asked_uci](const MoveAssessment& candidate) {
+                return candidate.uci == asked_uci;
+            });
+        if (already_assessed) {
+            continue;
+        }
+
+        engine::SearchRequest c_request;
+        c_request.fen = board.getFen();
+        c_request.nodes = budget.c;
+        c_request.multipv = 1;
+        c_request.searchmoves_uci.push_back(asked_uci);
+        const auto c_result = engine.search(c_request);
+        report.engine.nodes_searched += c_result.nodes;
+        const auto& line = first_line(c_result);
+        if (line.pv_uci.empty() || line.pv_uci.front() != asked_uci) {
+            throw engine::EngineError("Stockfish search C did not return the requested move first");
+        }
+        auto assessment = assess_move(board, line, best_line, asked_uci, false, false, std::nullopt,
+                                      report.position.motifs);
+        complete_move_details(engine, budget, report.engine.nodes_searched, board, line, assessment,
+                              opponent_rank, opponent_line);
+        report.asked_moves.push_back(std::move(assessment));
     }
 }
 

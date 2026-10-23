@@ -1,5 +1,6 @@
 #include "chesswhy/analysis.hpp"
 
+#include <algorithm>
 #include <cstddef>
 #include <string>
 
@@ -26,21 +27,66 @@ NodeBudget node_budget(Budget budget) {
 int es_units(const engine::Line& line) {
     return (2 * line.win) + line.draw;
 }
-bool is_tactic_margin(int margin_units) {
-    return margin_units >= kTacticMarginUnits;
+
+bool judges_every_move(const Selection& selection) {
+    return std::ranges::any_of(selection.keywords, [](Selection::Keyword keyword) {
+        return keyword == Selection::Keyword::Playable ||
+               keyword == Selection::Keyword::Inaccuracies ||
+               keyword == Selection::Keyword::Mistakes || keyword == Selection::Keyword::Blunders ||
+               keyword == Selection::Keyword::Unplayable || keyword == Selection::Keyword::All;
+    });
 }
 
-Verdict verdict_for_loss(int loss_units) {
-    if (loss_units <= kFineUnits) {
-        return Verdict::Fine;
+int multipv_lines(const Selection& selection, int legal_moves) {
+    if (legal_moves <= 0) {
+        return 0;
     }
-    if (loss_units < kMistakeUnits) {
+    if (judges_every_move(selection)) {
+        return legal_moves;
+    }
+    const int requested =
+        selection.top.has_value() ? std::max(kMinMultiPv, *selection.top) : kMinMultiPv;
+    return std::min(legal_moves, requested);
+}
+bool is_detailed_line(int line_number, bool selected) {
+    return line_number >= 1 && (line_number <= kDetailedLines || selected);
+}
+
+std::uint64_t search_a_nodes(Budget budget, int lines) {
+    if (lines <= 0) {
+        return 0;
+    }
+    return (node_budget(budget).a * static_cast<std::uint64_t>(lines)) / kMinMultiPv;
+}
+
+Verdict verdict(int loss_units, bool same_score_as_best, bool move_allows_tactic) {
+    if (loss_units <= kPlayableUnits) {
+        return same_score_as_best ? Verdict::Best : Verdict::Okay;
+    }
+    if (loss_units <= kInaccuracyUnits) {
         return Verdict::Inaccuracy;
     }
-    if (loss_units < kBlunderUnits) {
-        return Verdict::Mistake;
+    return move_allows_tactic ? Verdict::Blunder : Verdict::Mistake;
+}
+
+bool same_score(const Eval& a, const Eval& b) {
+    if (a.mate.has_value() || b.mate.has_value()) {
+        return a.mate.has_value() && b.mate.has_value() && a.mate == b.mate;
     }
-    return Verdict::Blunder;
+    return a.cp.has_value() && b.cp.has_value() && a.cp == b.cp;
+}
+
+bool is_tactic(const Consequence& consequence) {
+    return consequence.cls == ConsequenceClass::Mate ||
+           consequence.cls == ConsequenceClass::Material;
+}
+
+bool allows_tactic(const Consequence& line_consequence, const Eval& eval) {
+    return line_consequence.material <= -1 || (eval.mate.has_value() && *eval.mate < 0);
+}
+
+bool is_opportunity_margin(int margin_units) {
+    return margin_units >= kOpportunityMarginUnits;
 }
 
 bool null_move_prone(const chess::Board& board) {

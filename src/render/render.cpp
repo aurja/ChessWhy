@@ -1,5 +1,8 @@
 #include "chesswhy/render.hpp"
 
+#include "chesswhy/move_report.hpp"
+
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <iomanip>
@@ -119,33 +122,46 @@ void write_restriction(std::ostringstream& output, const MotifRestriction& restr
     return "";
 }
 
-void write_header(std::ostringstream& output, const Report& report) {
-    output << "Engine: " << report.engine.name << " (Threads=" << report.engine.threads
-           << ", Hash=" << report.engine.hash_mb << " MB) [rule]\n";
-    const NodeBudget& nodes = report.engine.nodes;
-    output << "Budget: " << to_string(report.input.budget) << ", nodes A=" << nodes.a
-           << ", B=" << nodes.b << ", C=" << nodes.c << ", D=" << nodes.d << ", E=" << nodes.e
-           << ", R=" << nodes.r << " [rule]\n";
+void write_header(std::ostringstream& output, const EngineInfo& engine, Budget budget) {
+    output << "Engine: " << engine.name << " (Threads=" << engine.threads
+           << ", Hash=" << engine.hash_mb << " MB) [rule]\n";
+    const NodeBudget& nodes = engine.nodes;
+    output << "Budget: " << to_string(budget) << ", nodes A=" << nodes.a << ", B=" << nodes.b
+           << ", C=" << nodes.c << ", D=" << nodes.d << ", E=" << nodes.e << ", R=" << nodes.r
+           << " [rule]\n";
 }
 
-void write_candidate_count(std::ostringstream& output, const Report& report) {
+void write_header(std::ostringstream& output, const Report& report) {
+    write_header(output, report.engine, report.input.budget);
+}
+
+void write_engine_line_count(std::ostringstream& output, const Report& report) {
     const std::size_t count = report.candidates.size();
-    output << "Candidates: " << count << " of " << report.position.legal_moves
+    output << "Engine lines: " << count << " of " << report.position.legal_moves
            << " legal moves (engine's top " << count << ')';
     if (report.position.legal_moves > 0 &&
         count < static_cast<std::size_t>(report.position.legal_moves)) {
-        output << "; unlisted moves are not judged and may also be fine";
+        output << "; unlisted moves are not judged and may also be playable";
     }
     output << " [rule]\n";
 }
 
-void write_candidate_eval(std::ostringstream& output, const MoveAssessment& move) {
+void write_move_eval(std::ostringstream& output, const MoveAssessment& move) {
+    output << std::fixed << std::setprecision(1) << static_cast<double>(move.eval.es_units) / 20.0;
+}
+
+void write_move_eval(std::ostringstream& output, const MoveReport& move) {
     output << std::fixed << std::setprecision(1) << static_cast<double>(move.eval.es_units) / 20.0;
 }
 
 void write_walk(std::ostringstream& output, const std::string& label, const MoveAssessment& move) {
     output << label << " facts read to ply " << move.walked_plies << " of " << move.line_san.size()
            << " [rule]\n";
+}
+
+void write_walk(std::ostringstream& output, const MoveReport& move) {
+    output << "Line: " << san_line(move.line_san) << "; facts read to ply " << move.walked_plies
+           << " of " << move.line_san.size() << " [engine]\n";
 }
 
 void write_motif_label(std::ostringstream& output, const Motif& motif) {
@@ -187,32 +203,39 @@ void write_motif_label(std::ostringstream& output, const Motif& motif) {
     }
 }
 
-void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs) {
-    for (const auto& motif : motifs) {
-        write_motif_label(output, motif);
-        output << ": " << motif.actor.piece << ' ';
-        write_square(output, motif.actor.square);
-        if (!motif.targets.empty()) {
-            output << " → ";
-            for (std::size_t index = 0; index < motif.targets.size(); ++index) {
-                if (index != 0) {
-                    output << ", ";
-                }
-                output << motif.targets[index].piece << ' ';
-                write_square(output, motif.targets[index].square);
+void write_motif(std::ostringstream& output, const Motif& motif, bool use) {
+    if (use) {
+        output << "Uses: ";
+    }
+    write_motif_label(output, motif);
+    output << ": " << motif.actor.piece << ' ';
+    write_square(output, motif.actor.square);
+    if (!motif.targets.empty()) {
+        output << " → ";
+        for (std::size_t index = 0; index < motif.targets.size(); ++index) {
+            if (index != 0) {
+                output << ", ";
             }
+            output << motif.targets[index].piece << ' ';
+            write_square(output, motif.targets[index].square);
         }
-        if (motif.gain) {
-            output << ", SEE " << *motif.gain;
-        }
-        if (motif.restriction) {
-            write_restriction(output, *motif.restriction);
-        }
-        output << " (ply " << motif.ply;
-        if (motif.contribution) {
-            output << ", " << to_string(*motif.contribution);
-        }
-        output << ") [rule]\n";
+    }
+    if (motif.gain) {
+        output << ", SEE " << *motif.gain;
+    }
+    if (motif.restriction) {
+        write_restriction(output, *motif.restriction);
+    }
+    output << " (ply " << motif.ply;
+    if (motif.contribution) {
+        output << ", " << to_string(*motif.contribution);
+    }
+    output << ") [rule]\n";
+}
+
+void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs, bool use = false) {
+    for (const auto& motif : motifs) {
+        write_motif(output, motif, use);
     }
 }
 
@@ -234,31 +257,78 @@ void write_tactic_labels(std::ostringstream& output, const std::vector<TacticLab
     }
 }
 
-void write_tactic(std::ostringstream& output, const std::optional<TacticJudgement>& tactic) {
-    if (!tactic) {
+void write_opportunity(std::ostringstream& output,
+                       const std::optional<OpportunityJudgement>& opportunity) {
+    if (!opportunity) {
         return;
     }
-    if (tactic->forced) {
-        output << "forced: only legal move [rule]\n";
+    if (opportunity->forced) {
+        output << "Forced: only legal move [rule]\n";
         return;
     }
-    if (!tactic->is_tactic) {
+    if (!opportunity->is_opportunity || !opportunity->alternative.has_value() ||
+        !opportunity->margin_units.has_value()) {
         return;
     }
 
-    if (!tactic->alternative.has_value() || !tactic->margin_units.has_value()) {
-        return;
-    }
-    const TacticAlternative& alternative = tactic->alternative.value();
-    const int margin_units = tactic->margin_units.value();
     const auto flags = output.flags();
     const auto precision = output.precision();
-    output << "tactic: next best " << alternative.san << " is " << std::fixed
-           << std::setprecision(2) << static_cast<double>(margin_units) / 2000.0
-           << " worse [engine]\n";
+    output << "Opportunity: margin " << std::fixed << std::setprecision(2)
+           << static_cast<double>(*opportunity->margin_units) / 2000.0 << " over "
+           << opportunity->alternative->san << " [engine]\n";
     output.flags(flags);
     output.precision(precision);
-    write_tactic_labels(output, tactic->labels);
+}
+
+void write_consequence_summary(std::ostringstream& output, const Consequence& consequence,
+                               Side side, bool include_side) {
+    if (consequence.cls == ConsequenceClass::Mate) {
+        if (include_side) {
+            output << side_name(side) << " mates in ";
+        } else {
+            output << "mate in ";
+        }
+        if (consequence.mate_in) {
+            output << *consequence.mate_in;
+        } else {
+            output << "null";
+        }
+        return;
+    }
+    if (consequence.cls == ConsequenceClass::Material) {
+        if (include_side) {
+            output << side_name(side) << ' ';
+        }
+        const int material = consequence.material;
+        const int absolute_material = material < 0 ? -material : material;
+        output << (material < 0 ? "loses " : "wins ") << absolute_material
+               << (absolute_material == 1 ? " pawn net by ply " : " pawns net by ply ")
+               << consequence.plies;
+    }
+    if (consequence.cls == ConsequenceClass::Promotion) {
+        if (include_side) {
+            output << side_name(side) << ' ';
+        }
+        output << "promotes by ply " << consequence.plies;
+    }
+}
+
+void write_tactic(std::ostringstream& output, const Consequence& consequence) {
+    output << "Tactic: ";
+    write_consequence_summary(output, consequence, Side::White, false);
+    output << (consequence.cls == ConsequenceClass::Mate ? " [engine]\n" : " [rule]\n");
+}
+
+void write_refutation(std::ostringstream& output, const Threat& refutation) {
+    output << "Refuted by: " << san_line(refutation.line_san);
+    if (refutation.is_tactic.value_or(false)) {
+        output << " ; a tactic: ";
+        write_consequence_summary(output, refutation.consequence, refutation.side, true);
+        output << (refutation.consequence.cls == ConsequenceClass::Mate ? " [engine]\n"
+                                                                        : " [rule]\n");
+    } else {
+        output << " [engine]\n";
+    }
 }
 
 void write_consequence(std::ostringstream& output, const std::string& label,
@@ -281,37 +351,46 @@ void write_threat(std::ostringstream& output, const std::string& label,
         return;
     }
     output << label << " line: " << san_line(threat->line_san) << " [engine]\n";
+    write_opportunity(output, threat->opportunity);
+    write_tactic_labels(output, threat->tactic_labels);
     write_motifs(output, threat->motifs);
     write_consequence(output, label + " consequence", threat->consequence);
+}
+void write_positional_change(std::ostringstream& output, const PositionalChange& change,
+                             std::optional<int> horizon = std::nullopt) {
+    const PositionalFeature& feature = change.feature;
+    if (horizon) {
+        output << "By ply " << *horizon << ": ";
+    }
+    output << (change.change == PositionalChangeKind::Appears ? '+' : '-') << ' '
+           << to_string(feature.tag) << ": " << to_string(feature.side);
+    if (feature.value) {
+        output << ' ' << *feature.value;
+    }
+    if (feature.file) {
+        output << ", " << static_cast<char>('a' + *feature.file) << " file";
+    }
+    if (!feature.pieces.empty()) {
+        output << ": ";
+        for (std::size_t index = 0; index < feature.pieces.size(); ++index) {
+            if (index != 0) {
+                output << ", ";
+            }
+            output << feature.pieces[index].piece << ' ';
+            write_square(output, feature.pieces[index].square);
+        }
+    }
+    output << " (ply " << change.ply;
+    if (!change.holds_at_end) {
+        output << ", not at end";
+    }
+    output << ") [rule]\n";
 }
 
 void write_positional_changes(std::ostringstream& output,
                               const std::vector<PositionalChange>& changes) {
     for (const auto& change : changes) {
-        const PositionalFeature& feature = change.feature;
-        output << (change.change == PositionalChangeKind::Appears ? '+' : '-') << ' '
-               << to_string(feature.tag) << ": " << to_string(feature.side);
-        if (feature.value) {
-            output << ' ' << *feature.value;
-        }
-        if (feature.file) {
-            output << ", " << static_cast<char>('a' + *feature.file) << " file";
-        }
-        if (!feature.pieces.empty()) {
-            output << ": ";
-            for (std::size_t index = 0; index < feature.pieces.size(); ++index) {
-                if (index != 0) {
-                    output << ", ";
-                }
-                output << feature.pieces[index].piece << ' ';
-                write_square(output, feature.pieces[index].square);
-            }
-        }
-        output << " (ply " << change.ply;
-        if (!change.holds_at_end) {
-            output << ", not at end";
-        }
-        output << ") [rule]\n";
+        write_positional_change(output, change);
     }
 }
 
@@ -358,16 +437,268 @@ void write_games_summary(std::ostringstream& output, const GamesInfo& games) {
                << *source.draws << ", Black won " << *source.black << " [games]\n";
     }
 }
+void write_opening(std::ostringstream& output, const OpeningInfo& opening) {
+    output << "Opening dataset: " << opening.dataset << " [book]\n";
+    if (opening.current) {
+        output << "Current opening: " << opening.current->eco << ' ' << opening.current->name
+               << " [book]\n";
+    } else {
+        output << "Current opening: null [book]\n";
+    }
+    if (opening.last_named) {
+        output << "Last named opening: " << opening.last_named->opening.eco << ' '
+               << opening.last_named->opening.name << ", ply=" << opening.last_named->ply
+               << " [book]\n";
+    } else {
+        output << "Last named opening: null [book]\n";
+    }
+}
+
+void write_move_position(std::ostringstream& output, const PositionSummary& position) {
+    output << "Position: " << side_name(position.side_to_move) << " to move, "
+           << position.legal_moves << " legal moves";
+    if (position.terminal) {
+        output << "; " << to_string(*position.terminal) << " [rule]\n";
+        return;
+    }
+    if (!position.eval_white) {
+        output << "; evaluation unavailable [rule]\n";
+        return;
+    }
+    const Eval& eval = *position.eval_white;
+    output << "; evaluation " << std::fixed << std::setprecision(1)
+           << static_cast<double>(eval.es_units) / 20.0 << "% for White";
+    if (eval.cp) {
+        output << " (cp " << *eval.cp;
+        if (eval.mate) {
+            output << ", mate " << *eval.mate;
+        }
+        output << ')';
+    } else if (eval.mate) {
+        output << " (mate " << *eval.mate << ')';
+    }
+    output << " [engine]\n";
+}
+
+[[nodiscard]] bool is_playable(Verdict verdict) {
+    return verdict == Verdict::Best || verdict == Verdict::Okay;
+}
+
+[[nodiscard]] bool matches_keyword(Verdict verdict, Selection::Keyword keyword) {
+    switch (keyword) {
+    case Selection::Keyword::Best:
+        return verdict == Verdict::Best;
+    case Selection::Keyword::Playable:
+        return is_playable(verdict);
+    case Selection::Keyword::Inaccuracies:
+        return verdict == Verdict::Inaccuracy;
+    case Selection::Keyword::Mistakes:
+        return verdict == Verdict::Mistake;
+    case Selection::Keyword::Blunders:
+        return verdict == Verdict::Blunder;
+    case Selection::Keyword::Unplayable:
+        return verdict == Verdict::Inaccuracy || verdict == Verdict::Mistake ||
+               verdict == Verdict::Blunder;
+    case Selection::Keyword::All:
+        return true;
+    }
+    return false;
+}
+
+[[nodiscard]] const char* selection_phrase(Selection::Keyword keyword) {
+    switch (keyword) {
+    case Selection::Keyword::Best:
+        return "the best move";
+    case Selection::Keyword::Playable:
+        return "every playable move";
+    case Selection::Keyword::Inaccuracies:
+        return "every inaccuracy";
+    case Selection::Keyword::Mistakes:
+        return "every mistake";
+    case Selection::Keyword::Blunders:
+        return "every blunder";
+    case Selection::Keyword::Unplayable:
+        return "every unplayable move";
+    case Selection::Keyword::All:
+        return "every legal move";
+    }
+    return "";
+}
+
+void write_selection_count(std::ostringstream& output, const MoveReportDocument& document,
+                           Selection::Keyword keyword) {
+    const int legal_moves = document.position.legal_moves;
+    const auto count = static_cast<int>(std::count_if(
+        document.moves.begin(), document.moves.end(),
+        [keyword](const MoveReport& move) { return matches_keyword(move.verdict, keyword); }));
+    if (keyword == Selection::Keyword::Playable || keyword == Selection::Keyword::All ||
+        keyword == Selection::Keyword::Unplayable) {
+        output << " (" << count << " of " << legal_moves << " legal moves)";
+        return;
+    }
+    output << ": ";
+    if (count == 0) {
+        output << "none";
+    } else {
+        output << count;
+    }
+    output << " among " << legal_moves << " legal moves";
+}
+
+void write_selection(std::ostringstream& output, const MoveReportDocument& document) {
+    const Selection& selection = document.selection.selection;
+    const std::size_t item_count = selection.moves.size() + selection.keywords.size() +
+                                   static_cast<std::size_t>(selection.top.has_value());
+    output << "Showing ";
+    if (item_count == 0) {
+        output << "no moves [rule]\n";
+        return;
+    }
+
+    bool has_item = false;
+    for (const std::string& uci : selection.moves) {
+        if (has_item) {
+            output << " and ";
+        }
+        const auto move = std::ranges::find_if(
+            document.moves, [&uci](const MoveReport& report) { return report.uci == uci; });
+        output << (move == document.moves.end() ? uci : move->san);
+        has_item = true;
+    }
+    for (const Selection::Keyword keyword : selection.keywords) {
+        if (has_item) {
+            output << " and ";
+        }
+        output << selection_phrase(keyword);
+        has_item = true;
+    }
+    if (selection.top) {
+        if (has_item) {
+            output << " and ";
+        }
+        output << "the top " << *selection.top << " moves";
+    }
+
+    if (item_count == 1 && selection.moves.empty()) {
+        const bool counts_playable =
+            selection.top.has_value() || selection.keywords.front() == Selection::Keyword::Best;
+        if (!counts_playable) {
+            write_selection_count(output, document, selection.keywords.front());
+        } else if (document.position.terminal) {
+            output << "; none (terminal position)";
+        } else {
+            const int playable = document.selection.playable_count;
+            output << "; ";
+            if (playable == 0) {
+                output << "none";
+            } else {
+                output << playable << (playable == 1 ? " playable move" : " playable moves");
+            }
+            output << " among the engine's top " << document.selection.lines_searched;
+        }
+    }
+    output << " [rule]\n";
+}
+
+void write_move_games(std::ostringstream& output, const MoveReport& move,
+                      const std::vector<GameSourceSummary>& games) {
+    if (!move.games || games.empty() || !games.front().found) {
+        return;
+    }
+    const GameSourceSummary& source = games.front();
+    if (!source.games) {
+        throw std::bad_optional_access{};
+    }
+    output << "Played in " << *move.games << " of " << *source.games
+           << " games (platform: " << source.platform << "; source: " << source.credit
+           << ") [games]\n";
+}
+
+void write_move_report_threat(std::ostringstream& output, const MoveReport& move,
+                              Side side_to_move) {
+    if (move.parried_threat) {
+        const ParriedThreat& parried = *move.parried_threat;
+        output << "Parries " << side_name(parried.threat.side)
+               << "'s threat: " << san_line(parried.threat.line_san) << " (";
+        write_consequence_summary(output, parried.threat.consequence, parried.threat.side, true);
+        output << ") [" << parry_source(parried.test) << "]\n";
+    }
+    if (move.created_threat) {
+        const Side passing_side = side_to_move == Side::White ? Side::Black : Side::White;
+        output << "Threatens (if " << side_name(passing_side)
+               << " passes): " << san_line(move.created_threat->line_san) << " (";
+        write_consequence_summary(output, move.created_threat->consequence,
+                                  move.created_threat->side, true);
+        output << ") [engine]\n";
+    }
+}
+
+void write_move_report(std::ostringstream& output, const MoveReportDocument& document,
+                       const MoveReport& move) {
+    if (move.rank) {
+        output << *move.rank << ". ";
+    } else {
+        output << "Asked: ";
+    }
+    output << move.san << " (" << move.uci << "): " << to_string(move.verdict) << ", es=";
+    write_move_eval(output, move);
+    output << "%, loss=" << std::fixed << std::setprecision(1)
+           << static_cast<double>(move.loss_units) / 20.0 << "%, depth=" << move.depth
+           << " [engine]\n";
+
+    write_walk(output, move);
+    if (move.is_tactic) {
+        write_tactic(output, move.consequence);
+    }
+    write_opportunity(output, move.opportunity);
+    write_tactic_labels(output, move.tactic_labels);
+    write_motifs(output, move.motifs, true);
+    write_motifs(output, move.root_motifs, true);
+    for (const PositionalChange& change : move.positional) {
+        write_positional_change(output, change, move.walked_plies);
+    }
+    write_move_report_threat(output, move, document.position.side_to_move);
+    if (move.refutation) {
+        write_refutation(output, *move.refutation);
+        write_opportunity(output, move.refutation->opportunity);
+        write_tactic_labels(output, move.refutation->tactic_labels);
+        write_motifs(output, move.refutation->motifs, true);
+    }
+    write_move_games(output, move, document.games);
+}
+
+void write_move_refutation(std::ostringstream& output, const std::string& label,
+                           const MoveAssessment& move, bool detailed) {
+    if (move.refutation) {
+        write_refutation(output, *move.refutation);
+        if (detailed) {
+            write_opportunity(output, move.refutation->opportunity);
+        }
+        write_tactic_labels(output, move.refutation->tactic_labels);
+        write_motifs(output, move.refutation->motifs);
+        write_consequence(output, label + " refutation consequence", move.refutation->consequence);
+    } else if (detailed) {
+        output << label << " refutation: null [rule]\n";
+    }
+}
 
 void write_move_details(std::ostringstream& output, const std::string& label,
                         const MoveAssessment& move, const GamesInfo& games, Side side_to_move) {
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
     write_walk(output, label, move);
+    if (move.is_tactic) {
+        write_tactic(output, move.consequence);
+    }
     write_positional_changes(output, move.positional);
     write_game_move_counts(output, move, games);
-    write_tactic(output, move.tactic);
-    if (move.verdict == Verdict::Fine) {
-        write_motifs(output, move.motifs);
+    write_opportunity(output, move.opportunity);
+    write_tactic_labels(output, move.tactic_labels);
+    write_motifs(output, move.motifs);
+    write_motifs(output, move.root_motifs);
+
+    if (!move.detailed) {
+        write_move_refutation(output, label, move, false);
+        return;
     }
     if (move.parries_threat) {
         output << label << " parries threat: " << boolean(move.parries_threat->parries) << " (";
@@ -397,15 +728,7 @@ void write_move_details(std::ostringstream& output, const std::string& label,
         }
         output << " [rule]\n";
     }
-    if (move.refutation) {
-        output << label << " refutation line: " << san_line(move.refutation->line_san)
-               << " [engine]\n";
-        write_tactic(output, move.refutation->tactic);
-        write_motifs(output, move.refutation->motifs);
-        write_consequence(output, label + " refutation consequence", move.refutation->consequence);
-    } else {
-        output << label << " refutation: null [rule]\n";
-    }
+    write_move_refutation(output, label, move, true);
 }
 
 void write_eval(std::ostringstream& output, const std::string& label, const Eval& eval) {
@@ -440,6 +763,10 @@ std::string text(const Report& report) {
     } else {
         output << "Position evaluation: null [rule]\n";
     }
+    if (!report.position.motifs.empty()) {
+        output << "Position motifs: [rule]\n";
+        write_motifs(output, report.position.motifs);
+    }
 
     if (report.threats) {
         write_threat(output, "White threat", report.threats->white);
@@ -462,44 +789,46 @@ std::string text(const Report& report) {
         output << "Threats: null [rule]\n";
     }
 
-    write_candidate_count(output, report);
+    write_engine_line_count(output, report);
     for (std::size_t index = 0; index < report.candidates.size(); ++index) {
-        const auto& candidate = report.candidates[index];
-        const std::string label = "Candidate " + std::to_string(index + 1);
-        output << label << ": " << candidate.san << " (" << candidate.uci << "), "
-               << to_string(candidate.verdict) << ", es=";
-        write_candidate_eval(output, candidate);
+        const auto& engine_line = report.candidates[index];
+        const std::string label = "Engine line " + std::to_string(index + 1);
+        output << label << ": " << engine_line.san << " (" << engine_line.uci << "), "
+               << to_string(engine_line.verdict) << ", es=";
+        write_move_eval(output, engine_line);
         output << "%, loss=" << std::fixed << std::setprecision(1)
-               << static_cast<double>(candidate.loss_units) / 20.0 << "%, depth=" << candidate.depth
-               << " [engine]\n";
-        write_move_details(output, label, candidate, report.games, report.position.side_to_move);
+               << static_cast<double>(engine_line.loss_units) / 20.0
+               << "%, depth=" << engine_line.depth << " [engine]\n";
+        write_move_details(output, label, engine_line, report.games, report.position.side_to_move);
     }
 
-    if (report.asked_move) {
-        output << "Asked move: " << report.asked_move->san << " (" << report.asked_move->uci
-               << "), " << to_string(report.asked_move->verdict)
-               << ", in_multipv: " << boolean(report.asked_move->in_multipv) << " [engine]\n";
-        write_move_details(output, "Asked move", *report.asked_move, report.games,
-                           report.position.side_to_move);
-    } else {
+    for (std::size_t index = 0; index < report.asked_moves.size(); ++index) {
+        const auto& asked_move = report.asked_moves[index];
+        const std::string label = "Asked move " + std::to_string(index + 1);
+        output << label << ": " << asked_move.san << " (" << asked_move.uci << "), "
+               << to_string(asked_move.verdict)
+               << ", in_multipv: " << boolean(asked_move.in_multipv) << " [engine]\n";
+        write_move_details(output, label, asked_move, report.games, report.position.side_to_move);
+    }
+    if (report.asked_moves.empty()) {
         output << "Asked move: null [rule]\n";
     }
 
-    output << "Opening dataset: " << report.opening.dataset << " [book]\n";
-    if (report.opening.current) {
-        output << "Current opening: " << report.opening.current->eco << ' '
-               << report.opening.current->name << " [book]\n";
-    } else {
-        output << "Current opening: null [book]\n";
-    }
-    if (report.opening.last_named) {
-        output << "Last named opening: " << report.opening.last_named->opening.eco << ' '
-               << report.opening.last_named->opening.name
-               << ", ply=" << report.opening.last_named->ply << " [book]\n";
-    } else {
-        output << "Last named opening: null [book]\n";
-    }
+    write_opening(output, report.opening);
     write_games_summary(output, report.games);
+    return output.str();
+}
+
+std::string text(const MoveReportDocument& document) {
+    std::ostringstream output;
+    output.imbue(std::locale::classic());
+    write_header(output, document.engine, document.input.budget);
+    write_move_position(output, document.position);
+    write_opening(output, document.opening);
+    write_selection(output, document);
+    for (const MoveReport& move : document.moves) {
+        write_move_report(output, document, move);
+    }
     return output.str();
 }
 

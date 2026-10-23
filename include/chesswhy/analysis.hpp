@@ -1,41 +1,41 @@
 // Searches A–E and R and the rules that turn them into threats, urgency, verdicts and
-// tactic judgements. Frozen by Planning/milestones/M1.md §Analysis rules and PostM2_EM1.md.
+// opportunities. Frozen by Planning/milestones/M4.md §4.
 #pragma once
 
 #include "chesswhy/engine.hpp"
 #include "chesswhy/report.hpp"
 
-#include <optional>
+#include <cstdint>
 #include <span>
 #include <string>
+#include <string_view>
+#include <vector>
 
 #include <chess.hpp>
 
 namespace chesswhy::analysis {
 
-inline constexpr int kMultiPv = 5;          // K
+inline constexpr int kMinMultiPv = 5;
+inline constexpr int kDetailedLines = 5;
+inline constexpr int kPlayableUnits = 100;
+inline constexpr int kInaccuracyUnits = 200;
+inline constexpr int kOpportunityMarginUnits = 260;
 inline constexpr int kHorizonPlies = 6;     // H
 inline constexpr int kCaptureExtension = 4; // extra plies while the line keeps capturing
 inline constexpr int kLinePlies = 10;       // plies kept in report lines
-// Loss thresholds in es_units (1/2000), Captain's decision for SF19's WDL curve:
-// fine <= 0.03 < inaccuracy < 0.13 <= mistake < 0.27 <= blunder.
-inline constexpr int kFineUnits = 60;
-inline constexpr int kMistakeUnits = 260;
-inline constexpr int kBlunderUnits = 540;
-// PostM2_EM1 E2: a line is a tactic iff its only-move margin is at least a mistake.
-inline constexpr int kTacticMarginUnits = kMistakeUnits;
 
 [[nodiscard]] NodeBudget node_budget(Budget budget);
 
 struct Request {
     chess::Board board;
-    std::optional<chess::Move> asked;
+    Selection selection;
+    std::vector<chess::Move> asked;
     Budget budget = Budget::Standard;
 };
 
 // Fills report.engine (except name/threads/hash, set by the caller from the engine),
-// report.position, report.threats, report.candidates, report.fine_truncated and
-// report.asked_move. Runs no search for a terminal position.
+// report.position, report.threats, report.candidates, report.playable_truncated and
+// report.asked_moves. Runs no search for a terminal position.
 void analyse(engine::Engine& engine, const Request& request, Report& report);
 
 // ---- Pure rules (unit-tested without an engine) ----
@@ -43,10 +43,15 @@ void analyse(engine::Engine& engine, const Request& request, Report& report);
 // Expected score from WDL permille: 2W + D.
 [[nodiscard]] int es_units(const engine::Line& line);
 
-[[nodiscard]] Verdict verdict_for_loss(int loss_units);
-
-// PostM2_EM1 §4.1: margin_units >= kTacticMarginUnits.
-[[nodiscard]] bool is_tactic_margin(int margin_units);
+[[nodiscard]] bool judges_every_move(const Selection& selection);
+[[nodiscard]] int multipv_lines(const Selection& selection, int legal_moves);
+[[nodiscard]] bool is_detailed_line(int line_number, bool selected);
+[[nodiscard]] std::uint64_t search_a_nodes(Budget budget, int lines);
+[[nodiscard]] Verdict verdict(int loss_units, bool same_score_as_best, bool allows_tactic);
+[[nodiscard]] bool same_score(const Eval& a, const Eval& b);
+[[nodiscard]] bool is_tactic(const Consequence& consequence);
+[[nodiscard]] bool allows_tactic(const Consequence& line_consequence, const Eval& eval);
+[[nodiscard]] bool is_opportunity_margin(int margin_units);
 
 // Side to move has at most one piece other than king and pawns.
 [[nodiscard]] bool null_move_prone(const chess::Board& board);

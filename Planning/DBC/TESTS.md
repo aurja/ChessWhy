@@ -5,14 +5,13 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-22, M3 completion-review fixes (legal en passant in the position
-key, mainline-only Python oracle): 141 CTests (107 `unit`, 33 `engine`, 1 `games`, no
-`model` yet), all passing in Release; `tactics_unit_tests` has 26 test cases.
+**Snapshot:** 2026-10-24, M4 milestone-end gate: 179 CTests (134 `unit`, 43 `engine`,
+2 `games`, no `model` yet), all passing in Release and ASan/UBSan.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
-Catch2 test cases appear under their test-case name; the `engine_`, `report_`
-and `render_` prefixes are added by the CMake files.
+Catch2 test cases appear under their test-case name; the `engine_`, `report_`,
+`move_report_` and `render_` prefixes are added by the CMake files.
 
 Run: `ctest --test-dir build/release` (all), `-L unit` (no engine), `-L engine`.
 Engine tests need `assets/engines/stockfish` and fail without it.
@@ -75,8 +74,12 @@ Rules that turn engine numbers into report facts; no engine runs.
 |---|---|---|---|
 | analysis node budgets match the frozen search table | unit | Node counts per search and budget equal the plan's table | `NodeBudget`, `Settings` |
 | expected score keeps WDL units exact | unit | ES computed from WDL without rounding drift | `ExpectedScore` |
-| verdict boundaries are inclusive at fine, mistake and blunder | unit | ES losses exactly at the thresholds: 60 fine, 260 mistake, 540 blunder (WDL units) | `Loss`, `Verdict`, `ExpectedScore` |
-| tactic margin boundary is inclusive | unit | A margin exactly at the tactic threshold counts as a tactic | `OnlyMoveMargin`, `TacticJudgement` |
+| verdict boundaries use the playable and inaccuracy cutoffs | unit | Loss 100/101 and 200/201 WDL units; best vs okay by the same-score flag; above 200 mistake or, when the move allows a tactic, blunder | `Verdict`, `VdPlayable`, `VdBest`, `VdOkay`, `VdSmall`, `VdBlunder`, `VdMistake` |
+| same score compares cp or mate, not expected score | unit | Same cp with different ES is the same score; cp 12 vs 13, mate vs cp and mate 2 vs 3 are not | `VdSameScore` |
+| tactic and allows-tactic use the move's line consequence | unit | Mate and material classes are tactics, promotion and positional are not; material −1 or a negative mate allows a tactic, material 0 or a positive mate does not | `TacticTest`, `AllowsTactic`, `VdAllows` |
+| opportunity margin boundary is inclusive | unit | 260 WDL units is an opportunity margin, 259 is not | `OnlyMoveMargin`, `TjMargin` |
+| selection sets Search A width and nodes | unit | `best` and `top3` give five lines, `top7` seven, every whole-board keyword every legal move; nodes are 200k per line at standard; fewer legal moves cap the width | `SearchA`, `NodeBudget` |
+| first five and selected lines are detailed | unit | Lines 1–5 are detailed, later lines only when selected | `CandidateMove`, `SearchD`, `SearchE`, `SearchR` |
 | consequence rank follows the frozen class table | unit | Order mate > material > promotion > positional | `CqIsMate`, `CqIsMaterial`, `CqIsPromotion`, `CqIsPositional` |
 | positive mate score takes precedence over other consequence classes | unit | A positive mate score makes the line class mate | `CqMate`, `CqIsMate`, `Consequence` |
 | quiet consequence is positional and a knight capture is material | unit | Basic class assignment | `CqIsPositional`, `CqIsMaterial`, `CqMaterial` |
@@ -140,19 +143,31 @@ Program tests:
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| report_JSON follows schema key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
+| report_JSON follows v6 report key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
 | report_enum values use the schema spellings | unit | Nine report enums serialise to the schema's strings | `ReportSchema`, `JsonOutput` |
 | report_scores and optional values are serialized | unit | ES, cp, mate and nulls | `ExpectedScore`, `ReportSchema`, `JsonOutput` |
-| report_motif JSON uses the schema v5 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
-| report_tactic judgements and motif contributions serialize in report v5 | unit | Tactic judgement, labels and contributions | `ReportSchema`, `TacticJudgement`, `TacticLabel`, `Contribution` |
-| report_v5 analysis fields and restriction serialize | unit | `legal_moves`, `depth`, `walked_plies`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `FineSet`, `CreatedThreat`, `Restriction` |
+| report_motif JSON uses the schema v6 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
+| report_opportunity judgements and tactic-line fields serialize in v6 | unit | Opportunity judgement, `is_tactic`, `allows_tactic`, tactic labels, root motifs and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLine`, `TacticLabel`, `Contribution` |
+| report_v6 analysis fields and restriction serialize | unit | `legal_moves`, `playable_truncated`, `depth`, `walked_plies`, `detailed`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
+
+`move_report_tests.cpp` (`move_report_unit_tests`), on hand-built full reports:
+
+| Test | Label | Checks | Concepts |
+|---|---|---|---|
+| move_report_move reports select the keyword sets and preserve A order | unit | Each keyword selects exactly its moves, in A order | `MoveSelection`, `Verdict`, `PlayableSet` |
+| move_report_move report selection unions top, keywords, and asked moves once | unit | `topN`, keywords and asked moves together give each move once; asked moves outside A come last | `MoveSelection`, `AskedMove`, `MoveRequest` |
+| move_report_move report headers copy only the M4 position and game fields | unit | The document's position, opening and game-source headers equal the full report's fields | `MoveReport`, `RelevanceFilter` |
+| move_report_move report relevance filter keeps conditional fields and drops irrelevant ones | unit | Refutation, parried threat, contributing motifs and the net positional change are kept when they bear on the move; other facts are dropped | `RelevanceFilter`, `MoveReport`, `Contribution`, `TiedToLine` |
+| move_report_move report created threat keeps only the specified consequence classes | unit | A created threat is kept only when its consequence class wins something | `RelevanceFilter`, `CreatedThreat` |
+| move_report_move report JSON uses the v6 moves shape and stable key order | unit | `to_json` writes `document: "moves"` with keys in schema order | `JsonOutput`, `MoveReport`, `Reproducible` |
 
 Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
-| `report_schema_examples` | `report_schema_examples` (`write_examples.cpp`) | unit | Writes eight example reports (terminal checkmate, side in check, normal, PGN opening, tactic with labels, forced, negative margin, refutation); they carry positional features and changes and a games source, found and not found | `ReportDocument`, `JsonOutput`, `ReportSchema`, `GameCounts` |
-| `report_schema_unit` | `tools/validate_report.py` | unit | Those eight examples validate against `schema/report.v5.schema.json` | `ReportSchema` |
+| `report_schema_examples` | `report_schema_examples` (`write_examples.cpp`) | unit | Writes eight example reports (terminal checkmate, side in check, normal, PGN opening, tactic with labels, forced, negative margin, refutation) and the move report document of each; they carry positional features and changes and a games source, found and not found | `ReportDocument`, `MoveReport`, `JsonOutput`, `ReportSchema`, `GameCounts` |
+| `report_schema_unit` | `tools/validate_report.py` | unit | The eight full reports validate against `schema/report.v6.schema.json` | `ReportSchema` |
+| `move_report_schema_unit` | `tools/validate_report.py` | unit | The eight move report documents validate against `schema/moves.v6.schema.json` | `ReportSchema`, `MoveReport` |
 
 ## 7. Render — `tests/render/render_unit_tests.cpp` (`render_unit_tests`)
 
@@ -160,12 +175,14 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| render_example reports match the golden text | unit | The eight example reports render byte for byte as the golden files | `TemplateRendering`, `ExplanationText`, `ReportDocument` |
+| render_example reports match the golden text | unit | The eight example reports render byte for byte as the golden full report text | `TemplateRendering`, `ExplanationText`, `ReportDocument` |
+| render_move report documents match golden text without candidate wording | unit | Six move report documents (best move, playable set, asked move outside A, blunder with refutation, empty selection, terminal position) render byte for byte as their golden files; no output contains "candidate" in any case | `TemplateRendering`, `MoveReport`, `Conditions` |
+| render_non-detailed engine lines omit unsearched details | unit | An A line that was not detailed prints no parry, created threat or refutation, even if the fields were filled | `TemplateRendering`, `CandidateMove` |
 | render_position evaluation renders the mate score when available | unit | The mate score is shown alongside ES | `TemplateRendering`, `ExpectedScore` |
 | render_motif rows and level-independent output | unit | Motif rows; output does not change with `--level` where it should not | `ExplanationText`, `StateMotif`, `TacticalPin`, `TemplateRendering` |
-| render_tactic judgements, labels and contributions render from report fields | unit | Tactic text uses only report fields; pins, overloaded defenders and `pin_tactical` print as "restricted movement (absolute pin / relative pin / overloaded defender / tactic: Nd5-f4 fork)" | `TacticJudgement`, `TacticLabel`, `Contribution`, `RestrictedMovement` |
+| render_opportunities, tactic labels and contributions render from report fields | unit | Opportunity text uses only report fields; pins, overloaded defenders and `pin_tactical` print as "restricted movement (absolute pin / relative pin / overloaded defender / tactic: Nd5-f4 fork)" | `OpportunityJudgement`, `TacticLabel`, `Contribution`, `RestrictedMovement` |
 | render_positional and game facts render only from report fields | unit | Positional change rows (`+`/`−`, ply, `not at end`, value) under each line, `position.positional` not printed; the games row after the opening (found or not in the table) and the per-move row; no ranking words | `TemplateRendering`, `TiedToLine`, `GameCounts` |
-| render_PostM3_EM2 template wording matches its golden lines | unit | Conditions ("if Black passes", deferred parry, skip reason, facts read to ply k of n, engine and budget, candidates of legal moves), `SEE` for a capture and held-to wording render as in the plan | `TemplateRendering`, `Conditions`, `RestrictedMovement` |
+| render_PostM3_EM2 template wording matches its golden lines | unit | Conditions ("if Black passes", deferred parry, skip reason, facts read to ply k of n, engine and budget, engine lines of legal moves), `SEE` for a capture and held-to wording render as in the plan | `TemplateRendering`, `Conditions`, `RestrictedMovement` |
 
 ## 8. CLI — `tests/cli/`
 
@@ -177,14 +194,16 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | CLI error fixtures return the required status and one diagnostic | unit | E fixtures: exit code and a single message line | `CommandLine`, `InputFixtures`, `InputError` |
 | FEN and SAN/UCI parse fixtures identify the same moves | unit | Parse fixtures: SAN and UCI forms give the same move | `FenInput`, `AskedMove`, `InputFixtures` |
 | PGN opening fixtures describe current and last named positions | unit | U fixtures: current and last-named openings | `PgnInput`, `GameMainline`, `OpeningNames`, `LastNamed` |
+| CLI move selection parses keywords, topN and moves | unit | The `--moves` grammar: no flag means `best`; each keyword, `topN`, SAN and UCI moves, mixed, deduplicated (keywords in fixed order, moves in typed order, the largest `topN`); an empty item, `top0`, `top` or an unparseable item exits with the input error status and one message | `MoveRequest`, `AskedMove`, `CommandLine`, `InputError` |
+| CLI output flags select move/full content and text/JSON format | unit | P9 matrix on a fake report: no flag gives move report text, `--json` the move report document, `--full-report` the full report text, both the full report JSON | `JsonOutput`, `TemplateRendering`, `CommandLine` |
 
 Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
-| `cli_fixture_F01` … `cli_fixture_F31` (one per F fixture, F16 absent: 30 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture and checks its `equals` fields, `fine_includes`, `motifs_include`, `positional_include`, `line_prefix` and `text_contains` (in the text report); with `CHESSWHY_CHECK_TIMING` on, fails above 12 s; saves the report for `report_schema` | `EngineFixtures`, `Verdict`, `TacticJudgement`, `StateMotif`, `Conditions` |
-| `report_schema` | `tools/validate_report.py` | engine | Every saved F report validates against `schema/report.v5.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic invariants); runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `EngineFixtures` |
-| `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30 (JSON) and a text report for a fixed position (`Nf6` after 3.Qh5) are byte-identical across two runs | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput` |
+| `cli_fixture_F01` … `cli_fixture_F39` (one per F fixture, F16 absent: 38 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture with `--json --full-report` and checks its `equals` fields, `playable_includes`, `motifs_include`, `positional_include`, `line_prefix`; `text_contains` on the move report text (plain run), `full_text_contains` on the full report text (`--full-report`), and the `moves_` keys on the move report document (`--json`); repeats this for each entry of `runs`; with `CHESSWHY_CHECK_TIMING` on (Release), fails above 12 s on the default run and runs alone (engine lock); without it (ASan preset) the fixtures run in parallel; CTest timeout 3600 s; saves both JSON documents for `report_schema` | `EngineFixtures`, `Verdict`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `MoveReport`, `StateMotif`, `Conditions` |
+| `report_schema` | `tools/validate_report.py` | engine | Every saved F full report validates against `schema/report.v6.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic and opportunity relations); every saved move report document validates against `schema/moves.v6.schema.json` and passes the projection check against the full report of the same command; runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `ProjectionCheck`, `EngineFixtures` |
+| `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30: the full report JSON and the move report document are each byte-identical across two runs; so is the move report text for a fixed position (`--moves Nf6` after 3.Qh5) | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput`, `MoveReport` |
 
 ## 9. pgntool — `tests/pgntool/pgntool_unit_tests.cpp` (`pgntool_unit_tests`)
 
@@ -250,3 +269,11 @@ Program tests:
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
 | SHA-256 matches FIPS 180-4 vectors | unit | `sha256_hex` on the FIPS 180-4 test vectors, including the multi-block and one-million-`a` cases | `DataDigest` |
+
+## 13. Checker — `tests/checker/unit_tests.py` (`checker_unit`)
+
+Python `unittest` cases on hand-built JSON, one CTest.
+
+| Test | Label | Checks | Concepts |
+|---|---|---|---|
+| `checker_unit` | unit | The semantic check rejects a best move with a different score, a blunder that allows no tactic, tactic flags that disagree with the consequence, details on a non-detailed line, labels off tactic lines, a wrong opportunity flag at the margin, a selection out of typed order and a wrong `playable_truncated`; it derives `creates_threat_skipped` from the board on detailed lines only (a non-detailed checking move keeps null); the projection check's independent filter drops non-contributing motifs and unheld or repeated positional changes, and flags a move fact that differs from the full report | `SemanticCheck`, `ProjectionCheck`, `MoveSelection` |

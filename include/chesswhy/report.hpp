@@ -1,7 +1,6 @@
-// Report data model, schema version 5. Frozen by Planning/milestones/M1.md, M2.md,
-// PostM2_EM1.md, M3a.md, M3b.md and PostM3_EM2.md. JSON shape:
-// schema/report.v5.schema.json. Every chess fact in the report is a field here; renderers
-// and (from M4) the language model may only verbalise these fields.
+// Report data model, schema version 6. Frozen by Planning/milestones/M4.md.
+// JSON shape: schema/report.v6.schema.json. Every chess fact in the report is a field here.
+// The renderers may only verbalise these fields.
 #pragma once
 
 #include <cstdint>
@@ -13,7 +12,7 @@
 
 namespace chesswhy {
 
-inline constexpr int kSchemaVersion = 5;
+inline constexpr int kSchemaVersion = 6;
 
 enum class Side : std::uint8_t { White, Black };
 enum class Budget : std::uint8_t { Quick, Standard, Deep };
@@ -21,7 +20,7 @@ enum class Level : std::uint8_t { Beginner, Club, Advanced };
 enum class InputSource : std::uint8_t { Fen, Pgn };
 enum class Terminal : std::uint8_t { Checkmate, Stalemate };
 enum class ConsequenceClass : std::uint8_t { Mate, Material, Promotion, Positional };
-enum class Verdict : std::uint8_t { Fine, Inaccuracy, Mistake, Blunder };
+enum class Verdict : std::uint8_t { Best, Okay, Inaccuracy, Mistake, Blunder };
 enum class UrgencyRule : std::uint8_t { InCheck, Quiet, ConsequenceClass, Counterattack, Parry };
 enum class ParryTest : std::uint8_t { Searched, ThreatMoveIllegal, DeferredByCheck };
 // Why `MoveAssessment::creates_threat` is null (PostM3_EM2 §4.4), checked in this order.
@@ -120,12 +119,28 @@ to_string(CreatesThreatSkip skip);                 // "gives_check", "game_over"
 // Provenance of a parry decision: "engine" for searched, "rule" for the legality tests.
 [[nodiscard]] const char* parry_source(ParryTest test);
 
+struct Selection {
+    enum class Keyword : std::uint8_t {
+        Best,
+        Playable,
+        Inaccuracies,
+        Mistakes,
+        Blunders,
+        Unplayable,
+        All
+    };
+    std::vector<Keyword> keywords;  // enum order, each once
+    std::optional<int> top;         // largest topN; >= 1
+    std::vector<std::string> moves; // asked moves, UCI, typed order, each once
+};
+
 struct InputInfo {
     InputSource source = InputSource::Fen;
-    std::string fen;                 // analysed position, full FEN as produced by chess-library
-    std::optional<int> pgn_game;     // 1-based, set iff source == Pgn
-    std::optional<int> pgn_ply;      // half-moves played from the game's start position, iff Pgn
-    std::optional<std::string> move; // --move exactly as typed
+    std::string fen;                  // analysed position, full FEN as produced by chess-library
+    std::optional<int> pgn_game;      // 1-based, set iff source == Pgn
+    std::optional<int> pgn_ply;       // half-moves played from the game's start position, iff Pgn
+    std::optional<std::string> moves; // --moves exactly as typed
+    Selection selection;
     Level level = Level::Club;
     Budget budget = Budget::Standard;
 };
@@ -223,20 +238,19 @@ struct TacticLabel {
     std::vector<PieceOnSquare> targets; // d (the captured defender), then t (the defended piece)
 };
 
-// First move of the best alternative to a judged line (PostM2_EM1 §4.1). Source: engine.
-struct TacticAlternative {
+// First move of the best alternative to a judged line (M4 §4.4). Source: engine.
+struct BestAlternative {
     std::string san;
     std::string uci;
-    Eval eval; // the tactic side X's point of view
+    Eval eval; // the judged line's side's point of view
 };
 
-// Tactic judgement of a line (PostM2_EM1 §4.1). Source: engine, or rule iff forced.
-struct TacticJudgement {
-    bool forced = false;                          // the line's root has exactly one legal move
-    std::optional<TacticAlternative> alternative; // null iff forced
-    std::optional<int> margin_units;              // line ES - alternative ES; null iff forced
-    bool is_tactic = false;                       // margin_units >= analysis::kTacticMarginUnits
-    std::vector<TacticLabel> labels;              // empty unless is_tactic
+// Opportunity judgement of a line (M4 §4.4). Source: engine, or rule iff forced.
+struct OpportunityJudgement {
+    bool forced = false;                        // the line's root has exactly one legal move
+    std::optional<BestAlternative> alternative; // null iff forced
+    std::optional<int> margin_units;            // line ES - alternative ES; null iff forced
+    bool is_opportunity = false;                // margin_units >= analysis::kOpportunityMarginUnits
 };
 
 // A positional feature of one board (M3a §4). Source: rule. Identity per the tag's
@@ -284,8 +298,10 @@ struct Threat {
     std::string root_fen;
     std::vector<std::string> line_san; // at most 10 plies
     Consequence consequence;
-    std::vector<Motif> motifs;             // plies 1..consequence.plies of the line (M2 §5)
-    std::optional<TacticJudgement> tactic; // set only on judged refutations (PostM2_EM1 §4.1)
+    std::vector<Motif> motifs;     // plies 1..consequence.plies of the line (M2 §5)
+    std::optional<bool> is_tactic; // set iff a refutation (§4.3)
+    std::optional<OpportunityJudgement> opportunity;
+    std::vector<TacticLabel> tactic_labels; // empty unless a tactic line
 };
 
 // Null on MoveAssessment when the opponent has no threat of class mate/material, and when
@@ -301,19 +317,23 @@ struct MoveAssessment {
     Eval eval;          // side to move's point of view
     int depth = 0;      // search depth of the line that gave `eval` (MultiPV line or search C)
     int loss_units = 0; // max(0, best.es_units - eval.es_units)
-    Verdict verdict = Verdict::Fine;
+    Verdict verdict = Verdict::Best;
     bool in_multipv = true; // false: evaluated by search C
     bool gives_check = false;
-    std::vector<std::string>
-        line_san;         // from the current position, starts with this move, <= 10 plies
+    std::vector<std::string> line_san; // from current position; starts with this move, <= 10 plies
     int walked_plies = 0; // plies of line_san that motifs and positional were read from (rule)
+    Consequence consequence;
+    bool is_tactic = false;
+    bool allows_tactic = false;
+    bool detailed = true;
     std::optional<ParryInfo> parries_threat; // null: no opponent threat of class mate/material
     std::optional<Threat> creates_threat;    // search E
     std::optional<CreatesThreatSkip> creates_threat_skipped; // null iff creates_threat is set
-    std::optional<Threat> refutation; // opponent's reply line; set iff verdict != Fine
-    std::vector<Motif> motifs; // plies 1..walked_plies of `line_san` (M2 §5); ply 1 is this move
-    std::optional<TacticJudgement>
-        tactic; // set only on candidates[0] and the asked move copying it
+    std::optional<Threat> refutation; // opponent reply line; set iff verdict is not playable
+    std::vector<Motif> motifs;        // plies 1..walked_plies of `line_san`
+    std::optional<OpportunityJudgement> opportunity; // A line 1
+    std::vector<TacticLabel> tactic_labels;
+    std::vector<Motif> root_motifs;           // §4.5; empty unless a tactic line
     std::vector<PositionalChange> positional; // M3a §5 over plies 1..walked_plies of line_san
 };
 
@@ -384,9 +404,8 @@ struct Report {
     PositionInfo position;
     std::optional<Threats> threats;         // null iff terminal
     std::vector<MoveAssessment> candidates; // search A, MultiPV order; empty iff terminal
-    bool fine_truncated = false; // A returned all K lines and every one is fine; false does
-                                 // not mean the unlisted moves are not fine
-    std::optional<MoveAssessment> asked_move;
+    bool playable_truncated = false;
+    std::vector<MoveAssessment> asked_moves; // search C assessments, in input order
     OpeningInfo opening;
     GamesInfo games; // after opening; always set, also for terminal positions
 };
