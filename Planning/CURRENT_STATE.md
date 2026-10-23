@@ -65,6 +65,11 @@ Updated 2026-10-24.
   wins nothing. The Deputy, reading the text, placed that pin before Nb4 and read Ba7's
   `pin_tactical` rows as direct threats; the text shows neither the exchange that makes
   a pin costly nor the ply order of the line.
+- Captain's test 2026-10-24, mating attack (`8/2p1q2k/3p3p/3P1p1n/3QpPrP/2P1N1PK/1r6/5RR1 b
+  - - 6 47`): Qxh4+ and Rxh4+ both best, mate in 3 (Qxh4+ gxh4 Rxh4+ Kxh4 Rh2#). The
+  reason is in ply-0 rows: the g3 pawn alone guards f4 and h4, and without it Qxh4# or
+  Rxh4# is mate. Six rows state that one fact; about 30 positional rows per mating line;
+  nothing says why Rh2 is mate.
 - Captain's stance (2026-10-21): comprehensiveness first, conciseness later
   (`pin_tactical` adds about 9.6 reported motifs per puzzle).
 - PostM2_EM1 complete, merged into `main` 2026-10-21 (receipt
