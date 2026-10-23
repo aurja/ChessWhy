@@ -27,8 +27,9 @@ Updated 2026-10-23.
   tag `tripled_pawns` (25 positional tags), T60. Release and ASan/UBSan CTests 155/155
   (118 `unit`, 37 `engine`/`games`; the checkpoint-3 additions were gated in Release
   only); slowest `standard` F fixture 7.91 s (F12).
-- Next: **M4 playable moves and move reports** (Captain's redefinition, 2026-10-23;
-  contract `Planning/milestones/M4.md`, draft for checkpoint 1, branch `m4`). Milestones
+- Now: **M4 playable moves and move reports** (Captain's redefinition, 2026-10-23;
+  contract `Planning/milestones/M4.md`, frozen at checkpoint 1 on 2026-10-23, branch
+  `m4`; batch 1 = WP1 core cutover). Milestones
   renumbered: M5 = libllama prose (five GGUFs in `assets/models/`; pinning them is an
   M5 task), M6 = books, M7 = native apps. M4 closes the item deferred on 2026-10-23
   (the text template does not print `position.motifs`, e.g. the root
@@ -65,8 +66,6 @@ Updated 2026-10-23.
 - System packages from `.omp/RESOURCE_WISHLIST.md` §1 (git-ignored): all installed;
   `.venv/` holds the schema validator.
 - Decided 2026-10-17: license MIT; verdict thresholds 0.03 / 0.13 / 0.27.
-- Open decisions for the Captain: M4 checkpoint 1 (the changed concept diagrams;
-  `--moves`, the `--json`/`--full-report` split and R1–R7 decided 2026-10-23, R8
-  withdrawn), default model
+- Open decisions for the Captain: default model
   (M5), native app design and platforms (M7; decided 2026-10-22: native apps on Linux
   and Windows, possibly Android, replace the local HTTP API).
