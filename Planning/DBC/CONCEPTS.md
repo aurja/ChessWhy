@@ -485,9 +485,10 @@ flowchart LR
     ReportDocument -->|facts of each selected move| RelevanceFilter
     RelevanceFilter -->|facts that bear on the move| MoveReport
     ProjectionCheck -.->|every fact equals its full-report field| MoveReport
-    MoveReport -->|move report document| JsonOutput
-    ReportDocument -->|every fact, on request| JsonOutput
+    MoveReport -->|move reports, with --json| JsonOutput
+    ReportDocument -->|every fact, with --full-report --json| JsonOutput
     MoveReport -->|move report fields only| Explanation
+    ReportDocument -->|every fact, with --full-report| Explanation
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
@@ -505,7 +506,7 @@ flowchart LR
 | `ReportSchema` | The versioned JSON Schema every report must satisfy, with a description on every field and if/then rules for local relations | report schema | implemented |
 | `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves | semantic check | implemented |
 | `RerunIdentity` | Two fresh runs on the same input give the same bytes | rerun identity | implemented |
-| `JsonOutput` | A report printed as it is, for programs and for checking: the move report document by default, the full report on request (before 2026-10-23: the one report) | JSON output, move report document, `--full-report` | partial |
+| `JsonOutput` | A report printed as JSON when `--json` is given, for programs and for checking: the move report document, or the full report with `--full-report` (before 2026-10-23: the one report; until the Captain's P9 revision that day, `--full-report` alone printed JSON) | JSON output, move report document, `--full-report` | partial |
 | `MoveSelection` | Which moves get a move report: everything the request names, together and each once, in the engine's order with asked moves outside A last; a keyword that matches no move adds nothing | selection, playable move, asked move | planned |
 | `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute, the net positional change over its walk; other moves and their facts are left out | relevance filter | planned |
 | `MoveReport` | The output for one selected move, each fact copied unchanged from the full report with its provenance | move report | planned |
@@ -519,6 +520,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     MoveReport["Move report"]
+    ReportDocument["Full report"]
     BookPassages["Book passages"]
     RestrictedMovement["Restricted-movement wording"]
     Conditions["Conditions"]
@@ -529,6 +531,7 @@ flowchart LR
     FactCheck["Fact check"]
     ExplanationText["Explanation text"]
     MoveReport -->|move report fields| TemplateRendering & FactSheet
+    ReportDocument -->|every fact, with --full-report| TemplateRendering
     RestrictedMovement -->|wording| TemplateRendering
     Conditions -->|premises and limits| TemplateRendering
     FactSheet & LevelPrompt & BookPassages -->|prompt| LanguageModel
@@ -539,7 +542,7 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class MoveReport,BookPassages external
+    class MoveReport,ReportDocument,BookPassages external
     class FactSheet,LevelPrompt,LanguageModel,FactCheck planned
     class TemplateRendering,ExplanationText partial
 ```
@@ -547,10 +550,11 @@ flowchart LR
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
 | `MoveReport` | See Report | — | external |
+| `ReportDocument` | See Report | — | external |
 | `BookPassages` | See Reference knowledge | — | external |
 | `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") and the restricted and free moves are printed | restricted movement, held to, restricted moves, free moves | implemented |
 | `Conditions` | What a fact depends on, printed beside it: a threat line assumes the opponent passes, a parry by check only defers the threat, why no created threat was searched, how far a line was read, which engine and budget, how many legal moves were not judged | conditions, `creates_threat_skipped`, `walked_plies`, `legal_moves` | implemented |
-| `TemplateRendering` | Fixed sentences filled from move report fields, one block per move report, with their conditions and `SEE` for a capture's value; adds no claim; the output never says "candidate". Today's output, later the fallback (before 2026-10-23: filled from the whole report) | template rendering | partial |
+| `TemplateRendering` | Fixed sentences filled from report fields, adding no claim; the output never says "candidate". Without `--full-report`: one block per move report, with their conditions and `SEE` for a capture's value; today's output, later the fallback. With `--full-report`: the full report text, every computed fact, always template text (before 2026-10-23: filled from the whole report, the only text) | template rendering, full report text | partial |
 | `FactSheet` | A compact text form of the report for the model; the core claims (verdict, refutation, conditions) at every level, tactic and blunder evidence first | fact sheet, fact selection | planned |
 | `LevelPrompt` | Instructions for a beginner, club or advanced reader | level | planned |
 | `LanguageModel` | A local model that turns the fact sheet into prose and decides no chess content | language model | planned |

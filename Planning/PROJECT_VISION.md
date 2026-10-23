@@ -47,7 +47,7 @@ chesswhy --fen "<FEN>" --moves best,Nf3      # my move next to the best one
 chesswhy --fen "<FEN>" --moves playable      # every playable move (slow)
 chesswhy --pgn game.pgn [--game 2] [--ply 31] [--moves ITEM[,ITEM...]]
          [--level beginner|club|advanced] [--budget quick|standard|deep]
-         [--json | --full-report] [--no-llm] [--threads N]
+         [--json] [--full-report] [--no-llm] [--threads N]
 ```
 
 - PGN: mainline only; variations and comments are ignored. `--ply N` is the position
@@ -65,10 +65,11 @@ chesswhy --pgn game.pgn [--game 2] [--ply 31] [--moves ITEM[,ITEM...]]
   an input, so repetition and the fifty-move counter beyond the FEN do not affect
   verdicts.
 - The output is one **move report** per reported move, holding only the facts that bear
-  on that move (relevance filter, M4 §4.6). `--json` prints the move report document;
-  `--full-report` prints the full report (every computed fact, for tests and checks).
-  `--no-llm` prints the deterministic template rendering of the move reports (§7.3)
-  instead of model prose. Default output is model prose from M5; until then, the template.
+  on that move (relevance filter, M4 §4.6). Two independent flags (Captain,
+  2026-10-23): `--json` chooses the format (JSON instead of text), `--full-report` the
+  content (the full report, every computed fact, instead of the move reports). Text is
+  model prose from M5 for move reports and the deterministic template rendering
+  (§7.3) with `--no-llm` or until then; the full report text is always the template.
 - `standard` budget: about 10 s of engine time on the development laptop
   (i7-8565U, CPU only), expressed as fixed node counts calibrated in M1. Measured in
   M0: Stockfish 19 searches ~0.32 M nodes/s single-threaded (MultiPV 5), so `standard`
@@ -257,7 +258,7 @@ candidate lines and the asked move's line with its refutation; threat lines are 
 
 Two JSON documents per query, versioned together (`schema_version`, JSON Schemas checked
 in): the **full report** (`--full-report`) holds every computed fact; the **move report
-document** (`--json`) holds the selection and one move report per reported move, each a
+document** (default content) holds the selection and one move report per reported move, each a
 filtered copy of full-report fields (M4 §4.6). Sketch of the full report (field names
 as of v3; v6 renames the verdict scale and `tactic` → `opportunity`, M4 §5):
 
