@@ -29,8 +29,10 @@ Updated 2026-10-23.
   only); slowest `standard` F fixture 7.91 s (F12).
 - Now: **M4 playable moves and move reports** (Captain's redefinition, 2026-10-23;
   contract `Planning/milestones/M4.md`, frozen at checkpoint 1 on 2026-10-23, branch
-  `m4`; batch 1 = WP1 core cutover done (report v6, `unit` green in Release; `engine`
-  fixtures wait for the WP6 re-bless); next batch 2 = WP2–WP5). Milestones
+  `m4`; batch 1 = WP1 core cutover and batch 2 = WP2–WP5 done (report v6, move
+  reports, `--moves`, move report text, projection check; `unit` 134/134 green in
+  Release; `engine` fixtures still use `--move` and wait for the WP6 re-bless); next
+  batch 3 = WP6 fixtures, then checkpoint 2). Milestones
   renumbered: M5 = libllama prose (five GGUFs in `assets/models/`; pinning them is an
   M5 task), M6 = books, M7 = native apps. M4 closes the item deferred on 2026-10-23
   (the text template does not print `position.motifs`, e.g. the root

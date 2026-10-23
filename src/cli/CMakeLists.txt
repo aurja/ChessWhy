@@ -1,4 +1,4 @@
-add_library(chesswhy_cli STATIC cli.cpp)
+add_library(chesswhy_cli STATIC cli.cpp selection.cpp output.cpp)
 target_link_libraries(chesswhy_cli
     PUBLIC
         chesswhy_headers

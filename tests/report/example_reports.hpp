@@ -125,6 +125,8 @@ inline constexpr const char* kAfterE4E5 =
     report.position.in_check = true;
     report.position.terminal = Terminal::Checkmate;
     report.position.eval_white.reset();
+    report.engine.multipv = 0;
+    report.engine.nodes.a = 0;
     report.engine.nodes_searched = 0;
     return report;
 }
@@ -456,6 +458,7 @@ inline constexpr const char* kAfterE4E5 =
 [[nodiscard]] inline Report schema_base_report(const char* fen, Side side, int white_es_units) {
     Report report = base_report(fen, side);
     report.position.eval_white = Eval{.es_units = white_es_units, .cp = 0, .mate = std::nullopt};
+    report.engine.multipv = std::min(5, report.position.legal_moves);
     report.engine.nodes = {
         .a = 1'000'000, .b = 200'000, .c = 200'000, .d = 100'000, .e = 100'000, .r = 100'000};
 
@@ -611,7 +614,7 @@ inline void add_schema_refutation_judgements(Report& report) {
     MoveAssessment candidate = schema_move("Rxe1+", "e7e1", 1000, 8, {"Rxe1+"}, 1, true);
     candidate.creates_threat_skipped = CreatesThreatSkip::GivesCheck;
     report.candidates.push_back(std::move(candidate));
-    report.playable_truncated = true;
+    report.playable_truncated = false;
     add_schema_root_judgement(report);
     return report;
 }
@@ -624,7 +627,7 @@ inline void add_schema_refutation_judgements(Report& report) {
         threat(Side::White, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 1 2", {"Nf3"},
                consequence(ConsequenceClass::Positional, 0, 1));
     report.candidates.push_back(std::move(candidate));
-    report.playable_truncated = true;
+    report.playable_truncated = false;
     add_schema_root_judgement(report);
     return report;
 }
@@ -635,7 +638,7 @@ inline void add_schema_refutation_judgements(Report& report) {
     MoveAssessment candidate = schema_move("Qb6", "b5b6", 1000, 8, {"Qb6"}, 1);
     candidate.creates_threat_skipped = CreatesThreatSkip::GameOver;
     report.candidates.push_back(std::move(candidate));
-    report.playable_truncated = true;
+    report.playable_truncated = false;
     add_schema_root_judgement(report);
     return report;
 }
@@ -685,7 +688,7 @@ inline void add_schema_refutation_judgements(Report& report) {
                {"Nc6"}, consequence(ConsequenceClass::Positional, 0, 1));
     report.candidates.push_back(std::move(candidate));
     add_schema_root_judgement(report);
-    report.playable_truncated = true;
+    report.playable_truncated = false;
     return report;
 }
 
@@ -703,7 +706,7 @@ inline void add_schema_refutation_judgements(Report& report) {
                {"Nxe5"}, consequence(ConsequenceClass::Positional, 0, 1));
     report.candidates.push_back(std::move(candidate));
     add_schema_root_judgement(report);
-    report.playable_truncated = true;
+    report.playable_truncated = false;
     return report;
 }
 

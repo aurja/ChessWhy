@@ -57,7 +57,7 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class Question,Report,Positional,Reference,Explanation partial
+    class Question,Positional,Reference,Explanation partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -70,7 +70,7 @@ flowchart LR
 | `Tactics` | Whether a line wins material or mates (tactic), whether it beats the best alternative by the only-move margin (opportunity), and which motifs and labels make it work | tactic, opportunity, contribution judgement, tactic label | implemented |
 | `Positional` | Pawn structure, king safety, piece activity and other lasting features, reported as changes along lines | positional fact | partial |
 | `Reference` | Knowledge from outside the engine: opening names, game counts, book passages | provenance, opening name, game counts, book passage | partial |
-| `Report` | The full report holds every fact, each with its provenance; one move report per selected move holds only the facts that bear on it; nothing is claimed outside them | report, full report, move report, provenance, facts first | partial |
+| `Report` | The full report holds every fact, each with its provenance; one move report per selected move holds only the facts that bear on it; nothing is claimed outside them | report, full report, move report, provenance, facts first | implemented |
 | `Explanation` | The words a reader gets: template text today, language-model prose checked against the report later | explanation, template rendering | partial |
 | `Proof` | Fixtures and measurements that show the facts are right | fixture, recall | implemented |
 
@@ -102,8 +102,7 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class NativeApps,MoveRequest planned
-    class AskedMove partial
+    class NativeApps planned
 ```
 
 | Node | Meaning | Terms | Status |
@@ -112,8 +111,8 @@ flowchart LR
 | `NativeApps` | Apps on Linux and Windows, possibly Android, through which a player asks without technical setup; design open (called `LocalApi`, "local HTTP API", before 2026-10-22: the question as JSON over HTTP on this machine) | native apps | planned |
 | `FenInput` | A position as one FEN string, checked for legality | FEN | implemented |
 | `PgnInput` | A game from a PGN file, mainline only, and the ply to stop at | PGN, ply | implemented |
-| `AskedMove` | The moves the user asks about, each in SAN or UCI and legal in the position; several may be asked at once, each reported once (one move only before 2026-10-23) | asked move, SAN | partial |
-| `MoveRequest` | Which moves to report, as one list: asked moves and keywords for the best move, the top N moves, every playable move, every move of one or all not-playable verdicts, or every legal move; nothing given means the best move. Keywords that judge every legal move are slow and say so in the help (called `PlayableRequest`, "how many playable moves", before the 2026-10-23 revision; never built) | `--moves`, whole-board keyword, selection | planned |
+| `AskedMove` | The moves the user asks about, each in SAN or UCI and legal in the position; several may be asked at once, each reported once (one move only before 2026-10-23) | asked move, SAN | implemented |
+| `MoveRequest` | Which moves to report, as one list: asked moves and keywords for the best move, the top N moves, every playable move, every move of one or all not-playable verdicts, or every legal move; nothing given means the best move. Keywords that judge every legal move are slow and say so in the help (called `PlayableRequest`, "how many playable moves", before the 2026-10-23 revision; never built) | `--moves`, whole-board keyword, selection | implemented |
 | `Settings` | Search budget (quick, standard, deep) and audience level; the level does not change the analysis | budget, level | implemented |
 | `AnalysedPosition` | The board every fact is about, with side to move `S` and opponent `O`; position-only: the moves that led to it are not an input to the analysis | analysed position, S | implemented |
 | `GameMainline` | The positions of a PGN game from its start to the analysed one, used to name the last opening reached | game mainline | implemented |
@@ -488,8 +487,6 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class Explanation,MoveRequest,AskedMove external
-    class JsonOutput partial
-    class MoveSelection,RelevanceFilter,MoveReport,ProjectionCheck planned
 ```
 
 | Node | Meaning | Terms | Status |
@@ -501,11 +498,11 @@ flowchart LR
 | `ReportSchema` | The versioned JSON Schema every report must satisfy, with a description on every field and if/then rules for local relations | report schema | implemented |
 | `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves | semantic check | implemented |
 | `RerunIdentity` | Two fresh runs on the same input give the same bytes | rerun identity | implemented |
-| `JsonOutput` | A report printed as JSON when `--json` is given, for programs and for checking: the move report document, or the full report with `--full-report` (before 2026-10-23: the one report; until the Captain's P9 revision that day, `--full-report` alone printed JSON) | JSON output, move report document, `--full-report` | partial |
-| `MoveSelection` | Which moves get a move report: everything the request names, together and each once, in the engine's order with asked moves outside A last; a keyword that matches no move adds nothing | selection, playable move, asked move | planned |
-| `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute, the net positional change over its walk; other moves and their facts are left out | relevance filter | planned |
-| `MoveReport` | The output for one selected move, each fact copied unchanged from the full report with its provenance | move report | planned |
-| `ProjectionCheck` | Every move report fact equals the full-report field it came from, with the filter written a second time independently | projection check | planned |
+| `JsonOutput` | A report printed as JSON when `--json` is given, for programs and for checking: the move report document, or the full report with `--full-report` (before 2026-10-23: the one report; until the Captain's P9 revision that day, `--full-report` alone printed JSON) | JSON output, move report document, `--full-report` | implemented |
+| `MoveSelection` | Which moves get a move report: everything the request names, together and each once, in the engine's order with asked moves outside A last; a keyword that matches no move adds nothing | selection, playable move, asked move | implemented |
+| `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute, the net positional change over its walk; other moves and their facts are left out | relevance filter | implemented |
+| `MoveReport` | The output for one selected move, each fact copied unchanged from the full report with its provenance | move report | implemented |
+| `ProjectionCheck` | Every move report fact equals the full-report field it came from, with the filter written a second time independently | projection check | implemented |
 | `MoveRequest` | See Question | — | external |
 | `AskedMove` | See Question | — | external |
 | `Explanation` | See L1 | — | external |
@@ -539,7 +536,7 @@ flowchart LR
     classDef external stroke-dasharray:1 3,color:#999
     class MoveReport,ReportDocument,BookPassages external
     class FactSheet,LevelPrompt,LanguageModel,FactCheck planned
-    class TemplateRendering,ExplanationText partial
+    class ExplanationText partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -549,7 +546,7 @@ flowchart LR
 | `BookPassages` | See Reference knowledge | — | external |
 | `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") and the restricted and free moves are printed | restricted movement, held to, restricted moves, free moves | implemented |
 | `Conditions` | What a fact depends on, printed beside it: a threat line assumes the opponent passes, a parry by check only defers the threat, why no created threat was searched, how far a line was read, which engine and budget, how many legal moves were not judged | conditions, `creates_threat_skipped`, `walked_plies`, `legal_moves` | implemented |
-| `TemplateRendering` | Fixed sentences filled from report fields, adding no claim; the output never says "candidate". Without `--full-report`: one block per move report, with their conditions and `SEE` for a capture's value; today's output, later the fallback. With `--full-report`: the full report text, every computed fact, always template text (before 2026-10-23: filled from the whole report, the only text) | template rendering, full report text | partial |
+| `TemplateRendering` | Fixed sentences filled from report fields, adding no claim; the output never says "candidate". Without `--full-report`: one block per move report, with their conditions and `SEE` for a capture's value; today's output, later the fallback. With `--full-report`: the full report text, every computed fact, always template text (before 2026-10-23: filled from the whole report, the only text) | template rendering, full report text | implemented |
 | `FactSheet` | A compact text form of the report for the model; the core claims (verdict, refutation, conditions) at every level, tactic and blunder evidence first | fact sheet, fact selection | planned |
 | `LevelPrompt` | Instructions for a beginner, club or advanced reader | level | planned |
 | `LanguageModel` | A local model that turns the fact sheet into prose and decides no chess content | language model | planned |

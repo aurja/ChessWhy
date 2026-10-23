@@ -1,4 +1,5 @@
 add_executable(cli_unit_tests unit_tests.cpp)
+target_include_directories(cli_unit_tests PRIVATE "${PROJECT_SOURCE_DIR}/src/cli")
 target_link_libraries(cli_unit_tests PRIVATE
     chesswhy_cli
     Catch2::Catch2WithMain

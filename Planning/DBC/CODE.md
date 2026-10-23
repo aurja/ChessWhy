@@ -21,7 +21,8 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `CommandLine` | `src/cli/cli.cpp` `parse_args` `run`; `include/chesswhy/cli.hpp` `Options` | `chesswhy`; `src/cli/main.cpp` only forwards |
 | `FenInput` | `src/input/fen.cpp` `parse_fen` | Rejects illegal positions and out-of-range counters |
 | `PgnInput` | `src/input/pgn.cpp` `load_pgn` `read_games` `PgnReader`; `include/chesswhy/input.hpp` `PgnPosition` `PgnGame` `PgnReader` `PgnReadOptions`; `src/pgntool/pgntool.cpp` `run` | `chesswhy-pgn` lists the games and plies of a file; `PgnReader` streams games one at a time and stops parsing at `max_plies` |
-| `AskedMove` | `src/input/move.cpp` `parse_move` | SAN or UCI |
+| `AskedMove` | `src/input/move.cpp` `parse_move`; `src/cli/selection.cpp` `resolve_moves` | SAN or UCI; several moves, deduplicated by UCI, in typed order |
+| `MoveRequest` | `src/cli/selection.cpp` `resolve_moves` `parse_top`; `src/cli/selection.hpp` `ResolvedMoves`; `include/chesswhy/report.hpp` `Selection`; `src/cli/cli.cpp` `parse_args` `usage` | `--moves` grammar; the help warns that whole-board keywords are slow |
 | `Settings` | `include/chesswhy/report.hpp` `Budget` `Level`; `src/cli/cli.cpp` `parse_args` | |
 | `AnalysedPosition` | `include/chesswhy/analysis.hpp` `Request`; `include/chesswhy/report.hpp` `PositionInfo` | |
 | `GameMainline` | `include/chesswhy/input.hpp` `PgnPosition` | Mainline boards up to the chosen ply |
@@ -129,16 +130,20 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `ReportSchema` | `schema/report.v6.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
 | `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` | Run by CTest `report_schema` on every F report |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
-| `JsonOutput` | `src/cli/cli.cpp` `run` | `--json` |
+| `JsonOutput` | `src/cli/output.cpp` `write_output`; `src/report/move_report.cpp` `to_json` | `--json` prints the move report document, `--json --full-report` the full report |
+| `MoveSelection` | `src/report/move_report.cpp` `move_reports` `selected_from_a` `selected_by_keyword`; `src/analysis/analyse.cpp` `selected_by_selection` | Engine order, asked moves outside A last, each move once |
+| `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence` | |
+| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v6.schema.json` | |
+| `ProjectionCheck` | `tools/validate_report.py` `projected_move_document` `project_assessment` `net_positional_changes` `positional_identity` `check_projection` | Second, independent filter; `--projection FULL MOVES` |
 
 ## Explanation
 
 | Node | Code | Notes |
 |---|---|---|
 | `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` `write_restriction` `write_held_to` | |
-| `Conditions` | `src/render/render.cpp` `write_candidate_count` `write_walk` `creates_threat_skip_reason` | |
-| `TemplateRendering` | `src/render/render.cpp` `text` | `--no-llm`; today the only renderer |
-| `ExplanationText` | `src/cli/cli.cpp` `run` | Prints the rendered text |
+| `Conditions` | `src/render/render.cpp` `write_engine_line_count` `write_selection_count` `write_walk` `creates_threat_skip_reason` | |
+| `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` | Two overloads of `text`: move report text and full report text |
+| `ExplanationText` | `src/cli/output.cpp` `write_output` | Prints the rendered text |
 
 ## Fixtures and measurement
 

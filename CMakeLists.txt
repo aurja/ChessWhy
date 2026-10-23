@@ -42,3 +42,4 @@ foreach(module IN ITEMS util input engine openings report tactics positional gam
     add_subdirectory("tests/${module}")
 endforeach()
 add_subdirectory(tests/positional/oracle)
+add_subdirectory(tests/checker)

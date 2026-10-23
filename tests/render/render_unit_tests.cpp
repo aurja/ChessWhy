@@ -1,12 +1,14 @@
+#include "chesswhy/move_report.hpp"
 #include "chesswhy/render.hpp"
 
+#include <algorithm>
 #include <array>
+#include <cctype>
 #include <fstream>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
-
 #include <catch2/catch_test_macros.hpp>
 
 #include "../report/example_reports.hpp"
@@ -20,8 +22,8 @@ namespace {
     std::string line;
     while (std::getline(rendered_lines, line)) {
         if (line.starts_with("Engine:") || line.starts_with("Budget:") ||
-            line.starts_with("Candidates:") || line.starts_with("Candidate 1:") ||
-            line.starts_with("Candidate 1 facts read to ply") ||
+            line.starts_with("Engine lines:") || line.starts_with("Engine line 1:") ||
+            line.starts_with("Engine line 1 facts read to ply") ||
             line.starts_with("Asked move 1 facts read to ply") ||
             line.find("parries threat: false (deferred_by_check") != std::string::npos ||
             line.find("creates threat line (if") != std::string::npos ||
@@ -44,6 +46,228 @@ namespace {
         .held_to = std::move(held_to),
     };
 }
+[[nodiscard]] chesswhy::MoveReportDocument base_move_document() {
+    using namespace chesswhy;
+    MoveReportDocument document;
+    document.input.fen = test_examples::kF03;
+    document.input.budget = Budget::Standard;
+    document.engine.name = "Stockfish 19";
+    document.engine.threads = 1;
+    document.engine.hash_mb = 64;
+    document.engine.nodes =
+        NodeBudget{.a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .r = 100000};
+    document.position = PositionSummary{
+        .fen = test_examples::kF03,
+        .side_to_move = Side::Black,
+        .in_check = false,
+        .legal_moves = 28,
+        .terminal = std::nullopt,
+        .eval_white = Eval{.es_units = 1022, .cp = 15, .mate = std::nullopt},
+    };
+    document.opening.dataset = "lichess-org/chess-openings@a6189a3";
+    document.games.push_back(GameSourceSummary{
+        .id = "lichess_broadcast",
+        .table = "broadcasts",
+        .platform = "over the board",
+        .players = "both rated 2200 or more",
+        .months = "2020-01..2026-09",
+        .credit = "Lichess broadcast database",
+        .max_ply = 40,
+        .min_games = 5,
+        .found = true,
+        .games = 10260,
+        .white = std::nullopt,
+        .draws = std::nullopt,
+        .black = std::nullopt,
+    });
+    return document;
+}
+
+[[nodiscard]] chesswhy::MoveReport report_move(std::optional<int> rank, std::string san,
+                                               std::string uci, chesswhy::Verdict verdict,
+                                               int eval, int loss, int depth,
+                                               std::vector<std::string> line, int walked) {
+    chesswhy::MoveReport move;
+    move.rank = rank;
+    move.san = std::move(san);
+    move.uci = std::move(uci);
+    move.eval = chesswhy::Eval{.es_units = eval, .cp = std::nullopt, .mate = std::nullopt};
+    move.depth = depth;
+    move.loss_units = loss;
+    move.verdict = verdict;
+    move.line_san = std::move(line);
+    move.walked_plies = walked;
+    move.consequence = chesswhy::Consequence{
+        .cls = chesswhy::ConsequenceClass::Positional,
+        .mate_in = std::nullopt,
+        .material = 0,
+        .promotes = false,
+        .plies = walked,
+    };
+    return move;
+}
+
+[[nodiscard]] std::array<std::pair<const char*, chesswhy::MoveReportDocument>, 6>
+move_report_examples() {
+    using namespace chesswhy;
+    using namespace chesswhy::test_examples;
+    auto best = base_move_document();
+    best.input.selection.keywords = {Selection::Keyword::Best};
+    best.selection = SelectionInfo{
+        .selection = best.input.selection,
+        .lines_searched = 5,
+        .playable_count = 4,
+        .playable_truncated = false,
+    };
+    MoveReport best_move = report_move(1, "g6", "g7g6", Verdict::Best, 978, 0, 17,
+                                       {"g6", "d3", "Bc5", "Nf3"}, 3);
+    best_move.opportunity = OpportunityJudgement{
+        .alternative = BestAlternative{
+            .san = "Bc5",
+            .uci = "f8c5",
+            .eval = Eval{.es_units = 558, .cp = 15, .mate = std::nullopt},
+        },
+        .margin_units = 420,
+        .is_opportunity = true,
+    };
+    best_move.motifs.push_back(motif(MotifTag::Fork, Side::Black, 2,
+                                     piece_on_square('e', 5, 'N'),
+                                     {piece_on_square('c', 6, 'r'), piece_on_square('g', 6, 'k')}));
+    best_move.motifs.back().contribution = MotifContribution::Direct;
+    Motif root_motif = motif(MotifTag::BackRankWeakness, Side::Black, 0,
+                             piece_on_square('e', 8, 'k'));
+    root_motif.contribution = MotifContribution::Indirect;
+    best_move.root_motifs.push_back(std::move(root_motif));
+    best_move.positional.push_back(PositionalChange{
+        .ply = 2,
+        .change = PositionalChangeKind::Appears,
+        .holds_at_end = true,
+        .feature = PositionalFeature{
+            .tag = PositionalTag::IsolatedPawn,
+            .side = Side::White,
+            .pieces = {piece_on_square('c', 2, 'P')},
+            .file = std::nullopt,
+            .value = std::nullopt,
+        },
+    });
+    best_move.parried_threat = ParriedThreat{
+        .threat = threat(Side::White, test_examples::kF03, {"Qxf7#"},
+                         consequence(ConsequenceClass::Mate, 0, 1, false, 1)),
+        .test = ParryTest::Searched,
+    };
+    best_move.created_threat = threat(
+        Side::Black, test_examples::kF03, {"Nxe4"}, consequence(ConsequenceClass::Material, 1, 6));
+    best_move.games = 5421;
+    best.moves.push_back(std::move(best_move));
+
+    auto playable = base_move_document();
+    playable.input.selection.keywords = {Selection::Keyword::Playable};
+    playable.selection = SelectionInfo{
+        .selection = playable.input.selection,
+        .lines_searched = 28,
+        .playable_count = 4,
+        .playable_truncated = false,
+    };
+    playable.position.legal_moves = 31;
+    const std::array<std::pair<const char*, const char*>, 4> playable_sans{{
+        {"Nf6", "g8f6"}, {"d6", "d7d6"}, {"g6", "g7g6"}, {"Bc5", "f8c5"},
+    }};
+    for (std::size_t index = 0; index < playable_sans.size(); ++index) {
+        const auto [san, uci] = playable_sans[index];
+        playable.moves.push_back(report_move(static_cast<int>(index + 1), san, uci,
+                                             index == 0 ? Verdict::Best : Verdict::Okay,
+                                             978 - static_cast<int>(index) * 15,
+                                             static_cast<int>(index) * 15, 16, {san}, 1));
+    }
+
+    auto blunder = base_move_document();
+    blunder.input.selection.keywords = {Selection::Keyword::Blunders};
+    blunder.selection = SelectionInfo{
+        .selection = blunder.input.selection,
+        .lines_searched = 28,
+        .playable_count = 4,
+        .playable_truncated = false,
+    };
+    MoveReport bad_move = report_move(6, "Nf6", "g8f6", Verdict::Blunder, 534, 700, 12,
+                                      {"Nf6", "Qxf7#"}, 2);
+    bad_move.allows_tactic = true;
+    Threat refutation =
+        threat(Side::White, test_examples::kAfterNf6, {"Qxf7#"},
+               consequence(ConsequenceClass::Mate, 0, 1, false, 1));
+    refutation.is_tactic = true;
+    refutation.opportunity = OpportunityJudgement{
+        .alternative = BestAlternative{
+            .san = "Qe2",
+            .uci = "h5e2",
+            .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt},
+        },
+        .margin_units = 400,
+        .is_opportunity = true,
+    };
+    refutation.motifs.push_back(motif(
+        MotifTag::Fork, Side::White, 1, piece_on_square('h', 5, 'Q'),
+        {piece_on_square('f', 7, 'k'), piece_on_square('e', 8, 'k')}));
+    refutation.motifs.back().contribution = MotifContribution::Direct;
+    bad_move.refutation = std::move(refutation);
+    blunder.moves.push_back(std::move(bad_move));
+
+    auto asked = base_move_document();
+    asked.input.fen = test_examples::kAfterE4E5;
+    asked.input.moves = "e2e4";
+    asked.input.selection.moves = {"e2e4"};
+    asked.position.fen = test_examples::kAfterE4E5;
+    asked.position.side_to_move = Side::White;
+    asked.position.legal_moves = 20;
+    asked.position.eval_white = Eval{.es_units = 1000, .cp = 0, .mate = std::nullopt};
+    asked.selection = SelectionInfo{
+        .selection = asked.input.selection,
+        .lines_searched = 5,
+        .playable_count = 4,
+        .playable_truncated = false,
+    };
+    asked.moves.push_back(
+        report_move(std::nullopt, "e4", "e2e4", Verdict::Okay, 955, 45, 12, {"e4", "e5"}, 2));
+
+    auto terminal = base_move_document();
+    terminal.input.selection.keywords = {Selection::Keyword::Best};
+    terminal.selection = SelectionInfo{
+        .selection = terminal.input.selection,
+        .lines_searched = 0,
+        .playable_count = 0,
+        .playable_truncated = false,
+    };
+    terminal.position.fen = test_examples::kF13;
+    terminal.position.side_to_move = Side::White;
+    terminal.position.legal_moves = 0;
+    terminal.position.in_check = true;
+    terminal.position.terminal = Terminal::Checkmate;
+    terminal.position.eval_white.reset();
+
+    auto empty = base_move_document();
+    empty.input.selection = Selection{};
+    empty.selection = SelectionInfo{
+        .selection = empty.input.selection,
+        .lines_searched = 5,
+        .playable_count = 4,
+        .playable_truncated = false,
+    };
+    empty.moves.clear();
+
+    return {{{"move_best.txt", std::move(best)},
+             {"move_playable.txt", std::move(playable)},
+             {"move_blunder_refutation.txt", std::move(blunder)},
+             {"move_asked_c.txt", std::move(asked)},
+             {"move_terminal.txt", std::move(terminal)},
+             {"move_empty_selection.txt", std::move(empty)}}};
+}
+
+[[nodiscard]] bool contains_candidate(std::string text) {
+    std::transform(text.begin(), text.end(), text.begin(), [](unsigned char character) {
+        return static_cast<char>(std::tolower(character));
+    });
+    return text.find("candidate") != std::string::npos;
+}
+
 
 } // namespace
 
@@ -139,11 +363,12 @@ TEST_CASE("PostM3_EM2 template wording matches its golden lines", "[unit]") {
 
     const std::string path =
         std::string(CHESSWHY_SOURCE_DIR) + "/tests/render/golden/postm3_em2_template.txt";
+    const std::string selected = render_template_lines(report);
     const std::ifstream golden_file(path, std::ios::binary);
     REQUIRE(golden_file.good());
     std::ostringstream golden_content;
     golden_content << golden_file.rdbuf();
-    CHECK(render_template_lines(report) == golden_content.str());
+    CHECK(selected == golden_content.str());
 }
 
 TEST_CASE("example reports match the golden text", "[unit]") {
@@ -158,13 +383,13 @@ TEST_CASE("example reports match the golden text", "[unit]") {
         CAPTURE(filenames[index]);
         const std::string path =
             std::string(CHESSWHY_SOURCE_DIR) + "/tests/render/golden/" + filenames[index];
+        const std::string rendered = chesswhy::render::text(reports[index]);
         const std::ifstream golden_file(path, std::ios::binary);
         REQUIRE(golden_file.good());
         std::ostringstream golden_content;
         golden_content << golden_file.rdbuf();
-        const std::string rendered = chesswhy::render::text(reports[index]);
         CHECK(rendered == golden_content.str());
-
+        CHECK_FALSE(contains_candidate(rendered));
         std::istringstream rendered_lines(rendered);
         std::string line;
         while (std::getline(rendered_lines, line)) {
@@ -181,6 +406,20 @@ TEST_CASE("example reports match the golden text", "[unit]") {
         }
     }
 }
+TEST_CASE("move report documents match golden text without candidate wording", "[unit]") {
+    for (auto& [filename, document] : move_report_examples()) {
+        CAPTURE(filename);
+        const std::string path =
+            std::string(CHESSWHY_SOURCE_DIR) + "/tests/render/golden/" + filename;
+        const std::string rendered = chesswhy::render::text(document);
+        CHECK_FALSE(contains_candidate(rendered));
+        const std::ifstream golden_file(path, std::ios::binary);
+        REQUIRE(golden_file.good());
+        std::ostringstream golden_content;
+        golden_content << golden_file.rdbuf();
+        CHECK(rendered == golden_content.str());
+    }
+}
 
 TEST_CASE("motif rows and level-independent output", "[unit]") {
     auto report = chesswhy::test_examples::normal_position();
@@ -190,7 +429,7 @@ TEST_CASE("motif rows and level-independent output", "[unit]") {
     CHECK(club_text.find("fork: N e5 → r c6, k g6 (ply 3) [rule]") != std::string::npos);
     CHECK(club_text.find("promotion: Q e8 (ply 1) [rule]") != std::string::npos);
     CHECK(club_text.find("skewer: q f6 → R f1 (ply 1) [rule]") == std::string::npos);
-    CHECK(club_text.find("back_rank_weakness: k e8 (ply 0) [rule]") == std::string::npos);
+    CHECK(club_text.find("back_rank_weakness: k e8 (ply 0) [rule]") != std::string::npos);
 }
 
 TEST_CASE("positional and game facts render only from report fields", "[unit]") {
@@ -219,37 +458,70 @@ TEST_CASE("positional and game facts render only from report fields", "[unit]") 
 TEST_CASE("opportunities, tactic labels and contributions render from report fields", "[unit]") {
     const std::string tactic_text =
         chesswhy::render::text(chesswhy::test_examples::tactic_with_labels());
-    CHECK(tactic_text.find("opportunity: next best g6 is 0.49 worse [engine]") !=
-          std::string::npos);
+    CHECK(tactic_text.find("Opportunity: margin 0.49 over g6 [engine]") != std::string::npos);
     CHECK(tactic_text.find("removal_of_defender: b d5 → N d5, R e4 (ply 1) [rule]") !=
           std::string::npos);
     CHECK(tactic_text.find("fork: n f3 → K e1, Q d4 (ply 1, direct) [rule]") != std::string::npos);
-    CHECK(tactic_text.find("back_rank_weakness: k e8") == std::string::npos);
+    CHECK(tactic_text.find("back_rank_weakness: k e8 (ply 0) [rule]") != std::string::npos);
 
     const std::string asked_text =
         chesswhy::render::text(chesswhy::test_examples::normal_position());
     CHECK(asked_text.find("Asked move 1 line: Nf6 Qxf7# [engine]") != std::string::npos);
-    CHECK(asked_text.find("Asked move 1 refutation line: Qxf7# [engine]") != std::string::npos);
+    CHECK(asked_text.find("Refuted by: Qxf7# ; a tactic: White mates in 1 [engine]") !=
+          std::string::npos);
 
     const std::string forced_text =
         chesswhy::render::text(chesswhy::test_examples::forced_opportunity());
-    CHECK(forced_text.find("forced: only legal move [rule]") != std::string::npos);
-    CHECK(forced_text.find("opportunity:") == std::string::npos);
+    CHECK(forced_text.find("Forced: only legal move [rule]") != std::string::npos);
 
     const std::string negative_text =
         chesswhy::render::text(chesswhy::test_examples::negative_margin_opportunity());
-    CHECK(negative_text.find("opportunity:") == std::string::npos);
-    CHECK(negative_text.find("forced:") == std::string::npos);
+    CHECK(negative_text.find("Opportunity:") == std::string::npos);
 
     const std::string refutation_text =
         chesswhy::render::text(chesswhy::test_examples::refutation_opportunity());
-    CHECK(refutation_text.find("Candidate 2 refutation line: Qxf7# [engine]\n"
-                               "opportunity: next best Qe2 is 0.20 worse [engine]\n"
+    CHECK(refutation_text.find("Refuted by: Qxf7# ; a tactic: White mates in 1 [engine]\n"
+                               "Opportunity: margin 0.20 over Qe2 [engine]\n"
                                "removal_of_defender: b d5 → N d5, R e4 (ply 1) [rule]") !=
           std::string::npos);
     CHECK(refutation_text.find("fork: Q h5 → k f7, k e8 (ply 1, direct) [rule]") !=
           std::string::npos);
 }
+TEST_CASE("non-detailed engine lines omit unsearched details", "[unit]") {
+    using namespace chesswhy;
+    Report report = test_examples::normal_position();
+    MoveAssessment& line = report.candidates.front();
+    line.detailed = false;
+    line.parries_threat = ParryInfo{.parries = true, .test = ParryTest::Searched};
+    line.creates_threat = test_examples::threat(
+        Side::Black, test_examples::kF03, {"Nxe4"},
+        test_examples::consequence(ConsequenceClass::Material, 1, 6));
+    line.refutation = test_examples::threat(
+        Side::White, test_examples::kAfterNf6, {"Qxf7#"},
+        test_examples::consequence(ConsequenceClass::Mate, 0, 1, false, 1));
+    line.refutation->is_tactic = true;
+    line.refutation->opportunity = OpportunityJudgement{
+        .alternative = BestAlternative{
+            .san = "Qe2",
+            .uci = "h5e2",
+            .eval = Eval{.es_units = 1166, .cp = 0, .mate = std::nullopt},
+        },
+        .margin_units = 400,
+        .is_opportunity = true,
+    };
+
+    const std::string rendered = render::text(report);
+    const std::size_t start = rendered.find("Engine line 1:");
+    const std::size_t end = rendered.find("Engine line 2:");
+    REQUIRE(start != std::string::npos);
+    REQUIRE(end != std::string::npos);
+    const std::string line_text = rendered.substr(start, end - start);
+    CHECK(line_text.find("Refuted by: Qxf7#") != std::string::npos);
+    CHECK(line_text.find("parries threat") == std::string::npos);
+    CHECK(line_text.find("creates threat") == std::string::npos);
+    CHECK(line_text.find("Opportunity:") == std::string::npos);
+}
+
 
 TEST_CASE("position evaluation renders the mate score when available", "[unit]") {
     auto report = chesswhy::test_examples::normal_position();

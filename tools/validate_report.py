@@ -27,6 +27,15 @@ RESTRICTED_TAGS = frozenset(
 PLAYABLE_UNITS = 100
 INACCURACY_UNITS = 200
 OPPORTUNITY_MARGIN_UNITS = 260
+SELECTION_KEYWORDS = (
+    "best",
+    "playable",
+    "inaccuracies",
+    "mistakes",
+    "blunders",
+    "unplayable",
+    "all",
+)
 
 
 class Arguments(argparse.Namespace):
@@ -34,6 +43,7 @@ class Arguments(argparse.Namespace):
         super().__init__()
         self.schema: Path = Path()
         self.reports: list[Path] = []
+        self.projection: list[Path] | None = None
 
 
 class ErrorValidator(Protocol):
@@ -123,12 +133,28 @@ def number_units(value: JsonValue) -> int | None:
     return round(float(value) * 2000)
 
 
-def verdicts_for_loss(loss_units: int) -> frozenset[str]:
+def same_engine_score(left: JsonValue, right: JsonValue) -> bool:
+    left_eval = as_object(left)
+    right_eval = as_object(right)
+    if left_eval is None or right_eval is None:
+        return False
+    left_cp, right_cp = left_eval.get("cp"), right_eval.get("cp")
+    left_mate, right_mate = left_eval.get("mate"), right_eval.get("mate")
+    if isinstance(left_cp, int) and not isinstance(left_cp, bool):
+        return left_cp == right_cp and left_mate is None and right_mate is None
+    if isinstance(left_mate, int) and not isinstance(left_mate, bool):
+        return left_mate == right_mate and left_cp is None and right_cp is None
+    return False
+
+
+def expected_verdict(
+    loss_units: int, is_candidate: bool, same_best_score: bool, allows_tactic: bool
+) -> str:
     if loss_units <= PLAYABLE_UNITS:
-        return frozenset({"best", "okay"})
+        return "best" if is_candidate and same_best_score else "okay"
     if loss_units <= INACCURACY_UNITS:
-        return frozenset({"inaccuracy"})
-    return frozenset({"mistake", "blunder"})
+        return "inaccuracy"
+    return "blunder" if allows_tactic else "mistake"
 
 
 def side_name(color: chess.Color) -> str:
@@ -288,20 +314,23 @@ def check_move_legality(
 def check_score_relations(report: JsonObject, failures: list[Failure]) -> None:
     candidates = as_array(report.get("candidates")) or []
     asked_moves = as_array(report.get("asked_moves")) or []
-    assessed: list[tuple[str, JsonValue]] = [
-        (f"/candidates/{index}", candidate)
+    assessed: list[tuple[str, JsonValue, bool]] = [
+        (f"/candidates/{index}", candidate, True)
         for index, candidate in enumerate(candidates)
     ]
     assessed.extend(
-        (f"/asked_moves/{index}", move)
-        for index, move in enumerate(asked_moves)
+        (f"/asked_moves/{index}", move, False) for index, move in enumerate(asked_moves)
     )
     if not candidates:
         return
-    best_units = score_units(get_object(candidates[0], "eval"))
+    best = as_object(candidates[0])
+    if best is None:
+        return
+    best_eval = best.get("eval")
+    best_units = score_units(best_eval)
     if best_units is None:
         return
-    for pointer, value in assessed:
+    for pointer, value, is_candidate in assessed:
         move_object = as_object(value)
         if move_object is None:
             continue
@@ -316,14 +345,153 @@ def check_score_relations(report: JsonObject, failures: list[Failure]) -> None:
             f"loss must equal max(0, candidate[0] ES units - move ES units) = {expected_loss}",
             actual_loss == expected_loss,
         )
-        expected_verdicts = verdicts_for_loss(expected_loss)
+        expected = expected_verdict(
+            expected_loss,
+            is_candidate and move_object.get("in_multipv") is True,
+            same_engine_score(move_object.get("eval"), best_eval),
+            move_object.get("allows_tactic") is True,
+        )
         fail(
             failures,
             f"{pointer}/verdict",
-            f"verdict must be one of {sorted(expected_verdicts)!r} for {expected_loss} loss units "
-            "(thresholds 100/200)",
-            move_object.get("verdict") in expected_verdicts,
+            f"verdict must be {expected!r} for {expected_loss} loss units, the line-1 score and allows_tactic",
+            move_object.get("verdict") == expected,
         )
+
+
+def check_selection_relations(
+    report: JsonObject, root: chess.Board | None, failures: list[Failure]
+) -> None:
+    input_metadata = as_object(report.get("input"))
+    if input_metadata is None:
+        return
+    raw_moves_value = input_metadata.get("moves")
+    raw_items = raw_moves_value.split(",") if isinstance(raw_moves_value, str) else []
+    input_object = get_object(report.get("input"), "selection")
+    if input_object is None:
+        return
+    requested_keywords: set[str] = set()
+    requested_moves: list[str] = []
+    requested_top: int | None = None
+    for item in raw_items:
+        if item in SELECTION_KEYWORDS:
+            requested_keywords.add(item)
+            continue
+        if item.startswith("top") and item[3:].isdecimal():
+            value = int(item[3:])
+            if value > 0:
+                requested_top = max(requested_top or value, value)
+            continue
+        if root is None:
+            continue
+        move = legal_san_move(root, item)
+        if move is None:
+            try:
+                uci_move = chess.Move.from_uci(item)
+            except ValueError:
+                uci_move = None
+            if uci_move is not None and root.is_legal(uci_move):
+                move = uci_move
+        if move is not None:
+            uci = root.uci(move)
+            if uci not in requested_moves:
+                requested_moves.append(uci)
+    if raw_moves_value is None:
+        requested_keywords.add("best")
+    expected_keywords = [
+        keyword for keyword in SELECTION_KEYWORDS if keyword in requested_keywords
+    ]
+    actual_keywords = as_array(input_object.get("keywords")) or []
+    fail(
+        failures,
+        "/input/selection/keywords",
+        "keywords must be unique and in the fixed selection order",
+        actual_keywords == expected_keywords,
+    )
+    actual_top = input_object.get("top")
+    fail(
+        failures,
+        "/input/selection/top",
+        "top must be the largest topN item, or null when none was requested",
+        actual_top == requested_top,
+    )
+    actual_moves = as_array(input_object.get("moves")) or []
+    fail(
+        failures,
+        "/input/selection/moves",
+        "asked move UCIs must be deduplicated in typed order",
+        actual_moves == requested_moves,
+    )
+
+    candidates = as_array(report.get("candidates")) or []
+    candidate_ucis: list[str] = []
+    for index, candidate_value in enumerate(candidates):
+        candidate = as_object(candidate_value)
+        if candidate is None:
+            continue
+        uci = candidate.get("uci")
+        if isinstance(uci, str):
+            candidate_ucis.append(uci)
+        fail(
+            failures,
+            f"/candidates/{index}/in_multipv",
+            "every candidate is a line from Search A",
+            candidate.get("in_multipv") is True,
+        )
+    expected_asked_moves = [uci for uci in requested_moves if uci not in candidate_ucis]
+    asked_moves = as_array(report.get("asked_moves")) or []
+    actual_asked_moves = [
+        move.get("uci")
+        for value in asked_moves
+        if (move := as_object(value)) is not None
+    ]
+    fail(
+        failures,
+        "/asked_moves",
+        "asked-move assessments must be exactly the selected moves outside Search A, in typed order",
+        actual_asked_moves == expected_asked_moves,
+    )
+    for index, value in enumerate(asked_moves):
+        move = as_object(value)
+        if move is not None:
+            fail(
+                failures,
+                f"/asked_moves/{index}/in_multipv",
+                "a Search C move is outside Search A",
+                move.get("in_multipv") is False,
+            )
+
+
+def check_playable_truncated(report: JsonObject, failures: list[Failure]) -> None:
+    engine = as_object(report.get("engine"))
+    position = as_object(report.get("position"))
+    if engine is None or position is None:
+        return
+    width = engine.get("multipv")
+    legal_moves = position.get("legal_moves")
+    candidates = as_array(report.get("candidates")) or []
+    all_playable = True
+    for value in candidates:
+        candidate = as_object(value)
+        loss = None if candidate is None else number_units(candidate.get("loss"))
+        if loss is None or loss > PLAYABLE_UNITS:
+            all_playable = False
+            break
+    expected = (
+        isinstance(width, int)
+        and not isinstance(width, bool)
+        and isinstance(legal_moves, int)
+        and not isinstance(legal_moves, bool)
+        and len(candidates) == width
+        and width < legal_moves
+        and all_playable
+    )
+    fail(
+        failures,
+        "/playable_truncated",
+        "playable_truncated must hold exactly when Search A returned all K playable lines and K is below the legal-move count",
+        report.get("playable_truncated") is expected,
+    )
 
 
 def check_position_relations(
@@ -421,7 +589,7 @@ def check_parry_relations(
             f"source must be {expected_source!r} for test {test!r}",
             parry.get("source") == expected_source,
         )
-        if test not in ("threat_move_illegal", "searched"):
+        if test not in ("threat_move_illegal", "searched", "deferred_by_check"):
             continue
         opponent = as_object(opponent_threat)
         line = None if opponent is None else as_array(opponent.get("line"))
@@ -444,25 +612,44 @@ def check_parry_relations(
             fail(
                 failures,
                 f"{pointer}/parries_threat/test",
-                "parry legality tests require a resolvable first move of the opponent threat",
+                "parry tests require a resolvable first move of the opponent threat",
                 False,
             )
             continue
         after_move = root.copy()
         after_move.push(assessed_move)
         threat_move_legal = after_move.is_legal(first_threat_move)
+        deferred = after_move.is_checkmate() or (
+            move_object.get("gives_check") is True
+            and after_move.is_pseudo_legal(first_threat_move)
+        )
         if test == "threat_move_illegal":
-            relation = (
-                "threat_move_illegal requires the threat's first move to be illegal"
+            relation = "threat_move_illegal requires an illegal threat move not deferred by check"
+            condition = not threat_move_legal and not deferred
+            fail(
+                failures,
+                f"{pointer}/parries_threat/value",
+                "an illegal threat move must parry the threat",
+                parry.get("value") is True,
             )
-            condition = not threat_move_legal
+        elif test == "deferred_by_check":
+            relation = (
+                "deferred_by_check requires an illegal threat move deferred by check"
+            )
+            condition = not threat_move_legal and deferred
+            fail(
+                failures,
+                f"{pointer}/parries_threat/value",
+                "a test deferred by check must not claim the threat is parried",
+                parry.get("value") is False,
+            )
         else:
-            relation = "searched requires the threat's first move to be legal"
+            relation = "searched requires a legal threat move"
             condition = threat_move_legal
         fail(
             failures,
             f"{pointer}/parries_threat/test",
-            relation + " after the assessed move",
+            relation,
             condition,
         )
 
@@ -878,7 +1065,9 @@ def check_motif_contributions(
 
 
 def check_line_labels(
-    labels_value: JsonValue, expected_tactic_line: bool, pointer: str,
+    labels_value: JsonValue,
+    expected_tactic_line: bool,
+    pointer: str,
     failures: list[Failure],
 ) -> None:
     labels = as_array(labels_value)
@@ -974,16 +1163,13 @@ def check_opportunity_judgement(
     fail(
         failures,
         f"{pointer}/is_opportunity",
-        f"is_opportunity must be {expected_opportunity} for the computed margin "
-        "(threshold 260 units; forced lines are never opportunities)",
+        f"is_opportunity must be {expected_opportunity}; threshold 260 units, forced lines are never opportunities",
         opportunity.get("is_opportunity") == expected_opportunity,
     )
     return expected_opportunity
 
 
-def check_refutation(
-    move: JsonObject, pointer: str, failures: list[Failure]
-) -> bool:
+def check_refutation(move: JsonObject, pointer: str, failures: list[Failure]) -> bool:
     refutation = as_object(move.get("refutation"))
     if refutation is None:
         return False
@@ -996,6 +1182,23 @@ def check_refutation(
     )
     line = as_array(refutation.get("line")) or []
     motifs_pointer = f"{pointer}/refutation/motifs"
+    if move.get("detailed") is False:
+        fail(
+            failures,
+            f"{pointer}/refutation/opportunity",
+            "a non-detailed line's refutation must not have an opportunity judgement",
+            refutation.get("opportunity") is None,
+        )
+        check_motif_contributions(
+            refutation.get("motifs"), allows_tactic, motifs_pointer, failures
+        )
+        check_line_labels(
+            refutation.get("tactic_labels"),
+            allows_tactic,
+            f"{pointer}/refutation/tactic_labels",
+            failures,
+        )
+        return allows_tactic
     if not line:
         fail(
             failures,
@@ -1003,12 +1206,16 @@ def check_refutation(
             "a refutation with no plies must have no opportunity judgement",
             refutation.get("opportunity") is None,
         )
-        check_motif_contributions(refutation.get("motifs"), False, motifs_pointer, failures)
-        check_line_labels(
-            refutation.get("tactic_labels"), False,
-            f"{pointer}/refutation/tactic_labels", failures
+        check_motif_contributions(
+            refutation.get("motifs"), allows_tactic, motifs_pointer, failures
         )
-        return False
+        check_line_labels(
+            refutation.get("tactic_labels"),
+            allows_tactic,
+            f"{pointer}/refutation/tactic_labels",
+            failures,
+        )
+        return allows_tactic
     root = board_from_fen(
         refutation.get("root_fen"), f"{pointer}/refutation/root_fen", failures
     )
@@ -1022,8 +1229,12 @@ def check_refutation(
         margin = None
     else:
         move_units = score_units(move.get("eval"))
-        alternative = None if opportunity is None else as_object(opportunity.get("alternative"))
-        alternative_units = None if alternative is None else score_units(alternative.get("eval"))
+        alternative = (
+            None if opportunity is None else as_object(opportunity.get("alternative"))
+        )
+        alternative_units = (
+            None if alternative is None else score_units(alternative.get("eval"))
+        )
         margin = (
             None
             if move_units is None or alternative_units is None
@@ -1039,10 +1250,14 @@ def check_refutation(
         failures,
     )
     tactic_line = allows_tactic or is_opportunity
-    check_motif_contributions(refutation.get("motifs"), tactic_line, motifs_pointer, failures)
+    check_motif_contributions(
+        refutation.get("motifs"), tactic_line, motifs_pointer, failures
+    )
     check_line_labels(
-        refutation.get("tactic_labels"), tactic_line,
-        f"{pointer}/refutation/tactic_labels", failures
+        refutation.get("tactic_labels"),
+        tactic_line,
+        f"{pointer}/refutation/tactic_labels",
+        failures,
     )
     return tactic_line
 
@@ -1053,10 +1268,51 @@ def check_move_annotations(
     move = as_object(move_value)
     if move is None:
         return
+    consequence = as_object(move.get("consequence"))
+    consequence_class = None if consequence is None else consequence.get("class")
+    expected_is_tactic = consequence_class in ("mate", "material")
+    fail(
+        failures,
+        f"{pointer}/is_tactic",
+        "is_tactic must be true exactly for mate or material consequences",
+        move.get("is_tactic") is expected_is_tactic,
+    )
+    material = None if consequence is None else consequence.get("material")
+    eval_object = as_object(move.get("eval"))
+    mate = None if eval_object is None else eval_object.get("mate")
+    expected_allows_tactic = (
+        isinstance(material, int) and not isinstance(material, bool) and material <= -1
+    ) or (isinstance(mate, int) and not isinstance(mate, bool) and mate < 0)
+    fail(
+        failures,
+        f"{pointer}/allows_tactic",
+        "allows_tactic must be true exactly when consequence material is at most -1 or eval.mate is negative",
+        move.get("allows_tactic") is expected_allows_tactic,
+    )
+    if move.get("detailed") is False:
+        for field in ("parries_threat", "creates_threat", "creates_threat_skipped"):
+            fail(
+                failures,
+                f"{pointer}/{field}",
+                "a non-detailed line must not have parry, created-threat or skip facts",
+                move.get(field) is None,
+            )
+        refutation = as_object(move.get("refutation"))
+        if refutation is not None:
+            fail(
+                failures,
+                f"{pointer}/refutation/opportunity",
+                "a non-detailed line's refutation must not have an opportunity judgement",
+                refutation.get("opportunity") is None,
+            )
     opportunity = as_object(move.get("opportunity"))
-    is_opportunity = opportunity is not None and opportunity.get("is_opportunity") is True
+    is_opportunity = (
+        opportunity is not None and opportunity.get("is_opportunity") is True
+    )
     tactic_line = move.get("is_tactic") is True or is_opportunity
-    check_motif_contributions(move.get("motifs"), tactic_line, f"{pointer}/motifs", failures)
+    check_motif_contributions(
+        move.get("motifs"), tactic_line, f"{pointer}/motifs", failures
+    )
     check_motif_contributions(
         move.get("root_motifs"), tactic_line, f"{pointer}/root_motifs", failures
     )
@@ -1088,8 +1344,10 @@ def check_move_annotations(
             created.get("opportunity") is None,
         )
         check_line_labels(
-            created.get("tactic_labels"), False,
-            f"{pointer}/creates_threat/tactic_labels", failures
+            created.get("tactic_labels"),
+            False,
+            f"{pointer}/creates_threat/tactic_labels",
+            failures,
         )
     _ = check_refutation(move, pointer, failures)
 
@@ -1108,19 +1366,27 @@ def check_tactic_invariants(
         opportunity = None if first is None else as_object(first.get("opportunity"))
         if first is None:
             fail(
-                failures, "/candidates/0/opportunity",
+                failures,
+                "/candidates/0/opportunity",
                 "a non-terminal root must have a best candidate with an opportunity judgement",
                 False,
             )
         elif opportunity is None:
             fail(
-                failures, "/candidates/0/opportunity",
+                failures,
+                "/candidates/0/opportunity",
                 "a non-terminal root must have an opportunity judgement object",
                 False,
             )
         elif legal_moves == 1:
             _ = check_opportunity_judgement(
-                opportunity, "/candidates/0/opportunity", True, None, None, None, failures
+                opportunity,
+                "/candidates/0/opportunity",
+                True,
+                None,
+                None,
+                None,
+                failures,
             )
         else:
             second = as_object(candidates[1]) if len(candidates) >= 2 else None
@@ -1128,8 +1394,10 @@ def check_tactic_invariants(
             expected_alternative: JsonObject | None = None
             if second is None:
                 fail(
-                    failures, "/candidates/1",
-                    "a non-forced root must have a second candidate", False
+                    failures,
+                    "/candidates/1",
+                    "a non-forced root must have a second candidate",
+                    False,
                 )
             else:
                 expected_alternative = {
@@ -1161,16 +1429,15 @@ def check_tactic_invariants(
             )
         check_move_annotations(candidate, f"/candidates/{index}", failures)
 
-    check_motif_contributions(position.get("motifs"), False, "/position/motifs", failures)
+    check_motif_contributions(
+        position.get("motifs"), False, "/position/motifs", failures
+    )
     threats = as_object(report.get("threats"))
     if threats is not None:
         for color in ("white", "black"):
             threat = as_object(threats.get(color))
             if threat is None:
                 continue
-            check_motif_contributions(
-                threat.get("motifs"), False, f"/threats/{color}/motifs", failures
-            )
             for field in ("is_tactic", "opportunity"):
                 fail(
                     failures,
@@ -1179,11 +1446,21 @@ def check_tactic_invariants(
                     threat.get(field) is None,
                 )
             check_line_labels(
-                threat.get("tactic_labels"), False,
-                f"/threats/{color}/tactic_labels", failures
+                threat.get("tactic_labels"),
+                False,
+                f"/threats/{color}/tactic_labels",
+                failures,
             )
 
     for index, asked in enumerate(as_array(report.get("asked_moves")) or []):
+        asked_object = as_object(asked)
+        if asked_object is not None:
+            fail(
+                failures,
+                f"/asked_moves/{index}/opportunity",
+                "Search C lines do not have opportunity judgements",
+                asked_object.get("opportunity") is None,
+            )
         check_move_annotations(asked, f"/asked_moves/{index}", failures)
 
 
@@ -1198,6 +1475,8 @@ def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> Non
         else board_from_fen(position.get("fen"), "/position/fen", failures)
     )
     check_score_relations(report, failures)
+    check_selection_relations(report, root, failures)
+    check_playable_truncated(report, failures)
     check_position_relations(report, root, failures)
     check_terminal_relations(report, failures)
     check_urgency(report, failures)
@@ -1232,6 +1511,348 @@ def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> Non
     check_restrictions_everywhere(report, root, failures)
 
 
+def contribution_filtered(motifs_value: JsonValue) -> list[JsonValue]:
+    motifs = as_array(motifs_value) or []
+    return [
+        motif
+        for motif in motifs
+        if (motif_object := as_object(motif)) is not None
+        and motif_object.get("contribution") in ("direct", "indirect")
+    ]
+
+
+def projected_threat(value: JsonValue, filter_motifs: bool) -> JsonValue:
+    threat = as_object(value)
+    if threat is None:
+        return None
+    projected = dict(threat)
+    projected["motifs"] = (
+        contribution_filtered(threat.get("motifs")) if filter_motifs else []
+    )
+    return projected
+
+
+def positional_identity(change: JsonObject) -> str:
+    tag = change.get("tag")
+    side = change.get("side")
+    pieces = as_array(change.get("pieces")) or []
+    identity: list[JsonValue] = [tag, side]
+    if tag in {
+        "isolated_pawn",
+        "doubled_pawns",
+        "tripled_pawns",
+        "backward_pawn",
+        "passed_pawn",
+        "king_shield_gap",
+        "open_file_near_king",
+        "half_open_file_near_king",
+        "rook_open_file",
+        "rook_half_open_file",
+    }:
+        identity.append(change.get("file"))
+    elif tag == "connected_passed_pawns":
+        identity.append(
+            [
+                square[0]
+                for piece_value in pieces
+                if (piece := as_object(piece_value)) is not None
+                and isinstance((square := piece.get("square")), str)
+                and len(square) == 2
+            ]
+        )
+    elif tag == "pawn_islands" or tag == "material_ahead":
+        identity.append(change.get("value"))
+    elif tag == "pawn_chain":
+        identity.append(
+            [
+                piece.get("square", "")
+                for piece_value in pieces
+                if (piece := as_object(piece_value)) is not None
+            ]
+        )
+    elif tag == "king_zone_attacker" or tag == "outpost":
+        first_piece = as_object(pieces[0]) if pieces else None
+        identity.append(
+            None
+            if first_piece is None
+            else [first_piece.get("square"), first_piece.get("piece")]
+        )
+    elif tag == "bad_bishop":
+        first_piece = as_object(pieces[0]) if pieces else None
+        square = None if first_piece is None else first_piece.get("square")
+        color: int | None = None
+        if isinstance(square, str) and len(square) == 2:
+            color = (ord(square[0]) - ord("a") + int(square[1]) - 1) % 2
+        identity.append(color)
+    return json.dumps(
+        identity, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+    )
+
+
+def net_positional_changes(value: JsonValue) -> list[JsonValue]:
+    changes = as_array(value) or []
+    latest_indexes: dict[str, int] = {}
+    for index, change_value in enumerate(changes):
+        change = as_object(change_value)
+        if change is not None and change.get("holds_at_end") is True:
+            latest_indexes[positional_identity(change)] = index
+    return [
+        change
+        for index, change in enumerate(changes)
+        if (change_object := as_object(change)) is not None
+        and change_object.get("holds_at_end") is True
+        and latest_indexes.get(positional_identity(change_object)) == index
+    ]
+
+
+def game_count_for_move(report: JsonObject, uci: JsonValue) -> JsonValue:
+    if not isinstance(uci, str):
+        return None
+    games_object = as_object(report.get("games"))
+    if games_object is None:
+        return None
+    sources = as_array(games_object.get("by_source")) or []
+    first = as_object(sources[0]) if sources else None
+    if first is None:
+        return None
+    for game_move_value in as_array(first.get("moves")) or []:
+        game_move = as_object(game_move_value)
+        if game_move is not None and game_move.get("uci") == uci:
+            return game_move.get("games")
+    return None
+
+
+def project_assessment(
+    report: JsonObject,
+    assessment: JsonObject,
+    rank: int | None,
+    opponent_threat: JsonValue,
+) -> JsonObject:
+    projected: JsonObject = {
+        "rank": rank,
+        "san": assessment.get("san"),
+        "uci": assessment.get("uci"),
+        "eval": assessment.get("eval"),
+        "depth": assessment.get("depth"),
+        "loss": assessment.get("loss"),
+        "verdict": assessment.get("verdict"),
+        "gives_check": assessment.get("gives_check"),
+        "line": assessment.get("line"),
+        "walked_plies": assessment.get("walked_plies"),
+        "consequence": assessment.get("consequence"),
+        "is_tactic": assessment.get("is_tactic"),
+        "allows_tactic": assessment.get("allows_tactic"),
+        "opportunity": assessment.get("opportunity"),
+        "motifs": contribution_filtered(assessment.get("motifs")),
+        "root_motifs": contribution_filtered(assessment.get("root_motifs")),
+        "tactic_labels": assessment.get("tactic_labels"),
+        "positional": net_positional_changes(assessment.get("positional")),
+        "parried_threat": None,
+        "created_threat": None,
+        "refutation": None,
+        "games": game_count_for_move(report, assessment.get("uci")),
+    }
+    parry = as_object(assessment.get("parries_threat"))
+    if parry is not None and parry.get("value") is True and opponent_threat is not None:
+        projected["parried_threat"] = {
+            "threat": projected_threat(opponent_threat, False),
+            "test": parry.get("test"),
+        }
+    created = as_object(assessment.get("creates_threat"))
+    consequence = None if created is None else as_object(created.get("consequence"))
+    consequence_class = None if consequence is None else consequence.get("class")
+    if created is not None and consequence_class in ("mate", "material", "promotion"):
+        projected["created_threat"] = projected_threat(created, False)
+    verdict = assessment.get("verdict")
+    refutation = assessment.get("refutation")
+    if verdict not in ("best", "okay") and refutation is not None:
+        projected["refutation"] = projected_threat(refutation, True)
+    return projected
+
+
+def projected_move_document(report: JsonObject) -> JsonObject:
+    input_object = as_object(report.get("input")) or {}
+    input_selection = as_object(input_object.get("selection")) or {}
+    engine = as_object(report.get("engine")) or {}
+    position = as_object(report.get("position")) or {}
+    selection: JsonObject = {
+        "keywords": input_selection.get("keywords", []),
+        "top": input_selection.get("top"),
+        "moves": input_selection.get("moves", []),
+        "lines_searched": (
+            0 if position.get("terminal") is not None else engine.get("multipv", 0)
+        ),
+        "playable_count": sum(
+            1
+            for candidate_value in as_array(report.get("candidates")) or []
+            if (candidate := as_object(candidate_value)) is not None
+            and candidate.get("verdict") in ("best", "okay")
+        ),
+        "playable_truncated": report.get("playable_truncated"),
+    }
+    candidate_values = as_array(report.get("candidates")) or []
+    asked_values = as_array(report.get("asked_moves")) or []
+    keywords = as_array(input_selection.get("keywords")) or []
+    top = input_selection.get("top")
+    explicit_moves = as_array(input_selection.get("moves")) or []
+    selected_ucis: set[str] = set()
+    for index, candidate_value in enumerate(candidate_values):
+        candidate = as_object(candidate_value)
+        if candidate is None:
+            continue
+        verdict = candidate.get("verdict")
+        selected = (
+            ("best" in keywords and index == 0)
+            or (isinstance(top, int) and not isinstance(top, bool) and index < top)
+            or ("playable" in keywords and verdict in ("best", "okay"))
+            or ("inaccuracies" in keywords and verdict == "inaccuracy")
+            or ("mistakes" in keywords and verdict == "mistake")
+            or ("blunders" in keywords and verdict == "blunder")
+            or (
+                "unplayable" in keywords
+                and verdict in ("inaccuracy", "mistake", "blunder")
+            )
+            or ("all" in keywords)
+            or candidate.get("uci") in explicit_moves
+        )
+        uci = candidate.get("uci")
+        if selected and isinstance(uci, str):
+            selected_ucis.add(uci)
+    opponent_threat: JsonValue = None
+    side_to_move = position.get("side_to_move")
+    threat_color = "black" if side_to_move == "white" else "white"
+    threats = as_object(report.get("threats"))
+    if threats is not None:
+        opponent_threat = threats.get(threat_color)
+    projected_moves: list[JsonValue] = []
+    for index, candidate_value in enumerate(candidate_values):
+        candidate = as_object(candidate_value)
+        if candidate is not None and candidate.get("uci") in selected_ucis:
+            projected_moves.append(
+                project_assessment(report, candidate, index + 1, opponent_threat)
+            )
+    for asked_value in asked_values:
+        asked = as_object(asked_value)
+        if asked is not None and asked.get("uci") in explicit_moves:
+            projected_moves.append(
+                project_assessment(report, asked, None, opponent_threat)
+            )
+
+    full_games = as_object(report.get("games")) or {}
+    game_sources: list[JsonValue] = []
+    for source_value in as_array(full_games.get("by_source")) or []:
+        source = as_object(source_value)
+        if source is not None:
+            game_sources.append(
+                {key: value for key, value in source.items() if key != "moves"}
+            )
+    full_position = as_object(report.get("position")) or {}
+    position_summary: JsonObject = {
+        field: full_position.get(field)
+        for field in (
+            "fen",
+            "side_to_move",
+            "in_check",
+            "legal_moves",
+            "terminal",
+            "eval_white",
+        )
+    }
+    return {
+        "schema_version": report.get("schema_version"),
+        "document": "moves",
+        "input": report.get("input"),
+        "engine": report.get("engine"),
+        "position": position_summary,
+        "selection": selection,
+        "opening": report.get("opening"),
+        "games": {"source": full_games.get("source"), "by_source": game_sources},
+        "moves": projected_moves,
+    }
+
+
+def compare_projected_values(
+    expected: JsonValue,
+    actual: JsonValue,
+    pointer: str,
+    failures: list[Failure],
+) -> None:
+    if isinstance(expected, dict):
+        actual_object = as_object(actual)
+        fail(
+            failures,
+            pointer,
+            "projected object must match the full report",
+            actual_object is not None,
+        )
+        if actual_object is None:
+            return
+        for key, value in expected.items():
+            child_pointer = f"{pointer}/{key}"
+            if key not in actual_object:
+                fail(
+                    failures,
+                    child_pointer,
+                    "projected field is missing",
+                    False,
+                )
+            else:
+                compare_projected_values(
+                    value, actual_object[key], child_pointer, failures
+                )
+        for key in actual_object.keys() - expected.keys():
+            fail(
+                failures,
+                f"{pointer}/{key}",
+                "field is not part of the full-report projection",
+                False,
+            )
+        return
+    if isinstance(expected, list):
+        actual_array = as_array(actual)
+        fail(
+            failures,
+            pointer,
+            "projected array must match the full report",
+            actual_array is not None,
+        )
+        if actual_array is None:
+            return
+        fail(
+            failures,
+            pointer,
+            f"projected array must contain {len(expected)} items",
+            len(actual_array) == len(expected),
+        )
+        for index, (expected_item, actual_item) in enumerate(
+            zip(expected, actual_array)
+        ):
+            compare_projected_values(
+                expected_item, actual_item, f"{pointer}/{index}", failures
+            )
+        return
+    fail(
+        failures,
+        pointer,
+        "field must equal its §4.6 full-report projection",
+        type(expected) is type(actual) and expected == actual,
+    )
+
+
+def check_projection(
+    full_report: JsonValue, moves_document: JsonValue, failures: list[Failure]
+) -> None:
+    report = as_object(full_report)
+    if report is None:
+        return
+    compare_projected_values(
+        projected_move_document(report),
+        moves_document,
+        "",
+        failures,
+    )
+
+
 def schema_error_message(error: ValidationError) -> str:
     path = tuple(str(part) for part in cast(Iterable[object], error.absolute_path))
     instance = error.instance
@@ -1254,55 +1875,109 @@ def schema_error_message(error: ValidationError) -> str:
     return error.message
 
 
-def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="validate report JSON files against a Draft 2020-12 schema"
+def schema_for_document(base_schema: Path, document: JsonValue) -> Path:
+    if document not in ("full", "moves"):
+        return base_schema
+    if base_schema.name not in ("report.v6.schema.json", "moves.v6.schema.json"):
+        return base_schema
+    schema_name = (
+        "report.v6.schema.json" if document == "full" else "moves.v6.schema.json"
     )
-    _ = parser.add_argument("schema", type=Path)
-    _ = parser.add_argument("reports", type=Path, nargs="+")
-    arguments = parser.parse_args(argv, namespace=Arguments())
+    return base_schema.with_name(schema_name)
 
+
+def validate_document_file(
+    filename: Path, base_schema: Path
+) -> tuple[JsonValue | None, bool]:
     try:
-        schema_value = read_json(arguments.schema)
+        instance = read_json(filename)
     except (OSError, UnicodeError, json.JSONDecodeError) as error:
-        report_failure(arguments.schema, "", f"cannot read schema: {error}")
-        return 1
-
+        report_failure(filename, "", f"cannot read report: {error}")
+        return None, False
+    report = as_object(instance)
+    document = None if report is None else report.get("document")
+    schema_path = schema_for_document(base_schema, document)
+    try:
+        schema_value = read_json(schema_path)
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        report_failure(schema_path, "", f"cannot read schema: {error}")
+        return instance, False
     schema = cast(JsonSchema, schema_value)
     try:
         Draft202012Validator.check_schema(schema)
     except SchemaError as error:
-        report_failure(
-            arguments.schema, json_pointer(error.absolute_path), error.message
-        )
-        return 1
-
+        report_failure(schema_path, json_pointer(error.absolute_path), error.message)
+        return instance, False
     validator = Draft202012Validator(schema)
-    failures = False
-    for filename in arguments.reports:
-        try:
-            instance = read_json(filename)
-        except (OSError, UnicodeError, json.JSONDecodeError) as error:
-            report_failure(filename, "", f"cannot read report: {error}")
-            failures = True
-            continue
-
-        errors = validation_errors(validator, instance)
-        if errors:
-            for error in nested_validation_errors(errors):
-                report_failure(
-                    filename,
-                    json_pointer(error.absolute_path),
-                    schema_error_message(error),
-                )
-            failures = True
-            continue
+    errors = validation_errors(validator, instance)
+    if errors:
+        for error in nested_validation_errors(errors):
+            report_failure(
+                filename,
+                json_pointer(error.absolute_path),
+                schema_error_message(error),
+            )
+        return instance, False
+    if document == "full":
         semantic_failures: list[Failure] = []
         check_all_semantics(instance, semantic_failures)
         for pointer, relation in semantic_failures:
             report_failure(filename, pointer, relation)
-        failures = failures or bool(semantic_failures)
-    return 1 if failures else 0
+        return instance, not semantic_failures
+    if document == "moves":
+        return instance, True
+    report_failure(filename, "/document", "document must be 'full' or 'moves'")
+    return instance, False
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="validate ChessWhy full and moves documents against their v6 schemas"
+    )
+    _ = parser.add_argument("schema", type=Path)
+    _ = parser.add_argument("reports", type=Path, nargs="*")
+    _ = parser.add_argument(
+        "--projection",
+        type=Path,
+        nargs=2,
+        metavar=("FULL_REPORT", "MOVES_DOCUMENT"),
+        help="validate a full report and moves document, then check their §4.6 projection",
+    )
+    arguments = parser.parse_args(argv, namespace=Arguments())
+    if arguments.projection is None:
+        if not arguments.reports:
+            parser.error("provide at least one report or use --projection")
+        failed = False
+        for filename in arguments.reports:
+            _, valid = validate_document_file(filename, arguments.schema)
+            failed = failed or not valid
+        return 1 if failed else 0
+    if arguments.reports:
+        parser.error("report paths cannot be combined with --projection")
+    full_filename, moves_filename = arguments.projection
+    full_report, full_valid = validate_document_file(full_filename, arguments.schema)
+    moves_document, moves_valid = validate_document_file(
+        moves_filename, arguments.schema
+    )
+    if not full_valid or not moves_valid:
+        return 1
+    full_object = as_object(full_report)
+    moves_object = as_object(moves_document)
+    if full_object is None or full_object.get("document") != "full":
+        report_failure(
+            full_filename, "/document", "projection input must be a full report"
+        )
+        return 1
+    if moves_object is None or moves_object.get("document") != "moves":
+        report_failure(
+            moves_filename, "/document", "projection input must be a moves document"
+        )
+        return 1
+    projection_failures: list[Failure] = []
+    check_projection(full_report, moves_document, projection_failures)
+    for pointer, relation in projection_failures:
+        report_failure(moves_filename, pointer, relation)
+    return 1 if projection_failures else 0
 
 
 if __name__ == "__main__":
