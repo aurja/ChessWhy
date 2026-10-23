@@ -185,7 +185,7 @@ before that, keep it out of the default targets.
 
 |When|Gate|
 |---|---|
-|After each batch|Build affected targets; run affected CTests in Release; `python3 tools/check_dbc.py`|
+|After each batch|Build affected targets; run affected CTests in Release; `python3 tools/check_dbc.py`. No `build/asan` build or run: sanitizers belong to the milestone-end gate, and worker briefs never ask for them|
 |Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and `clang-tidy --quiet -p build/release` on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; `python3 tools/check_dbc.py`; the milestone's smoke command once|
 
 - CTest labels: `unit` (no engine, no model), `engine` (needs
