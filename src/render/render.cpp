@@ -583,35 +583,21 @@ void write_selection(std::ostringstream& output, const MoveReportDocument& docum
     }
 
     if (item_count == 1 && selection.moves.empty()) {
-        if (!selection.keywords.empty()) {
-            const Selection::Keyword keyword = selection.keywords.front();
-            if (keyword == Selection::Keyword::Best) {
-                output << "; ";
-                if (document.position.terminal) {
-                    output << "none (terminal position)";
-                } else {
-                    if (document.selection.playable_count == 0) {
-                        output << "none";
-                    } else {
-                        output << document.selection.playable_count << " playable moves";
-                    }
-                    output << " among the engine's top " << document.selection.lines_searched;
-                }
-            } else {
-                write_selection_count(output, document, keyword);
-            }
-        } else if (selection.top) {
+        const bool counts_playable =
+            selection.top.has_value() || selection.keywords.front() == Selection::Keyword::Best;
+        if (!counts_playable) {
+            write_selection_count(output, document, selection.keywords.front());
+        } else if (document.position.terminal) {
+            output << "; none (terminal position)";
+        } else {
+            const int playable = document.selection.playable_count;
             output << "; ";
-            if (document.position.terminal) {
-                output << "none (terminal position)";
+            if (playable == 0) {
+                output << "none";
             } else {
-                if (document.selection.playable_count == 0) {
-                    output << "none";
-                } else {
-                    output << document.selection.playable_count << " playable moves";
-                }
-                output << " among the engine's top " << document.selection.lines_searched;
+                output << playable << (playable == 1 ? " playable move" : " playable moves");
             }
+            output << " among the engine's top " << document.selection.lines_searched;
         }
     }
     output << " [rule]\n";
