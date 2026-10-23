@@ -48,7 +48,7 @@ Positional facts in `position.positional` describe pawn structure, king safety, 
 and material; per-line `positional` entries record features appearing or disappearing, with `rule`
 provenance. Lichess broadcast counts use `games` provenance and never judge a move: the full report
 text shows `games: 262026 games ... [games]` under the position, and each move shows
-`Played in N of M games (...) [games]`. Reports credit the source as `Lichess broadcast database,
+`Played in N of M games (platform: ...; source: ...) [games]`. Reports credit the source as `Lichess broadcast database,
 database.lichess.org` under CC BY-SA 4.0.
 
 Loaded data digests use the in-tree SHA-256 implementation. When the loaded bytes match their

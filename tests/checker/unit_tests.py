@@ -142,6 +142,25 @@ class CheckerRelationsTests(unittest.TestCase):
         self.assertIn("/candidate/refutation/is_tactic", paths)
         self.assertIn("/candidate/refutation/opportunity", paths)
 
+    def test_threat_skip_from_board_only_on_detailed_lines(self) -> None:
+        root = chess.Board("6k1/5ppp/8/8/2B5/1q6/5PPP/4R1K1 w - - 0 1")
+        check: checker.JsonObject = {
+            "san": "Bxf7+",
+            "uci": "c4f7",
+            "detailed": False,
+            "creates_threat_skipped": None,
+        }
+        failures: list[checker.Failure] = []
+
+        checker.check_threat_skip(check, "/candidates/0", root, failures)
+        self.assertEqual(failures, [])
+
+        check["detailed"] = True
+        checker.check_threat_skip(check, "/candidates/0", root, failures)
+        self.assertEqual(
+            [path for path, _ in failures], ["/candidates/0/creates_threat_skipped"]
+        )
+
     def test_labels_and_contributions_are_only_on_tactic_lines(self) -> None:
         move: checker.JsonObject = {
             "consequence": {

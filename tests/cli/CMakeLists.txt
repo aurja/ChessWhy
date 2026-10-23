@@ -28,8 +28,11 @@ foreach(index RANGE 0 ${CLI_FIXTURE_LAST_INDEX})
     string(JSON fixture_id GET "${CLI_FIXTURES_JSON}" engine_fixtures ${index} id)
     add_test(NAME cli_fixture_${fixture_id}
         COMMAND cli_fixture_test "${fixture_id}" "$<BOOL:${CHESSWHY_CHECK_TIMING}>")
+    # TIMEOUT: F32 judges every legal move in two of its runs and exceeds CTest's
+    # default 1500 s under ASan/UBSan (Debug); same limit as tactics_oracle.
     set_tests_properties(cli_fixture_${fixture_id} PROPERTIES
         LABELS engine
+        TIMEOUT 3600
         FIXTURES_SETUP cli_report_${fixture_id})
     if(CHESSWHY_CHECK_TIMING)
         # Timed runs must not share cores; untimed reports do not depend on load

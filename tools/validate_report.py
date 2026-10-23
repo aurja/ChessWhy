@@ -666,6 +666,8 @@ def check_threat_skip(
     assessed_move = check_move_pair(root, move, pointer, failures)
     if assessed_move is None:
         return
+    if move_object.get("detailed") is False:
+        return  # check_move_annotations requires the skip fact to be null here
     after_move = root.copy()
     after_move.push(assessed_move)
     if after_move.is_check():

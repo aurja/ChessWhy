@@ -609,7 +609,8 @@ void write_move_games(std::ostringstream& output, const MoveReport& move,
     if (!source.games) {
         throw std::bad_optional_access{};
     }
-    output << "Played in " << *move.games << " of " << *source.games << " games (" << source.credit
+    output << "Played in " << *move.games << " of " << *source.games
+           << " games (platform: " << source.platform << "; source: " << source.credit
            << ") [games]\n";
 }
 
