@@ -47,6 +47,17 @@ Updated 2026-10-24.
   kept current by the orchestrator; drift check `python3 tools/check_dbc.py`.
 - Scope proposals still open from the M2 recall-miss audit: forks by a capturable piece,
   skewers with a pawn behind, discovered attacks on pawns or defended equal pieces.
+- Flagged 2026-10-24 (Captain's own test, Navara – Ivanchuk, Wijk aan Zee 2012, Black
+  to move `5k2/7p/pr1pB1p1/2pP4/1P6/6PP/R3qP2/R5K1 b - - 1 33`): the best move 33...Qe4
+  has no explanation of its own; it is best because the other queen moves fail.
+  Directive: where the best move has no clear reason of its own, explain why the other
+  moves do not work. ChessWhy gets the first half (Qc4, Qe5, Qf3 refuted by bxc5) but not
+  why bxc5 fails against Qe4 (`--moves bxc5` after Qe4: bxc5 Rb1+ Rxb1 Qxb1+ wins the
+  a2 rook). There, bxc5 is judged okay at 0.0% loss, because White's expected score is
+  already 0.0%. Also: an "Opportunity" row under a refuted move is about the refutation;
+  "Uses" rows under a non-tactic refutation do not say whose idea they are; the header
+  expected score is White's while the per-move one is the mover's. Not yet a fixture;
+  open for the Captain to schedule.
 - Captain's stance (2026-10-21): comprehensiveness first, conciseness later
   (`pin_tactical` adds about 9.6 reported motifs per puzzle).
 - PostM2_EM1 complete, merged into `main` 2026-10-21 (receipt
