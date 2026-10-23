@@ -43,7 +43,7 @@ position, ply 1 the position after the first move of the line.
 
 ## 1. F fixtures — full reports (`tests/fixtures/positions.json`, `engine_fixtures`)
 
-**Concepts:** `EngineFixtures`, `Urgency`, `ParryTest`, `Verdict`, `TacticJudgement`, `StateMotif`, `MoveMotif`, `TacticalPin`, `InputFixtures`, `OpeningNames`, `SearchB`, `PositionalFixtures`, `PositionalChange`, `GameCounts`, `Conditions`, `RestrictedMovement`
+**Concepts:** `EngineFixtures`, `Urgency`, `ParryTest`, `Verdict`, `OpportunityJudgement`, `StateMotif`, `MoveMotif`, `TacticalPin`, `InputFixtures`, `OpeningNames`, `SearchB`, `PositionalFixtures`, `PositionalChange`, `GameCounts`, `Conditions`, `RestrictedMovement`
 
 Run end to end through the CLI with the engine by `cli_fixture_<ID>`. Each
 fixture also pins exact report fields (`equals`), required fine moves, motifs
@@ -377,3 +377,23 @@ positional claims (F25–F28) are in section 1.
 | PL05 | <img src="boards/PL05.svg" width="200" alt="PL05"> | A rook move on one open file is persistent<br>`7k/8/8/8/8/8/8/R3K3 w - - 0 1`<br>Line: **Ra4**<br><sub>constructed</sub> | **Not reported:**<br>`rook_open_file` white, a file<br><sub>The rook remains on the same pawnless file, so its file-based identity persists without a change.</sub> | Passes: every claimed change reported, every excluded one absent. | |
 | PL06 | <img src="boards/PL06.svg" width="200" alt="PL06"> | A changing mobility value keeps its identity<br>`7k/8/8/8/2Q5/8/8/K7 w - - 0 1`<br>Line: **Qc5**<br><sub>constructed</sub> | **Not reported:**<br>`mobility_lead` white<br><sub>White's mobility lead remains above ten as its value changes, and identity is tag plus side rather than value.</sub> | Passes: every claimed change reported, every excluded one absent. | |
 | PL07 | <img src="boards/PL07.svg" width="200" alt="PL07"> | A rook returns to an open file by line end<br>`7k/8/8/8/8/8/8/R3K3 w - - 0 1`<br>Line: **Rb1 Kg8 Ra1**<br><sub>constructed</sub> | **Changes reported:**<br>+ `rook_open_file` white, b file (ply 1, not at end)<br>− `rook_open_file` white, a file (ply 1, not at end)<br>+ `rook_open_file` white, a file (ply 3)<br>− `rook_open_file` white, b file (ply 3)<br><sub>The a-file identity returns by line end, so its earlier disappearance does not hold at end; b-file appears only temporarily.</sub> | Passes: every claimed change reported, every excluded one absent. | |
+
+## 9. M4 fixtures — playable moves and move reports (planned)
+
+**Concepts:** `EngineFixtures`, `InputFixtures`, `PlayableRequest`, `InputError`, `SearchA`, `PlayableSet`, `Verdict`, `VdBest`, `VdSameScore`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `RelevanceFilter`, `MoveReport`, `ProjectionCheck`
+
+Planned in `Planning/milestones/M4.md` §9; not built yet. The coding worker picks the
+boards marked "to pick", measured at the standard budget. Boards are rendered when the
+fixtures land in `tests/fixtures/positions.json`.
+
+| ID | Board | Position | Fixture claims | Codebase today | Comments |
+|---|---|---|---|---|---|
+| F32 | planned | `r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3`<br><sub>constructed: Italian Game after 1.e4 e5 2.Nf3 Nc6 3.Bc4</sub> | no flag: one move report (Nf6, best); `--playable 2`: two; `--playable all`: every playable move, and the playable count equals the number of move reports | Not built. Today's text prints five candidates with every line's motifs and positional changes (197 lines). | |
+| F33 | planned | `6k1/5ppp/8/8/8/8/5PPP/R3R1K1 w - - 0 1`<br>`--playable 2`<br><sub>constructed: two mates in one</sub> | `Ra8#` and `Re8#` both best (same mate distance) | Not built. | |
+| F34 | planned | to pick: a queen hanging to two pieces | line 1 is a tactic and not an opportunity | Not built. | |
+| F35 | planned | to pick: an only move with a positional consequence | line 1 is an opportunity and not a tactic | Not built. | |
+| F36 | planned | to pick; asked with `--move` | the asked move is a mistake: loses more than 0.10 and allows no tactic | Not built. | |
+| F37 | planned | to pick; asked with `--move` | the asked move is a blunder: loses more than 0.10 and allows a tactic | Not built. | |
+| F38 | planned | to pick: an even trade | the trade allows no tactic; its recapture is not a tactic (counted from the analysed position) | Not built. | |
+| F39 | planned | `6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1`<br><sub>constructed: Re8#</sub> | the move report of Re8# holds Black's `back_rank_weakness` as a root motif with contribution `indirect` | Not built. Today the text does not print the position's motifs. | |
+| E (M4) | — | `--move Nf6 --playable 2`; `--playable 0`; `--playable x`; `--json --full-report` | exit 2, one `chesswhy: error:` line; the first and last with the exact messages `use either --move or --playable, not both` and `use either --json or --full-report, not both` | Not built. | |

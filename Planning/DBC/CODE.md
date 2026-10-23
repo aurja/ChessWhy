@@ -60,7 +60,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `CandidateMove` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `walked_plies`; `include/chesswhy/report.hpp` `MoveAssessment` | `depth`, `walked_plies` |
 | `Loss` | `src/analysis/analyse.cpp` `assess_move` | |
 | `Verdict` | `src/analysis/rules.cpp` `verdict_for_loss`; `include/chesswhy/analysis.hpp` `kFineUnits` `kMistakeUnits` `kBlunderUnits`; `include/chesswhy/report.hpp` `Verdict` | |
-| `FineSet` | `src/analysis/analyse.cpp` `analyse` `legal_move_count`; `include/chesswhy/report.hpp` `Report` `PositionInfo` | `fine_truncated`, `legal_moves` |
+| `PlayableSet` | `src/analysis/analyse.cpp` `analyse` `legal_move_count`; `include/chesswhy/report.hpp` `Report` `PositionInfo` | `fine_truncated` (becomes `playable_truncated`), `legal_moves` |
 | `ParryTest` | `src/analysis/analyse.cpp` `search_parry` `pseudo_legal_uci`; `include/chesswhy/report.hpp` `ParryInfo` `ParryTest` `parry_source` | |
 | `CreatedThreat` | `src/analysis/analyse.cpp` `assess_move` `has_legal_moves`; `include/chesswhy/report.hpp` `CreatesThreatSkip` | `creates_threat_skipped` |
 | `Refutation` | `src/analysis/analyse.cpp` `assess_move` `make_threat` | |
@@ -86,7 +86,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `JudgedLine` | `src/analysis/analyse.cpp` `analyse` `judge_refutation` | The best line is judged in `analyse` |
 | `BestAlternative` | `src/analysis/analyse.cpp` `judge_refutation`; `include/chesswhy/report.hpp` `TacticAlternative` | |
 | `OnlyMoveMargin` | `src/analysis/rules.cpp` `is_tactic_margin`; `include/chesswhy/analysis.hpp` `kTacticMarginUnits` | |
-| `TacticJudgement` | `src/analysis/analyse.cpp` `judge_refutation` `legal_move_count`; `include/chesswhy/report.hpp` `TacticJudgement` | |
+| `OpportunityJudgement` | `src/analysis/analyse.cpp` `judge_refutation` `legal_move_count`; `include/chesswhy/report.hpp` `TacticJudgement` | |
 | `TacticLine` | `src/analysis/analyse.cpp` `analyse` `judge_refutation` | |
 | `TacticSequence` | `src/analysis/analyse.cpp` `walked_moves` | |
 | `Contribution` | `src/tactics/tactic.cpp` `judge_contributions` `denied_moves` `answers`; `include/chesswhy/tactics.hpp` `denied_moves` `answers` | |

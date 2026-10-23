@@ -11,7 +11,7 @@ line whose expected score beats the next-best move by at least 0.13 (`engine`); 
 one legal move is marked forced (`rule`). On a tactic line every motif gets a contribution
 (`direct`, `indirect` or `none`), and the rule label `removal_of_defender` marks a capture that
 takes away a piece's only defender. The current release renders a report without a language
-model; verbalisation is planned for M4.
+model; verbalisation is planned for M5 (M4 brings playable moves and per-move reports).
 
 In report v5, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
 `restriction` object. Its `piece` is the held piece (the first target for either pin or a tactical

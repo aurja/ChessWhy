@@ -76,7 +76,7 @@ Rules that turn engine numbers into report facts; no engine runs.
 | analysis node budgets match the frozen search table | unit | Node counts per search and budget equal the plan's table | `NodeBudget`, `Settings` |
 | expected score keeps WDL units exact | unit | ES computed from WDL without rounding drift | `ExpectedScore` |
 | verdict boundaries are inclusive at fine, mistake and blunder | unit | ES losses exactly at the thresholds: 60 fine, 260 mistake, 540 blunder (WDL units) | `Loss`, `Verdict`, `ExpectedScore` |
-| tactic margin boundary is inclusive | unit | A margin exactly at the tactic threshold counts as a tactic | `OnlyMoveMargin`, `TacticJudgement` |
+| tactic margin boundary is inclusive | unit | A margin exactly at the tactic threshold counts as a tactic | `OnlyMoveMargin`, `OpportunityJudgement` |
 | consequence rank follows the frozen class table | unit | Order mate > material > promotion > positional | `CqIsMate`, `CqIsMaterial`, `CqIsPromotion`, `CqIsPositional` |
 | positive mate score takes precedence over other consequence classes | unit | A positive mate score makes the line class mate | `CqMate`, `CqIsMate`, `Consequence` |
 | quiet consequence is positional and a knight capture is material | unit | Basic class assignment | `CqIsPositional`, `CqIsMaterial`, `CqMaterial` |
@@ -144,8 +144,8 @@ Program tests:
 | report_enum values use the schema spellings | unit | Nine report enums serialise to the schema's strings | `ReportSchema`, `JsonOutput` |
 | report_scores and optional values are serialized | unit | ES, cp, mate and nulls | `ExpectedScore`, `ReportSchema`, `JsonOutput` |
 | report_motif JSON uses the schema v5 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
-| report_tactic judgements and motif contributions serialize in report v5 | unit | Tactic judgement, labels and contributions | `ReportSchema`, `TacticJudgement`, `TacticLabel`, `Contribution` |
-| report_v5 analysis fields and restriction serialize | unit | `legal_moves`, `depth`, `walked_plies`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `FineSet`, `CreatedThreat`, `Restriction` |
+| report_tactic judgements and motif contributions serialize in report v5 | unit | Tactic judgement, labels and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLabel`, `Contribution` |
+| report_v5 analysis fields and restriction serialize | unit | `legal_moves`, `depth`, `walked_plies`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
 
 Program tests:
 
@@ -163,7 +163,7 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | render_example reports match the golden text | unit | The eight example reports render byte for byte as the golden files | `TemplateRendering`, `ExplanationText`, `ReportDocument` |
 | render_position evaluation renders the mate score when available | unit | The mate score is shown alongside ES | `TemplateRendering`, `ExpectedScore` |
 | render_motif rows and level-independent output | unit | Motif rows; output does not change with `--level` where it should not | `ExplanationText`, `StateMotif`, `TacticalPin`, `TemplateRendering` |
-| render_tactic judgements, labels and contributions render from report fields | unit | Tactic text uses only report fields; pins, overloaded defenders and `pin_tactical` print as "restricted movement (absolute pin / relative pin / overloaded defender / tactic: Nd5-f4 fork)" | `TacticJudgement`, `TacticLabel`, `Contribution`, `RestrictedMovement` |
+| render_tactic judgements, labels and contributions render from report fields | unit | Tactic text uses only report fields; pins, overloaded defenders and `pin_tactical` print as "restricted movement (absolute pin / relative pin / overloaded defender / tactic: Nd5-f4 fork)" | `OpportunityJudgement`, `TacticLabel`, `Contribution`, `RestrictedMovement` |
 | render_positional and game facts render only from report fields | unit | Positional change rows (`+`/`−`, ply, `not at end`, value) under each line, `position.positional` not printed; the games row after the opening (found or not in the table) and the per-move row; no ranking words | `TemplateRendering`, `TiedToLine`, `GameCounts` |
 | render_PostM3_EM2 template wording matches its golden lines | unit | Conditions ("if Black passes", deferred parry, skip reason, facts read to ply k of n, engine and budget, candidates of legal moves), `SEE` for a capture and held-to wording render as in the plan | `TemplateRendering`, `Conditions`, `RestrictedMovement` |
 
@@ -182,7 +182,7 @@ Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
-| `cli_fixture_F01` … `cli_fixture_F31` (one per F fixture, F16 absent: 30 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture and checks its `equals` fields, `fine_includes`, `motifs_include`, `positional_include`, `line_prefix` and `text_contains` (in the text report); with `CHESSWHY_CHECK_TIMING` on, fails above 12 s; saves the report for `report_schema` | `EngineFixtures`, `Verdict`, `TacticJudgement`, `StateMotif`, `Conditions` |
+| `cli_fixture_F01` … `cli_fixture_F31` (one per F fixture, F16 absent: 30 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture and checks its `equals` fields, `fine_includes`, `motifs_include`, `positional_include`, `line_prefix` and `text_contains` (in the text report); with `CHESSWHY_CHECK_TIMING` on, fails above 12 s; saves the report for `report_schema` | `EngineFixtures`, `Verdict`, `OpportunityJudgement`, `StateMotif`, `Conditions` |
 | `report_schema` | `tools/validate_report.py` | engine | Every saved F report validates against `schema/report.v5.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic invariants); runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `EngineFixtures` |
 | `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30 (JSON) and a text report for a fixed position (`Nf6` after 3.Qh5) are byte-identical across two runs | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput` |
 

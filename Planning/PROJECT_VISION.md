@@ -40,24 +40,31 @@ small, local, targeted tool, not a chess GUI, trainer or game reviewer.
 ## 3. User-facing behaviour
 
 ```text
-chesswhy --fen "<FEN>"                       # best move(s) + why
+chesswhy --fen "<FEN>"                       # the best move + why
+chesswhy --fen "<FEN>" --playable 3          # the top 3 playable moves (or: --playable all)
 chesswhy --fen "<FEN>" --move Nf3            # why / why not Nf3 (SAN or UCI: g1f3)
-chesswhy --pgn game.pgn [--game 2] [--ply 31] [--move ...]
+chesswhy --pgn game.pgn [--game 2] [--ply 31] [--move ... | --playable N|all]
          [--level beginner|club|advanced] [--budget quick|standard|deep]
-         [--json] [--no-llm] [--threads N]
+         [--json | --full-report] [--no-llm] [--threads N]
 ```
 
 - PGN: mainline only; variations and comments are ignored. `--ply N` is the position
   after N half-moves (default: final position); `--game` picks a game from a
   multi-game file (default 1).
-- No move given: list the engine's top candidates (MultiPV order) and judge each one
-  (§5.4). Unlisted moves are not judged and may also be fine; the report says how many
-  legal moves there are.
+- No move given: report the best move; `--playable N` reports at most the top N
+  **playable moves** (verdict best or okay) in MultiPV order, fewer when fewer exist;
+  `--playable all` reports every playable move. `--move` reports only that move,
+  whatever its verdict; `--move` with `--playable` is an input error. The output never
+  calls a move a "candidate": chess literature uses the word for moves considered, many
+  of them rejected (Captain, 2026-10-23; M4).
 - Analysis is position-only: the moves that led to the position (PGN history) are not
   an input, so repetition and the fifty-move counter beyond the FEN do not affect
   verdicts.
-- `--json` prints the report. `--no-llm` prints the deterministic template rendering
-  (§7.3) instead of model prose. Default output is model prose.
+- The output is one **move report** per reported move, holding only the facts that bear
+  on that move (relevance filter, M4 §4.6). `--json` prints the move report document;
+  `--full-report` prints the full report (every computed fact, for tests and checks).
+  `--no-llm` prints the deterministic template rendering of the move reports (§7.3)
+  instead of model prose. Default output is model prose from M5; until then, the template.
 - `standard` budget: about 10 s of engine time on the development laptop
   (i7-8565U, CPU only), expressed as fixed node counts calibrated in M1. Measured in
   M0: Stockfish 19 searches ~0.32 M nodes/s single-threaded (MultiPV 5), so `standard`
@@ -95,16 +102,16 @@ are reported for display only; all thresholds use `ES`.
 
 | ID | Position | Search | Purpose |
 |---|---|---|---|
-| A | current, `S` to move | MultiPV `K` (default 5) | best moves, `S`'s threat (A's PV), "fine" set |
+| A | current, `S` to move | MultiPV `K`: 5, or N for `--playable N` > 5, or every legal move for `--playable all`; 1/5 of A's budget per line | best moves, `S`'s threat (A's PV), playable moves |
 | B | null move: same placement, `O` to move, en-passant square cleared | single PV | `O`'s threat (what `O` does if `S` passes) |
-| C(m) | after candidate `m` | `go searchmoves m` from the current position, or the A entry if `m` is in the MultiPV | verdict and refutation line for `m` |
+| C(m) | after move `m` | `go searchmoves m` from the current position, or the A entry if `m` is in the MultiPV | verdict and refutation line for `m` |
 | D(m, t) | after `m`, `O` to move | `searchmoves t`, where `t` is `O`'s threat move from B | does `m` parry the threat? |
 | E(m) | after `m`, null move (`S` to move again) | single PV | threat that `m` creates |
 
 B is skipped when `S` is in check (the check *is* the problem) and flagged unreliable
 when the position is zugzwang-prone (few non-pawn pieces); the flag is in the report.
 Node budgets per search are split from the `--budget` total; exact numbers are frozen
-in M1 after calibration. Candidates keep A's MultiPV order (not re-sorted by score); each
+in M1 after calibration. A's lines keep A's MultiPV order (not re-sorted by score); each
 reports the depth its line reached, and the text names the engine and the budget, since a
 different budget can change a close verdict.
 
@@ -140,10 +147,12 @@ moves first, had a forcing line):
 
 ### 5.4 Move verdict (4d)
 
-- `loss(m) = ES_S(best) − ES_S(m)`. Moves with `loss ≤ τ_fine` are **fine**; worse
-  moves are graded inaccuracy / mistake / blunder. Frozen in M1 (Captain's decision,
-  rescaled to Stockfish 19's WDL curve): fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake
-  < 0.27 ≤ blunder.
+- `loss(m) = ES_S(best) − ES_S(m)`. Scale decided by the Captain on 2026-10-23 (M4),
+  replacing M1's fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder:
+  *playable* moves (loss ≤ 0.05) are **best** (A's top line and every A line with
+  exactly the same engine score) or **okay**; worse moves are **inaccuracy**
+  (≤ 0.10), **blunder** (> 0.10 and the move allows a tactic: along its own line `S`
+  loses at least 1 pawn net or is mated) or **mistake** (> 0.10 otherwise).
 - Reasons attached to each verdict: parries or ignores `O`'s threat (D: "parries" means
   the threat no longer wins against the pass baseline, not that it was prevented; a
   checking move only defers it), executes or keeps `S`'s threat, the threat `S` would
@@ -170,9 +179,14 @@ g8"), its **restricted moves** (the moves the motif makes illegal or costly) and
 moves**, and exists only when at least one move is restricted (PostM3_EM2 §4.1; approved at
 checkpoint 1, 2026-10-22).
 
-PostM2_EM1 judges the best move's line and each refutation as a **tactic** when its expected
-score beats the best alternative first move by the only-move margin (≥ 0.13, `engine`); a lone
-legal move is **forced** (`rule`). On a tactic line each motif gets a contribution (`rule`):
+A **tactic** (M4, Captain, 2026-10-23) is a line whose consequence class is mate or
+material: with best replies the side playing it mates or wins at least 1 pawn net over the
+walked plies, so a sacrifice is a tactic only when it wins back more within them. The
+PostM2_EM1 margin rule is now called **opportunity**: a judged line (the best move's line,
+each refutation) whose expected score beats the best alternative first move by the
+only-move margin (≥ 0.13, `engine`); a lone legal move is **forced** (`rule`). A line that
+is an opportunity or a tactic is a **tactic line**. On a tactic line each motif gets a
+contribution (`rule`):
 `direct` when the tactic's moves make the motif or capture its pieces; `indirect` when the motif
 takes away an answer the defender would have to a tactic move (a recapture, an escape, an
 interposition); `none` when the tactic works without it (PostM3_EM2 §4.2). The tactic label
@@ -237,8 +251,11 @@ candidate lines and the asked move's line with its refutation; threat lines are 
 
 ## 6. Report
 
-One JSON document per query, versioned (`schema_version`), with a JSON Schema checked
-in. Sketch:
+Two JSON documents per query, versioned together (`schema_version`, JSON Schemas checked
+in): the **full report** (`--full-report`) holds every computed fact; the **move report
+document** (`--json`) holds the selection and one move report per reported move, each a
+filtered copy of full-report fields (M4 §4.6). Sketch of the full report (field names
+as of v3; v6 renames the verdict scale and `tactic` → `opportunity`, M4 §5):
 
 ```json
 {
@@ -268,7 +285,7 @@ in. Sketch:
 }
 ```
 
-## 7. Explanation layer (M4)
+## 7. Explanation layer (M5)
 
 ### 7.1 Runtime
 
@@ -280,7 +297,7 @@ Greedy or low-temperature sampling with a fixed seed; bounded output length.
 
 Level-specific system prompt (`beginner`, `club`, `advanced`) plus a compact fact sheet
 serialised from the report (not raw JSON, to save tokens on a CPU-only machine), plus
-retrieved book passages (M5).
+retrieved book passages (M6).
 
 Fact selection (PostM3_EM2, decided 2026-10-22):
 
@@ -294,7 +311,7 @@ Fact selection (PostM3_EM2, decided 2026-10-22):
   the overloaded piece).
 - An empty refutation motif list does not mean "no mechanism"; the prose says the line
   wins without naming a motif.
-- Near-equal candidates are worded as close ("about as good as"), since a different
+- Near-equal moves are worded as close ("about as good as"), since a different
   budget can reorder them (§5.1).
 
 ### 7.3 Fact check and template rendering
@@ -311,14 +328,14 @@ Opening names and game counts in the text must match the report's `opening` and
 
 ### 7.4 Model choice
 
-Deferred to the Captain. M4 ships a benchmark harness that runs shortlisted GGUF models
+Deferred to the Captain. M5 ships a benchmark harness that runs shortlisted GGUF models
 over fixture reports and records the unsupported-claim rate on a seeded relational test
 set (seeded from the 2026-10-22 audit's cases X1–X13), coverage of key facts (threat,
 urgency, verdict), and prefill/decode speed on the development laptop.
 Initial shortlist (Q4_K_M): Qwen3.5-0.8B, Qwen3.5-2B, Gemma-4-E2B, Qwen3.5-4B,
 Gemma-4-E4B. Only Qwen3.5-0.8B is downloaded now, for build smoke tests.
 
-## 8. Book retrieval (M5)
+## 8. Book retrieval (M6)
 
 - Corpus: the Captain's local book collection in `Resources/`. Text-layer PDFs via
   `pdftotext`, DjVu via `djvutxt`, image scans via OCRmyPDF/Tesseract, into
@@ -332,15 +349,15 @@ Gemma-4-E4B. Only Qwen3.5-0.8B is downloaded now, for build smoke tests.
   advice. Move notation inside excerpts refers to other games and is marked as such so
   the fact check does not confuse it with the current position. An excerpt is shown only
   when it is on topic (it discusses a tag the report carries), applicable (the position
-  has the features the excerpt assumes) and its stance is kept (M5 acceptance).
+  has the features the excerpt assumes) and its stance is kept (M6 acceptance).
 - Copyright: books, extracts and indexes stay local and git-ignored; nothing derived
   from them is committed or served beyond localhost.
-- Maybe, if the M5 retrieval proves insufficient for opening positions:
+- Maybe, if the M6 retrieval proves insufficient for opening positions:
   [Wikibooks *Chess Opening Theory*](https://en.wikibooks.org/wiki/Chess_Opening_Theory)
   (per-move prose, CC BY-SA 4.0, extracted from the Wikibooks dump) as an extra corpus,
-  cited with attribution. Decided by the Captain after the base M5 corpus is measured.
+  cited with attribution. Decided by the Captain after the base M6 corpus is measured.
 
-## 9. Presentation layer (M6)
+## 9. Presentation layer (M7)
 
 Native apps on Linux and Windows, possibly Android: chess players should not need
 technical skills to use ChessWhy (Captain, 2026-10-22; replaces the local HTTP API).
@@ -355,7 +372,7 @@ servers or addresses. Design and scope are discussed with the Captain later.
 | Board, FEN, PGN, SAN | Disservin/chess-library | `53e6a84` (2026-07-26) | MIT | single header |
 | JSON | nlohmann/json | v3.12.0 | MIT | report I/O |
 | Tests | Catch2 | v3.16.1 | BSL-1.0 | unit/fixture tests |
-| LLM runtime | llama.cpp (`libllama`) | b11712 | MIT | M4 |
+| LLM runtime | llama.cpp (`libllama`) | b11712 | MIT | M5 |
 | Engine | Stockfish | 19 (official Linux universal build) | GPL-3.0 | separate process over UCI; never linked, copied or redistributed |
 | Tactics test data | Lichess puzzle DB; committed sample `tests/fixtures/puzzles/test.csv` | 2026-10-05 export `assets/data/lichess_db_puzzle.csv.zst`; source SHA-256 `76335bfa7d7c4a7f93c1366d81549e53951ebb79dd43d34904cab8f22d962f8d` | CC0 | 6,157,341 source puzzles; 1,326,623 eligible (`RatingDeviation ≤ 80`, `NbPlays ≥ 1000`, `Popularity ≥ 80`, ≤7 moves); sample 9,300 puzzles (9,301 CSV lines, ≈1.4 MB); M2 validation |
 | Opening names | lichess-org/chess-openings | commit `a6189a3` (2026-10-06) | CC0 | M1 `opening` field |
@@ -378,9 +395,10 @@ own plan with frozen acceptance criteria; the bullets below are the intent.
 | M3a | Positional fact detectors and diffs: pawn structure, king safety, pieces, space, development lead, material balance (Captain, 2026-10-21: named structure families and Silman's imbalances move to a later milestone) | hand-labelled fixture positions, including book positions transcribed to FEN — complete, merged into `main` 2026-10-22 (receipt `Planning/receipts/M3a.md`) |
 | M3b | Opening statistics table and builder (Lichess broadcasts, both players 2200+); built in parallel with M3a | move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical — complete, merged into `main` 2026-10-22 (receipt `Planning/receipts/M3b.md`) |
 | PostM3_EM2 | Fixes from the 2026-10-22 conceptual audit (`Planning/milestones/PostM3_EM2.md`): restricted and free moves for restricted movement; contribution `none` means the tactic works without the motif; `removal_of_defender` continuity; conditions printed in the template (threat premise, deferred parry, skipped threat, walked plies, engine and budget, candidate count); report v5 with a semantic checker; data digests | every fixed finding has a fixture, test or doc row that fails on the old behaviour; all reports pass the semantic checks |
-| M4 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; prose is limited to claim units built from report fields; the fact check rejects every case of a seeded relational test set (wrong move, square or piece, and wrong relations: who threatens whom, which ply, which condition) |
-| M5 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve; each shown excerpt is on topic for the report's tags, applicable to the position's type, and its stance (advice vs. warning) is not inverted in the prose |
-| M6 | Native apps (Linux, Windows; possibly Android) | to be set with the Captain |
+| M4 | Playable moves and move reports (`Planning/milestones/M4.md`): `--playable N`/`all`, verdict scale best/okay/inaccuracy/mistake/blunder, tactic (mate or material) and opportunity (only-move margin), one move report per reported move with a relevance filter, JSON and template text from the same move reports | every rule has a fixture or test that fails on the old behaviour; every move report fact is a full-report field (projection check); the output never says "candidate" |
+| M5 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; prose is limited to claim units built from move report fields; the fact check rejects every case of a seeded relational test set (wrong move, square or piece, and wrong relations: who threatens whom, which ply, which condition) |
+| M6 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve; each shown excerpt is on topic for the report's tags, applicable to the position's type, and its stance (advice vs. warning) is not inverted in the prose |
+| M7 | Native apps (Linux, Windows; possibly Android) | to be set with the Captain |
 
 ## 12. Non-goals
 
@@ -393,9 +411,9 @@ tablebases; our own evaluation function.
 
 | Topic | Decision |
 |---|---|
-| Interface | CLI now; native apps on Linux and Windows, possibly Android (M6, 2026-10-22; the local HTTP API is dropped) |
+| Interface | CLI now; native apps on Linux and Windows, possibly Android (M7, 2026-10-22; the local HTTP API is dropped) |
 | LLM runtime | llama.cpp linked as `libllama` |
-| Model | deferred; benchmark harness in M4, Captain decides |
+| Model | deferred; benchmark harness in M5, Captain decides |
 | Fact depth | engine facts + tactical motifs + positional facts |
 | Budget | `standard` ≈ 10 s, fixed nodes, `Threads=1` by default |
 | Audience | selectable level: beginner / club / advanced |
@@ -408,10 +426,10 @@ tablebases; our own evaluation function.
 | Git | local repository now, remote later |
 | Prior code | ChessPGNAnalyzer is not a port source; ChessWhy starts clean |
 | License | MIT for ChessWhy's own code; dependencies keep their licenses; Stockfish (GPL-3.0) runs as a separate, separately fetched process |
-| Verdict thresholds | fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder (ES loss, M1) |
-| Openings | names in M1 (lichess chess-openings); game statistics in M3 from Lichess broadcasts over the board, both players 2200+ (online Lichess Elite dropped 2026-10-21); Wikibooks prose is an M5 maybe |
+| Verdict thresholds | M4 (2026-10-23): playable ≤ 0.05 (best: same engine score as the top line; okay otherwise) < inaccuracy ≤ 0.10 < mistake, or blunder when the move allows a tactic (ES loss); M1–PostM3_EM2: fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder |
+| Openings | names in M1 (lichess chess-openings); game statistics in M3 from Lichess broadcasts over the board, both players 2200+ (online Lichess Elite dropped 2026-10-21); Wikibooks prose is an M6 maybe |
 
-Open for the Captain: default model (M4), native app design and platforms (M6).
+Open for the Captain: default model (M5), native app design and platforms (M7).
 
 ## 14. Risks
 
