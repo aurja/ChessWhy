@@ -1,0 +1,2 @@
+add_library(chesswhy_util STATIC sha256.cpp)
+target_link_libraries(chesswhy_util PUBLIC chesswhy_headers PRIVATE chesswhy_warnings)

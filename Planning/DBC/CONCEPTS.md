@@ -110,7 +110,7 @@ flowchart LR
 | `PgnInput` | A game from a PGN file, mainline only, and the ply to stop at | PGN, ply | implemented |
 | `AskedMove` | The move the user asks about, in SAN or UCI, legal in the position | asked move, SAN | implemented |
 | `Settings` | Search budget (quick, standard, deep) and audience level; the level does not change the analysis | budget, level | implemented |
-| `AnalysedPosition` | The board every fact is about, with side to move `S` and opponent `O` | analysed position, S | implemented |
+| `AnalysedPosition` | The board every fact is about, with side to move `S` and opponent `O`; position-only: the moves that led to it are not an input to the analysis | analysed position, S | implemented |
 | `GameMainline` | The positions of a PGN game from its start to the analysed one, used to name the last opening reached | game mainline | implemented |
 | `InputError` | Input that cannot be used stops with one clear message, an input-error exit code and no report | input error | implemented |
 
@@ -238,12 +238,12 @@ flowchart LR
 | `SearchD` | See Engine searches | — | external |
 | `SearchE` | See Engine searches | — | external |
 | `OpponentThreat` | See Threats and urgency | — | external |
-| `CandidateMove` | A move being judged: one of A's five, or the asked move | candidates, asked move | implemented |
+| `CandidateMove` | A move being judged: one of A's five in engine order, or the asked move, with the depth its line reached and how many plies its facts were read from | candidates, asked move, line depth, `walked_plies` | implemented |
 | `Loss` | How much expected score the move gives up against the best move | loss | implemented |
 | `Verdict` | fine, inaccuracy, mistake or blunder, from the loss | verdict, fine | implemented |
-| `FineSet` | Every fine move: the answer to "what can I play here?" | fine set, `fine_truncated` | implemented |
-| `ParryTest` | Does the move stop `O`'s threat? | parry test, `parries_threat` | implemented |
-| `CreatedThreat` | The threat the move creates, from E; none when the move gives check | `creates_threat` | implemented |
+| `FineSet` | The fine moves among the candidates; the engine's top moves only, so unlisted moves are not judged and may also be fine (before 2026-10-22: "every fine move"); the number of legal moves stands beside it | fine set, `fine_truncated`, `legal_moves` | implemented |
+| `ParryTest` | Does the move stop `O`'s threat? "Stop" means the threat no longer wins against the pass baseline, not that it was prevented | parry test, `parries_threat` | implemented |
+| `CreatedThreat` | The threat `S` would have after the move if `O` passed, from E; none when the move gives check, ends the game or leaves `O` no legal move, and the report names which | `creates_threat`, `creates_threat_skipped` | implemented |
 | `Refutation` | For a move that is not fine: `O`'s best reply line, read like a threat | refutation | implemented |
 
 ### L2 · Motifs (`Motifs`)
@@ -257,6 +257,7 @@ flowchart LR
     StateMotif["State motif"]
     MoveMotif["Move motif"]
     TacticalPin["Tactical pin"]
+    Restriction["Restricted and free moves"]
     FirstAppearance["First appearance"]
     PositionMotifs["Position motifs"]
     LineMotifs["Line motifs"]
@@ -267,6 +268,8 @@ flowchart LR
     StaticExchange -->|what a capture wins| StateMotif & TacticalPin
     MoveMotif -->|threat kinds| TacticalPin
     TacticalPin -->|tactical pins| StateMotif
+    StateMotif -->|pins and overloaded defenders| Restriction
+    Restriction -.->|no restricted move, no motif| StateMotif
     StateMotif -->|ply 0, both sides| PositionMotifs
     StateMotif -->|plies of a line| FirstAppearance
     FirstAppearance -->|new at this ply| LineMotifs
@@ -283,10 +286,11 @@ flowchart LR
 | `WalkedPlies` | See Threats and urgency | — | external |
 | `BoardAtPly` | One board: the position itself, or the board after k moves of a line | ply, line | implemented |
 | `StaticExchange` | Net material a side wins by the best capture sequence on one square, without search | SEE, piece values | implemented |
-| `StateMotif` | A pattern of the board alone, for both sides: hanging piece, pins, back-rank weakness, overloaded defender, trapped piece, tactical pin | state motif, motif tag | implemented |
+| `StateMotif` | A pattern of the board alone, for both sides: hanging piece, pins, back-rank weakness, overloaded defender, trapped piece, tactical pin; pins, overloaded defenders and tactical pins exist only when they restrict at least one move | state motif, motif tag, existence condition | implemented |
 | `MoveMotif` | A pattern that also needs the move that made the board: fork, skewer, discovered check or attack, double check, back-rank mate, promotion | move motif, motif tag | implemented |
-| `TacticalPin` | A piece held in place because removing it would let the other side make a threat | `pin_tactical` | implemented |
-| `FirstAppearance` | Inside a line, a state motif is listed only at the ply where it first holds | first-appearance rule, motif instance | implemented |
+| `TacticalPin` | A piece held in place because removing it would let the other side make a threat; only when at least one of its moves would let that threat through | `pin_tactical`, existence condition | implemented |
+| `Restriction` | For a pin, overloaded defender or tactical pin: the held piece, how it is held (at its square, along one file, rank or diagonal, or only to the listed squares), its restricted moves (illegal or costly because of the motif) and its free moves, with the held side to move. A pawn's moves include a capture onto each square diagonally in front of it, whatever stands there (since 2026-10-22, Captain; before: legal moves only) | restricted moves, free moves, held piece, held to, move set, hypothetical capture, `restriction` | implemented |
+| `FirstAppearance` | Inside a line, a state motif is listed only at a ply where it holds and did not hold at the ply before (before 2026-10-22 worded "where it first holds") | first-appearance rule, motif instance | implemented |
 | `PositionMotifs` | State motifs of the analysed position, both sides | position motifs | implemented |
 | `LineMotifs` | Motifs along a threat, refutation or move line | line motifs | implemented |
 
@@ -334,8 +338,8 @@ flowchart LR
 | `TacticJudgement` | Forced, a tactic, or neither | tactic judgement, tactic, forced | implemented |
 | `TacticLine` | A judged line that is a tactic; only these get contributions and labels | tactic line | implemented |
 | `TacticSequence` | The tactic line cut to its walked plies: the moves contributions and labels read | tactic sequence | implemented |
-| `Contribution` | Each motif's role in the tactic: direct, indirect or none | contribution judgement | implemented |
-| `TacticLabel` | A fact about the whole tactic line that reads later moves, so it is not a motif: `removal_of_defender` | tactic label, `removal_of_defender` | implemented |
+| `Contribution` | Each motif's role in the tactic: direct, indirect or none; `none` means the tactic works without the motif (Captain, 2026-10-22; before, an attack on a landing square made a motif indirect) | contribution judgement | implemented |
+| `TacticLabel` | A fact about the whole tactic line that reads later moves, so it is not a motif: `removal_of_defender`; the defended piece must still stand on its square when it is won | tactic label, `removal_of_defender` | implemented |
 
 ### L2 · Positional facts (`Positional`)
 
@@ -368,7 +372,7 @@ flowchart LR
 |---|---|---|---|
 | `AnalysedPosition` | See Question | — | external |
 | `WalkedPlies` | See Threats and urgency | — | external |
-| `PawnStructure` | Isolated, doubled, backward, passed and connected passed pawns, pawn islands, pawn chains. Since 2026-10-21; before, it also held named structures (now `NamedStructures`) | positional fact, `isolated_pawn`, `doubled_pawns`, `backward_pawn`, `passed_pawn`, `connected_passed_pawns`, `pawn_islands`, `pawn_chain` | implemented |
+| `PawnStructure` | Isolated, doubled, tripled, backward, passed and connected passed pawns, pawn islands, pawn chains. Since 2026-10-21; before, it also held named structures (now `NamedStructures`); tripled pawns since 2026-10-23 | positional fact, `isolated_pawn`, `doubled_pawns`, `tripled_pawns`, `backward_pawn`, `passed_pawn`, `connected_passed_pawns`, `pawn_islands`, `pawn_chain` | implemented |
 | `NamedStructures` | Named pawn-structure families (isolated queen's pawn, hanging pawns, Carlsbad and the like); deferred on 2026-10-21, part of `PawnStructure` before | positional fact | planned |
 | `KingSafety` | Castling rights, gaps in the king's pawn shield, open and half-open files next to the king, enemy pieces attacking the squares around it | positional fact, king files, `castling_kingside`, `king_shield_gap`, `open_file_near_king`, `half_open_file_near_king`, `king_zone_attacker` | implemented |
 | `PieceActivity` | Bishop pair, rooks on open or half-open files or the seventh rank, outposts, bad bishops. Mobility moved to `SpaceDevelopment` on 2026-10-21 | positional fact, `bishop_pair`, `rook_open_file`, `rook_half_open_file`, `rook_seventh`, `outpost`, `bad_bishop` | implemented |
@@ -394,6 +398,7 @@ flowchart LR
     BookIndex["Book index"]
     ConceptTags["Concept tags"]
     BookPassages["Book passages"]
+    DataDigest["Data digest"]
     AnalysedPosition & GameMainline -->|positions| PositionKey
     PositionKey -->|lookup| OpeningNames & GameCounts
     OpeningNames -->|name of an earlier position| LastNamed
@@ -402,6 +407,7 @@ flowchart LR
     BookCorpus -->|chunks| BookIndex
     ConceptTags -->|query| BookIndex
     BookIndex -->|top excerpts| BookPassages
+    DataDigest -.->|identifies the loaded data| GameTable & OpeningNames
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
@@ -422,7 +428,8 @@ flowchart LR
 | `BookCorpus` | The Captain's local books as text, kept out of the repository | book corpus | planned |
 | `BookIndex` | A search index over book chunks | book index | planned |
 | `ConceptTags` | The report's motif and positional tags, widened by a keyword map, used as the book query | concept tag | planned |
-| `BookPassages` | One to three short excerpts, cited by book and page, offered as general advice | book passage | planned |
+| `BookPassages` | One to three short excerpts, cited by book and page, offered as general advice; shown only when on topic, applicable to the position and with their stance kept | book passage | planned |
+| `DataDigest` | The loaded game-count table and opening-name files are identified by the SHA-256 of their bytes: the shipped id when it matches the pin, a custom id otherwise | data digest, `custom@` id | implemented |
 
 ### L2 · Report (`Report`)
 
@@ -433,6 +440,7 @@ flowchart LR
     Reproducible["Reproducible settings"]
     ReportDocument["Report document"]
     ReportSchema["Report schema"]
+    SemanticCheck["Semantic check"]
     RerunIdentity["Rerun identity"]
     JsonOutput["JSON output"]
     Explanation["Explanation"]
@@ -440,6 +448,7 @@ flowchart LR
     Provenance -->|fields| ReportDocument
     Reproducible -->|engine settings| ReportDocument
     ReportSchema -.->|validates| ReportDocument
+    SemanticCheck -.->|checks relations between fields| ReportDocument
     RerunIdentity -.->|checks| ReportDocument
     ReportDocument -->|whole report| JsonOutput
     ReportDocument -->|report fields only| Explanation
@@ -453,9 +462,10 @@ flowchart LR
 |---|---|---|---|
 | `Fact` | One claim about the position, computed before any words are written | fact | implemented |
 | `Provenance` | Where a fact comes from: engine search, board rule, reference material or game counts | provenance | implemented |
-| `Reproducible` | The settings that make a report repeat exactly, recorded in the report | reproducible | implemented |
+| `Reproducible` | The settings that make a report repeat exactly, recorded in the report: budget, threads, hash and nodes. The engine binary and the ChessWhy revision are not identified (named 2026-10-22) | reproducible | implemented |
 | `ReportDocument` | The JSON document of one question; the only place chess claims live | report, facts first | implemented |
-| `ReportSchema` | The versioned JSON Schema every report must satisfy | report schema | implemented |
+| `ReportSchema` | The versioned JSON Schema every report must satisfy, with a description on every field and if/then rules for local relations | report schema | implemented |
+| `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves | semantic check | implemented |
 | `RerunIdentity` | Two fresh runs on the same input give the same bytes | rerun identity | implemented |
 | `JsonOutput` | The report printed as it is, for programs and for checking | JSON output | implemented |
 | `Explanation` | See L1 | — | external |
@@ -467,6 +477,7 @@ flowchart LR
     ReportDocument["Report document"]
     BookPassages["Book passages"]
     RestrictedMovement["Restricted-movement wording"]
+    Conditions["Conditions"]
     TemplateRendering["Template rendering"]
     FactSheet["Fact sheet"]
     LevelPrompt["Level prompt"]
@@ -475,6 +486,7 @@ flowchart LR
     ExplanationText["Explanation text"]
     ReportDocument -->|report fields| TemplateRendering & FactSheet
     RestrictedMovement -->|wording| TemplateRendering
+    Conditions -->|premises and limits| TemplateRendering
     FactSheet & LevelPrompt & BookPassages -->|prompt| LanguageModel
     LanguageModel -->|draft prose| FactCheck
     FactCheck -->|passes| ExplanationText
@@ -492,12 +504,13 @@ flowchart LR
 |---|---|---|---|
 | `ReportDocument` | See Report | — | external |
 | `BookPassages` | See Reference knowledge | — | external |
-| `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement" | restricted movement | implemented |
-| `TemplateRendering` | Fixed sentences filled from report fields; adds no claim. Today's output, later the fallback | template rendering | implemented |
-| `FactSheet` | A compact text form of the report for the model | fact sheet | planned |
+| `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") and the restricted and free moves are printed | restricted movement, held to, restricted moves, free moves | implemented |
+| `Conditions` | What a fact depends on, printed beside it: a threat line assumes the opponent passes, a parry by check only defers the threat, why no created threat was searched, how far a line was read, which engine and budget, how many legal moves were not judged | conditions, `creates_threat_skipped`, `walked_plies`, `legal_moves` | implemented |
+| `TemplateRendering` | Fixed sentences filled from report fields, with their conditions and `SEE` for a capture's value; adds no claim. Today's output, later the fallback | template rendering | implemented |
+| `FactSheet` | A compact text form of the report for the model; the core claims (verdict, refutation, conditions) at every level, tactic and blunder evidence first | fact sheet, fact selection | planned |
 | `LevelPrompt` | Instructions for a beginner, club or advanced reader | level | planned |
 | `LanguageModel` | A local model that turns the fact sheet into prose and decides no chess content | language model | planned |
-| `FactCheck` | Every move, square and piece the prose mentions must be in the report; opening names and game counts must match it exactly | fact check | planned |
+| `FactCheck` | The prose split into claim units, each checked against report fields with its relations, not only its moves, squares and pieces (before 2026-10-22: names only); opening names and game counts must match exactly | fact check, claim unit | planned |
 | `ExplanationText` | What the reader sees | explanation | partial |
 
 ### L2 · Fixtures and measurement (`Proof`)
@@ -522,7 +535,7 @@ flowchart LR
     Positional["Positional facts"]
     Reference["Reference knowledge"]
     HandLabel -->|expected results| MotifFixtures & ContributionFixtures & PositionalFixtures
-    PuzzleSample -->|positions| PositionalReference
+    PuzzleSample & PositionalFixtures -->|positions| PositionalReference
     PositionalFixtures -.->|check| Positional
     PositionalReference -.->|zero mismatches| Positional
     GamesOracle -.->|identical table| Reference
@@ -553,11 +566,11 @@ flowchart LR
 | `ContributionFixtures` | Tactic lines with each motif's expected contribution and the labels that must or must not appear | C fixtures | implemented |
 | `ReferenceImplementation` | A second, plain implementation of the motif definitions; both must agree everywhere | reference implementation | implemented |
 | `PuzzleSample` | Fixed samples of Lichess puzzles: one for tuning, one committed for testing | Lichess puzzle database, split | implemented |
-| `Recall` | When Lichess names a theme, how often we find it for the solver; held above frozen targets | recall, target (metric) | implemented |
+| `Recall` | When Lichess names a theme, how often we find it for the solver: coverage of Lichess-tagged puzzles, not precision; held above frozen targets; the untagged firing rate is printed beside it | recall, target (metric), untagged firing rate | implemented |
 | `Positional` | See L1 | — | external |
 | `Reference` | See L1 | — | external |
 | `PositionalFixtures` | Positions where a positional feature must or must not be reported, and lines where a change must or must not be | P fixtures, `positional_include` | implemented |
-| `PositionalReference` | A second, plain implementation of the positional definitions; both must agree on every puzzle board | `positional_oracle` | implemented |
+| `PositionalReference` | A second, plain implementation of the positional definitions; both must agree on every puzzle board and every P fixture board | `positional_oracle` | implemented |
 | `GamesOracle` | A second, independent counter that rebuilds the game-count table from the same games; both tables must be identical | `games_oracle` | implemented |
 
 ## Level 3
@@ -706,7 +719,8 @@ flowchart TD
 flowchart TD
     CoSide{"Is the motif for the tactic side?"}
     CoDirect{"A move motif, or a later tactic-side move captures one of its other-side pieces?"}
-    CoIndirect{"An other-side piece of the motif attacks where a later tactic-side move lands, before any motif piece moved or was taken?"}
+    CoDenied["The motif's denied moves after the tactic-side move that made its board, and after each later one, while no motif piece has moved or been taken"]
+    CoIndirect{"Would one of those denied moves answer that move: capture the piece that just moved, or end a check?"}
     CoOtherSide["none"]
     CoIsDirect["direct"]
     CoIsIndirect["indirect"]
@@ -714,7 +728,8 @@ flowchart TD
     CoSide -->|no| CoOtherSide
     CoSide -->|yes| CoDirect
     CoDirect -->|yes| CoIsDirect
-    CoDirect -->|no| CoIndirect
+    CoDirect -->|no| CoDenied
+    CoDenied -->|denied moves| CoIndirect
     CoIndirect -->|yes| CoIsIndirect
     CoIndirect -->|no| CoNotUsed
     classDef planned stroke-dasharray:6 4,color:#888
@@ -726,11 +741,12 @@ flowchart TD
 |---|---|---|---|
 | `CoSide` | Only the tactic side's motifs can help its tactic | contribution judgement, X | implemented |
 | `CoDirect` | The tactic's own moves make the motif or take its pieces | contribution judgement, move motif | implemented |
-| `CoIndirect` | The motif stops the defender answering a move: a pin that stops a recapture, an overloaded defender | contribution judgement | implemented |
+| `CoDenied` | What the motif takes away from the defender: the held piece's restricted moves, or for a back-rank weakness the king's steps onto its own blockers' squares | denied move, restricted moves | implemented |
+| `CoIndirect` | The motif takes away an answer the defender would have: a recapture, an escape, an interposition, a capture of the checker (before 2026-10-22: an other-side motif piece attacked where a later tactic-side move lands) | contribution judgement, answer | implemented |
 | `CoOtherSide` | A motif of the other side | `contribution` | implemented |
 | `CoIsDirect` | Direct contribution | `contribution` | implemented |
 | `CoIsIndirect` | Indirect contribution | `contribution` | implemented |
-| `CoNotUsed` | The tactic works without it | `contribution` | implemented |
+| `CoNotUsed` | The tactic works without it: without the motif the defender gains no answer (Captain, 2026-10-22; before: no landing-square attack) | `contribution` | implemented |
 
 ### L3 · Tactical pin (`TacticalPin`)
 
@@ -740,15 +756,20 @@ flowchart TD
     TpPiece["Each piece p of the side that may be pinned, unless removing p checks a king"]
     TpRemove["The board without p"]
     TpNewThreat{"Can the other side now make a threat it cannot make with p on the board?"}
+    TpMoves["p's moves with its own side to move: which of them still let the threat happen?"]
+    TpAnyRestricted{"Does at least one move of p let the threat happen?"}
     TpNone["no tactical pins on this board"]
-    TpFound["pin_tactical: actor, p, threat kind and square"]
+    TpFound["pin_tactical: actor, p, threat kind and square, restricted and free moves"]
     TpFree["p is not held in place"]
     TpKings -->|yes| TpNone
     TpKings -->|no| TpPiece
     TpPiece -->|one at a time| TpRemove
     TpRemove -->|board| TpNewThreat
-    TpNewThreat -->|yes| TpFound
+    TpNewThreat -->|yes| TpMoves
     TpNewThreat -->|no| TpFree
+    TpMoves -->|restricted moves| TpAnyRestricted
+    TpAnyRestricted -->|yes| TpFound
+    TpAnyRestricted -->|no| TpFree
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
@@ -761,34 +782,39 @@ flowchart TD
 | `TpRemove` | Ask what changes if p were gone | `pin_tactical` | implemented |
 | `TpNewThreat` | Threats: fork, skewer, discovered check or attack, double check, back-rank mate, promotion, mate, or winning a piece by static exchange | move motif, SEE | implemented |
 | `TpNone` | Nothing reported | `pin_tactical` | implemented |
-| `TpFound` | Reported as a state motif, with the threat's kind and square | `pin_tactical`, `threat` | implemented |
-| `TpFree` | Nothing reported for p | `pin_tactical` | implemented |
+| `TpMoves` | A move of p is restricted when the threat still works after it; the others are free. A pawn p also has a capture onto each square diagonally in front of it (since 2026-10-22) | restricted moves, free moves, move set, hypothetical capture | implemented |
+| `TpAnyRestricted` | A piece with no move, or whose every move closes the threat, is not held in place by it (existence condition); a pawn's diagonal captures count even onto an empty square | existence condition, hypothetical capture | implemented |
+| `TpFound` | Reported as a state motif, with the threat's kind and square and its restricted and free moves | `pin_tactical`, `threat`, `restriction` | implemented |
+| `TpFree` | Nothing reported for p, also when no move of p is restricted | `pin_tactical` | implemented |
 
 ### L3 · Fact check (`FactCheck`)
 
 ```mermaid
 flowchart TD
-    FcSupported{"Is every move, square, piece, opening name and game count in the report?"}
+    FcClaims["Split the prose into claim units"]
+    FcSupported{"Does every claim unit match report fields, relations included?"}
     FcFirstFailure{"First failure?"}
     FcRegenerate["Generate the prose again"]
     FcPass["Show the prose"]
     TemplateRendering["Template rendering"]
+    FcClaims -->|claim units| FcSupported
     FcSupported -->|yes| FcPass
     FcSupported -->|no| FcFirstFailure
     FcFirstFailure -->|yes| FcRegenerate
-    FcRegenerate -->|new prose| FcSupported
+    FcRegenerate -->|new prose| FcClaims
     FcFirstFailure -->|no| TemplateRendering
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class TemplateRendering external
-    class FcSupported,FcFirstFailure,FcRegenerate,FcPass planned
+    class FcClaims,FcSupported,FcFirstFailure,FcRegenerate,FcPass planned
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
 | `TemplateRendering` | See Explanation; shown with a notice that the prose failed | — | external |
-| `FcSupported` | Moves quoted from books refer to other games and are marked so they are not checked against the position | fact check, book passage | planned |
+| `FcClaims` | Each unit is one fact or one relation (who threatens what, at which ply, under which condition), so a wrong relation between correct words is caught | claim unit, fact check | planned |
+| `FcSupported` | Every unit must match report fields, including the relations between them, not only the moves, squares, pieces, opening names and game counts it names (before 2026-10-22: names only). Moves quoted from books refer to other games and are marked so they are not checked against the position | fact check, book passage, claim unit | planned |
 | `FcFirstFailure` | One retry only | fact check | planned |
 | `FcRegenerate` | A second attempt from the same fact sheet | fact check, fact sheet | planned |
 | `FcPass` | The checked prose is the explanation | explanation | planned |

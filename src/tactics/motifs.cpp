@@ -6,9 +6,11 @@
 #include <cstdint>
 #include <cstdlib>
 #include <optional>
+#include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "move_set_internal.hpp"
 #include "see_internal.hpp"
 
 namespace chesswhy::tactics {
@@ -77,6 +79,144 @@ struct RecentCapture {
         result.emplace_back(index);
     }
     return result;
+}
+
+[[nodiscard]] chess::Color motif_color(Side side) {
+    return side == Side::White ? chess::Color::WHITE : chess::Color::BLACK;
+}
+
+[[nodiscard]] chess::Square held_piece_square(const Motif& motif) {
+    if (motif.tag == MotifTag::OverloadedDefender) {
+        return {static_cast<int>(motif.actor.square)};
+    }
+    if (motif.targets.empty()) {
+        return chess::Square::NO_SQ;
+    }
+    return {static_cast<int>(motif.targets.front().square)};
+}
+
+[[nodiscard]] HeldTo held_to(std::uint64_t destinations, chess::Square held_square) {
+    bool same_file = true;
+    bool same_rank = true;
+    bool same_diagonal = true;
+    int diagonal_slope = 0;
+    for (std::uint64_t remaining = destinations; remaining != 0; remaining &= remaining - 1) {
+        const chess::Square destination(std::countr_zero(remaining));
+        const int file_delta = destination.file() - held_square.file();
+        const int rank_delta = destination.rank() - held_square.rank();
+        same_file = same_file && destination.file() == held_square.file();
+        same_rank = same_rank && destination.rank() == held_square.rank();
+        if (file_delta == 0 || rank_delta == 0 || std::abs(file_delta) != std::abs(rank_delta)) {
+            same_diagonal = false;
+        } else {
+            const int slope = (file_delta > 0) == (rank_delta > 0) ? 1 : -1;
+            if (diagonal_slope != 0 && diagonal_slope != slope) {
+                same_diagonal = false;
+            }
+            diagonal_slope = slope;
+        }
+    }
+
+    if (destinations == 0) {
+        return HeldTo{.kind = HeldTo::Kind::Square, .name = static_cast<std::string>(held_square)};
+    }
+    if (same_file) {
+        return HeldTo{.kind = HeldTo::Kind::File,
+                      .name = std::string(1, static_cast<char>('a' + held_square.file()))};
+    }
+    if (same_rank) {
+        return HeldTo{.kind = HeldTo::Kind::Rank,
+                      .name = std::string(1, static_cast<char>('1' + held_square.rank()))};
+    }
+    if (same_diagonal) {
+        chess::Square first = held_square;
+        while (true) {
+            const chess::Square previous = offset(first, -1, -diagonal_slope);
+            if (previous == chess::Square::NO_SQ) {
+                break;
+            }
+            first = previous;
+        }
+        chess::Square last = first;
+        while (true) {
+            const chess::Square next = offset(last, 1, diagonal_slope);
+            if (next == chess::Square::NO_SQ) {
+                break;
+            }
+            last = next;
+        }
+        return HeldTo{.kind = HeldTo::Kind::Diagonal,
+                      .name =
+                          static_cast<std::string>(first) + "-" + static_cast<std::string>(last)};
+    }
+
+    const int destination_count = std::popcount(destinations);
+    std::string name;
+    name.reserve(static_cast<std::size_t>((destination_count * 3) - 1));
+    for (int file = 0; file < 8; ++file) {
+        for (int rank = 0; rank < 8; ++rank) {
+            const std::uint64_t destination_bit = std::uint64_t{1}
+                                                  << static_cast<unsigned>((rank * 8) + file);
+            if ((destinations & destination_bit) == 0) {
+                continue;
+            }
+            if (!name.empty()) {
+                name.push_back(',');
+            }
+            name.push_back(static_cast<char>('a' + file));
+            name.push_back(static_cast<char>('1' + rank));
+        }
+    }
+    return HeldTo{.kind = HeldTo::Kind::Squares, .name = std::move(name)};
+}
+
+[[nodiscard]] std::optional<MotifRestriction> make_restriction(const chess::Board& board,
+                                                               const Motif& motif) {
+    const chess::Square held_square = held_piece_square(motif);
+    if (held_square == chess::Square::NO_SQ || board.at(held_square) == chess::Piece::NONE) {
+        return std::nullopt;
+    }
+
+    std::optional<chess::Board> null_moved;
+    const chess::Board* by = &board;
+    if (board.sideToMove() == motif_color(motif.side)) {
+        null_moved.emplace(board);
+        null_moved->makeNullMove();
+        by = &null_moved.value();
+    }
+    const std::vector<chess::Move> denied = denied_moves(*by, motif);
+    if (denied.empty()) {
+        return std::nullopt;
+    }
+
+    MotifRestriction restriction;
+    restriction.piece = report_piece(board, held_square);
+    restriction.restricted.reserve(denied.size());
+    for (const chess::Move move : denied) {
+        restriction.restricted.push_back(chess::uci::moveToUci(move, by->chess960()));
+    }
+    std::ranges::sort(restriction.restricted);
+
+    const std::vector<chess::Move> legal_moves =
+        detail::held_piece_move_set(*by, held_square, detail::MoveSetLegality::Legal);
+    std::uint64_t free_destinations = 0;
+    for (const chess::Move move : legal_moves) {
+        if (std::ranges::find(denied, move) != denied.end()) {
+            continue;
+        }
+        restriction.free.push_back(chess::uci::moveToUci(move, by->chess960()));
+        free_destinations |= std::uint64_t{1} << static_cast<unsigned>(move.to().index());
+    }
+    std::ranges::sort(restriction.free);
+    restriction.held_to = held_to(free_destinations, held_square);
+    return restriction;
+}
+
+void append_restricted_motif(const chess::Board& board, Motif motif, std::vector<Motif>& motifs) {
+    motif.restriction = make_restriction(board, motif);
+    if (motif.restriction) {
+        motifs.push_back(std::move(motif));
+    }
 }
 
 [[nodiscard]] bool attacks_square(const chess::Board& board, chess::Square origin,
@@ -213,17 +353,20 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
                 const auto rear_type = board.at<chess::PieceType>(rear);
                 // Relative pins need at least one pawn of exposed material.
                 if (rear_type == chess::PieceType::KING) {
-                    motifs.push_back(
-                        make_motif(board, MotifTag::PinAbsolute, side, 0, pinner, {first, rear}));
+                    append_restricted_motif(
+                        board,
+                        make_motif(board, MotifTag::PinAbsolute, side, 0, pinner, {first, rear}),
+                        motifs);
                 } else if (comparison_value(rear_type) >
                                comparison_value(board.at<chess::PieceType>(first)) &&
                            detail::see_without_piece(board, rear, side, first) >= 1) {
-                    motifs.push_back(
-                        make_motif(board, MotifTag::PinRelative, side, 0, pinner, {first, rear}));
+                    append_restricted_motif(
+                        board,
+                        make_motif(board, MotifTag::PinRelative, side, 0, pinner, {first, rear}),
+                        motifs);
                 }
             }
         }
-
         const chess::Square enemy_king = board.kingSq(enemy);
         const int back_rank = enemy == chess::Color::WHITE ? 0 : 7;
         const std::uint64_t back_rank_mask = 0xffULL << (back_rank * 8);
@@ -274,8 +417,10 @@ state_motifs(const chess::Board& board, std::optional<RecentCapture> last_captur
                     }
                 }
                 if (targets.size() >= 2) {
-                    motifs.push_back(make_motif(board, MotifTag::OverloadedDefender, side, 0,
-                                                defender, targets));
+                    append_restricted_motif(
+                        board,
+                        make_motif(board, MotifTag::OverloadedDefender, side, 0, defender, targets),
+                        motifs);
                 }
             }
         }
@@ -812,6 +957,8 @@ void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) 
             }
 
             PinThreatSelections selected{};
+            // These are X's legal threat moves; hypothetical pawn captures extend only the
+            // held piece's move set, which append_restricted_motif checks before emitting.
             chess::Movelist legal_moves;
             chess::movegen::legalmoves(legal_moves, minus_p);
             std::vector<chess::Move> ordered_moves(legal_moves.begin(), legal_moves.end());
@@ -920,7 +1067,7 @@ void append_pin_tactical(const chess::Board& board, std::vector<Motif>& motifs) 
                     motif.threat =
                         MotifThreat{.kind = kPinThreatKinds[kind],
                                     .square = static_cast<std::uint8_t>(candidate.square.index())};
-                    motifs.push_back(std::move(motif));
+                    append_restricted_motif(board, std::move(motif), motifs);
                 }
             }
         }

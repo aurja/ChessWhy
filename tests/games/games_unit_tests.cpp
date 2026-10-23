@@ -4,6 +4,7 @@
 #include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -65,7 +66,7 @@ valid_table(std::string_view row = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR 
 
 class TemporaryTable {
 public:
-    explicit TemporaryTable(std::string_view contents) {
+    explicit TemporaryTable(const std::string& contents) {
         const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
         path_ = std::filesystem::temp_directory_path() /
                 ("chesswhy-games-table-" + std::to_string(stamp) + ".tsv");
@@ -77,6 +78,13 @@ public:
         if (!output) {
             throw std::runtime_error("cannot write temporary games table");
         }
+    }
+
+    explicit TemporaryTable(const std::filesystem::path& source) {
+        const auto stamp = std::chrono::steady_clock::now().time_since_epoch().count();
+        path_ = std::filesystem::temp_directory_path() /
+                ("chesswhy-games-table-copy-" + std::to_string(stamp) + ".tsv");
+        std::filesystem::copy_file(source, path_);
     }
 
     ~TemporaryTable() {
@@ -91,6 +99,39 @@ public:
 private:
     std::filesystem::path path_;
 };
+[[nodiscard]] std::string read_file(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        throw std::runtime_error("cannot read test file " + path.string());
+    }
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+
+void change_months_byte(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        throw std::runtime_error("cannot read copied games table");
+    }
+    constexpr std::string_view prefix = "# months ";
+    std::string line;
+    std::size_t file_offset = 0;
+    while (std::getline(input, line)) {
+        if (line.starts_with(prefix)) {
+            if (line.size() == prefix.size()) {
+                throw std::runtime_error("games table has an empty months field");
+            }
+            std::fstream output(path, std::ios::in | std::ios::out | std::ios::binary);
+            output.seekp(static_cast<std::streamoff>(file_offset + prefix.size()));
+            output.put(line[prefix.size()] == 'x' ? 'y' : 'x');
+            if (!output) {
+                throw std::runtime_error("cannot modify copied games table");
+            }
+            return;
+        }
+        file_offset += line.size() + 1;
+    }
+    throw std::runtime_error("games table has no months field");
+}
 
 } // namespace
 
@@ -273,4 +314,32 @@ TEST_CASE("games table loader rejects malformed headers, rows, and ordering", "[
                           "# positions 2");
     unsorted_rows += "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -\t2\t0\t1\t1\te7e5:2\n";
     expect_bad(unsorted_rows);
+}
+TEST_CASE("games table digest pin matches the asset fetch script", "[games][unit]") {
+    const std::filesystem::path script =
+        std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tools" / "fetch_assets.sh";
+    const std::string contents = read_file(script);
+    constexpr std::string_view marker = "GAMES_TABLE_SHA256=\"";
+    const std::size_t start = contents.find(marker);
+    REQUIRE(start != std::string::npos);
+    const std::size_t digest_start = start + marker.size();
+    CHECK(std::string_view(contents).substr(digest_start, 64) == chesswhy::games::kTableSha256);
+}
+
+TEST_CASE("games table identity follows byte-identical pins", "[games][unit]") {
+    const std::filesystem::path source = std::filesystem::path(CHESSWHY_ASSETS_DIR) / "data" /
+                                         "games" / "lichess_broadcast_2200.tsv";
+    if (!std::filesystem::exists(source)) {
+        FAIL("pinned games table is not present; run tools/fetch_assets.sh");
+    }
+
+    const TemporaryTable pinned_copy(source);
+    const auto pinned = Table::load(pinned_copy.path()).find(chess::Board{});
+    CHECK(pinned.table == chesswhy::games::kTable);
+
+    const TemporaryTable modified_copy(source);
+    change_months_byte(modified_copy.path());
+    const auto modified = Table::load(modified_copy.path()).find(chess::Board{});
+    CHECK(modified.table.starts_with("custom@"));
+    CHECK(modified.table.size() == 19);
 }

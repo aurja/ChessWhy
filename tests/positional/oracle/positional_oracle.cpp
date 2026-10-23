@@ -15,6 +15,8 @@
 #include <utility>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 #include "reference.hpp"
 
 namespace {
@@ -26,9 +28,10 @@ using chesswhy::PositionalTag;
 using chesswhy::Side;
 using Fields = std::vector<std::string>;
 
-constexpr std::array<PositionalTag, 24> kTags{
+constexpr std::array<PositionalTag, 25> kTags{
     PositionalTag::IsolatedPawn,
     PositionalTag::DoubledPawns,
+    PositionalTag::TripledPawns,
     PositionalTag::BackwardPawn,
     PositionalTag::PassedPawn,
     PositionalTag::ConnectedPassedPawns,
@@ -57,6 +60,7 @@ constexpr std::array<PositionalTag, 24> kTags{
     constexpr std::array<std::string_view, kTags.size()> names{
         "isolated_pawn",
         "doubled_pawns",
+        "tripled_pawns",
         "backward_pawn",
         "passed_pawn",
         "connected_passed_pawns",
@@ -418,8 +422,8 @@ void compare_board(chess::Board& board, Statistics& statistics) {
     }
 }
 
-void process_puzzle(const std::string& id, const std::string& fen,
-                    std::span<const std::string_view> uci_moves, Statistics& statistics) {
+void compare_line(const std::string& fen, std::span<const std::string_view> uci_moves,
+                  Statistics& statistics) {
     chess::Board root;
     if (!root.setFen(fen)) {
         throw std::invalid_argument("invalid FEN");
@@ -436,8 +440,6 @@ void process_puzzle(const std::string& id, const std::string& fen,
     const auto detector_changes = chesswhy::positional::line_changes(root, moves);
     const auto reference_changes = chesswhy::positional_oracle::reference_line_changes(root, moves);
     compare_changes(root.getFen(), detector_changes, reference_changes, statistics);
-    ++statistics.puzzles;
-    (void)id;
 }
 
 void process_csv(const std::string& path, Statistics& statistics) {
@@ -469,7 +471,8 @@ void process_csv(const std::string& path, Statistics& statistics) {
                 throw std::invalid_argument("expected five CSV fields and a non-empty PuzzleId");
             }
             const std::vector<std::string_view> tokens = words(fields[2]);
-            process_puzzle(fields[0], fields[1], tokens, statistics);
+            compare_line(fields[1], tokens, statistics);
+            ++statistics.puzzles;
         } catch (const std::exception& error) {
             throw std::runtime_error("CSV row " + std::to_string(line_number) + ": " +
                                      error.what());
@@ -477,6 +480,48 @@ void process_csv(const std::string& path, Statistics& statistics) {
     }
     if (!input.eof()) {
         throw std::runtime_error("failed while reading puzzle CSV " + path);
+    }
+}
+void process_positional_fixtures(const std::string& path, Statistics& statistics) {
+    std::ifstream input(path);
+    if (!input) {
+        throw std::runtime_error("cannot open positional fixtures " + path);
+    }
+    const nlohmann::json fixtures = nlohmann::json::parse(input);
+    if (!fixtures.contains("features") || !fixtures.at("features").is_array() ||
+        !fixtures.contains("lines") || !fixtures.at("lines").is_array()) {
+        throw std::runtime_error("positional fixtures must contain feature and line arrays");
+    }
+
+    for (const auto& fixture : fixtures.at("features")) {
+        const std::string id = fixture.at("id").get<std::string>();
+        try {
+            const std::string fen = fixture.at("fen").get<std::string>();
+            chess::Board board;
+            if (!board.setFen(fen)) {
+                throw std::invalid_argument("invalid FEN");
+            }
+            compare_board(board, statistics);
+        } catch (const std::exception& error) {
+            throw std::runtime_error("feature fixture " + id + ": " + error.what());
+        }
+    }
+
+    for (const auto& fixture : fixtures.at("lines")) {
+        const std::string id = fixture.at("id").get<std::string>();
+        try {
+            const std::string fen = fixture.at("fen").get<std::string>();
+            const std::vector<std::string> owned_tokens =
+                fixture.at("line_uci").get<std::vector<std::string>>();
+            std::vector<std::string_view> tokens;
+            tokens.reserve(owned_tokens.size());
+            for (const std::string& token : owned_tokens) {
+                tokens.push_back(token);
+            }
+            compare_line(fen, tokens, statistics);
+        } catch (const std::exception& error) {
+            throw std::runtime_error("line fixture " + id + ": " + error.what());
+        }
     }
 }
 
@@ -512,13 +557,14 @@ void print_statistics(const Statistics& statistics) {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::cerr << "usage: positional_oracle <puzzle-csv>\n";
+    if (argc != 3) {
+        std::cerr << "usage: positional_oracle <puzzle-csv> <positional-json>\n";
         return 2;
     }
     try {
         Statistics statistics;
         process_csv(argv[1], statistics);
+        process_positional_fixtures(argv[2], statistics);
         print_statistics(statistics);
         return statistics.mismatches.empty() ? 0 : 1;
     } catch (const std::exception& error) {

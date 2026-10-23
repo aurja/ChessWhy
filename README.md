@@ -4,20 +4,42 @@ ChessWhy answers why a move may be best or why a chosen move is good or bad for 
 Its chess facts come from Stockfish searches and deterministic rules, and each fact records its
 provenance. It also reports tactical motifs: deterministic patterns of one position (and, where
 needed, the move that produced it), with `rule` provenance; a motif states that the pattern is
-present and claims no gain. Pins, overloaded defenders and tactical pins (a piece held in place
-because removing it would enable a fork, mate, capture or other threat) are printed as
-"restricted movement". The best move and each refutation are judged as tactics: a tactic is a
+present and claims no gain. Pins, overloaded defenders and tactical pins are reported as
+"restricted movement"; a tactical pin holds a piece because moving it would leave a specified
+threat available. The best move and each refutation are judged as tactics: a tactic is a
 line whose expected score beats the next-best move by at least 0.13 (`engine`); a position with
 one legal move is marked forced (`rule`). On a tactic line every motif gets a contribution
 (`direct`, `indirect` or `none`), and the rule label `removal_of_defender` marks a capture that
 takes away a piece's only defender. The current release renders a report without a language
 model; verbalisation is planned for M4.
+
+In report v5, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
+`restriction` object. Its `piece` is the held piece (the first target for either pin or a tactical
+pin, the actor for an overloaded defender); `restricted` and `free` are sorted UCI move lists.
+`restricted` contains moves the motif denies or makes costly: an absolute pin includes pseudo-legal
+moves off the pinner-to-king segment; a relative pin or overloaded defender includes moves that
+expose the rear or guarded target to a win; a tactical pin includes moves that still allow its
+named threat. `free` contains legal moves in the held piece's move set that are not restricted.
+`held_to.kind` is `square` when there is no free move; otherwise it is `file`, `rank` or `diagonal`
+when all free destinations lie on that line through the held piece, and `squares` otherwise. The
+existence condition is that `restricted` is non-empty. Moves are judged with the held side to move.
+A held pawn's move set also includes a hypothetical capture onto every on-board diagonal-front
+square, whatever stands there (including an empty square), judged after the pawn moves there and
+the previous occupant is removed.
+
 Positional facts in `position.positional` describe pawn structure, king safety, pieces, space/development
 and material; per-line `positional` entries record features appearing or disappearing, with `rule`
 provenance. Lichess broadcast counts use `games` provenance and never judge a move: text reports show
 `games: 262026 games ... [games]` under a position and `games: played in N of M games [games]` under
 a candidate. Reports credit the source as `Lichess broadcast database, database.lichess.org`
 under CC BY-SA 4.0.
+
+Loaded data digests use the in-tree SHA-256 implementation. When the loaded bytes match their
+pins, `games.table` reports `lichess_broadcast_2200@e0cb7fab3212` and `opening.dataset` reports
+`lichess-org/chess-openings@a6189a3`; otherwise each reports `custom@` plus the first 12
+SHA-256 hex digits. For a changed openings dataset, the digest covers `a.tsv` through `e.tsv`
+concatenated in that order.
+
 
 M2 motif definitions were written after consulting lichess-puzzler, and `removal_of_defender`
 follows its `capturing_defender` theme; the Lichess puzzle database (CC0) provides the theme tags
@@ -70,14 +92,33 @@ Explain a position and a candidate move (the FEN example used by the M1 smoke ch
 build/release/chesswhy --fen "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3" --move Nf6
 ```
 
-Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves from the game's start, with 0 denoting the initial position. Before White's move N, use ply `2(N−1)`; before Black's move N, use ply `2N−1`. `--move` accepts SAN or UCI; `--json` selects JSON output, and budgets are `quick`, `standard` (default), or `deep`.
+Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves from the game's start, with 0 denoting the initial position. Before White's move N, use ply `2(N−1)`; before Black's move N, use ply `2N−1`. `--move` accepts SAN or UCI; `--json` selects a version 5 JSON report, and budgets are `quick`, `standard` (default), or `deep`.
 `--games FILE` selects the broadcast-count table (default
 `assets/data/games/lichess_broadcast_2200.tsv`). A missing or invalid table fails with exit 3 and one
 `chesswhy: error: ...` line.
 
+Analysis is position-only: PGN history selects the position but is not an input to the searches or
+rules. The fine set contains only the `fine`-verdict moves among the engine's top K candidates for
+that position; unlisted moves are not judged and may also be fine. `fine_truncated` is true iff the
+engine returned all K candidates and every one is fine; this does not classify unlisted moves.
+
+
 ```sh
 build/release/chesswhy --pgn tests/fixtures/two_games.pgn --game 1 --ply 2 --json --budget quick
 ```
+
+Save a `--json` report as `report.json`, then run the semantic checker (add more report paths after
+the schema to validate multiple files):
+
+```sh
+.venv/bin/python tools/validate_report.py schema/report.v5.schema.json report.json
+```
+
+The checker validates the schema first, then checks report relations it cannot express: loss and
+verdict thresholds, FEN side/check/legal-move counts, legal move pairs and lines, the asked-move
+copy, tactic invariants, and held-piece restriction moves and `held_to`. It uses python-jsonschema
+and python-chess from the development requirements.
+
 
 List a PGN's mainline plies as TSV, including the FEN before and after each move:
 

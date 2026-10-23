@@ -1,6 +1,6 @@
 # Current state
 
-Updated 2026-10-22.
+Updated 2026-10-23.
 
 - Milestone: **M3a and M3b complete, merged into `main` 2026-10-22** (Captain ran both
   smoke commands and approved). Receipts `Planning/receipts/M3a.md` and
@@ -18,8 +18,18 @@ Updated 2026-10-22.
     the pinned SHA-256. `--games FILE`; a missing or invalid table exits 3.
   - Release and ASan/UBSan CTests 141/141 (107 `unit`, 33 `engine`, 1 `games`); slowest
     `standard` F fixture 7.80 s (F06).
+- Milestone: **PostM3_EM2 complete, merged into `main` 2026-10-23** (Captain ran the
+  smoke command and called it good at checkpoint 3). Receipt
+  `Planning/receipts/PostM3_EM2.md`; contract `Planning/milestones/PostM3_EM2.md` (changes
+  §15). Report v5: restricted and free moves over the move set (hypothetical pawn
+  captures; never a king capture), contribution rule 3′, `removal_of_defender`
+  continuity, data digests, semantic checker, conditions in the text, new positional
+  tag `tripled_pawns` (25 positional tags), T60. Release and ASan/UBSan CTests 155/155
+  (118 `unit`, 37 `engine`/`games`; the checkpoint-3 additions were gated in Release
+  only); slowest `standard` F fixture 7.91 s (F12).
 - Next: M4 (libllama prose). Four candidate GGUFs are downloaded to `assets/models/`;
-  pinning them is an M4 task.
+  pinning them is an M4 task. Deferred to M4 (Captain, 2026-10-23): the text template
+  does not print `position.motifs` (e.g. the root `back_rank_weakness` behind Re8#).
 - Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
   (F26/F27 show 20–25 rows per line); M4 decides what the prose says.
 - DBC (Driven by Concepts), since 2026-10-21: `Planning/DBC/` holds CONCEPTS (concept

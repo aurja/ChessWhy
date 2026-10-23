@@ -1,11 +1,15 @@
+#include "chesswhy/digest.hpp"
 #include "chesswhy/openings.hpp"
 
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <filesystem>
 #include <fstream>
 #include <initializer_list>
+#include <iterator>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -127,11 +131,26 @@ private:
     std::filesystem::path path_;
 };
 
+[[nodiscard]] std::string read_file(const std::filesystem::path& path) {
+    std::ifstream input(path, std::ios::binary);
+    if (!input.is_open()) {
+        throw std::runtime_error("cannot read test file " + path.string());
+    }
+    return {std::istreambuf_iterator<char>(input), std::istreambuf_iterator<char>()};
+}
+
 void write_file(const std::filesystem::path& path, std::string_view contents) {
-    std::ofstream output(path);
+    std::ofstream output(path, std::ios::binary);
     REQUIRE(output.is_open());
-    output << contents;
+    output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
     REQUIRE(output.good());
+}
+
+void copy_openings(const std::filesystem::path& source, const std::filesystem::path& destination) {
+    for (const std::string_view filename : {"a.tsv", "b.tsv", "c.tsv", "d.tsv", "e.tsv"}) {
+        const std::string name(filename);
+        std::filesystem::copy_file(source / name, destination / name);
+    }
 }
 
 template <typename Function>
@@ -263,4 +282,57 @@ TEST_CASE("openings table load failures identify their source", "[openings]") {
         CHECK(error.find("openings") != std::string::npos);
         CHECK(error.find(missing.string()) != std::string::npos);
     }
+}
+TEST_CASE("opening digest pins match the asset fetch script", "[openings][unit]") {
+    const std::filesystem::path script =
+        std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tools" / "fetch_assets.sh";
+    const std::string contents = read_file(script);
+    for (std::size_t index = 0; index < chesswhy::openings::kDatasetSha256.size(); ++index) {
+        const std::string marker = "[" + std::string(1, static_cast<char>('a' + index)) + "]=\"";
+        const std::size_t start = contents.find(marker);
+        REQUIRE(start != std::string::npos);
+        const std::size_t digest_start = start + marker.size();
+        CHECK(std::string_view(contents).substr(digest_start, 64) ==
+              chesswhy::openings::kDatasetSha256[index]);
+    }
+}
+
+TEST_CASE("opening dataset identity follows all five loaded file bytes", "[openings][unit]") {
+    const std::filesystem::path source = openings_directory();
+    if (!std::filesystem::is_directory(source)) {
+        FAIL("pinned openings data is not present; run tools/fetch_assets.sh");
+    }
+
+    const TemporaryDirectory pinned_copy;
+    copy_openings(source, pinned_copy.path());
+    const Table pinned = Table::load(pinned_copy.path());
+    CHECK(pinned.dataset() == chesswhy::openings::kDataset);
+    const std::vector<chess::Board> no_mainline;
+    CHECK(chesswhy::openings::describe(pinned, chess::Board{}, no_mainline).dataset ==
+          chesswhy::openings::kDataset);
+
+    const TemporaryDirectory modified_copy;
+    copy_openings(source, modified_copy.path());
+    const auto modified_path = modified_copy.path() / "e.tsv";
+    std::string modified_contents = read_file(modified_path);
+    const std::size_t header_end = modified_contents.find('\n');
+    REQUIRE(header_end != std::string::npos);
+    const std::size_t first_row = header_end + 1;
+    const std::size_t first_tab = modified_contents.find('\t', first_row);
+    REQUIRE(first_tab != std::string::npos);
+    REQUIRE(first_tab > first_row);
+    modified_contents[first_row] = modified_contents[first_row] == 'Z' ? 'Y' : 'Z';
+    write_file(modified_path, modified_contents);
+
+    std::string concatenated;
+    for (const std::string_view filename : {"a.tsv", "b.tsv", "c.tsv", "d.tsv", "e.tsv"}) {
+        concatenated += read_file(modified_copy.path() / std::string(filename));
+    }
+    const std::string expected =
+        "custom@" +
+        chesswhy::sha256_hex(std::as_bytes(std::span(concatenated.data(), concatenated.size())))
+            .substr(0, 12);
+    const Table custom = Table::load(modified_copy.path());
+    CHECK(custom.dataset() == expected);
+    CHECK(chesswhy::openings::describe(custom, chess::Board{}, no_mainline).dataset == expected);
 }

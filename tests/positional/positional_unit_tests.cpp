@@ -79,6 +79,7 @@ parse_line(chess::Board& board, std::initializer_list<std::string_view> uci_move
     constexpr std::array tags{
         PositionalTag::IsolatedPawn,
         PositionalTag::DoubledPawns,
+        PositionalTag::TripledPawns,
         PositionalTag::BackwardPawn,
         PositionalTag::PassedPawn,
         PositionalTag::ConnectedPassedPawns,

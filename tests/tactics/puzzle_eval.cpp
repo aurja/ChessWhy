@@ -94,6 +94,8 @@ struct Metrics {
     std::size_t background_predicted = 0;
     std::size_t background_true_positive = 0;
     std::size_t background_false_positive = 0;
+    std::size_t background_untagged = 0;
+    std::size_t background_untagged_predicted = 0;
     std::size_t stratum_count = 0;
     std::size_t stratum_true_positive = 0;
     std::size_t stratum_direct = 0;
@@ -474,6 +476,10 @@ void process_row(const std::string& line, std::size_t line_number, std::size_t l
             if (fields[4] == "background") {
                 tag_metrics.background_tagged += actual[index] ? 1U : 0U;
                 tag_metrics.background_predicted += predicted[index] ? 1U : 0U;
+                if (!actual[index]) {
+                    ++tag_metrics.background_untagged;
+                    tag_metrics.background_untagged_predicted += predicted[index] ? 1U : 0U;
+                }
                 if (predicted[index] && actual[index]) {
                     ++tag_metrics.background_true_positive;
                 } else if (predicted[index]) {
@@ -535,7 +541,8 @@ void print_table(const std::array<Metrics, kTagCount>& metrics) {
               << std::setw(13) << "bg-predicted" << std::setw(9) << "bg-TP" << std::setw(9)
               << "bg-FP" << std::setw(15) << "lichess-agree" << std::setw(12) << "stratum-n"
               << std::setw(12) << "stratum-TP" << std::setw(10) << "recall" << std::setw(14)
-              << "direct-count" << std::setw(13) << "direct-share" << '\n';
+              << "direct-count" << std::setw(13) << "direct-share" << std::setw(13) << "untagged-n"
+              << std::setw(16) << "untagged-fired" << std::setw(15) << "untagged-rate" << '\n';
     std::cout << std::fixed << std::setprecision(3);
     for (std::size_t index = 0; index < kTagCount; ++index) {
         const Metrics& value = metrics[index];
@@ -546,7 +553,10 @@ void print_table(const std::array<Metrics, kTagCount>& metrics) {
                   << lichess_agreement(value) << std::setw(12) << value.stratum_count
                   << std::setw(12) << value.stratum_true_positive << std::setw(10) << recall(value)
                   << std::setw(14) << value.stratum_direct << std::setw(13)
-                  << ratio(value.stratum_direct, value.stratum_true_positive) << '\n';
+                  << ratio(value.stratum_direct, value.stratum_true_positive) << std::setw(13)
+                  << value.background_untagged << std::setw(16)
+                  << value.background_untagged_predicted << std::setw(15)
+                  << ratio(value.background_untagged_predicted, value.background_untagged) << '\n';
     }
 }
 

@@ -9,6 +9,7 @@
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
+        "/position/legal_moves": 48,
         "/threats/null_move_reliable/value": true,
         "/threats/urgency/more_urgent": null,
         "/threats/urgency/rule": "quiet",
@@ -22,7 +23,8 @@
       "fine_includes": ["O-O-O"],
       "candidate": {
         "Kf1": {"/verdict": "blunder"}
-      }
+      },
+      "text_contains": "Candidate 1 creates threat line (if Black passes after O-O-O):"
     },
     {
       "id": "F02",
@@ -40,7 +42,8 @@
         "/asked_move/verdict": "fine",
         "/candidates/0/tactic/forced": true
       },
-      "fine_includes": ["Kh5"]
+      "fine_includes": ["Kh5"],
+      "text_contains": "Candidate 1: Kh5 (h6h5), fine, es="
     },
     {
       "id": "F03",
@@ -62,7 +65,8 @@
         "Nd2": {"/verdict": "mistake"},
         "Kd1": {"/verdict": "blunder"},
         "Bd2": {"/verdict": "blunder"}
-      }
+      },
+      "text_contains": "Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]\nBudget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, R=100000 [rule]"
     },
     {
       "id": "F04",
@@ -89,7 +93,8 @@
       "fine_includes": ["g3", "g4"],
       "candidate": {
         "g3": {"/parries_threat/value": true, "/parries_threat/test": "searched"}
-      }
+      },
+      "text_contains": "Candidates: 5 of"
     },
     {
       "id": "F05",
@@ -112,7 +117,8 @@
       "fine_includes": ["Ne2+"],
       "candidate": {
         "Ne2+": {"/gives_check": true, "/parries_threat/value": false, "/parries_threat/test": "deferred_by_check", "/parries_threat/source": "rule"}
-      }
+      },
+      "text_contains": "deferred_by_check: the move checks, so the threat only waits"
     },
     {
       "id": "F06",
@@ -182,7 +188,8 @@
       "fine_includes": ["Qxf7"],
       "candidate": {
         "Nxf7+": {"/verdict": "blunder", "/gives_check": true, "/parries_threat/value": false, "/parries_threat/test": "deferred_by_check"}
-      }
+      },
+      "text_contains": "creates threat: not searched (gives check) [rule]"
     },
     {
       "id": "F09",
@@ -415,8 +422,10 @@
       "source": "constructed: knight captures the exposed queen with check",
       "args": ["--fen", "4k3/8/5q2/3N4/8/8/8/4K3 w - - 0 1"],
       "equals": {
-        "/candidates/0/tactic/is_tactic": true
-      }
+        "/candidates/0/tactic/is_tactic": true,
+        "/candidates/0/creates_threat_skipped": "gives_check"
+      },
+      "text_contains": "hanging_piece: N d5, SEE 3 (ply 2) [rule]"
     },
     {
       "id": "F22",
@@ -437,7 +446,8 @@
             "contribution": "direct"
           }
         ]
-      }
+      },
+      "text_contains": "Candidate 1 facts read to ply"
     },
     {
       "id": "F23",
@@ -519,6 +529,14 @@
         "/games/by_source/0/moves": []
       },
       "reason": "This legal position occurs before White's 58th move (after 114 plies); the games table only retains positions within its first 40 plies."
+    },
+    {
+      "id": "F31",
+      "title": "T46 restriction is explicit in the text report",
+      "source": "constructed: T46 tactical-pin position",
+      "args": ["--fen", "8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1"],
+      "text_contains": "at square g5; restricted: g5-f4, g5-g4, g5-h4; free: none",
+      "reason": "The g5 pawn has restricted g5-f4, g5-g4, and g5-h4 moves, leaving it held at g5."
     }
   ],
   "unit_fixtures": [

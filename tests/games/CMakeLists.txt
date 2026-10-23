@@ -2,10 +2,20 @@ add_executable(games_unit_tests games_unit_tests.cpp)
 target_link_libraries(games_unit_tests PRIVATE
     Catch2::Catch2WithMain
     chesswhy_games
+    chesswhy_util
     chesswhy_warnings
     chesswhy_paths
 )
-catch_discover_tests(games_unit_tests TEST_PREFIX "games_unit_tests::" PROPERTIES LABELS unit)
+catch_discover_tests(games_unit_tests
+    TEST_PREFIX "games_unit_tests::"
+    TEST_SPEC "~\"games table identity follows byte-identical pins\""
+    PROPERTIES LABELS unit
+)
+catch_discover_tests(games_unit_tests
+    TEST_PREFIX "games_unit_tests::"
+    TEST_SPEC "\"games table identity follows byte-identical pins\""
+    PROPERTIES LABELS games
+)
 
 find_program(ZSTD_EXECUTABLE zstd REQUIRED)
 add_test(

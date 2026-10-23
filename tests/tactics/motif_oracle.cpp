@@ -223,7 +223,8 @@ struct Statistics {
     return left.tag == right.tag && left.side == right.side && left.ply == right.ply &&
            same_piece(left.actor, right.actor) && left.targets.size() == right.targets.size() &&
            std::ranges::equal(left.targets, right.targets, same_piece) && left.gain == right.gain &&
-           left.threat == right.threat && left.contribution == right.contribution;
+           left.threat == right.threat && left.restriction == right.restriction &&
+           left.contribution == right.contribution;
 }
 
 [[nodiscard]] bool same_list(const std::vector<Motif>& left, const std::vector<Motif>& right) {
@@ -251,6 +252,29 @@ struct Statistics {
     output << ",gain=";
     if (motif.gain.has_value()) {
         output << *motif.gain;
+    } else {
+        output << "null";
+    }
+    output << ",restriction=";
+    if (motif.restriction.has_value()) {
+        const auto& restriction = *motif.restriction;
+        output << "{piece=" << square_name(restriction.piece.square) << ':'
+               << restriction.piece.piece << ",restricted=[";
+        for (std::size_t index = 0; index < restriction.restricted.size(); ++index) {
+            if (index != 0) {
+                output << ',';
+            }
+            output << restriction.restricted[index];
+        }
+        output << "],free=[";
+        for (std::size_t index = 0; index < restriction.free.size(); ++index) {
+            if (index != 0) {
+                output << ',';
+            }
+            output << restriction.free[index];
+        }
+        output << "],held_to=" << chesswhy::to_string(restriction.held_to.kind) << ':'
+               << restriction.held_to.name << '}';
     } else {
         output << "null";
     }
@@ -376,6 +400,10 @@ void classify_tag_mismatch(Statistics& statistics, MotifTag tag, const std::vect
         }
         if (left.threat != right.threat) {
             add_class(statistics, prefix + "threat", mismatch);
+            found_field_difference = true;
+        }
+        if (left.restriction != right.restriction) {
+            add_class(statistics, prefix + "restriction", mismatch);
             found_field_difference = true;
         }
     }
@@ -573,8 +601,11 @@ void print_statistics(std::string_view label, const Statistics& statistics) {
             throw std::logic_error("mismatch class has no example");
         }
         const Mismatch& example = record.example.value();
-        std::cout << "    " << name << ": " << record.count << "; example id=" << example.id
-                  << " ply=" << example.ply << " FEN=" << example.fen
+        std::cout << "    " << name << ": " << record.count << "; example id=" << example.id;
+        if (name.ends_with("/restriction")) {
+            std::cout << " plan=PostM3_EM2.md §4.1 lines 97-122";
+        }
+        std::cout << " ply=" << example.ply << " FEN=" << example.fen
                   << " detector=" << list_string(example.detector)
                   << " reference=" << list_string(example.reference) << '\n';
     }

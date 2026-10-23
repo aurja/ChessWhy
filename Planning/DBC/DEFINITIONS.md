@@ -17,6 +17,8 @@ Moved 2026-10-21 from `Planning/DEFINITIONS.md` (title "Definitions") to
 Moved again 2026-10-21 to `Planning/DBC/DEFINITIONS.md` (title "Definitions"), beside
 `CONCEPTS.md` and `CODE.md` (§7). Section headings no longer name milestones; the
 "Defined in" columns still point to the plan sections that decided each term.
+Updated 2026-10-22 with the PostM3_EM2 plan (G1–G15) and the drift the conceptual audit
+of that day found; rewritten rows name their old meaning.
 
 ## 1. Words that mean several things
 
@@ -64,22 +66,25 @@ Read these first. Each word is used in two or more senses in the plans.
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| report | The JSON document one query produces; everything the tool claims is a field of it. Versioned by `schema_version` (2 at M2; 3 from PostM2_EM1, adding `tactic` and `engine.nodes.R`) with a JSON Schema in `schema/` | vision §6, M2 §5, PostM2_EM1 §5 |
-| provenance | Every fact's source: `engine` (Stockfish search), `rule` (deterministic board rule), `book` (reference material, opening names), `games` (counts from game collections) | vision §2 |
+| report | The JSON document one query produces; everything the tool claims is a field of it. Versioned by `schema_version` (2 at M2; 3 from PostM2_EM1, adding `tactic` and `engine.nodes.R`; 4 from M3a/M3b, adding positional features and changes and `games`; 5 from PostM3_EM2, adding `legal_moves`, `depth`, `walked_plies`, `creates_threat_skipped` and `restriction`) with a JSON Schema in `schema/`. Before 2026-10-22 this row stopped at version 3 | vision §6, M2 §5, PostM2_EM1 §5, PostM3_EM2 §5 |
+| provenance | Every fact's source: `engine` (Stockfish search), `rule` (deterministic board rule), `book` (reference material, opening names), `games` (counts from game collections). Verdicts and losses are `engine`: engine scores read through frozen thresholds (the cut-offs are ChessWhy's) | vision §2 |
 | facts first | Chess content is computed in C++ and stored in the report; the language model (M4) only puts report fields into words | vision §2 |
 | budget | `quick`, `standard` (default) or `deep`: fixed node counts per search kind | M1 §3 |
-| reproducible | Threads = 1, Hash 64 MB, fixed nodes, `ucinewgame` before each search: the same input gives a byte-identical report | M1 §3 |
+| reproducible | Threads = 1, Hash 64 MB, fixed nodes, `ucinewgame` before each search: the same input gives a byte-identical report. Means the same configuration only: the report does not identify the engine binary or the ChessWhy revision (stated 2026-10-22) | M1 §3, PostM3_EM2 G11 |
 | rerun identity | The acceptance check that two fresh runs give byte-identical JSON | M1 §14 |
 | asked move | The move given with `--move`: the user's "why (not) this move?" | M1 §4.7 |
-| candidates | A's K best moves with their verdicts | M1 §4.7 |
+| candidates | A's K best moves with their verdicts, in A's MultiPV order (not re-sorted by score) | M1 §4.7, PostM3_EM2 G9 |
+| line depth | The search depth the engine reached on a candidate's line (or on search C for an asked move outside A); JSON `MoveAssessment.depth`, `engine` provenance. Lines of one MultiPV search can end at different depths | PostM3_EM2 §5 |
+| `legal_moves` | The number of legal moves in the analysed position (`position.legal_moves`, `rule`), printed beside the candidate count so the reader sees how many moves were not judged | PostM3_EM2 §5 |
 | level | `beginner`, `club`, `advanced`: audience of the M4 prose; no effect on analysis | vision §3 |
 | command line | `chesswhy` with flags (`--fen` or `--pgn` with `--game`/`--ply`, `--move`, `--budget`, `--level`, `--json`, `--no-llm`): how a question arrives today | M1 §6 |
 | native apps | Planned presentation layer: apps on Linux and Windows, possibly Android, so players need no technical setup; design and scope open with the Captain (M6). Called "local HTTP API" before 2026-10-22, when it meant the CLI inputs as JSON over HTTP on `127.0.0.1`; that design is dropped | vision §9 |
-| analysed position | The one position a report is about: the FEN, or the PGN game's position after `--ply` half-moves (default: its final position) | M1 §5 |
+| analysed position | The one position a report is about: the FEN, or the PGN game's position after `--ply` half-moves (default: its final position). Position-only: the moves that led to it are not an input to the searches or rules, so repetitions in the game do not change a verdict | M1 §5, PostM3_EM2 G15 |
 | game mainline | For PGN input: the game's positions from its start to the analysed position, used only to find the last named position | M1 §4.8, §5 |
 | input error | Input that cannot be used (bad flag, invalid FEN, illegal or ambiguous move, missing game or ply): one `chesswhy: error:` line, exit 2, no report | M1 §5, §6 |
 | fact | One claim about the position, stored as a report field with its provenance before any words are written | vision §2 |
-| report schema | The versioned JSON Schema in `schema/` that every report must satisfy; `schema_version` names it | vision §6 |
+| report schema | The versioned JSON Schema in `schema/` that every report must satisfy; `schema_version` names it. From v5: a description on every field and if/then rules for local relations | vision §6, PostM3_EM2 §5 |
+| semantic check | Checks of relations between report fields that a schema cannot express, run by `tools/validate_report.py` with python-chess after the schema check (verdict against loss, side to move against the FEN, legal lines, the asked-move copy, tactic invariants, restricted moves and others; 14 checks) | PostM3_EM2 §4.6 |
 | JSON output | The report printed as JSON (`--json`), for programs and for checking; without `--json` the output is template rendering | M1 §6 |
 
 ### 3.2 Searches A–E, R
@@ -102,13 +107,16 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 |---|---|---|
 | threat | The line a side would play if it were its move: `S`'s threat is A's best line, `O`'s threat is B's line. "White's biggest problem" is Black's threat | vision §5.2, M1 §4.2 |
 | consequence | What a line achieves for the side playing it, computed by rule from the engine line: `class`, `mate_in`, `material`, `promotes`, `plies` | M1 §4.3 |
-| walked plies | How far the consequence rule follows a line: 6 plies, then on while the next move is a capture, up to 10. `walked_plies` in `analysis.hpp` | M1 §4.3, M2 §6 |
+| walked plies | How far the consequence rule follows a line: 6 plies, then on while the next move is a capture, up to 10. `walked_plies` in `analysis.hpp`. Motifs and positional changes of a line cover the same plies | M1 §4.3, M2 §6 |
+| `walked_plies` | The walked plies of a candidate's or the asked move's line, as a report field (`MoveAssessment.walked_plies`, `rule`), so the text can say up to which ply facts were read | PostM3_EM2 §4.4 |
 | consequence class | `mate` (engine mate score for the side), else `material` (net gain ≥ 1 pawn over the walked plies), else `promotion`, else `positional` | M1 §4.3 |
 | rank | Class as a number: mate 4, material ≥ 3 → 3, material ≥ 1 → 2, promotion 1, positional 0 | M1 §4.3 |
 | `null_move_reliable` | False when `S` has at most one piece besides king and pawns (zugzwang-prone: passing would be an advantage, so B misleads); null when `S` is in check | M1 §4.4 |
-| parry test | Whether `m` stops `O`'s threat: by rule when `t` becomes illegal, otherwise by search D (the threat still works iff `O`'s ES stays within 0.03 of B's) | M1 §4.5 |
-| `parries_threat` | Result of the parry test for one move; null when `O`'s threat has rank < 2 | M1 §4.5 |
-| `creates_threat` | The threat `m` creates (search E); null when `m` gives check | M1 §4.7 |
+| parry test | Whether `m` stops `O`'s threat: by rule when `t` becomes illegal, otherwise by search D (the threat still works iff `O`'s ES stays within 0.03 of B's). "Parries" means the threat no longer wins against the pass baseline B, not that it was prevented; a move that gives check only defers the threat (`deferred_by_check`) | M1 §4.5, PostM3_EM2 G2 |
+| `parries_threat` | Result of the parry test for one move; null when `O`'s threat has rank < 2 or `S` is in check (no threat B) | M1 §4.5 |
+| `creates_threat` | The threat `S` would have after `m` if `O` passed (search E, a premise). Null when `m` gives check, `m` ends the game, or `S` has no legal move after `O`'s null move (before 2026-10-22 this row named only the check) | M1 §4.7 |
+| `creates_threat_skipped` | Why `creates_threat` is null: `gives_check`, `game_over` or `no_legal_move`; null iff `creates_threat` is set; `rule` | PostM3_EM2 §4.4 |
+| conditions | What a fact depends on, printed beside it by the template: a threat line's null-move premise ("if White passes"), a parry deferred by check, the reason a created threat was not searched, the walked plies, the engine and budget, and how many legal moves were not judged | PostM3_EM2 G2, §10 |
 | refutation | For a move that is not fine: `O`'s best reply line after it, as a threat by `O`. From PostM2_EM1 it carries a tactic judgement (§4.5) | M1 §4.7 |
 
 ### 3.4 Urgency
@@ -127,8 +135,8 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 |---|---|---|
 | loss | `ES_S(best) − ES_S(m)`, at least 0 | M1 §4.7 |
 | verdict | fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder (loss in ES, scaled to Stockfish 19) | M1 §4.7 |
-| fine set | All moves with verdict fine: the answer to "what can I play here?" | vision §5.4 |
-| `fine_truncated` | All K of A's lines are fine, so more fine moves may exist than are listed | M1 §4.7 |
+| fine set | The fine moves among the candidates. ChessWhy judges the engine's top K moves only; unlisted moves are not judged and may also be fine. Before 2026-10-22: "all moves with verdict fine", which the tool never computed | vision §3, §5.4, PostM3_EM2 G8 |
+| `fine_truncated` | True iff all K of A's lines are fine, so more fine moves may exist than are listed. False does not mean the unlisted moves are not fine | M1 §4.7, PostM3_EM2 §5 |
 
 ## 4. Tactical motifs
 
@@ -149,7 +157,7 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 |---|---|---|
 | position motifs | `position.motifs`: state motifs of the current position (ply 0), both sides. In the JSON, not printed | M2 §5 |
 | line motifs | `motifs` on each threat, `creates_threat`, refutation and move line: motifs at plies 1 to the walked plies of that line | M2 §5 |
-| first-appearance rule | Inside a line, a state motif is listed at ply k only if it holds after ply k and did not hold after ply k−1 | M2 §5 |
+| first-appearance rule | Inside a line, a state motif is listed at ply k only if it holds after ply k and did not hold after ply k−1 (so it can be listed again after a gap; "first holds" in the concept map before 2026-10-22 meant this) | M2 §5 |
 | line relevance | Former extra condition on `trapped_piece` (a later move of the line had to move or capture the piece). Removed 2026-10-20: it read later moves, which judges a line, not a board | M2 §8.1, §15 |
 | trade in progress | Exclusion for `hanging_piece` inside a line: the "hanging" piece just captured something worth at least as much, so it is a recapture, not a gift | M2 §4.1 |
 
@@ -161,8 +169,9 @@ candidate D, E, R; then C, D, E, R for an asked move outside A.
 | `ply` | Where in the line it holds (0 = the current position) |
 | `actor` | The piece that does it: the forking knight, the pinner, the hanging piece itself, the overloaded defender |
 | `targets` | The pieces it acts on, in a fixed order (M2 §5) |
-| `gain` | SEE value in pawns, only for `hanging_piece` and `trapped_piece`; null otherwise |
+| `gain` | SEE value in pawns, only for `hanging_piece` and `trapped_piece`; null otherwise. From PostM3_EM2 the text prints it as `SEE N` (before 2026-10-22: `gain N`); the JSON key stays `gain` |
 | `threat` | Only on `pin_tactical`: `{kind, square}`, the kind of threat that removing the restricted piece would enable and the square b where X's threatening move lands. For `capture` that is the captured piece's square, except en passant, where b is the landing square and the captured pawn (a target) stands behind it. Before the 2026-10-21 milestone review this row equated the two. Null otherwise (§4.4, `pin_tactical`) |
+| `restriction` | On `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` only: `{piece, restricted, free, held_to}`, the held piece, its restricted and free moves in UCI, and how it is held (§4.5, restricted moves, held to); null otherwise; `rule` |
 | `contribution` | The motif's role in the tactic of the line it is listed on: `direct`, `indirect`, `none`, or null = not judged. Always null in M2; from PostM2_EM1 set on every motif of a tactic line, null elsewhere (§4.5) |
 
 ### 4.4 The tags in plain words
@@ -177,7 +186,7 @@ Exact definitions: M2 §4. These sentences only orient.
 | `back_rank_weakness` | Y king on its first rank, boxed in by its own pieces or X's attacks, and no Y rook or queen guards the rank | fixture-only |
 | `overloaded_defender` | One Y piece is the only reason two or more Y pieces are safe | fixture-only |
 | `trapped_piece` | A Y piece X can win on its square, and every move of it loses it too | measured |
-| `pin_tactical` | A Y piece p is held in place by a threat: if p were gone, an X move would make a fork, skewer, discovered check or attack, double check, back-rank mate, promotion or checkmate that it does not make now, or X would win a Y piece by SEE that it cannot win now. Includes p guarding an empty square. Not computed while either king is in check (only Y's before 2026-10-21's gate), and not for a p whose removal would check either king. Actor: the X piece that would move; targets: p, then the threat's targets; `threat` names the kind and square. Called "tactical pin" in conversation (not a chess-literature term) | fixture-only |
+| `pin_tactical` | A Y piece p is held in place by a threat: if p were gone, an X move would make a fork, skewer, discovered check or attack, double check, back-rank mate, promotion or checkmate that it does not make now, or X would win a Y piece by SEE that it cannot win now. Includes p guarding an empty square. Not computed while either king is in check (only Y's before 2026-10-21's gate), and not for a p whose removal would check either king. Reported only when at least one move of p still lets the threat happen (existence condition, from 2026-10-22). Actor: the X piece that would move; targets: p, then the threat's targets; `threat` names the kind and square. Called "tactical pin" in conversation (not a chess-literature term) | fixture-only |
 | `fork` | One X move attacks two or more Y pieces worth attacking, and the moved piece is safe | measured |
 | `skewer` | An X slider attacks a Y piece, behind which stands a less valuable Y piece X then wins | measured |
 | `discovered_check` | An X move unmasks check from another X piece | measured |
@@ -210,12 +219,22 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 | two-winners limit | With two equally winning moves the margin is near 0, so neither is a tactic. Known, accepted | E4 |
 | motif recognition | Is the pattern on the board, and do we report it exactly when it is? Must be exact against the written definitions; checked by the T fixtures and the reference implementation (§5.7) | M2 §7.4 |
 | tactic recognition | Does the line gain against the best alternative, and do we label it a tactic exactly when it does? Mechanical from the engine, so exact by construction; tests check the computation (invariant check, §6.2) | PostM2_EM1 §14 |
-| contribution judgement | For each motif on a tactic line, by rule: motifs of the other side → **none**; **direct** if it is a move motif or a later move of the tactic side captures one of its pieces of the other side; **indirect** if not direct, a piece of the other side in the motif attacks (pins ignored) the destination of a later move of the tactic side, and none of the motif's pieces has moved or been captured by then; else **none**. Plain sense: direct = the tactic's moves make it or capture its pieces; indirect = it stops the defender answering a move (a pin that stops a recapture, an overloaded defender); none = the tactic works without it. Since 2026-10-21; before, any later move by either side that moved or captured a motif piece made it direct, and any motif piece (including the tactic side's own) attacking a destination made it indirect. "Indirect" was open before 2026-10-20. Measured against hand-labelled C fixtures (§6.2) | PostM2_EM1 §4.3, §15 |
+| contribution judgement | For each motif on a tactic line, by rule: motifs of the other side → **none**; **direct** if it is a move motif or a later move of the tactic side captures one of its pieces of the other side; **indirect** if not direct and, after a tactic-side move (the one that made the motif's board, or a later one; not castling; before any motif piece has moved or been captured), one of the motif's denied moves would answer that move; else **none**. Plain sense (Captain, 2026-10-22): direct = the tactic's moves make it or capture its pieces; indirect = it takes away an answer the defender would have (a recapture, an escape, an interposition, a capture of the checker); none = the tactic works without it. Rule 3′, approved at checkpoint 1 and built on 2026-10-22 (PostM3_EM2 §4.2). Before 2026-10-22: **indirect** if a piece of the other side in the motif attacks (pins ignored) the destination of a later move of the tactic side, and none of the motif's pieces has moved or been captured by then; that rule called a motif "none" even when the defender would gain an escape without it (Re8# back-rank weakness). Before 2026-10-21, any later move by either side that moved or captured a motif piece made it direct, and any motif piece (including the tactic side's own) attacking a destination made it indirect. "Indirect" was open before 2026-10-20. Measured against hand-labelled C fixtures (§6.2) | PostM2_EM1 §4.3, §15; PostM3_EM2 §4.2 |
+| denied move | A move the motif takes away from the defender, on a board with the defender to move: for the two pins, overloaded defender and tactical pin, the held piece's restricted moves; for `back_rank_weakness`, the king's steps onto a front or diagonal-front square held by its own piece, as if that piece were gone. `hanging_piece` and `trapped_piece` deny nothing | PostM3_EM2 §4.1 |
+| answer | A denied move answers a tactic-side move when, with the defender in check, the king is no longer attacked after it, covering escape, capture of the checker and interposition (for an absolute pin, only the pinner's attack through the vacated square is ignored); otherwise when it captures the piece that just moved | PostM3_EM2 §4.2 |
 | tactic label | A rule fact about a tactic line that reads later moves, so it is not a motif. Its fields match a motif's (`tag`, `side`, `ply`, `actor`, `targets`), without `gain` and `contribution`. One tag: `removal_of_defender` | PostM2_EM1 §4.4 |
-| `removal_of_defender` | Tactic label: an X capture takes a Y piece d that alone kept another Y piece t safe (SEE 0 with d, ≥ 1 without), and a later X capture on t's square wins it. Actor: the capturing piece; targets: d, t. Outside the motif reference implementation | PostM2_EM1 §4.4 |
-| restricted movement | Report wording (Captain, 2026-10-21) shared by the four tags that hold a Y piece in place: "restricted movement (absolute pin)", "(relative pin)", "(overloaded defender)" and "(tactic: Nd5-f4 fork)" for `pin_tactical` (actor, threat square, threat kind). Wording only: the JSON keeps the tags. An open proposal before 2026-10-21's freeze | PostM2_EM1 §10 |
+| `removal_of_defender` | Tactic label: an X capture takes a Y piece d that alone kept another Y piece t safe (SEE 0 with d, ≥ 1 without), and a later X capture on t's square wins it; t must still stand on its square at that capture: no move in between starts or ends there. Before 2026-10-22 any later capture on t's square counted, even of a different piece. Actor: the capturing piece; targets: d, t. Outside the motif reference implementation | PostM2_EM1 §4.4, PostM3_EM2 §4.3 |
+| restricted movement | Report wording (Captain, 2026-10-21) shared by the four tags that hold a Y piece in place: "restricted movement (absolute pin)", "(relative pin)", "(overloaded defender)" and "(tactic: Nd5-f4 fork)" for `pin_tactical` (actor, threat square, threat kind). Wording only: the JSON keeps the tags. Meaning (Captain, 2026-10-22): restricted does not mean the piece cannot move at all; it means it cannot move in all the ways it otherwise could. From 2026-10-22 the row says how the piece is held ("at square e5", "along file e") and names the restricted and free moves. An open proposal before 2026-10-21's freeze | PostM2_EM1 §10, PostM3_EM2 §4.1, §10 |
+| held piece | The piece a restricted-movement motif holds in place: the pinned piece (targets[0]) for the two pins and `pin_tactical`, the defender (actor) for `overloaded_defender` | PostM3_EM2 §4.1 |
+| restricted moves | The held piece's moves that the motif makes illegal (absolute pin) or costly: after it, X wins the rear piece (relative pin), wins a guarded piece (overloaded defender) or can still make the threat (tactical pin). Computed with the held side to move, over the held piece's move set (from 2026-10-22, Captain at checkpoint 2; before: its legal moves only, so a pawn whose only push stayed on the pin line had none) | PostM3_EM2 §4.1 |
+| free moves | The legal moves of the held piece's move set that are not restricted moves; may be empty | PostM3_EM2 §4.1 |
+| move set | (Captain, checkpoint 2, 2026-10-22) The moves a held piece is judged by: its legal moves (pseudo-legal for an absolute pin's restricted moves), plus, for a pawn, a hypothetical capture onto each square diagonally in front of it. Reason: a pawn's capture is a way it can move that only an occupied square unlocks, so "this pawn is pinned, so I can go there" is a valid thought. Other pieces have no hypothetical moves. Never a move that captures a king (2026-10-23: the board with the held side to move can leave the other king in check) | PostM3_EM2 §4.1 |
+| hypothetical capture | (Captain, checkpoint 2, 2026-10-22) A pawn's capture onto a square diagonally in front of it, counted whatever stands there: empty, its own piece (an X capture there would put something there), or an X piece (then it is a real capture). Judged on the board after it: the pawn on that square, the previous occupant gone; legal when its own king is not attacked there. A capture onto the last rank is four promotion moves. Not added where the pawn already has a move to that square, a real capture or en passant (2026-10-23, review): the real move stands in | PostM3_EM2 §4.1 |
+| held to | (Captain, checkpoint 1, 2026-10-22) How a restricted-movement motif restricts its held piece, read from the free moves' destinations: "at square w" (no free move; w is the held piece's square), "along file x", "along rank y" or "along diagonal z" (every free destination on that line through the held piece's square; a diagonal is named by its two edge squares, e.g. a4-e8), otherwise "only to squares a2, d1, g8" (the free destinations; Captain, 2026-10-22, option B). Always present. JSON `restriction.held_to` `{kind, name}` | PostM3_EM2 §4.1 |
+| existence condition | (Captain, checkpoint 1, 2026-10-22) A pin, overloaded defender or tactical pin is reported only when its held piece has at least one restricted move, over its move set (from checkpoint 2, 2026-10-22: a pawn's hypothetical captures count). The alternative (for `pin_tactical` only, keeping the M2 pins as they were) was not chosen | PostM3_EM2 §4.1 |
 | claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
 | PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label, `pin_tactical`. Plan `Planning/milestones/PostM2_EM1.md`, receipt `Planning/receipts/PostM2_EM1.md`; complete, merged into `main` 2026-10-21 (branch `postm2-em1`). Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
+| PostM3_EM2 | The milestone after M3a/M3b (Captain's name, 2026-10-22): fixes from the conceptual audit of 2026-10-22 (`Planning/critiques/`) before M4: restricted and free moves, contribution rule 3′, `removal_of_defender` continuity, conditions in the template, report v5 with semantic checks, data digests; at checkpoint 3 also `tripled_pawns` and T60. Plan `Planning/milestones/PostM3_EM2.md`, receipt `Planning/receipts/PostM3_EM2.md`; complete, merged into `main` 2026-10-23 (branch `postm3-em2`) | vision §11 |
 
 ## 5. Measurement
 
@@ -247,7 +266,7 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| recall | On a theme's stratum: share of puzzles Lichess labels with it where we also predict it. "When Lichess says *fork*, do we find a fork for the solver?" Gated for the 10 measured themes. A Lichess theme names the motif behind the puzzle's tactic (a direct contribution, §4.5), so recall checks that our definitions catch what chess players mean by the word | M2 §7.3 |
+| recall | On a theme's stratum: share of puzzles Lichess labels with it where we also predict it. "When Lichess says *fork*, do we find a fork for the solver?" Gated for the 10 measured themes. A Lichess theme names the motif behind the puzzle's tactic (a direct contribution, §4.5), so recall checks that our definitions catch what chess players mean by the word. It is coverage of Lichess-tagged puzzles, not precision: it says nothing about how often a tag fires where Lichess does not name it (stated 2026-10-22; see untagged firing rate) | M2 §7.3, PostM3_EM2 §7 |
 
 ### 5.4 Lichess agreement
 
@@ -298,6 +317,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 | puzzle check | `tactics_puzzle_eval` treats each puzzle's solution line from the root as a tactic sequence and prints the two numbers below. Printed in the receipt; never gated, never tuned against | PostM2_EM1 §7 |
 | direct share | Per measured theme, on its stratum, among puzzles where we predict the theme: share where a mapped instance for the solver is judged `direct`. Checks the contribution rule against Lichess's naming of the puzzle's idea | PostM2_EM1 §7 |
 | `removal_of_defender` recall | Share of the `capturingDefender` stratum where the solver gets a `removal_of_defender` label; Lichess agreement on background alongside | PostM2_EM1 §7 |
+| untagged firing rate | Per measured tag, the share of background puzzles without its theme where the solver gets the tag (test split, 2026-10-22, after the existence condition with hypothetical captures: `hanging_piece` 3,531/5,821 = 60.7%, pin 2,386/5,551 = 43.0%; pin was 2,459/5,551 = 44.3% before the existence condition and 1,723/5,551 = 31.0% with legal moves only). Printed beside recall so it is not read as precision; never gated | PostM3_EM2 §7 |
 
 ## 6. Process and testing
 
@@ -306,11 +326,12 @@ PostM2_EM1 starts from commit `d5b703a`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | vision | `Planning/PROJECT_VISION.md`: the source of truth for scope, method and decisions | AGENTS.md |
-| milestone (M0–M6, PostM2_EM1, M3a, M3b) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sat between M2 and M3 (§4.5). M3 is split (Captain, 2026-10-21) into **M3a** (positional facts) and **M3b** (opening statistics), planned and built in parallel | vision §11 |
+| milestone (M0–M6, PostM2_EM1, M3a, M3b, PostM3_EM2) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sat between M2 and M3 (§4.5). M3 is split (Captain, 2026-10-21) into **M3a** (positional facts) and **M3b** (opening statistics), planned and built in parallel. PostM3_EM2 sits between M3b and M4 (Captain, 2026-10-22) | vision §11 |
 | contract | The frozen parts of a milestone plan: headers, report schema, fixtures, acceptance, owned files. Workers implement against it and do not change it | AGENTS.md |
 | contract change | Any change to a frozen item after freezing; recorded as a row in the plan's last section ("§15 row" in M2) with date, change and reason | M2 §15 |
 | D1–D13 | The Captain's numbered decisions in M2: D1–D10 at the start, D11–D13 at checkpoint 2b (motif/tactic split, reference implementation, `removal_of_defender` removed) | M2 §1 |
 | E1–E7 | The Captain's numbered decisions in PostM2_EM1 (briefed as P1–P5 on 2026-10-20): order, threshold, judged lines and search R, best move only, forced moves, contribution rule, `removal_of_defender` as a tactic label | PostM2_EM1 §1 |
+| G1–G15 | The Captain's decisions on the 2026-10-22 audit findings, frozen in PostM3_EM2 §1 (the Deputy's 15 recommendations, with the Captain's changes to G5 contribution "none" and G10 restricted movement) | PostM3_EM2 §1 |
 | checkpoint | A point where the Captain approves something before it is frozen (M2: fixtures; targets; merge. PostM2_EM1: C fixtures and F rows; rule-versus-label mismatches; merge) | M2 §12, PostM2_EM1 §12 |
 | work package (WP) | One worker's slice of a milestone: owned files, done-condition, non-goals | M2 §11 |
 | batch | WPs run at the same time; integrated and tested together | AGENTS.md |
@@ -329,13 +350,14 @@ PostM2_EM1 starts from commit `d5b703a`.
 | T fixtures | Motif unit fixtures in `tests/fixtures/motifs.json` (T01–T41 from M2; T42 onward for `pin_tactical`, PostM2_EM1): a position and line with instances that must (`includes`) or must not (`excludes`) be reported. A `pin_tactical` include also states its `threat` | M2 §9, PostM2_EM1 §9 |
 | C fixtures | Contribution unit fixtures C01–Cnn in `tests/fixtures/tactics.json`: a tactic sequence with the hand-labelled contribution of every motif of the tactic side (except `pin_tactical`, listed only for chosen instances, Captain 2026-10-21), plus tactic labels that must or must not appear. Hand labels come from the plain meaning, not from running the rule; the Captain reviews them | PostM2_EM1 §9 |
 | hand label | A fixture's expected value set by a person from the chess meaning, with a one-line reason, before the rule's output is seen. Where rule and hand label differ, the Captain decides which changes | PostM2_EM1 §9, §12 |
-| invariant check | Part of the F harness from PostM2_EM1: on every F report, recomputes each tactic judgement from the report's own evals (margin, threshold, forced, which lists carry contributions) | PostM2_EM1 §9 |
+| invariant check | Part of the F harness from PostM2_EM1: on every F report, recomputes each tactic judgement from the report's own evals (margin, threshold, forced, which lists carry contributions). From PostM3_EM2 the semantic check also covers it, on every report | PostM2_EM1 §9, PostM3_EM2 §4.6 |
+| mutant | A hand-corrupted copy of a valid report that breaks one semantic check; the checker must reject each of the 14 with that check's name | PostM3_EM2 §4.6 |
 | positive / near miss | A T fixture where the motif holds / a deliberately similar position where it must not (e.g. a fork whose forking piece can be taken) | M2 §9 |
 | constructed | A fixture position made up by hand rather than taken from a game | M2 §9 |
 | `motifs_include` | Key on an F fixture: listed motif instances must appear in the report (extras allowed). From PostM2_EM1 an entry may also state its `contribution` | M2 §9, PostM2_EM1 §9 |
 | `positional_include` | Key on an F fixture from M3a: listed positional features or changes must appear in the report (extras allowed); partial objects match like `motifs_include` | M3a §8 |
-| `text_contains` | Key on an F fixture from M3b: the text report of the same run (without `--json`) must contain the given string. Used for the rendered games row (F29) | M3b §9 |
-| P fixtures | Positional unit fixtures in `tests/fixtures/positional.json` (M3a): `features` entries P01… (a position with features that must or must not be reported) and `lines` entries PL01… (a line with positional changes that must or must not be reported). Hand-labelled from the plain definitions; at least 10 are positions from the Captain's books, cited by game | M3a §8 |
+| `text_contains` | Key on an F fixture from M3b: the text report of the same run (without `--json`) must contain the given string. Used for the rendered games row (F29) and, from PostM3_EM2, for the conditions and restriction lines (F01–F05, F08, F21, F22, F31) | M3b §9, PostM3_EM2 §10 |
+| P fixtures | Positional unit fixtures in `tests/fixtures/positional.json` (M3a): `features` entries P01… (a position with features that must or must not be reported) and `lines` entries PL01… (a line with positional changes that must or must not be reported). Hand-labelled from the plain definitions; at least 10 are positions from the Captain's books, cited by game (a fixture's `source` never names the book). From PostM3_EM2 every board also goes through the positional reference (`positional_oracle`). They check the rule on positions from books; they do not show the books support the rule | M3a §8, PostM3_EM2 §9 |
 | re-blessing | Re-deriving engine fixture expectations for a new Stockfish version; an explicit milestone task | AGENTS.md |
 
 ### 6.3 Tests, gates, builds
@@ -349,7 +371,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 | `games_oracle` | CTest (`games`, M3b): `chesswhy-games` on two pinned months against `tools/count_games.py`, an independent python-chess counter; the two tables must be byte-identical | M3b §9 |
 | gate | Required checks. After a batch: build and affected tests. At milestone end: all tests in Release and ASan/UBSan, clang-format, clang-tidy, Ruff, basedpyright, ShellCheck, the smoke command | AGENTS.md |
 | Release / ASan build | `build/release` (optimised) and `build/asan` (debug with address and undefined-behaviour sanitisers) | AGENTS.md |
-| smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2 and PostM2_EM1: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 (M2), and from PostM2_EM1 a refutation that is a tactic with the fork `direct`, while the root (all lines at ES 1.0) is not a tactic | M2 §14, PostM2_EM1 §14 |
+| smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2 and PostM2_EM1: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 (M2), and from PostM2_EM1 a refutation that is a tactic with the fork `direct`, while the root (all lines at ES 1.0) is not a tactic. PostM3_EM2: `--fen '6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1' --budget standard --no-llm`, expecting Re8# with the back-rank weakness `indirect` | M2 §14, PostM2_EM1 §14, PostM3_EM2 §14 |
 | golden test | Compares rendered text with a stored expected file byte for byte | M2 §10 |
 | timing check | `standard` must finish within 12 s per F fixture in Release | M2 §14 |
 | usage guard | Background watcher that pauses agent work when a model subscription window nears its limit | AGENTS.md |
@@ -375,37 +397,45 @@ PostM2_EM1 starts from commit `d5b703a`.
 
 ## 8. Positional facts, reference knowledge and explanation
 
-Mostly planned; [CONCEPTS.md](CONCEPTS.md) marks what is built.
+Partly built: positional facts (M3a), opening names and game counts (M3b); the rest is
+planned. [CONCEPTS.md](CONCEPTS.md) marks what is built. Before 2026-10-22 several built
+rows here still said "Planned".
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| positional fact | A lasting feature computed by rule (pawn structure, king safety, piece activity, space and development, material balance), reported as a positional feature of the position and as positional changes along a line, and used in the explanation only when tied to a line or verdict. Planned until M3a is built; §9 has the parts. Since 2026-10-21 (Captain's option B): material balance only; before, "material imbalance" (which pieces each side has, beyond the count) and named pawn structures were included, now deferred | vision §5.6, M3a |
+| positional fact | A lasting feature computed by rule (pawn structure, king safety, piece activity, space and development, material balance), reported as a positional feature of the position and as positional changes along a line, and used in the explanation only when tied to a line or verdict. Built in M3a; §9 has the parts. Since 2026-10-21 (Captain's option B): material balance only; before, "material imbalance" (which pieces each side has, beyond the count) and named pawn structures were included, now deferred | vision §5.6, M3a |
 | position key | Piece placement, side to move, castling rights and an en-passant square only when a legal capture exists; move counters ignored, so transpositions match | vision §5.7, M1 §4.8 |
 | opening name | Name and ECO code of a position in the pinned opening dataset; `book` provenance; never guessed for an unnamed position | vision §5.7, M1 §4.8 |
 | last named position | For PGN input: the last position on the game mainline (up to and including the analysed position) that has an opening name, with its ply | M1 §4.8 |
-| game-count table | Planned: a position → move-count table built offline from pinned game collections, each source and platform kept apart, with a recorded table id. One source since 2026-10-21: Lichess broadcasts, both players 2200+, January 2020 to September 2026, in `assets/data/games/lichess_broadcast_2200.tsv` | vision §5.7, M3b §4 |
-| game counts | Planned: per source and position, the number of games, results and the count for each move played; `games` provenance; every figure names its source and platform and is never phrased as move quality | vision §2, §5.7, M3b §5 |
-| rating floor | Planned: the minimum rating both players of a game must have (`WhiteElo` and `BlackElo` tags) for the game to enter the game-count table; games without both tags are left out. 2200 (Captain, 2026-10-21) | vision §5.7, M3b §4.1 |
+| game-count table | A position → move-count table built offline from pinned game collections, each source and platform kept apart, with a recorded table id. One source since 2026-10-21: Lichess broadcasts, both players 2200+, January 2020 to September 2026, in `assets/data/games/lichess_broadcast_2200.tsv`. Built in M3b | vision §5.7, M3b §4 |
+| game counts | Per source and position, the number of games, results and the count for each move played; `games` provenance; every figure names its source and platform and is never phrased as move quality. Built in M3b | vision §2, §5.7, M3b §5 |
+| rating floor | The minimum rating both players of a game must have (`WhiteElo` and `BlackElo` tags) for the game to enter the game-count table; games without both tags are left out. 2200 (Captain, 2026-10-21) | vision §5.7, M3b §4.1 |
 | broadcast month | One pinned monthly file of the Lichess broadcast database (`lichess_db_broadcast_YYYY-MM.pgn.zst`), checked against the SHA-256 Lichess published on 2026-10-21 | M3b §4.4 |
 | excluded game | A game left out of the game-count table, counted under the first failing reason: `variant` (not standard chess), `setup` (custom start position), `rating` (below the rating floor or no rating), `result` (unfinished), `illegal` (an unreadable or illegal move within the ply limit) | M3b §4.1 |
 | broken game | A game whose moves cannot be replayed legally, usually a relay error. Excluded only when the error falls within the ply limit (reason `illegal`); later errors are never read | M3b §1 B2 |
 | ply limit | How deep into each game positions are counted for the game-count table: positions after 0 to L−1 half-moves, with the move played from them. L = 40 (Captain, 2026-10-21) | M3b §4.2 |
 | minimum game count | The number of counted games a position needs to be kept in the game-count table. N = 5 (Captain, 2026-10-21) | M3b §4.2 |
-| table id | `games::kTable`: the table's name with the first 12 hex digits of its SHA-256, recorded in every report, like the opening dataset's commit | M3b §4.4 |
+| table id | `games::kTable`: the table's name with the first 12 hex digits of its SHA-256, recorded in every report, like the opening dataset's commit. From PostM3_EM2 the loaded bytes decide which id the report names (data digest); before 2026-10-22 the report named it whatever table was loaded | M3b §4.4, PostM3_EM2 §4.5 |
+| data digest | The SHA-256 of the game-count table and of the opening-name files as loaded, computed by an in-tree SHA-256; the report names the shipped id when the digest matches the pin, else a `custom@` id | PostM3_EM2 §4.5 |
+| `custom@` id | The id a report gives loaded data that does not match the pin: `custom@` plus the first 12 hex digits of its SHA-256 | PostM3_EM2 §4.5 |
 | `chesswhy-games` | The offline tool that reads PGN text on standard input and writes the game-count table (§4 of M3b); run by `tools/fetch_assets.sh games` | M3b §3 |
 | book corpus | Planned: the Captain's local books as text, kept out of the repository | vision §8 |
 | book index | Planned: a BM25 search index over page or paragraph chunks of the book corpus, kept out of the repository | vision §8 |
 | concept tag | Planned: a motif or positional tag from the report, widened by a checked-in keyword map, used as the book query | vision §8 |
-| book passage | Planned: one to three short excerpts from the book index, cited by book and page, offered as general advice and never as analysis of the position | vision §8 |
+| book passage | Planned: one to three short excerpts from the book index, cited by book and page, offered as general advice and never as analysis of the position. Shown only when on topic (it names the report's concept), applicable (its preconditions hold on the board) and with its stance kept (a passage that warns against an idea is not offered as support) | vision §8 |
 | explanation | The text a reader gets for one report: template rendering today; later language-model prose that passed the fact check | vision §7 |
 | template rendering | Fixed sentences filled from report fields, adding no claim: the readable output today, the `--no-llm` output, and the fallback when prose fails the fact check | vision §7.3 |
 | fact sheet | Planned: a compact text form of the report (not raw JSON) given to the language model with a level-specific prompt | vision §7.2 |
+| fact selection | Planned: which report facts go on the fact sheet: the core claims (verdict, refutation, conditions) at every level; tactic and blunder evidence before positional facts; the level changes vocabulary, not which core claims are present | vision §7.2 |
+| claim unit | Planned: one fact or one relation in the prose (who threatens what, at which ply, under which condition); the fact check checks units, so correct words in a wrong relation fail | vision §7.3 |
 | language model | Planned: a local GGUF model run through llama.cpp (linked as a library) that turns the fact sheet into prose for the chosen level; decides no chess content | vision §7.1 |
-| fact check | Planned: every move, square and piece in the prose must be in the report, and opening names and game counts must match it exactly; one regeneration, then template rendering with a notice | vision §7.3 |
+| fact check | Planned: the prose split into claim units, each of which must match report fields including its relations; opening names and game counts must match exactly; one regeneration, then template rendering with a notice. Before 2026-10-22: every move, square and piece named in the prose had to be in the report, which let a wrong relation between correct names pass | vision §7.3 |
+| relational test set | Planned: M4's prose tests seeded from the 13 relational errors X1–X13 of the 2026-10-22 audit (threat owner swapped, premise dropped, ply wrong and others); each must fail the fact check | vision §7.4 |
 
 ## 9. Positional features (M3a)
 
-Planned until M3a is built. Exact rules are in `Planning/milestones/M3a.md` §4–§5.
+Built in M3a. Exact rules are in `Planning/milestones/M3a.md` §4–§5. Before 2026-10-22
+this line said "Planned until M3a is built".
 
 | Term | Meaning | Defined in |
 |---|---|---|
@@ -419,7 +449,7 @@ Planned until M3a is built. Exact rules are in `Planning/milestones/M3a.md` §4�
 | mobility | For a side: squares attacked by its knights, bishops, rooks and queens that hold none of its own pieces and are not attacked by an enemy pawn, summed per piece | M3a §4.4 |
 | space | For a side: squares on files c–f, its relative ranks 2–4, behind one of its own pawns on the same file, holding none of its pawns and not attacked by an enemy pawn | M3a §4.4 |
 | undeveloped | For a side: its knights and bishops still on its back rank | M3a §4.4 |
-| lead threshold | The gap a side needs to be given a lead: mobility 10, space 3, undeveloped pieces 2 (open until the Captain approves); set so that a lead appears in about one position in six (mobility, space) of strong broadcast games | M3a §4.4 |
+| lead threshold | The gap a side needs to be given a lead: mobility 10, space 3, undeveloped pieces 2 (approved by the Captain 2026-10-21, M3a P4; this row said "open" until 2026-10-22); set so that a lead appears in about one position in six (mobility, space) of strong broadcast games | M3a §4.4 |
 
 The tags in plain words (owner X, other side Y):
 
@@ -427,6 +457,7 @@ The tags in plain words (owner X, other side Y):
 |---|---|---|
 | `isolated_pawn` | X pawns on a file with no X pawn on either neighbouring file | pawn structure |
 | `doubled_pawns` | Two or more X pawns on one file | pawn structure |
+| `tripled_pawns` | Three or more X pawns on one file; such a file is also `doubled_pawns` (Captain, checkpoint 3, 2026-10-23) | pawn structure |
 | `backward_pawn` | An X pawn left behind its neighbours whose next square is covered by a Y pawn | pawn structure |
 | `passed_pawn` | The front X pawn of a file with no Y pawn ahead of it on its own or a neighbouring file | pawn structure |
 | `connected_passed_pawns` | X passed pawns on neighbouring files | pawn structure |
@@ -441,8 +472,8 @@ The tags in plain words (owner X, other side Y):
 | `rook_open_file` | An X rook on a file with no pawns | pieces |
 | `rook_half_open_file` | An X rook on a file with no X pawn and at least one Y pawn | pieces |
 | `rook_seventh` | An X rook on its seventh rank, where the Y king sits behind or Y pawns stand | pieces |
-| `outpost` | An X knight or bishop on its ranks 4–6, defended by an X pawn, that no Y pawn can ever attack | pieces |
+| `outpost` | An X knight or bishop on its ranks 4–6, defended by an X pawn, that no Y pawn on today's board can attack by advancing on its file; a Y pawn that could reach a neighbouring file by a capture is not considered (example: `7k/2p5/3B4/4N3/3P4/8/8/K7 w - - 0 1`, where ...cxd6 would let a pawn attack e5). Before 2026-10-22 this gloss said "can ever attack" | pieces |
 | `bad_bishop` | An X bishop whose colour holds most X pawns, at least two of them blocked by Y pawns | pieces |
 | `mobility_lead`, `space_lead`, `development_lead` | X leads by at least the lead threshold; the value is the gap | space and development |
 | `material_ahead` | X is ahead in material (1/3/3/5/9); the value is the gap in pawns | material |
-| `exchange_up` | X has an extra rook while Y has an extra knight or bishop | material |
+| `exchange_up` | X has more rooks than Y while Y has more knights plus bishops than X. Not a material lead: it fires while X is behind in material on 17.9% of the boards where it holds (1,373 of 7,662). Before 2026-10-22 this gloss said "an extra rook while Y has an extra knight or bishop" | material |

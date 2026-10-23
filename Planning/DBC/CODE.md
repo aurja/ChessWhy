@@ -57,12 +57,12 @@ Rules, checked by `python3 tools/check_dbc.py`:
 
 | Node | Code | Notes |
 |---|---|---|
-| `CandidateMove` | `src/analysis/analyse.cpp` `assess_move`; `include/chesswhy/report.hpp` `MoveAssessment` | |
+| `CandidateMove` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `walked_plies`; `include/chesswhy/report.hpp` `MoveAssessment` | `depth`, `walked_plies` |
 | `Loss` | `src/analysis/analyse.cpp` `assess_move` | |
 | `Verdict` | `src/analysis/rules.cpp` `verdict_for_loss`; `include/chesswhy/analysis.hpp` `kFineUnits` `kMistakeUnits` `kBlunderUnits`; `include/chesswhy/report.hpp` `Verdict` | |
-| `FineSet` | `src/analysis/analyse.cpp` `analyse`; `include/chesswhy/report.hpp` `Report` | `fine_truncated` |
+| `FineSet` | `src/analysis/analyse.cpp` `analyse` `legal_move_count`; `include/chesswhy/report.hpp` `Report` `PositionInfo` | `fine_truncated`, `legal_moves` |
 | `ParryTest` | `src/analysis/analyse.cpp` `search_parry` `pseudo_legal_uci`; `include/chesswhy/report.hpp` `ParryInfo` `ParryTest` `parry_source` | |
-| `CreatedThreat` | `src/analysis/analyse.cpp` `assess_move` | |
+| `CreatedThreat` | `src/analysis/analyse.cpp` `assess_move` `has_legal_moves`; `include/chesswhy/report.hpp` `CreatesThreatSkip` | `creates_threat_skipped` |
 | `Refutation` | `src/analysis/analyse.cpp` `assess_move` `make_threat` | |
 
 ## Motifs
@@ -73,7 +73,8 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `StaticExchange` | `src/tactics/see.cpp` `see` `piece_value`; `src/tactics/see_internal.hpp` `see_without_piece` | |
 | `StateMotif` | `src/tactics/motifs.cpp` `state_motifs`; `include/chesswhy/report.hpp` `Motif` `MotifTag` | |
 | `MoveMotif` | `src/tactics/motifs.cpp` `append_move_motifs` `append_fork` `append_skewers` `append_discovered_attacks` `append_back_rank_mates` | |
-| `TacticalPin` | `src/tactics/motifs.cpp` `append_pin_tactical`; `include/chesswhy/tactics.hpp` `MotifOptions` | |
+| `TacticalPin` | `src/tactics/motifs.cpp` `append_pin_tactical` `append_restricted_motif`; `include/chesswhy/tactics.hpp` `MotifOptions` | |
+| `Restriction` | `src/tactics/motifs.cpp` `make_restriction` `held_to` `append_restricted_motif`; `src/tactics/tactic.cpp` `denied_moves` `detail::held_piece_move_set` `detail::MoveSetLegality`; `include/chesswhy/report.hpp` `MotifRestriction` `HeldTo` | Existence condition: motif dropped when `make_restriction` returns none. The move set adds a pawn's hypothetical captures |
 | `FirstAppearance` | `src/tactics/motifs.cpp` `line_motifs` `same_identity` | |
 | `PositionMotifs` | `src/tactics/motifs.cpp` `position_motifs` `motif_less` | |
 | `LineMotifs` | `src/tactics/motifs.cpp` `line_motifs` | |
@@ -88,7 +89,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `TacticJudgement` | `src/analysis/analyse.cpp` `judge_refutation` `legal_move_count`; `include/chesswhy/report.hpp` `TacticJudgement` | |
 | `TacticLine` | `src/analysis/analyse.cpp` `analyse` `judge_refutation` | |
 | `TacticSequence` | `src/analysis/analyse.cpp` `walked_moves` | |
-| `Contribution` | `src/tactics/tactic.cpp` `judge_contributions` | |
+| `Contribution` | `src/tactics/tactic.cpp` `judge_contributions` `denied_moves` `answers`; `include/chesswhy/tactics.hpp` `denied_moves` `answers` | |
 | `TacticLabel` | `src/tactics/tactic.cpp` `tactic_labels`; `include/chesswhy/report.hpp` `TacticLabel` | |
 
 ## Positional facts
@@ -113,6 +114,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `BroadcastMonths` | `tools/fetch_assets.sh` `fetch_games` | Months and their SHA-256 pinned in the script |
 | `GameTable` | `src/games/games.cpp` `build_table` `Table`; `src/games/main.cpp` `parse_options`; `include/chesswhy/games.hpp` `kTable` `kRatingFloor` `kMaxPly` `kMinGames` | `chesswhy-games` builds the table from PGN on stdin |
 | `GameCounts` | `src/games/games.cpp` `Table`; `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `GamesInfo` `GameSourceCounts` `GameMoveCount`; `src/render/render.cpp` `write_games_summary` `write_game_move_counts` | `run` loads the table once (`--games`) and looks up the analysed position |
+| `DataDigest` | `src/util/sha256.cpp` `sha256_hex`; `include/chesswhy/digest.hpp`; `src/games/games.cpp` `Table::load` `table_name`; `include/chesswhy/games.hpp` `kTableSha256`; `src/openings/openings.cpp` `Table::load`; `include/chesswhy/openings.hpp` `kDatasetSha256` | |
 
 ## Report
 
@@ -122,7 +124,8 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Provenance` | `src/report/report.cpp` `to_json`; `include/chesswhy/report.hpp` `parry_source` | Written as a `source` field beside each fact |
 | `Reproducible` | `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
-| `ReportSchema` | `schema/report.v4.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
+| `ReportSchema` | `schema/report.v5.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
+| `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` | Run by CTest `report_schema` on every F report |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/cli.cpp` `run` | `--json` |
 
@@ -130,7 +133,8 @@ Rules, checked by `python3 tools/check_dbc.py`:
 
 | Node | Code | Notes |
 |---|---|---|
-| `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` | |
+| `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` `write_restriction` `write_held_to` | |
+| `Conditions` | `src/render/render.cpp` `write_candidate_count` `write_walk` `creates_threat_skip_reason` | |
 | `TemplateRendering` | `src/render/render.cpp` `text` | `--no-llm`; today the only renderer |
 | `ExplanationText` | `src/cli/cli.cpp` `run` | Prints the rendered text |
 
@@ -145,7 +149,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `ContributionFixtures` | `tests/fixtures/tactics.json`; `tests/tactics/tactics_unit_tests.cpp` | |
 | `ReferenceImplementation` | `tests/tactics/oracle/reference.cpp`; `tests/tactics/motif_oracle.cpp` | |
 | `PuzzleSample` | `tools/sample_puzzles.py`; `tests/fixtures/puzzles/` | |
-| `Recall` | `tests/tactics/puzzle_eval.cpp` | |
+| `Recall` | `tests/tactics/puzzle_eval.cpp` | Prints recall and the untagged firing rate |
 | `PositionalFixtures` | `tests/fixtures/positional.json`; `tests/positional/positional_unit_tests.cpp`; `tests/cli/engine_fixture_test.cpp` | F rows: `positional_include` |
 | `PositionalReference` | `tests/positional/oracle/reference.cpp`; `tests/positional/oracle/positional_oracle.cpp`; `tests/positional/oracle/reference_self_check.cpp` | |
 | `GamesOracle` | `tools/count_games.py` `GameCounter` `write_table`; `tests/games/oracle.cmake` | python-chess, development only |

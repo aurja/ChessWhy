@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/report.v4.schema.json",
-  "title": "ChessWhy report, schema version 4",
+  "$id": "https://chesswhy.local/schema/report.v5.schema.json",
+  "title": "ChessWhy report, schema version 5",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -18,9 +18,11 @@
   ],
   "properties": {
     "schema_version": {
-      "const": 4
+      "description": "Schema version of the report; this schema accepts version 5 [rule].",
+      "const": 5
     },
     "input": {
+      "description": "Metadata about the analyzed input [rule].",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -34,15 +36,18 @@
       ],
       "properties": {
         "source": {
+          "description": "How the analyzed position was supplied: FEN or PGN [rule].",
           "enum": [
             "fen",
             "pgn"
           ]
         },
         "fen": {
+          "description": "Full FEN of the analyzed position [rule].",
           "type": "string"
         },
         "pgn_game": {
+          "description": "1-based PGN game number, or null for FEN input [rule].",
           "type": [
             "integer",
             "null"
@@ -50,6 +55,7 @@
           "minimum": 1
         },
         "pgn_ply": {
+          "description": "Half-moves played from the game's start position, or null for FEN input [rule].",
           "type": [
             "integer",
             "null"
@@ -57,12 +63,14 @@
           "minimum": 0
         },
         "move": {
+          "description": "The --move value exactly as supplied, or null when no move was requested [rule].",
           "type": [
             "string",
             "null"
           ]
         },
         "level": {
+          "description": "Requested explanation level [rule].",
           "enum": [
             "beginner",
             "club",
@@ -70,6 +78,7 @@
           ]
         },
         "budget": {
+          "description": "Requested analysis budget [rule].",
           "enum": [
             "quick",
             "standard",
@@ -79,6 +88,7 @@
       }
     },
     "engine": {
+      "description": "Engine identity, settings, and search accounting [engine].",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -92,24 +102,30 @@
       ],
       "properties": {
         "name": {
+          "description": "Engine name reported by UCI id name [engine].",
           "type": "string"
         },
         "threads": {
+          "description": "Number of engine threads [engine].",
           "type": "integer",
           "minimum": 1
         },
         "hash_mb": {
+          "description": "Engine hash-table size in megabytes [engine].",
           "type": "integer",
           "minimum": 1
         },
         "multipv": {
+          "description": "MultiPV width used for candidate search [engine].",
           "type": "integer",
           "minimum": 1
         },
         "reproducible": {
+          "description": "same configuration (budget, threads, hash, nodes) gives the same report",
           "type": "boolean"
         },
         "nodes": {
+          "description": "Configured node budget for each search kind [rule].",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -122,44 +138,53 @@
           ],
           "properties": {
             "A": {
+              "description": "Node budget for MultiPV K from the current position [rule].",
               "type": "integer",
               "minimum": 1
             },
             "B": {
+              "description": "Node budget for the null-move search with the opponent to move [rule].",
               "type": "integer",
               "minimum": 1
             },
             "C": {
+              "description": "Node budget for the searchmoves m search for an asked move outside A [rule].",
               "type": "integer",
               "minimum": 1
             },
             "D": {
+              "description": "Node budget for the search after m restricted to the opponent's threat move [rule].",
               "type": "integer",
               "minimum": 1
             },
             "E": {
+              "description": "Node budget for the search after m with a null move [rule].",
               "type": "integer",
               "minimum": 1
             },
             "R": {
+              "description": "Node budget for the search after m excluding the refutation's first move [rule].",
               "type": "integer",
               "minimum": 1
             }
           }
         },
         "nodes_searched": {
+          "description": "Sum of nodes reported by every engine search run [engine].",
           "type": "integer",
           "minimum": 0
         }
       }
     },
     "position": {
+      "description": "Facts about the analyzed board and its rule-derived features [rule].",
       "type": "object",
       "additionalProperties": false,
       "required": [
         "fen",
         "side_to_move",
         "in_check",
+        "legal_moves",
         "terminal",
         "eval_white",
         "motifs",
@@ -167,15 +192,24 @@
       ],
       "properties": {
         "fen": {
+          "description": "Full FEN of the analyzed board [rule].",
           "type": "string"
         },
         "side_to_move": {
+          "description": "Side to move on the analyzed board [rule].",
           "$ref": "#/$defs/side"
         },
         "in_check": {
+          "description": "Whether the side to move is in check [rule].",
           "type": "boolean"
         },
+        "legal_moves": {
+          "description": "Number of legal moves on the analyzed board [rule].",
+          "type": "integer",
+          "minimum": 0
+        },
         "terminal": {
+          "description": "Terminal state, or null when the position is nonterminal [rule].",
           "enum": [
             "checkmate",
             "stalemate",
@@ -183,6 +217,7 @@
           ]
         },
         "eval_white": {
+          "description": "Best line evaluation from search A, from White's point of view; null iff terminal [engine].",
           "oneOf": [
             {
               "$ref": "#/$defs/eval"
@@ -193,9 +228,11 @@
           ]
         },
         "motifs": {
+          "description": "Tactical motifs present on the board at ply 0 [rule].",
           "$ref": "#/$defs/motifs"
         },
         "positional": {
+          "description": "Positional features present on the board at ply 0 [rule].",
           "type": "array",
           "items": {
             "$ref": "#/$defs/positional_feature"
@@ -204,6 +241,7 @@
       }
     },
     "threats": {
+      "description": "Threat searches and urgency for the analyzed position; null iff terminal [engine/rule].",
       "oneOf": [
         {
           "type": "null"
@@ -219,6 +257,7 @@
           ],
           "properties": {
             "white": {
+              "description": "Threat found for White, or null when none is reported [engine].",
               "oneOf": [
                 {
                   "$ref": "#/$defs/threat"
@@ -229,6 +268,7 @@
               ]
             },
             "black": {
+              "description": "Threat found for Black, or null when none is reported [engine].",
               "oneOf": [
                 {
                   "$ref": "#/$defs/threat"
@@ -239,6 +279,7 @@
               ]
             },
             "null_move_reliable": {
+              "description": "Whether the null-move search is reliable, or null when the rule cannot decide [rule].",
               "type": "object",
               "additionalProperties": false,
               "required": [
@@ -247,9 +288,11 @@
               ],
               "properties": {
                 "source": {
+                  "description": "Provenance of the null-move reliability value [rule].",
                   "const": "rule"
                 },
                 "value": {
+                  "description": "Reliability result, or null when the side to move is in check [rule].",
                   "type": [
                     "boolean",
                     "null"
@@ -258,6 +301,7 @@
               }
             },
             "urgency": {
+              "description": "Rule-derived ordering of which side's threat is more urgent [rule].",
               "type": "object",
               "additionalProperties": false,
               "required": [
@@ -267,9 +311,11 @@
               ],
               "properties": {
                 "source": {
+                  "description": "Provenance of the urgency assessment [rule].",
                   "const": "rule"
                 },
                 "more_urgent": {
+                  "description": "Side with the more urgent threat, or null iff the urgency rule is quiet [rule].",
                   "oneOf": [
                     {
                       "$ref": "#/$defs/side"
@@ -280,6 +326,7 @@
                   ]
                 },
                 "rule": {
+                  "description": "Rule used to determine threat urgency [rule].",
                   "enum": [
                     "in_check",
                     "quiet",
@@ -288,22 +335,50 @@
                     "parry"
                   ]
                 }
-              }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "rule": {
+                        "const": "quiet"
+                      }
+                    }
+                  },
+                  "then": {
+                    "properties": {
+                      "more_urgent": {
+                        "type": "null"
+                      }
+                    }
+                  },
+                  "else": {
+                    "properties": {
+                      "more_urgent": {
+                        "$ref": "#/$defs/side"
+                      }
+                    }
+                  }
+                }
+              ]
             }
           }
         }
       ]
     },
     "candidates": {
+      "description": "Engine's top legal moves in MultiPV order; empty for terminal positions [engine].",
       "type": "array",
       "items": {
         "$ref": "#/$defs/move"
       }
     },
     "fine_truncated": {
+      "description": "true iff search A returned all K lines and every one is fine; false does not mean the unlisted moves are not fine",
       "type": "boolean"
     },
     "asked_move": {
+      "description": "Separately assessed move supplied by the user, or null when none was requested [engine].",
       "oneOf": [
         {
           "$ref": "#/$defs/move"
@@ -314,6 +389,7 @@
       ]
     },
     "opening": {
+      "description": "Opening-book identification for the analyzed position [book].",
       "type": "object",
       "additionalProperties": false,
       "required": [
@@ -324,12 +400,16 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the opening information [book].",
           "const": "book"
         },
         "dataset": {
-          "type": "string"
+          "description": "Shipped opening dataset ID or custom@ plus the first 12 SHA-256 hex digits [book].",
+          "type": "string",
+          "pattern": "^(lichess-org/chess-openings@a6189a3|custom@[0-9a-f]{12})$"
         },
         "current": {
+          "description": "Opening name for the analyzed position, or null when unnamed [book].",
           "oneOf": [
             {
               "$ref": "#/$defs/opening_name"
@@ -340,6 +420,7 @@
           ]
         },
         "last_named": {
+          "description": "Last named position on the PGN mainline up to the analyzed ply, or null [book].",
           "oneOf": [
             {
               "type": "object",
@@ -351,12 +432,15 @@
               ],
               "properties": {
                 "eco": {
+                  "description": "ECO code of the last named opening position [book].",
                   "$ref": "#/$defs/eco"
                 },
                 "name": {
+                  "description": "Opening name at the last named position [book].",
                   "type": "string"
                 },
                 "ply": {
+                  "description": "Half-move number of the last named position [book].",
                   "type": "integer",
                   "minimum": 1
                 }
@@ -370,6 +454,7 @@
       }
     },
     "games": {
+      "description": "Game-count results from the configured games table [games].",
       "$ref": "#/$defs/games"
     }
   },
@@ -393,9 +478,11 @@
       ],
       "properties": {
         "eco": {
+          "description": "ECO code of a named opening position [book].",
           "$ref": "#/$defs/eco"
         },
         "name": {
+          "description": "Name of the opening at this position [book].",
           "type": "string"
         }
       }
@@ -418,26 +505,52 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the score evaluation [engine].",
           "const": "engine"
         },
         "es": {
+          "description": "Expected score W + D/2 from the containing field's side to move, in [0, 1] [engine].",
           "type": "number",
           "minimum": 0,
           "maximum": 1
         },
         "cp": {
+          "description": "Centipawn score for display, or null when the score is a mate [engine].",
           "type": [
             "integer",
             "null"
           ]
         },
         "mate": {
+          "description": "Mate distance in moves, positive when this side mates, or null otherwise [engine].",
           "type": [
             "integer",
             "null"
           ]
         }
-      }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "cp": {
+              "type": "integer"
+            },
+            "mate": {
+              "type": "null"
+            }
+          }
+        },
+        {
+          "properties": {
+            "cp": {
+              "type": "null"
+            },
+            "mate": {
+              "type": "integer"
+            }
+          }
+        }
+      ]
     },
     "consequence": {
       "type": "object",
@@ -452,9 +565,11 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the consequence classification [rule].",
           "const": "rule"
         },
         "class": {
+          "description": "Classification of the threat's consequence [rule].",
           "enum": [
             "mate",
             "material",
@@ -463,6 +578,7 @@
           ]
         },
         "mate_in": {
+          "description": "Mate distance in plies, set iff class is mate [rule].",
           "type": [
             "integer",
             "null"
@@ -470,16 +586,44 @@
           "minimum": 1
         },
         "material": {
+          "description": "Net material gain in pawn units for the threatening side over plies [rule].",
           "type": "integer"
         },
         "promotes": {
+          "description": "Whether the threatening side promotes within the consequence line [rule].",
           "type": "boolean"
         },
         "plies": {
+          "description": "Number of threat-line plies consumed by the consequence rule [rule].",
           "type": "integer",
           "minimum": 0
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "class": {
+                "const": "mate"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "mate_in": {
+                "type": "integer"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "mate_in": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
     },
     "threat": {
       "type": "object",
@@ -495,24 +639,31 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the threat line [engine].",
           "const": "engine"
         },
         "side": {
+          "description": "Side whose threat is described [engine].",
           "$ref": "#/$defs/side"
         },
         "root_fen": {
+          "description": "FEN at the root of the threat search [engine].",
           "type": "string"
         },
         "line": {
+          "description": "SAN moves in the engine's threat line [engine].",
           "$ref": "#/$defs/san_line"
         },
         "consequence": {
+          "description": "Rule-derived consequence of the threat line [rule].",
           "$ref": "#/$defs/consequence"
         },
         "motifs": {
+          "description": "Tactical motifs in the threat line [rule].",
           "$ref": "#/$defs/motifs"
         },
         "tactic": {
+          "description": "Tactic judgement for the threat line, or null when none is reported [engine/rule].",
           "oneOf": [
             {
               "$ref": "#/$defs/tactic"
@@ -532,13 +683,16 @@
         "san",
         "uci",
         "eval",
+        "depth",
         "loss",
         "verdict",
         "in_multipv",
         "gives_check",
         "line",
+        "walked_plies",
         "parries_threat",
         "creates_threat",
+        "creates_threat_skipped",
         "refutation",
         "motifs",
         "tactic",
@@ -546,24 +700,35 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the move assessment [engine].",
           "const": "engine"
         },
         "san": {
+          "description": "Standard algebraic notation for the move [engine].",
           "type": "string"
         },
         "uci": {
+          "description": "UCI encoding of the move [engine].",
           "type": "string",
           "pattern": "^[a-h][1-8][a-h][1-8][qrbn]?$"
         },
         "eval": {
+          "description": "Score evaluation for this move from the side to move's point of view [engine].",
           "$ref": "#/$defs/eval"
         },
+        "depth": {
+          "description": "Search depth of the line that gave eval: the MultiPV line or search C [engine].",
+          "type": "integer",
+          "minimum": 1
+        },
         "loss": {
+          "description": "Loss from the best candidate's expected score, in [0, 1] [engine].",
           "type": "number",
           "minimum": 0,
           "maximum": 1
         },
         "verdict": {
+          "description": "Verdict derived from the move's expected-score loss [engine].",
           "enum": [
             "fine",
             "inaccuracy",
@@ -572,15 +737,24 @@
           ]
         },
         "in_multipv": {
+          "description": "Whether this move was included in the MultiPV search [engine].",
           "type": "boolean"
         },
         "gives_check": {
+          "description": "Whether the move gives check [rule].",
           "type": "boolean"
         },
         "line": {
+          "description": "SAN line from the current position, starting with this move, up to 10 plies [engine].",
           "$ref": "#/$defs/san_line"
         },
+        "walked_plies": {
+          "description": "Number of line plies from which motif and positional facts were read [rule].",
+          "type": "integer",
+          "minimum": 0
+        },
         "parries_threat": {
+          "description": "Whether this move parries the opponent's threat, or null when no class-mate/material threat exists or the side to move is in check [rule].",
           "oneOf": [
             {
               "type": "object",
@@ -592,15 +766,18 @@
               ],
               "properties": {
                 "source": {
+                  "description": "Provenance of the parry result: engine for a searched test, rule for a legality test [engine/rule].",
                   "enum": [
                     "engine",
                     "rule"
                   ]
                 },
                 "value": {
+                  "description": "the opponent's threat no longer wins against the pass baseline",
                   "type": "boolean"
                 },
                 "test": {
+                  "description": "How parrying the threat was tested [engine/rule].",
                   "enum": [
                     "searched",
                     "threat_move_illegal",
@@ -615,6 +792,7 @@
           ]
         },
         "creates_threat": {
+          "description": "Threat found after this move, or null when the threat search was skipped [engine].",
           "oneOf": [
             {
               "$ref": "#/$defs/threat"
@@ -624,7 +802,21 @@
             }
           ]
         },
+        "creates_threat_skipped": {
+          "description": "Rule reason the created-threat search was skipped; null iff creates_threat is set [rule].",
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "gives_check",
+            "game_over",
+            "no_legal_move",
+            null
+          ]
+        },
         "refutation": {
+          "description": "Opponent's refutation line, set iff the verdict is not fine [engine].",
           "oneOf": [
             {
               "$ref": "#/$defs/threat"
@@ -635,9 +827,11 @@
           ]
         },
         "motifs": {
+          "description": "Tactical motifs in the move line [rule].",
           "$ref": "#/$defs/motifs"
         },
         "tactic": {
+          "description": "Tactic judgement of this move line, or null when none is reported [engine/rule].",
           "oneOf": [
             {
               "$ref": "#/$defs/tactic"
@@ -648,12 +842,100 @@
           ]
         },
         "positional": {
+          "description": "Positional feature changes along this move line [rule].",
           "type": "array",
           "items": {
             "$ref": "#/$defs/positional_change"
           }
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "verdict": {
+                "const": "fine"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "refutation": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "refutation": {
+                "$ref": "#/$defs/threat"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "creates_threat": {
+                "type": "null"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "creates_threat_skipped": {
+                "enum": [
+                  "gives_check",
+                  "game_over",
+                  "no_legal_move"
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "creates_threat_skipped": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "parries_threat": {
+                "properties": {
+                  "test": {
+                    "const": "searched"
+                  }
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parries_threat": {
+                "properties": {
+                  "source": {
+                    "const": "engine"
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "parries_threat": {
+                "properties": {
+                  "source": {
+                    "const": "rule"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "piece_on_square": {
       "type": "object",
@@ -664,10 +946,12 @@
       ],
       "properties": {
         "square": {
+          "description": "Board square occupied by the piece [rule].",
           "type": "string",
           "pattern": "^[a-h][1-8]$"
         },
         "piece": {
+          "description": "FEN piece letter: uppercase for White and lowercase for Black [rule].",
           "type": "string",
           "pattern": "^[PNBRQKpnbrqk]$"
         }
@@ -685,13 +969,16 @@
         "targets",
         "gain",
         "threat",
+        "restriction",
         "contribution"
       ],
       "properties": {
         "source": {
+          "description": "Motif provenance [rule].",
           "const": "rule"
         },
         "tag": {
+          "description": "Tactical motif tag [rule].",
           "enum": [
             "hanging_piece",
             "pin_absolute",
@@ -710,22 +997,27 @@
           ]
         },
         "side": {
+          "description": "Side that benefits from the motif [rule].",
           "$ref": "#/$defs/side"
         },
         "ply": {
+          "description": "Ply where the motif occurs; 0 denotes the line's root board [rule].",
           "type": "integer",
           "minimum": 0
         },
         "actor": {
+          "description": "Motif actor piece on its board square [rule].",
           "$ref": "#/$defs/piece_on_square"
         },
         "targets": {
+          "description": "Pieces involved in the motif, in the tag-specific order [rule].",
           "type": "array",
           "items": {
             "$ref": "#/$defs/piece_on_square"
           }
         },
         "gain": {
+          "description": "static exchange (SEE) value in pawn units",
           "type": [
             "integer",
             "null"
@@ -733,6 +1025,7 @@
           "minimum": 1
         },
         "threat": {
+          "description": "Threat enabled by a pin_tactical motif, or null for other tags [rule].",
           "oneOf": [
             {
               "$ref": "#/$defs/motif_threat"
@@ -742,7 +1035,74 @@
             }
           ]
         },
+        "restriction": {
+          "description": "Held-piece movement restriction, set iff tag is pin_absolute, pin_relative, overloaded_defender, or pin_tactical [rule].",
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "piece",
+                "restricted",
+                "free",
+                "held_to"
+              ],
+              "properties": {
+                "piece": {
+                  "description": "Held piece h as it stands on the motif's board [rule].",
+                  "$ref": "#/$defs/piece_on_square"
+                },
+                "restricted": {
+                  "description": "Denied moves of the held piece on the motif board, as ascending UCI strings; non-empty [rule].",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-h][1-8][a-h][1-8][qrbn]?$"
+                  },
+                  "minItems": 1
+                },
+                "free": {
+                  "description": "Other legal moves of the held piece on the motif board, as ascending UCI strings [rule].",
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[a-h][1-8][a-h][1-8][qrbn]?$"
+                  }
+                },
+                "held_to": {
+                  "description": "Movement constraint inferred from distinct free-move destinations; never null [rule].",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "kind",
+                    "name"
+                  ],
+                  "properties": {
+                    "kind": {
+                      "description": "Geometric form of the movement constraint [rule].",
+                      "enum": [
+                        "file",
+                        "rank",
+                        "diagonal",
+                        "square",
+                        "squares"
+                      ]
+                    },
+                    "name": {
+                      "description": "File, rank, edge-to-edge diagonal, square, or ascending comma-separated squares naming the constraint [rule].",
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "contribution": {
+          "description": "Motif's contribution to the tactic, or null when not judged [rule].",
           "enum": [
             "direct",
             "indirect",
@@ -803,6 +1163,34 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "tag": {
+                "enum": [
+                  "pin_absolute",
+                  "pin_relative",
+                  "overloaded_defender",
+                  "pin_tactical"
+                ]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "restriction": {
+                "type": "object"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "restriction": {
+                "type": "null"
+              }
+            }
+          }
         }
       ]
     },
@@ -815,6 +1203,7 @@
       ],
       "properties": {
         "kind": {
+          "description": "Kind of threat enabled by the tactical pin [rule].",
           "enum": [
             "fork",
             "skewer",
@@ -828,6 +1217,7 @@
           ]
         },
         "square": {
+          "description": "Square where the enabled threat is created [rule].",
           "type": "string",
           "pattern": "^[a-h][1-8]$"
         }
@@ -852,24 +1242,30 @@
       ],
       "properties": {
         "source": {
+          "description": "Tactic-label provenance [rule].",
           "const": "rule"
         },
         "tag": {
+          "description": "Tactic-label tag [rule].",
           "enum": [
             "removal_of_defender"
           ]
         },
         "side": {
+          "description": "Side carrying out the tactic [rule].",
           "$ref": "#/$defs/side"
         },
         "ply": {
+          "description": "Ply of the capturing move [rule].",
           "type": "integer",
           "minimum": 1
         },
         "actor": {
+          "description": "Capturing piece on its destination square [rule].",
           "$ref": "#/$defs/piece_on_square"
         },
         "targets": {
+          "description": "Captured defender followed by the piece it defended [rule].",
           "type": "array",
           "items": {
             "$ref": "#/$defs/piece_on_square"
@@ -892,15 +1288,18 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the tactic judgement: engine, or rule iff the line is forced [engine/rule].",
           "enum": [
             "engine",
             "rule"
           ]
         },
         "forced": {
+          "description": "Whether the line's root has exactly one legal move [rule].",
           "type": "boolean"
         },
         "alternative": {
+          "description": "Best alternative first move, or null iff the line is forced [engine].",
           "oneOf": [
             {
               "type": "object",
@@ -912,13 +1311,16 @@
               ],
               "properties": {
                 "san": {
+                  "description": "Standard algebraic notation for the alternative move [engine].",
                   "type": "string"
                 },
                 "uci": {
+                  "description": "UCI encoding of the alternative move [engine].",
                   "type": "string",
                   "pattern": "^[a-h][1-8][a-h][1-8][qrbn]?$"
                 },
                 "eval": {
+                  "description": "Expected-score evaluation of the alternative from the tactic side's point of view [engine].",
                   "$ref": "#/$defs/eval"
                 }
               }
@@ -929,6 +1331,7 @@
           ]
         },
         "margin": {
+          "description": "Expected-score margin of the line over its best alternative, or null iff forced [engine].",
           "type": [
             "number",
             "null"
@@ -937,9 +1340,11 @@
           "maximum": 1
         },
         "is_tactic": {
+          "description": "Whether the line's expected-score margin meets the tactic threshold [engine].",
           "type": "boolean"
         },
         "labels": {
+          "description": "Rule-derived tactic labels for this line [rule].",
           "type": "array",
           "items": {
             "$ref": "#/$defs/tactic_label"
@@ -1016,12 +1421,15 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the positional feature [rule].",
           "const": "rule"
         },
         "tag": {
+          "description": "Positional feature tag [rule].",
           "enum": [
             "isolated_pawn",
             "doubled_pawns",
+            "tripled_pawns",
             "backward_pawn",
             "passed_pawn",
             "connected_passed_pawns",
@@ -1047,15 +1455,18 @@
           ]
         },
         "side": {
+          "description": "Side that owns the positional feature [rule].",
           "$ref": "#/$defs/side"
         },
         "pieces": {
+          "description": "Pieces describing the feature, in the tag-specific order [rule].",
           "type": "array",
           "items": {
             "$ref": "#/$defs/piece_on_square"
           }
         },
         "file": {
+          "description": "File associated with the feature, or null when it has no file [rule].",
           "oneOf": [
             {
               "type": "string",
@@ -1067,6 +1478,7 @@
           ]
         },
         "value": {
+          "description": "Tag-specific positional value, or null when the tag has no value [rule].",
           "type": [
             "integer",
             "null"
@@ -1090,25 +1502,31 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the positional change [rule].",
           "const": "rule"
         },
         "ply": {
+          "description": "Ply where the feature appears or disappears [rule].",
           "type": "integer",
           "minimum": 1
         },
         "change": {
+          "description": "Whether the feature appears on P_k or disappears from P_k-1 [rule].",
           "enum": [
             "appears",
             "disappears"
           ]
         },
         "holds_at_end": {
+          "description": "Whether the feature still holds at the end of the line [rule].",
           "type": "boolean"
         },
         "tag": {
+          "description": "Tag of the positional feature that changed [rule].",
           "enum": [
             "isolated_pawn",
             "doubled_pawns",
+            "tripled_pawns",
             "backward_pawn",
             "passed_pawn",
             "connected_passed_pawns",
@@ -1134,15 +1552,18 @@
           ]
         },
         "side": {
+          "description": "Side that owns the positional feature [rule].",
           "$ref": "#/$defs/side"
         },
         "pieces": {
+          "description": "Pieces describing the feature, in the tag-specific order [rule].",
           "type": "array",
           "items": {
             "$ref": "#/$defs/piece_on_square"
           }
         },
         "file": {
+          "description": "File associated with the feature, or null when it has no file [rule].",
           "oneOf": [
             {
               "type": "string",
@@ -1154,6 +1575,7 @@
           ]
         },
         "value": {
+          "description": "Tag-specific positional value, or null when the tag has no value [rule].",
           "type": [
             "integer",
             "null"
@@ -1170,9 +1592,11 @@
       ],
       "properties": {
         "source": {
+          "description": "Provenance of the game-count results [games].",
           "const": "games"
         },
         "by_source": {
+          "description": "Game-count results for each configured source [games].",
           "type": "array",
           "minItems": 1,
           "items": {
@@ -1202,35 +1626,46 @@
       ],
       "properties": {
         "id": {
+          "description": "Identifier of the games source [games].",
           "type": "string"
         },
         "table": {
-          "type": "string"
+          "description": "Shipped games-table ID or custom@ plus the first 12 SHA-256 hex digits [games].",
+          "type": "string",
+          "pattern": "^(lichess_broadcast_2200@e0cb7fab3212|custom@[0-9a-f]{12})$"
         },
         "platform": {
+          "description": "Platform represented by the source's table [games].",
           "type": "string"
         },
         "players": {
+          "description": "Player rating criterion represented by the source's table [games].",
           "type": "string"
         },
         "months": {
+          "description": "Date range represented by the source's table [games].",
           "type": "string"
         },
         "credit": {
+          "description": "Credit and license information for the source data [games].",
           "type": "string"
         },
         "max_ply": {
+          "description": "Maximum searched half-move count in the source's table [games].",
           "type": "integer",
           "minimum": 1
         },
         "min_games": {
+          "description": "Minimum game count required for a move to be listed [games].",
           "type": "integer",
           "minimum": 1
         },
         "found": {
+          "description": "Whether the analyzed position was found in the source table [games].",
           "type": "boolean"
         },
         "games": {
+          "description": "Total games for the position, or null iff it was not found [games].",
           "type": [
             "integer",
             "null"
@@ -1238,6 +1673,7 @@
           "minimum": 0
         },
         "white": {
+          "description": "White wins for the position, or null iff it was not found [games].",
           "type": [
             "integer",
             "null"
@@ -1245,6 +1681,7 @@
           "minimum": 0
         },
         "draws": {
+          "description": "Draws for the position, or null iff it was not found [games].",
           "type": [
             "integer",
             "null"
@@ -1252,6 +1689,7 @@
           "minimum": 0
         },
         "black": {
+          "description": "Black wins for the position, or null iff it was not found [games].",
           "type": [
             "integer",
             "null"
@@ -1259,6 +1697,7 @@
           "minimum": 0
         },
         "moves": {
+          "description": "Moves from the analyzed position and their game counts [games].",
           "type": "array",
           "items": {
             "$ref": "#/$defs/game_move"
@@ -1322,13 +1761,16 @@
       ],
       "properties": {
         "san": {
+          "description": "Standard algebraic notation of the move from the analyzed position [games].",
           "type": "string"
         },
         "uci": {
+          "description": "UCI encoding of the move from the analyzed position [games].",
           "type": "string",
           "pattern": "^[a-h][1-8][a-h][1-8][nbrq]?$"
         },
         "games": {
+          "description": "Number of source games that played this move [games].",
           "type": "integer",
           "minimum": 1
         }

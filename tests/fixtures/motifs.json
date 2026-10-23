@@ -413,7 +413,7 @@
       "source": "constructed",
       "fen": "8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1",
       "line_uci": [],
-      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "d5", "targets": ["g5", "e2", "g6"], "threat": {"kind": "fork", "square": "f4"}}],
+      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "d5", "targets": ["g5", "e2", "g6"], "threat": {"kind": "fork", "square": "f4"}, "restriction": {"restricted": ["g5f4", "g5g4", "g5h4"], "free": [], "held_to": {"kind": "square", "name": "g5"}}}],
       "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
     },
     {
@@ -422,7 +422,7 @@
       "source": "constructed",
       "fen": "q7/8/k7/8/p7/8/7K/1R6 w - - 0 1",
       "line_uci": [],
-      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "b1", "targets": ["a4", "a6", "a8"], "threat": {"kind": "skewer", "square": "a1"}}],
+      "includes": [{"tag": "pin_tactical", "side": "white", "ply": 0, "actor": "b1", "targets": ["a4", "a6", "a8"], "threat": {"kind": "skewer", "square": "a1"}, "restriction": {"restricted": ["a4b3"], "free": ["a4a3"], "held_to": {"kind": "file", "name": "a"}}}],
       "excludes": [{"tag": "pin_tactical", "side": "black", "ply": 0}]
     },
     {
@@ -511,6 +511,47 @@
       "line_uci": [],
       "includes": [],
       "excludes": [{"tag": "pin_tactical", "side": "white", "ply": 0}]
+    },
+    {
+      "id": "T57",
+      "title": "README root drops tactical pins whose held rook cannot move",
+      "source": "constructed: README root position",
+      "fen": "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3",
+      "line_uci": [],
+      "includes": [],
+      "excludes": [
+        {"tag": "pin_tactical", "side": "white", "ply": 0, "targets": ["h8", "e8", "g8"], "threat": {"kind": "fork", "square": "f7"}},
+        {"tag": "pin_tactical", "side": "white", "ply": 0, "targets": ["h8", "h7"], "threat": {"kind": "capture", "square": "h7"}}
+      ]
+    },
+    {
+      "id": "T58",
+      "title": "Relative-pinned pawn has a restricted capture and a free push",
+      "source": "constructed",
+      "fen": "4q2k/8/8/4p3/3P4/8/8/K3R3 b - - 0 1",
+      "line_uci": [],
+      "includes": [
+        {"tag": "pin_relative", "side": "white", "ply": 0, "actor": "e1", "targets": ["e5", "e8"], "restriction": {"restricted": ["e5d4", "e5f4"], "free": ["e5e4"], "held_to": {"kind": "file", "name": "e"}}}
+      ],
+      "excludes": []
+    },
+    {
+      "id": "T59",
+      "title": "Pinned pawn has hypothetical captures restricted by the absolute pin",
+      "source": "constructed",
+      "fen": "4k3/8/8/4p3/8/8/8/K3R3 b - - 0 1",
+      "line_uci": [],
+      "includes": [{"tag": "pin_absolute", "side": "white", "ply": 0, "actor": "e1", "targets": ["e5", "e8"], "restriction": {"restricted": ["e5d4", "e5f4"], "free": ["e5e4"], "held_to": {"kind": "file", "name": "e"}}}],
+      "excludes": []
+    },
+    {
+      "id": "T60",
+      "title": "Overloaded knight that gives check has no king capture in its move set",
+      "source": "Lichess puzzle UG08H (test split), after 37.Kf3 Nd4+",
+      "fen": "R7/p2k4/2np4/2p2pR1/2P5/1P4P1/P3r1K1/8 w - - 1 37",
+      "line_uci": ["g2f3", "c6d4"],
+      "includes": [{"tag": "overloaded_defender", "side": "white", "ply": 2, "actor": "d4", "targets": ["e2", "f5"], "restriction": {"restricted": ["d4b3", "d4b5", "d4c2", "d4c6", "d4e6"], "free": [], "held_to": {"kind": "square", "name": "d4"}}}],
+      "excludes": []
     }
   ]
 }

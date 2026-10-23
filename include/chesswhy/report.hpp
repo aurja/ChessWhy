@@ -1,7 +1,7 @@
-// Report data model, schema version 4. Frozen by Planning/milestones/M1.md, M2.md,
-// PostM2_EM1.md, M3a.md and M3b.md. JSON shape: schema/report.v4.schema.json. Every chess
-// fact in the report is a field here; renderers and (from M4) the language model may only
-// verbalise these fields.
+// Report data model, schema version 5. Frozen by Planning/milestones/M1.md, M2.md,
+// PostM2_EM1.md, M3a.md, M3b.md and PostM3_EM2.md. JSON shape:
+// schema/report.v5.schema.json. Every chess fact in the report is a field here; renderers
+// and (from M4) the language model may only verbalise these fields.
 #pragma once
 
 #include <cstdint>
@@ -13,7 +13,7 @@
 
 namespace chesswhy {
 
-inline constexpr int kSchemaVersion = 4;
+inline constexpr int kSchemaVersion = 5;
 
 enum class Side : std::uint8_t { White, Black };
 enum class Budget : std::uint8_t { Quick, Standard, Deep };
@@ -24,6 +24,8 @@ enum class ConsequenceClass : std::uint8_t { Mate, Material, Promotion, Position
 enum class Verdict : std::uint8_t { Fine, Inaccuracy, Mistake, Blunder };
 enum class UrgencyRule : std::uint8_t { InCheck, Quiet, ConsequenceClass, Counterattack, Parry };
 enum class ParryTest : std::uint8_t { Searched, ThreatMoveIllegal, DeferredByCheck };
+// Why `MoveAssessment::creates_threat` is null (PostM3_EM2 §4.4), checked in this order.
+enum class CreatesThreatSkip : std::uint8_t { GivesCheck, GameOver, NoLegalMove };
 // M2 §4, in table order: state motifs (§4.1, then PostM2_EM1 §4.5 `pin_tactical`), then
 // move motifs (§4.2). The order is the tie-break of M2 §5; do not reorder.
 enum class MotifTag : std::uint8_t {
@@ -69,6 +71,7 @@ enum class TacticLabelTag : std::uint8_t { RemovalOfDefender };
 enum class PositionalTag : std::uint8_t {
     IsolatedPawn,
     DoubledPawns,
+    TripledPawns,
     BackwardPawn,
     PassedPawn,
     ConnectedPassedPawns,
@@ -106,6 +109,8 @@ enum class PositionalChangeKind : std::uint8_t { Appears, Disappears };
 [[nodiscard]] std::string to_string(Verdict verdict);
 [[nodiscard]] std::string to_string(UrgencyRule rule);
 [[nodiscard]] std::string to_string(ParryTest test);
+[[nodiscard]] std::string
+to_string(CreatesThreatSkip skip);                 // "gives_check", "game_over", "no_legal_move"
 [[nodiscard]] std::string to_string(MotifTag tag); // "hanging_piece", "pin_absolute", ...
 [[nodiscard]] std::string to_string(MotifContribution contribution); // "direct", "indirect", "none"
 [[nodiscard]] std::string to_string(ThreatKind kind);    // "fork", ..., "checkmate", "capture"
@@ -169,9 +174,33 @@ struct MotifThreat {
     bool operator==(const MotifThreat&) const = default;
 };
 
+// How a restricted-movement motif holds its piece (PostM3_EM2 §4.1, K2), from the free
+// moves' distinct destinations: none → Square (name: the held piece's square); all on one
+// file, rank or diagonal through that square → File ("e"), Rank ("7") or Diagonal ("a4-e8",
+// edge squares, lower file first); otherwise Squares ("a2,d1,g8", ascending).
+struct HeldTo {
+    enum class Kind : std::uint8_t { File, Rank, Diagonal, Square, Squares };
+    Kind kind = Kind::Square;
+    std::string name;
+    bool operator==(const HeldTo&) const = default;
+};
+[[nodiscard]] std::string
+to_string(HeldTo::Kind kind); // "file", "rank", "diagonal", "square", "squares"
+
+// The held piece of a restricted-movement motif and its moves (PostM3_EM2 §4.1, including
+// hypothetical captures for pawns), computed with the held side to move (the motif's board, or
+// that board after a null move). Source: rule.
+struct MotifRestriction {
+    PieceOnSquare piece;                 // the held piece h, as on the motif's board
+    std::vector<std::string> restricted; // h's denied moves, UCI, ascending; never empty
+    std::vector<std::string> free;       // h's other legal moves, UCI ascending
+    HeldTo held_to;
+    bool operator==(const MotifRestriction&) const = default;
+};
+
 // A tactical motif (M2 §4, §5): a pattern of one position. Source: rule. Identity for
-// "newly present" (M2 §5) is (tag, side, actor, targets, threat); `ply`, `gain` and
-// `contribution` are not part of it.
+// "newly present" (M2 §5) is (tag, side, actor, targets, threat); `ply`, `gain`,
+// `restriction` and `contribution` are not part of it.
 struct Motif {
     MotifTag tag = MotifTag::HangingPiece;
     Side side = Side::White; // X: the side the motif benefits
@@ -180,6 +209,8 @@ struct Motif {
     std::vector<PieceOnSquare> targets; // order per M2 §5 (PostM2_EM1 §4.5 for PinTactical)
     std::optional<int> gain;            // pawn units, set iff tag is HangingPiece or TrappedPiece
     std::optional<MotifThreat> threat;  // set iff tag is PinTactical
+    std::optional<MotifRestriction> restriction;   // set iff tag is PinAbsolute, PinRelative,
+                                                   // OverloadedDefender or PinTactical
     std::optional<MotifContribution> contribution; // null: not judged (PostM2_EM1 §4.2)
 };
 
@@ -230,6 +261,7 @@ struct PositionInfo {
     std::string fen;
     Side side_to_move = Side::White;
     bool in_check = false;
+    int legal_moves = 0;              // legal moves of `fen` (PostM3_EM2 G8); source rule
     std::optional<Terminal> terminal; // set: no searches ran
     std::optional<Eval> eval_white;   // A's best line, White's point of view; null iff terminal
     std::vector<Motif> motifs;        // state motifs at ply 0, both sides; empty if terminal
@@ -256,8 +288,10 @@ struct Threat {
     std::optional<TacticJudgement> tactic; // set only on judged refutations (PostM2_EM1 §4.1)
 };
 
+// Null on MoveAssessment when the opponent has no threat of class mate/material, and when
+// the side to move is in check.
 struct ParryInfo {
-    bool parries = false;
+    bool parries = false; // the opponent's threat no longer wins against the pass baseline
     ParryTest test = ParryTest::Searched;
 };
 
@@ -265,16 +299,18 @@ struct MoveAssessment {
     std::string san;
     std::string uci;
     Eval eval;          // side to move's point of view
+    int depth = 0;      // search depth of the line that gave `eval` (MultiPV line or search C)
     int loss_units = 0; // max(0, best.es_units - eval.es_units)
     Verdict verdict = Verdict::Fine;
     bool in_multipv = true; // false: evaluated by search C
     bool gives_check = false;
     std::vector<std::string>
-        line_san; // from the current position, starts with this move, <= 10 plies
+        line_san;         // from the current position, starts with this move, <= 10 plies
+    int walked_plies = 0; // plies of line_san that motifs and positional were read from (rule)
     std::optional<ParryInfo> parries_threat; // null: no opponent threat of class mate/material
-    std::optional<Threat> creates_threat;    // search E; null iff gives_check, move ends the game,
-                                             // or no legal move after the opponent's null move
-    std::optional<Threat> refutation;        // opponent's reply line; set iff verdict != Fine
+    std::optional<Threat> creates_threat;    // search E
+    std::optional<CreatesThreatSkip> creates_threat_skipped; // null iff creates_threat is set
+    std::optional<Threat> refutation; // opponent's reply line; set iff verdict != Fine
     std::vector<Motif> motifs; // plies 1..walked_plies of `line_san` (M2 §5); ply 1 is this move
     std::optional<TacticJudgement>
         tactic; // set only on candidates[0] and the asked move copying it
@@ -305,14 +341,15 @@ struct NamedPly {
 };
 
 struct OpeningInfo {
-    std::string dataset; // "lichess-org/chess-openings@a6189a3"
+    std::string dataset; // openings::kDataset, or "custom@<12 hex>" (PostM3_EM2 §4.5)
     std::optional<OpeningName> current;
     std::optional<NamedPly>
         last_named; // PGN input only: last named position on the mainline up to the ply
 };
 
 // M3b §5: game counts of one source for the analysed position. Source: games. Strings
-// and limits come from the table's header lines; `table` is games::kTable.
+// and limits come from the table's header lines; `table` is games::kTable, or
+// "custom@<12 hex>" when the loaded table is not the pinned one (PostM3_EM2 §4.5).
 struct GameMoveCount {
     std::string san; // from the analysed position
     std::string uci;
@@ -321,7 +358,7 @@ struct GameMoveCount {
 
 struct GameSourceCounts {
     std::string id;       // "lichess_broadcast"
-    std::string table;    // games::kTable
+    std::string table;    // games::kTable or "custom@<12 hex>"
     std::string platform; // "over the board (may include online events relayed as broadcasts)"
     std::string players;  // "both rated 2200 or more"
     std::string months;   // "2020-01..2026-09"
@@ -347,7 +384,8 @@ struct Report {
     PositionInfo position;
     std::optional<Threats> threats;         // null iff terminal
     std::vector<MoveAssessment> candidates; // search A, MultiPV order; empty iff terminal
-    bool fine_truncated = false;            // all K candidates are fine: more fine moves may exist
+    bool fine_truncated = false; // A returned all K lines and every one is fine; false does
+                                 // not mean the unlisted moves are not fine
     std::optional<MoveAssessment> asked_move;
     OpeningInfo opening;
     GamesInfo games; // after opening; always set, also for terminal positions
