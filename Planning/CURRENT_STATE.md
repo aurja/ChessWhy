@@ -56,8 +56,15 @@ Updated 2026-10-24.
   a2 rook). There, bxc5 is judged okay at 0.0% loss, because White's expected score is
   already 0.0%. Also: an "Opportunity" row under a refuted move is about the refutation;
   "Uses" rows under a non-tactic refutation do not say whose idea they are; the header
-  expected score is White's while the per-move one is the mover's. Not yet a fixture;
-  open for the Captain to schedule.
+  expected score is White's while the per-move one is the mover's. A test result from
+  the Captain's evaluation of ChessWhy against trainers' analysis, not a scope proposal.
+- Captain's test 2026-10-24, loud move (`1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b -
+  - 0 1`): best Bxa4, a tactic and an opportunity, line Bxa4 bxa4 Ba7 Rfc2 Nb4 Bxa7
+  Nxc2. ChessWhy's facts were right: the c-file `pin_relative` (Rc8 → Bc5, Rc2) is
+  reported at ply 5, after Nb4, and not at ply 4 after Rfc2, where a rook-for-rook trade
+  wins nothing. The Deputy, reading the text, placed that pin before Nb4 and read Ba7's
+  `pin_tactical` rows as direct threats; the text shows neither the exchange that makes
+  a pin costly nor the ply order of the line.
 - Captain's stance (2026-10-21): comprehensiveness first, conciseness later
   (`pin_tactical` adds about 9.6 reported motifs per puzzle).
 - PostM2_EM1 complete, merged into `main` 2026-10-21 (receipt
