@@ -29,9 +29,10 @@ using Json = nlohmann::json;
     return Json::parse(input);
 }
 
-[[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args, bool json_output) {
+[[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args, bool json_output,
+                                                    bool full_report = false) {
     std::vector<std::string> args;
-    args.reserve(json_args.size() + (json_output ? 1U : 0U));
+    args.reserve(json_args.size() + (json_output ? 1U : 0U) + (full_report ? 1U : 0U));
     for (const auto& value : json_args) {
         args.push_back(value.get<std::string>());
     }
@@ -44,6 +45,9 @@ using Json = nlohmann::json;
     }
     if (json_output) {
         args.emplace_back("--json");
+    }
+    if (full_report) {
+        args.emplace_back("--full-report");
     }
     return args;
 }
@@ -85,15 +89,20 @@ int main() {
             if (fixture == engine_fixtures.end()) {
                 throw std::runtime_error("missing fixture " + std::string(id));
             }
-            const auto args = fixture_args(fixture->at("args"), true);
-            const std::string first = run(args);
-            const std::string second = run(args);
-            require_identical(id, first, second);
-        }
+            const auto full_args = fixture_args(fixture->at("args"), true, true);
+            const std::string full_first = run(full_args);
+            const std::string full_second = run(full_args);
+            require_identical(std::string(id) + " full JSON", full_first, full_second);
 
+            const auto moves_args = fixture_args(fixture->at("args"), true);
+            const std::string moves_first = run(moves_args);
+            const std::string moves_second = run(moves_args);
+            require_identical(std::string(id) + " moves JSON", moves_first, moves_second);
+        }
         constexpr std::string_view smoke_fen =
             "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3";
-        const std::vector<std::string> smoke_args{"--fen", std::string(smoke_fen), "--move", "Nf6"};
+        const std::vector<std::string> smoke_args{"--fen", std::string(smoke_fen), "--moves",
+                                                  "Nf6"};
         const std::string first = run(smoke_args);
         const std::string second = run(smoke_args);
         require_identical("smoke text", first, second);

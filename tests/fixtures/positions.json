@@ -3,9 +3,10 @@
   "engine_fixtures": [
     {
       "id": "F01",
-      "title": "quiet; asked queenside castling is the only fine move",
+      "title": "quiet; asked queenside castling is the only playable move",
       "source": "Steinitz, Wilhelm - Chigorin, Michael, Wch4-Havana 1892, before 19.O-O-O",
-      "args": ["--fen", "r4r1k/pppb2bp/2q1n1p1/4p3/8/1BPPBN2/PP2QPP1/R3K2R w KQ - 6 19", "--move", "O-O-O"],
+      "reason": "O-O-O is best on line 1's score and Kf1 is a non-tactic mistake; move text calls the created threat `Threatens (if Black passes)`.",
+      "args": ["--fen", "r4r1k/pppb2bp/2q1n1p1/4p3/8/1BPPBN2/PP2QPP1/R3K2R w KQ - 6 19", "--moves", "O-O-O"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -15,22 +16,23 @@
         "/threats/urgency/rule": "quiet",
         "/threats/white/consequence/class": "positional",
         "/threats/black/consequence/class": "positional",
-        "/asked_move/san": "O-O-O",
-        "/asked_move/uci": "e1c1",
-        "/asked_move/verdict": "fine",
-        "/asked_move/in_multipv": true
+        "/candidates/0/san": "O-O-O",
+        "/candidates/0/uci": "e1c1",
+        "/candidates/0/verdict": "best",
+        "/candidates/0/in_multipv": true
       },
-      "fine_includes": ["O-O-O"],
+      "playable_includes": ["O-O-O"],
       "candidate": {
-        "Kf1": {"/verdict": "blunder"}
+        "Kf1": {"/verdict": "mistake"}
       },
-      "text_contains": "Candidate 1 creates threat line (if Black passes after O-O-O):"
+      "text_contains": "Threatens (if Black passes):"
     },
     {
       "id": "F02",
       "title": "in check with exactly one legal move",
       "source": "Alekhine, Alexander - Euwe, Max, Wch16 1935, before 46...Kh5",
-      "args": ["--fen", "6R1/p6p/4pR1k/P3P3/8/r6P/2K1b3/8 b - - 2 46", "--move", "Kh5"],
+      "reason": "Kh5 is the only legal move and matches line 1's score, so it is best; text now identifies it as the best move.",
+      "args": ["--fen", "6R1/p6p/4pR1k/P3P3/8/r6P/2K1b3/8 b - - 2 46", "--moves", "Kh5"],
       "equals": {
         "/position/side_to_move": "black",
         "/position/in_check": true,
@@ -38,18 +40,19 @@
         "/threats/null_move_reliable/value": null,
         "/threats/urgency/more_urgent": "white",
         "/threats/urgency/rule": "in_check",
-        "/asked_move/san": "Kh5",
-        "/asked_move/verdict": "fine",
-        "/candidates/0/tactic/forced": true
+        "/candidates/0/san": "Kh5",
+        "/candidates/0/verdict": "best",
+        "/candidates/0/opportunity/forced": true
       },
-      "fine_includes": ["Kh5"],
-      "text_contains": "Candidate 1: Kh5 (h6h5), fine, es="
+      "playable_includes": ["Kh5"],
+      "text_contains": "Forced: only legal move [rule]"
     },
     {
       "id": "F03",
-      "title": "in check; fine, mistake and blunder replies",
+      "title": "in check; best, mistake and blunder replies",
       "source": "Gunsberg, Isidor - Chigorin, Michael, Havana 1890, before 17.Kf1",
-      "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17", "--move", "Kf1"],
+      "reason": "Kf1 matches line 1's score; Kd1 loses 0.4375 without allowing a tactic, so it is a mistake.",
+      "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17", "--moves", "Kf1"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": true,
@@ -57,13 +60,13 @@
         "/threats/null_move_reliable/value": null,
         "/threats/urgency/more_urgent": "black",
         "/threats/urgency/rule": "in_check",
-        "/asked_move/san": "Kf1",
-        "/asked_move/verdict": "fine"
+        "/candidates/0/san": "Kf1",
+        "/candidates/0/verdict": "best"
       },
-      "fine_includes": ["Kf1"],
+      "playable_includes": ["Kf1"],
       "candidate": {
         "Nd2": {"/verdict": "mistake"},
-        "Kd1": {"/verdict": "blunder"},
+        "Kd1": {"/verdict": "mistake"},
         "Bd2": {"/verdict": "blunder"}
       },
       "text_contains": "Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]\nBudget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, R=100000 [rule]"
@@ -72,7 +75,7 @@
       "id": "F04",
       "title": "opponent threatens mate in one; asked move parries it but allows another mate",
       "source": "Korchnoi, Viktor - Karpov, Anatoly, Wch29 1978, before 39.Ra1",
-      "args": ["--fen", "8/7R/2r5/8/P3n3/R7/3nk1PP/6K1 w - - 3 39", "--move", "Ra1"],
+      "args": ["--fen", "8/7R/2r5/8/P3n3/R7/3nk1PP/6K1 w - - 3 39", "--moves", "Ra1"],
       "motifs_include": {"/position/motifs": [{"tag": "back_rank_weakness", "side": "black", "actor": "g1"}]},
       "equals": {
         "/position/side_to_move": "white",
@@ -82,25 +85,28 @@
         "/threats/urgency/rule": "consequence_class",
         "/threats/black/consequence/class": "mate",
         "/threats/black/consequence/mate_in": 1,
-        "/asked_move/san": "Ra1",
-        "/asked_move/verdict": "blunder",
-        "/asked_move/in_multipv": false,
-        "/asked_move/parries_threat/value": true,
-        "/asked_move/parries_threat/test": "searched",
-        "/asked_move/refutation/consequence/class": "mate"
+        "/asked_moves/0/san": "Ra1",
+        "/asked_moves/0/verdict": "blunder",
+        "/asked_moves/0/in_multipv": false,
+        "/asked_moves/0/parries_threat/value": true,
+        "/asked_moves/0/parries_threat/test": "searched",
+        "/asked_moves/0/refutation/consequence/class": "mate"
       },
       "line_prefix": {"/threats/black/line": ["Rc1#"]},
-      "fine_includes": ["g3", "g4"],
+      "playable_includes": ["g3", "g4"],
       "candidate": {
         "g3": {"/parries_threat/value": true, "/parries_threat/test": "searched"}
       },
-      "text_contains": "Candidates: 5 of"
+      "text_contains": "Asked: Ra1 (a3a1): blunder",
+      "full_text_contains": "Engine lines",
+      "reason": "The move report contains the asked move, while the full report now heads the candidate count as Engine lines."
     },
     {
       "id": "F05",
       "title": "own material threat against the opponent's mate threat",
       "source": "Anand, Viswanathan - Karpov, Anatoly, FIDE-Wch k.o. final 1998, before 34...h6",
-      "args": ["--fen", "2r3k1/Q5pp/1Bq5/P2pb3/8/2n2R1P/2p2PP1/2R3K1 b - - 3 34", "--move", "h6"],
+      "reason": "The move report renders only h6, so the unrelated Ne2+ deferred-threat note is retained only in the full report.",
+      "args": ["--fen", "2r3k1/Q5pp/1Bq5/P2pb3/8/2n2R1P/2p2PP1/2R3K1 b - - 3 34", "--moves", "h6"],
       "equals": {
         "/position/side_to_move": "black",
         "/position/in_check": false,
@@ -110,21 +116,21 @@
         "/threats/white/consequence/class": "mate",
         "/threats/white/consequence/mate_in": 3,
         "/threats/black/consequence/class": "material",
-        "/asked_move/san": "h6",
-        "/asked_move/verdict": "blunder",
-        "/asked_move/parries_threat/value": false
+        "/candidates/4/san": "h6",
+        "/candidates/4/verdict": "blunder",
+        "/candidates/4/parries_threat/value": false
       },
-      "fine_includes": ["Ne2+"],
+      "playable_includes": ["Ne2+"],
       "candidate": {
         "Ne2+": {"/gives_check": true, "/parries_threat/value": false, "/parries_threat/test": "deferred_by_check", "/parries_threat/source": "rule"}
       },
-      "text_contains": "deferred_by_check: the move checks, so the threat only waits"
+      "full_text_contains": "deferred_by_check: the move checks, so the threat only waits"
     },
     {
       "id": "F06",
       "title": "opponent threatens material; asked move allows mate",
       "source": "Chigorin, Michael - Steinitz, Wilhelm, Wch4-Havana 1892, before 32.Bb4",
-      "args": ["--fen", "8/pp2R2p/3BNkb1/3P1p2/7p/8/PP1rr2P/5R1K w - - 1 32", "--move", "Bb4"],
+      "args": ["--fen", "8/pp2R2p/3BNkb1/3P1p2/7p/8/PP1rr2P/5R1K w - - 1 32", "--moves", "Bb4"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -133,21 +139,22 @@
         "/threats/urgency/rule": "consequence_class",
         "/threats/black/consequence/class": "material",
         "/threats/white/consequence/class": "positional",
-        "/asked_move/san": "Bb4",
-        "/asked_move/verdict": "blunder",
-        "/asked_move/in_multipv": false,
-        "/asked_move/refutation/consequence/class": "mate"
+        "/asked_moves/0/san": "Bb4",
+        "/asked_moves/0/verdict": "blunder",
+        "/asked_moves/0/in_multipv": false,
+        "/asked_moves/0/refutation/consequence/class": "mate"
       },
-      "fine_includes": ["Rxb7"]
+      "playable_includes": ["Rxb7"]
     },
     {
       "id": "F07",
-      "title": "equal material threats; the fine move parries by capture",
+      "title": "equal material threats; the best move parries by capture",
       "source": "Alekhine, Alexander - Euwe, Max, The Netherlands 1927, before 31.Qxd3",
-      "args": ["--fen", "6k1/2n2ppp/p3q3/1pB1p1P1/1Pr1P3/PQ1r3P/2PR2K1/8 w - - 0 31", "--move", "Qxd3"],
+      "reason": "Qxd3 loses 0.43 without allowing a tactic, so the new scale calls it a mistake rather than a blunder.",
+      "args": ["--fen", "6k1/2n2ppp/p3q3/1pB1p1P1/1Pr1P3/PQ1r3P/2PR2K1/8 w - - 0 31", "--moves", "Qxd3"],
       "motifs_include": {
-        "/asked_move/motifs": [{"tag": "fork", "side": "white", "actor": "d8"}],
-        "/asked_move/refutation/motifs": [{"tag": "fork", "side": "white", "actor": "d8"}],
+        "/candidates/1/motifs": [{"tag": "fork", "side": "white", "actor": "d8"}],
+        "/candidates/1/refutation/motifs": [{"tag": "fork", "side": "white", "actor": "d8"}],
         "/position/motifs": [{"tag": "back_rank_weakness", "side": "white", "actor": "g8"}]
       },
       "equals": {
@@ -158,11 +165,11 @@
         "/threats/urgency/rule": "parry",
         "/threats/white/consequence/class": "material",
         "/threats/black/consequence/class": "material",
-        "/asked_move/san": "Qxd3",
-        "/asked_move/verdict": "blunder",
-        "/asked_move/in_multipv": true
+        "/candidates/1/san": "Qxd3",
+        "/candidates/1/verdict": "mistake",
+        "/candidates/1/in_multipv": true
       },
-      "fine_includes": ["cxd3"],
+      "playable_includes": ["cxd3"],
       "candidate": {
         "cxd3": {"/parries_threat/value": true, "/parries_threat/test": "threat_move_illegal", "/parries_threat/source": "rule"}
       }
@@ -171,7 +178,8 @@
       "id": "F08",
       "title": "equal material threats; checking move does not parry",
       "source": "Tal, Mikhail - Smyslov, Vasily, Candidates' tournament 1959, before 19.Qxf7",
-      "args": ["--fen", "r1bb1r1k/p4ppp/2p2n1N/7Q/2p5/2B2N2/qPP2PPP/2KR3R w - - 2 19", "--move", "Qxf7"],
+      "reason": "Qxf7 matches line 1's engine score, so it is best; the Nxf7+ check-without-threat note remains in full text.",
+      "args": ["--fen", "r1bb1r1k/p4ppp/2p2n1N/7Q/2p5/2B2N2/qPP2PPP/2KR3R w - - 2 19", "--moves", "Qxf7"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -180,22 +188,23 @@
         "/threats/urgency/rule": "parry",
         "/threats/white/consequence/class": "material",
         "/threats/black/consequence/class": "material",
-        "/asked_move/san": "Qxf7",
-        "/asked_move/verdict": "fine",
-        "/asked_move/parries_threat/value": true,
-        "/asked_move/parries_threat/test": "searched"
+        "/candidates/0/san": "Qxf7",
+        "/candidates/0/verdict": "best",
+        "/candidates/0/parries_threat/value": true,
+        "/candidates/0/parries_threat/test": "searched"
       },
-      "fine_includes": ["Qxf7"],
+      "playable_includes": ["Qxf7"],
       "candidate": {
         "Nxf7+": {"/verdict": "blunder", "/gives_check": true, "/parries_threat/value": false, "/parries_threat/test": "deferred_by_check"}
       },
-      "text_contains": "creates threat: not searched (gives check) [rule]"
+      "full_text_contains": "creates threat: not searched (gives check) [rule]"
     },
     {
       "id": "F09",
       "title": "counterattack: own threat outweighs the opponent's",
       "source": "Euwe, Max - Keres, Paul, Wch18 1948, before 39...Qg3",
-      "args": ["--fen", "8/6pk/7p/5p2/5Pqn/1P5P/P2Q2P1/2r2RK1 b - - 0 39", "--move", "Qg3"],
+      "reason": "Qg3 has zero reported loss but is not the line-1 move, so it is okay rather than best.",
+      "args": ["--fen", "8/6pk/7p/5p2/5Pqn/1P5P/P2Q2P1/2r2RK1 b - - 0 39", "--moves", "Qg3"],
       "motifs_include": {"/threats/black/motifs": [{"tag": "fork", "side": "black", "actor": "f3"}]},
       "equals": {
         "/position/side_to_move": "black",
@@ -205,10 +214,10 @@
         "/threats/urgency/rule": "counterattack",
         "/threats/white/consequence/class": "material",
         "/threats/black/consequence/class": "material",
-        "/asked_move/san": "Qg3",
-        "/asked_move/verdict": "fine"
+        "/candidates/1/san": "Qg3",
+        "/candidates/1/verdict": "okay"
       },
-      "fine_includes": ["Nf3+", "Qg3", "Qg6"],
+      "playable_includes": ["Nf3+", "Qg3", "Qg6"],
       "candidate": {
         "Qxg2+": {"/verdict": "blunder"}
       }
@@ -217,8 +226,9 @@
       "id": "F10",
       "title": "rook against pawns: null move unreliable, promotion threat",
       "source": "Korchnoi, Viktor - Karpov, Anatoly, Candidates' final 1974, before 58.a7",
-      "args": ["--fen", "6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58", "--move", "a7"],
-      "motifs_include": {"/asked_move/motifs": [{"tag": "promotion", "side": "white", "actor": "a8"}]},
+      "reason": "a7 matches line 1's engine score, so it is best.",
+      "args": ["--fen", "6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58", "--moves", "a7"],
+      "motifs_include": {"/candidates/0/motifs": [{"tag": "promotion", "side": "white", "actor": "a8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -227,16 +237,17 @@
         "/threats/urgency/rule": "consequence_class",
         "/threats/white/consequence/class": "promotion",
         "/threats/black/consequence/class": "material",
-        "/asked_move/san": "a7",
-        "/asked_move/verdict": "fine"
+        "/candidates/0/san": "a7",
+        "/candidates/0/verdict": "best"
       },
-      "fine_includes": ["a7"]
+      "playable_includes": ["a7"]
     },
     {
       "id": "F11",
       "title": "en passant capture outside the engine's top lines",
       "source": "Lasker, Emanuel - Schlechter, Carl, Wch10 1910, before 18.exf6",
-      "args": ["--fen", "1r1q1rk1/4b1pp/4b3/1p1pPp2/3p1P2/8/1PBB2PP/R2Q1RK1 w - f6 0 18", "--move", "exf6"],
+      "reason": "exf6 loses 0.3695 without allowing a tactic, so the new scale calls it a mistake rather than a blunder.",
+      "args": ["--fen", "1r1q1rk1/4b1pp/4b3/1p1pPp2/3p1P2/8/1PBB2PP/R2Q1RK1 w - f6 0 18", "--moves", "exf6"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -245,18 +256,19 @@
         "/threats/urgency/rule": "quiet",
         "/threats/white/consequence/class": "positional",
         "/threats/black/consequence/class": "positional",
-        "/asked_move/san": "exf6",
-        "/asked_move/uci": "e5f6",
-        "/asked_move/verdict": "blunder",
-        "/asked_move/in_multipv": false
+        "/asked_moves/0/san": "exf6",
+        "/asked_moves/0/uci": "e5f6",
+        "/asked_moves/0/verdict": "mistake",
+        "/asked_moves/0/in_multipv": false
       },
-      "fine_includes": ["Bd3"]
+      "playable_includes": ["Bd3"]
     },
     {
       "id": "F12",
-      "title": "mistake against a material threat",
+      "title": "blunder against a material threat",
       "source": "Kasparov, Gary - Karpov, Anatoly, Wch33-KK3 1986, before 26.Ng4",
-      "args": ["--fen", "1r3bk1/5pp1/b4q1p/2nPN3/2p5/N2nR2P/1P3PP1/1BBQ2K1 w - - 1 26", "--move", "Ng4"],
+      "reason": "Ng4 loses 0.172 and allows a tactic, so the new scale calls it a blunder rather than a mistake.",
+      "args": ["--fen", "1r3bk1/5pp1/b4q1p/2nPN3/2p5/N2nR2P/1P3PP1/1BBQ2K1 w - - 1 26", "--moves", "Ng4"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -264,11 +276,11 @@
         "/threats/urgency/more_urgent": "black",
         "/threats/urgency/rule": "consequence_class",
         "/threats/black/consequence/class": "material",
-        "/asked_move/san": "Ng4",
-        "/asked_move/verdict": "mistake",
-        "/asked_move/in_multipv": true
+        "/candidates/3/san": "Ng4",
+        "/candidates/3/verdict": "blunder",
+        "/candidates/3/in_multipv": true
       },
-      "fine_includes": ["Qc2"]
+      "playable_includes": ["Qc2"]
     },
     {
       "id": "F13",
@@ -311,9 +323,10 @@
     },
     {
       "id": "F17",
-      "title": "underpromotion is the only fine move; queening allows mate",
+      "title": "underpromotion is the only playable move; queening allows mate",
       "source": "Korchnoi, Viktor - Kasparov, Gary, London 1983, round 6, annotator's line 60...Rg6 61.Rg2, before 70.d8=N+",
-      "args": ["--fen", "4K3/3P2r1/4k3/8/8/8/8/8 w - - 3 70", "--move", "d8=N+"],
+      "reason": "d8=N+ matches line 1's engine score, so it is best.",
+      "args": ["--fen", "4K3/3P2r1/4k3/8/8/8/8/8 w - - 3 70", "--moves", "d8=N+"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -324,14 +337,14 @@
         "/threats/white/consequence/promotes": true,
         "/threats/black/consequence/class": "mate",
         "/threats/black/consequence/mate_in": 1,
-        "/asked_move/san": "d8=N+",
-        "/asked_move/uci": "d7d8n",
-        "/asked_move/verdict": "fine",
-        "/asked_move/in_multipv": true,
-        "/asked_move/gives_check": true
+        "/candidates/0/san": "d8=N+",
+        "/candidates/0/uci": "d7d8n",
+        "/candidates/0/verdict": "best",
+        "/candidates/0/in_multipv": true,
+        "/candidates/0/gives_check": true
       },
       "line_prefix": {"/threats/black/line": ["Rg8#"]},
-      "fine_includes": ["d8=N+"],
+      "playable_includes": ["d8=N+"],
       "candidate": {
         "d8=Q": {"/verdict": "blunder"},
         "d8=R": {"/verdict": "blunder"}
@@ -339,10 +352,11 @@
     },
     {
       "id": "F18",
-      "title": "underpromotion by capture is the only fine move",
+      "title": "underpromotion by capture is the only playable move",
       "source": "De la Bourdonnais, Louis Mahe - McDonnell, Alexander, London m1 1834, annotator's line 34.Nb1 Kxg7 35.gxf7+ Qxg3, before 36.fxe8=N+",
-      "args": ["--fen", "4r3/1p3Pk1/3p4/8/8/pPnn2q1/P7/KN4R1 w - - 0 36", "--move", "fxe8=N+"],
-      "motifs_include": {"/asked_move/motifs": [{"tag": "promotion", "side": "white", "actor": "e8"}]},
+      "reason": "fxe8=N+ matches line 1's score; fxe8=Q and Rxg3+ lose more than 0.10 but allow no tactic, so both are mistakes.",
+      "args": ["--fen", "4r3/1p3Pk1/3p4/8/8/pPnn2q1/P7/KN4R1 w - - 0 36", "--moves", "fxe8=N+"],
+      "motifs_include": {"/candidates/0/motifs": [{"tag": "promotion", "side": "white", "actor": "e8"}]},
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -353,24 +367,25 @@
         "/threats/white/consequence/promotes": true,
         "/threats/black/consequence/class": "mate",
         "/threats/black/consequence/mate_in": 3,
-        "/asked_move/san": "fxe8=N+",
-        "/asked_move/uci": "f7e8n",
-        "/asked_move/verdict": "fine",
-        "/asked_move/in_multipv": true,
-        "/asked_move/gives_check": true
+        "/candidates/0/san": "fxe8=N+",
+        "/candidates/0/uci": "f7e8n",
+        "/candidates/0/verdict": "best",
+        "/candidates/0/in_multipv": true,
+        "/candidates/0/gives_check": true
       },
       "line_prefix": {"/threats/black/line": ["Qxg1"]},
-      "fine_includes": ["fxe8=N+"],
+      "playable_includes": ["fxe8=N+"],
       "candidate": {
-        "fxe8=Q": {"/verdict": "blunder"},
-        "Rxg3+": {"/verdict": "blunder"}
+        "fxe8=Q": {"/verdict": "mistake"},
+        "Rxg3+": {"/verdict": "mistake"}
       }
     },
     {
       "id": "F19",
       "title": "search B skips a stalemated null-move position",
+      "reason": "Qg7# matches line 1's mate score, so it is best.",
       "source": "constructed: stalemate in the null-move position (search B)",
-      "args": ["--fen", "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1", "--move", "Qg7"],
+      "args": ["--fen", "7k/5K2/6Q1/8/8/8/8/8 w - - 0 1", "--moves", "Qg7"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": false,
@@ -380,21 +395,22 @@
         "/threats/urgency/rule": "consequence_class",
         "/threats/white/consequence/class": "mate",
         "/threats/white/consequence/mate_in": 1,
-        "/asked_move/san": "Qg7#",
-        "/asked_move/uci": "g6g7",
-        "/asked_move/verdict": "fine",
-        "/asked_move/in_multipv": true,
-        "/asked_move/gives_check": true,
-        "/asked_move/parries_threat": null
+        "/candidates/3/san": "Qg7#",
+        "/candidates/3/uci": "g6g7",
+        "/candidates/3/verdict": "best",
+        "/candidates/3/in_multipv": true,
+        "/candidates/3/gives_check": true,
+        "/candidates/3/parries_threat": null
       },
       "line_prefix": {"/threats/white/line": ["Qh5#"]},
-      "fine_includes": ["Qg7#"]
+      "playable_includes": ["Qg7#"]
     },
     {
       "id": "F20",
       "title": "search E skips a stalemated null-move position",
+      "reason": "Kh8 matches line 1's engine score, so it is best.",
       "source": "constructed: stalemate in the null-move position (search E)",
-      "args": ["--fen", "6K1/8/5kq1/8/8/8/8/8 w - - 0 1", "--move", "Kh8"],
+      "args": ["--fen", "6K1/8/5kq1/8/8/8/8/8 w - - 0 1", "--moves", "Kh8"],
       "equals": {
         "/position/side_to_move": "white",
         "/position/in_check": true,
@@ -402,42 +418,45 @@
         "/threats/null_move_reliable/value": null,
         "/threats/urgency/more_urgent": "black",
         "/threats/urgency/rule": "in_check",
-        "/asked_move/san": "Kh8",
-        "/asked_move/uci": "g8h8",
-        "/asked_move/verdict": "fine",
-        "/asked_move/in_multipv": true,
-        "/asked_move/gives_check": false,
-        "/asked_move/parries_threat": null,
-        "/asked_move/creates_threat": null
+        "/candidates/1/san": "Kh8",
+        "/candidates/1/uci": "g8h8",
+        "/candidates/1/verdict": "best",
+        "/candidates/1/in_multipv": true,
+        "/candidates/1/gives_check": false,
+        "/candidates/1/parries_threat": null,
+        "/candidates/1/creates_threat": null
       },
       "line_prefix": {
         "/threats/white/line": ["Kf8", "Qf7#"],
-        "/asked_move/line": ["Kh8", "Qg7#"]
+        "/candidates/1/line": ["Kh8", "Qg7#"]
       },
-      "fine_includes": ["Kh8"]
+      "playable_includes": ["Kh8"]
     },
     {
       "id": "F21",
       "title": "only-move capture of the exposed queen with check",
       "source": "constructed: knight captures the exposed queen with check",
+      "reason": "The move report keeps the hanging queen on f6 as a relevant fact, but drops the unrelated d5 knight fact from the root summary.",
       "args": ["--fen", "4k3/8/5q2/3N4/8/8/8/4K3 w - - 0 1"],
       "equals": {
-        "/candidates/0/tactic/is_tactic": true,
+        "/candidates/0/is_tactic": true,
         "/candidates/0/creates_threat_skipped": "gives_check"
       },
-      "text_contains": "hanging_piece: N d5, SEE 3 (ply 2) [rule]"
+      "text_contains": "Uses: hanging_piece: q f6, SEE 9",
+      "full_text_contains": "hanging_piece: N d5, SEE 3 (ply 2) [rule]"
     },
     {
       "id": "F22",
       "title": "refutation fork wins the queen after the quiet pawn move",
       "source": "constructed: PostM2_EM1 smoke position",
-      "args": ["--fen", "k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1", "--move", "c3"],
+      "reason": "Qxh4 forces mate and is a tactic; v6 text identifies requested c3 directly instead of using the legacy Candidate heading.",
+      "args": ["--fen", "k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1", "--moves", "c3"],
       "equals": {
-        "/candidates/0/tactic/is_tactic": false,
-        "/asked_move/refutation/tactic/is_tactic": true
+        "/candidates/0/is_tactic": true,
+        "/asked_moves/0/refutation/is_tactic": true
       },
       "motifs_include": {
-        "/asked_move/refutation/motifs": [
+        "/asked_moves/0/refutation/motifs": [
           {
             "tag": "fork",
             "side": "black",
@@ -447,15 +466,16 @@
           }
         ]
       },
-      "text_contains": "Candidate 1 facts read to ply"
+      "text_contains": "Line: c3 Nf3+ Kf2 Nxd4 cxd4 Kb8 Ke3 Kc7 d5 Kc8; facts read to ply 6 of 10 [engine]"
     },
     {
       "id": "F23",
       "title": "decisive mate-in-one position is saturated",
       "source": "constructed: mate-in-one versus mate-in-two saturation",
+      "reason": "Qg7# is mate in one while the other saturated line mates in two, so the best line is a tactic.",
       "args": ["--fen", "8/7k/5K2/6Q1/8/8/8/8 w - - 0 1"],
       "equals": {
-        "/candidates/0/tactic/is_tactic": false,
+        "/candidates/0/is_tactic": true,
         "/candidates/0/eval/es": 1.0,
         "/candidates/1/eval/es": 1.0
       }
@@ -464,9 +484,10 @@
       "id": "F24",
       "title": "four equally winning mate-in-one moves",
       "source": "constructed: four legal queen mates",
+      "reason": "The four equal mate-in-one candidates are tactical lines on v6.",
       "args": ["--fen", "7k/5Q2/6K1/8/8/8/8/8 w - - 0 1"],
       "equals": {
-        "/candidates/0/tactic/is_tactic": false,
+        "/candidates/0/is_tactic": true,
         "/candidates/0/eval/es": 1.0,
         "/candidates/1/eval/es": 1.0
       },
@@ -475,9 +496,9 @@
         "/candidates/1/line": ["Qf8#"]
       }
     },
-    {"id":"F25","title":"Exchange Ruy Lopez bishop and c-pawn changes","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6","args":["--fen","r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4","--move","Bxc6"],"positional_include":{"/position/positional":[{"tag":"bishop_pair","side":"white"},{"tag":"bishop_pair","side":"black"}],"/asked_move/positional":[{"ply":2,"change":"appears","holds_at_end":true,"tag":"doubled_pawns","side":"black","file":"c"},{"ply":2,"change":"disappears","holds_at_end":true,"tag":"bishop_pair","side":"white"}]},"reason":"The recapture removes White's bishop pair at ply 2 and leaves Black with doubled c-pawns; Black's opposite-coloured bishops remain."},
-    {"id":"F26","title":"Passed pawns in the rook ending","source":"Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (F10 position)","args":["--fen","6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58","--move","a7"],"positional_include":{"/position/positional":[{"tag":"passed_pawn","side":"white","file":"a","pieces":[{"square":"a6","piece":"P"}]},{"tag":"passed_pawn","side":"black","file":"g","pieces":[{"square":"g3","piece":"p"}]},{"tag":"material_ahead","side":"white","value":4}]},"reason":"The a6 and g3 pawns have no enemy pawn in front on their or adjacent files; White has material 6 to Black's 2."},
-    {"id":"F27","title":"Kingside castling loses its right","source":"constructed","args":["--fen","k7/8/8/8/8/8/8/4K2R w K - 0 1","--move","O-O"],"positional_include":{"/asked_move/positional":[{"ply":1,"change":"disappears","holds_at_end":true,"tag":"castling_kingside","side":"white"}]},"reason":"O-O consumes White's remaining kingside castling right."},
+    {"id":"F25","title":"Exchange Ruy Lopez bishop and c-pawn changes","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6","args":["--fen","r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4","--moves","Bxc6"],"positional_include":{"/position/positional":[{"tag":"bishop_pair","side":"white"},{"tag":"bishop_pair","side":"black"}],"/candidates/1/positional":[{"ply":2,"change":"appears","holds_at_end":true,"tag":"doubled_pawns","side":"black","file":"c"},{"ply":2,"change":"disappears","holds_at_end":true,"tag":"bishop_pair","side":"white"}]},"reason":"The recapture removes White's bishop pair at ply 2 and leaves Black with doubled c-pawns; Black's opposite-coloured bishops remain."},
+    {"id":"F26","title":"Passed pawns in the rook ending","source":"Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (F10 position)","args":["--fen","6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58","--moves","a7"],"positional_include":{"/position/positional":[{"tag":"passed_pawn","side":"white","file":"a","pieces":[{"square":"a6","piece":"P"}]},{"tag":"passed_pawn","side":"black","file":"g","pieces":[{"square":"g3","piece":"p"}]},{"tag":"material_ahead","side":"white","value":4}]},"reason":"The a6 and g3 pawns have no enemy pawn in front on their or adjacent files; White has material 6 to Black's 2."},
+    {"id":"F27","title":"Kingside castling loses its right","source":"constructed","args":["--fen","k7/8/8/8/8/8/8/4K2R w K - 0 1","--moves","O-O"],"positional_include":{"/asked_moves/0/positional":[{"ply":1,"change":"disappears","holds_at_end":true,"tag":"castling_kingside","side":"white"}]},"reason":"O-O consumes White's remaining kingside castling right."},
     {"id":"F28","title":"The Exchange Ruy Lopez doubled c-pawns","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6","args":["--fen","r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],"positional_include":{"/position/positional":[{"tag":"doubled_pawns","side":"black","file":"c"},{"tag":"bishop_pair","side":"black"}]},"reason":"Black's c6 and c7 pawns share a file, and its c8 and f8 bishops occupy opposite colours."}
     ,
     {
@@ -507,8 +528,8 @@
           {"san": "Nf3", "uci": "g1f3", "games": 28707}
         ]
       },
-      "text_contains": "games: played in 123657 of 262026 games [games]",
-      "reason": "Counts and move frequencies match the pinned table's standard-start row; the rendered candidate count cites games without ranking move quality."
+      "text_contains": "Played in 123657 of 262026 games",
+      "reason": "Counts match the pinned standard-start row; move-report text attributes e4's usage to the games source without ranking move quality."
     },
     {
       "id": "F30",
@@ -535,8 +556,231 @@
       "title": "T46 restriction is explicit in the text report",
       "source": "constructed: T46 tactical-pin position",
       "args": ["--fen", "8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1"],
-      "text_contains": "at square g5; restricted: g5-f4, g5-g4, g5-h4; free: none",
-      "reason": "The g5 pawn has restricted g5-f4, g5-g4, and g5-h4 moves, leaving it held at g5."
+      "text_contains": "Tactic: mate in 8 [engine]",
+      "full_text_contains": "at square g5; restricted: g5-f4, g5-g4, g5-h4; free: none",
+      "reason": "The g5 pawn has restricted g5-f4, g5-g4, and g5-h4 moves; this root fact remains in full text but is irrelevant to the selected move."
+    },
+    {
+      "id": "F32",
+      "title": "Italian Game selection and all legal moves",
+      "source": "constructed: Italian Game after 1.e4 e5 2.Bc4 Nc6 3.Nf3",
+      "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3"],
+      "equals": {
+        "/candidates/0/san": "Nf6",
+        "/candidates/0/verdict": "best"
+      },
+      "moves_count": 1,
+      "moves_san": ["Nf6"],
+      "text_contains": "Showing the best move; 4 playable moves among the engine's top 5 [rule]",
+      "runs": [
+        {
+          "name": "top2",
+          "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "top2"],
+          "moves_count": 2,
+          "moves_san": ["Nf6", "Bc5"]
+        },
+        {
+          "name": "top6",
+          "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "top6"],
+          "moves_count": 6,
+          "moves_san": ["Bc5", "Nf6", "d6", "Be7", "h6", "a5"],
+          "moves_equals": {
+            "/moves/4/verdict": "inaccuracy",
+            "/moves/5/verdict": "inaccuracy"
+          }
+        },
+        {
+          "name": "playable",
+          "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "playable"],
+          "moves_count": 4,
+          "moves_san": ["Bc5", "Nf6", "Be7", "d6"],
+          "moves_equals": {
+            "/selection/playable_count": 4,
+            "/selection/lines_searched": 31
+          },
+          "text_contains": "Showing every playable move (4 of 31 legal moves) [rule]"
+        },
+        {
+          "name": "all",
+          "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "all"],
+          "moves_count": 31,
+          "moves_san": ["Bc5", "Nf6", "Be7", "d6", "g6", "a6", "h6", "a5", "Bd6", "Na5", "Nge7", "Rb8", "Qe7", "h5", "f5", "Nh6", "Qf6", "Nd4", "Bb4", "d5", "b6", "f6", "Nb4", "g5", "b5", "Ke7", "Nce7", "Nb8", "Ba3", "Qg5", "Qh4"],
+          "moves_equals": {
+            "/selection/lines_searched": 31,
+            "/selection/playable_count": 4,
+            "/moves/0/san": "Bc5",
+            "/moves/30/san": "Qh4"
+          },
+          "candidates_count": 31,
+          "candidates_detailed": true
+        },
+        {
+          "name": "best_h6",
+          "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "best,h6"],
+          "moves_count": 2,
+          "moves_san": ["Nf6", "h6"],
+          "moves_equals": {
+            "/moves/0/rank": 1,
+            "/moves/1/rank": 5,
+            "/moves/1/verdict": "mistake"
+          }
+        }
+      ]
+    },
+    {
+      "id": "F33",
+      "title": "two mates in one have the same best score",
+      "source": "constructed: two rook mates in one",
+      "args": ["--fen", "6k1/5ppp/8/8/8/8/5PPP/R3R1K1 w - - 0 1"],
+      "moves_count": 1,
+      "moves_san": ["Ra8#"],
+      "runs": [
+        {
+          "name": "top2",
+          "args": ["--fen", "6k1/5ppp/8/8/8/8/5PPP/R3R1K1 w - - 0 1", "--moves", "top2"],
+          "moves_count": 2,
+          "moves_san": ["Ra8#", "Re8#"],
+          "moves_equals": {
+            "/moves/0/verdict": "best",
+            "/moves/1/verdict": "best",
+            "/moves/0/eval/mate": 1,
+            "/moves/1/eval/mate": 1
+          },
+          "equals": {
+            "/candidates/0/eval/mate": 1,
+            "/candidates/1/eval/mate": 1
+          }
+        }
+      ]
+    },
+    {
+      "id": "F34",
+      "title": "queen is attacked by two pieces: tactic, not opportunity",
+      "source": "constructed: White's rook h1 and bishop d4 both attack the queen on h8",
+      "args": ["--fen", "k6q/8/8/8/3B4/8/8/K6R w - - 0 1"],
+      "equals": {
+        "/candidates/0/san": "Rxh8+",
+        "/candidates/0/is_tactic": true,
+        "/candidates/0/opportunity/is_opportunity": false
+      }
+    },
+    {
+      "id": "F35",
+      "title": "a positional only-best move is an opportunity, not a tactic",
+      "source": "Steinitz - Chigorin, Wch4-Havana 1892, before 19.O-O-O (F01 position)",
+      "args": ["--fen", "r4r1k/pppb2bp/2q1n1p1/4p3/8/1BPPBN2/PP2QPP1/R3K2R w KQ - 6 19", "--moves", "O-O-O"],
+      "equals": {
+        "/candidates/0/is_tactic": false,
+        "/candidates/0/opportunity/is_opportunity": true,
+        "/candidates/0/opportunity/forced": false
+      },
+      "min": {
+        "/candidates/0/opportunity/margin": 0.13
+      },
+      "positional_include": {
+        "/candidates/0/positional": [
+          {"tag": "castling_queenside", "side": "white", "change": "disappears", "holds_at_end": true}
+        ]
+      },
+      "reason": "The only best line changes White's castling rights; the loss margin makes it an opportunity, without a tactic."
+    },
+    {
+      "id": "F36",
+      "title": "a non-tactic loss is a mistake selected by verdict",
+      "source": "Gunsberg - Chigorin, Havana 1890, before 17.Kf1 (F03 position)",
+      "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17"],
+      "runs": [
+        {
+          "name": "asked_Nd2",
+          "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17", "--moves", "Nd2"],
+          "moves_count": 1,
+          "moves_san": ["Nd2"],
+          "candidate": {
+            "Nd2": {"/verdict": "mistake", "/allows_tactic": false}
+          }
+        },
+        {
+          "name": "mistakes",
+          "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17", "--moves", "mistakes"],
+          "moves_count": 2,
+          "moves_san": ["Nd2", "Kd1"],
+          "moves_equals": {
+            "/selection/keywords": ["mistakes"]
+          },
+          "min": {
+            "/candidates/2/loss": 0.1
+          },
+          "candidate": {
+            "Nd2": {"/verdict": "mistake", "/allows_tactic": false},
+            "Kd1": {"/verdict": "mistake", "/allows_tactic": false}
+          }
+        }
+      ]
+    },
+    {
+      "id": "F37",
+      "title": "a tactic-allowing loss is a blunder selected by verdict",
+      "source": "Gunsberg - Chigorin, Havana 1890, before 17.Kf1 (F03 position)",
+      "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17"],
+      "runs": [
+        {
+          "name": "asked_Bd2",
+          "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17", "--moves", "Bd2"],
+          "moves_count": 1,
+          "moves_san": ["Bd2"],
+          "candidate": {
+            "Bd2": {"/verdict": "blunder", "/allows_tactic": true}
+          }
+        },
+        {
+          "name": "blunders",
+          "args": ["--fen", "r4rk1/2p2pbp/p3bnp1/1p2p3/1q2P1P1/3P1N1P/PPB1QP2/R1B1K2R w KQ - 2 17", "--moves", "blunders"],
+          "moves_count": 1,
+          "moves_san": ["Bd2"],
+          "moves_equals": {
+            "/selection/keywords": ["blunders"]
+          },
+          "candidate": {
+            "Bd2": {"/verdict": "blunder", "/allows_tactic": true}
+          }
+        }
+      ]
+    },
+    {
+      "id": "F38",
+      "title": "an equal pawn trade's refutation is not a tactic",
+      "source": "Lasker - Schlechter, Wch10 1910, before 18.exf6 (F11 position)",
+      "args": ["--fen", "1r1q1rk1/4b1pp/4b3/1p1pPp2/3p1P2/8/1PBB2PP/R2Q1RK1 w - f6 0 18", "--moves", "exf6"],
+      "equals": {
+        "/asked_moves/0/san": "exf6",
+        "/asked_moves/0/consequence/material": 0,
+        "/asked_moves/0/is_tactic": false,
+        "/asked_moves/0/allows_tactic": false,
+        "/asked_moves/0/refutation/is_tactic": false
+      },
+      "min": {
+        "/asked_moves/0/loss": 0.1
+      },
+      "line_prefix": {
+        "/asked_moves/0/refutation/line": ["Bxf6"]
+      }
+    },
+    {
+      "id": "F39",
+      "title": "Re8 mate carries an indirect back-rank root motif",
+      "source": "constructed: Re8# on the supplied back-rank position",
+      "args": ["--fen", "6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1"],
+      "moves_count": 1,
+      "moves_san": ["Re8#"],
+      "moves_equals": {
+        "/moves/0/verdict": "best",
+        "/moves/0/is_tactic": true
+      },
+      "moves_motifs_include": {
+        "/moves/0/root_motifs": [
+          {"tag": "back_rank_weakness", "side": "white", "actor": "g8", "contribution": "indirect"}
+        ]
+      }
     }
   ],
   "unit_fixtures": [
@@ -614,10 +858,10 @@
     {"id": "E01", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN w KQkq - 0 1"], "exit": 2, "contains": ["invalid FEN"]},
     {"id": "E02", "args": ["--fen", "8/8/8/8/8/8/8/8 w - - 0 1"], "exit": 2, "contains": ["invalid FEN"]},
     {"id": "E03", "args": ["--fen", "4k3/8/8/8/8/8/4R3/4K3 w - - 0 1"], "exit": 2, "contains": ["invalid FEN"]},
-    {"id": "E04", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--move", "Ke2"], "exit": 2, "contains": ["illegal move", "Ke2"]},
-    {"id": "E05", "args": ["--fen", "rnbqkb1r/ppp1pppp/5n2/3p4/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 2 3", "--move", "Nd2"], "exit": 2, "contains": ["ambiguous move", "Nd2"]},
-    {"id": "E06", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--move", "Zz9"], "exit": 2, "contains": ["cannot parse move", "Zz9"]},
-    {"id": "E07", "args": ["--fen", "rnbqkbnr/ppppp1pp/5p2/7Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2", "--move", "Nf6"], "exit": 2, "contains": ["illegal move", "Nf6"]},
+    {"id": "E04", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--moves", "Ke2"], "exit": 2, "contains": ["illegal move", "Ke2"]},
+    {"id": "E05", "args": ["--fen", "rnbqkb1r/ppp1pppp/5n2/3p4/3P4/5N2/PPP1PPPP/RNBQKB1R w KQkq - 2 3", "--moves", "Nd2"], "exit": 2, "contains": ["ambiguous move", "Nd2"]},
+    {"id": "E06", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--moves", "Zz9"], "exit": 2, "contains": ["cannot parse move", "Zz9"]},
+    {"id": "E07", "args": ["--fen", "rnbqkbnr/ppppp1pp/5p2/7Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2", "--moves", "Nf6"], "exit": 2, "contains": ["illegal move", "Nf6"]},
     {"id": "E08", "args": ["--pgn", "three_games.pgn", "--game", "3"], "exit": 2, "contains": ["game 3", "move 2", "Ke3"]},
     {"id": "E09", "args": ["--pgn", "two_games.pgn", "--game", "3"], "exit": 2, "contains": ["game 3"]},
     {"id": "E10", "args": ["--pgn", "two_games.pgn", "--game", "2", "--ply", "99"], "exit": 2, "contains": ["ply 99"]},
@@ -628,6 +872,10 @@
     {"id": "E15", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--engine", "/nonexistent/stockfish"], "exit": 3, "contains": ["engine", "/nonexistent/stockfish"]},
     {"id": "E16", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--openings", "/nonexistent/openings"], "exit": 3, "contains": ["openings", "/nonexistent/openings"]},
     {"id": "E17", "args": ["--fen", "7k/5Q2/6K1/8/8/8/8/8 b - - 0 10000"], "exit": 2, "contains": ["invalid FEN", "counter"]},
-    {"id": "E18", "args": ["--fen", "7k/5Q2/6K1/8/8/8/8/8 b - - 151 40"], "exit": 2, "contains": ["invalid FEN", "counter"]}
+    {"id": "E18", "args": ["--fen", "7k/5Q2/6K1/8/8/8/8/8 b - - 151 40"], "exit": 2, "contains": ["invalid FEN", "counter"]},
+    {"id": "E19", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--moves", "Nf3,,e4"], "exit": 2, "contains": ["chesswhy: error: empty item in --moves"], "message": "chesswhy: error: empty item in --moves"},
+    {"id": "E20", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--moves", "top0"], "exit": 2, "contains": ["chesswhy: error: invalid value for --moves: top0"], "message": "chesswhy: error: invalid value for --moves: top0"},
+    {"id": "E21", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--moves", "foo"], "exit": 2, "contains": ["chesswhy: error: cannot parse move foo"], "message": "chesswhy: error: cannot parse move foo"},
+    {"id": "E22", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--move", "Nf6"], "exit": 2, "contains": ["chesswhy: error: unknown flag --move"], "message": "chesswhy: error: unknown flag --move"}
   ]
 }

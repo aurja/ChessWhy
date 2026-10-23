@@ -20,7 +20,8 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CLI_FIXTURES_F
 file(READ "${CLI_FIXTURES_FILE}" CLI_FIXTURES_JSON)
 string(JSON CLI_FIXTURE_COUNT LENGTH "${CLI_FIXTURES_JSON}" engine_fixtures)
 math(EXPR CLI_FIXTURE_LAST_INDEX "${CLI_FIXTURE_COUNT} - 1")
-set(CLI_REPORT_FILES)
+set(CLI_FULL_REPORT_FILES)
+set(CLI_MOVES_REPORT_FILES)
 set(CLI_REPORT_FIXTURES)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/reports")
 foreach(index RANGE 0 ${CLI_FIXTURE_LAST_INDEX})
@@ -31,15 +32,62 @@ foreach(index RANGE 0 ${CLI_FIXTURE_LAST_INDEX})
         LABELS engine
         FIXTURES_SETUP cli_report_${fixture_id}
         RESOURCE_LOCK engine)
-    list(APPEND CLI_REPORT_FILES "${CMAKE_CURRENT_BINARY_DIR}/reports/${fixture_id}.json")
+    set(report_prefix "${CMAKE_CURRENT_BINARY_DIR}/reports/${fixture_id}")
+    list(APPEND CLI_FULL_REPORT_FILES "${report_prefix}.full.json")
+    list(APPEND CLI_MOVES_REPORT_FILES "${report_prefix}.moves.json")
+    string(JSON fixture_run_count ERROR_VARIABLE fixture_runs_error
+        LENGTH "${CLI_FIXTURES_JSON}" engine_fixtures ${index} runs)
+    if(NOT fixture_runs_error)
+        math(EXPR fixture_run_last "${fixture_run_count} - 1")
+        foreach(run_index RANGE 0 ${fixture_run_last})
+            string(JSON run_name GET "${CLI_FIXTURES_JSON}" engine_fixtures ${index}
+                runs ${run_index} name)
+            set(run_report_prefix "${report_prefix}-${run_name}")
+            list(APPEND CLI_FULL_REPORT_FILES "${run_report_prefix}.full.json")
+            list(APPEND CLI_MOVES_REPORT_FILES "${run_report_prefix}.moves.json")
+        endforeach()
+    endif()
     list(APPEND CLI_REPORT_FIXTURES cli_report_${fixture_id})
 endforeach()
 
-add_test(NAME report_schema
-    COMMAND "${CHESSWHY_PYTHON}"
-        "${PROJECT_SOURCE_DIR}/tools/validate_report.py"
-        "${PROJECT_SOURCE_DIR}/schema/report.v6.schema.json"
-        ${CLI_REPORT_FILES})
+set(CLI_REPORT_CHECK_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/report_schema.cmake")
+file(WRITE "${CLI_REPORT_CHECK_SCRIPT}" "set(PYTHON [==[${CHESSWHY_PYTHON}]==])\n")
+file(APPEND "${CLI_REPORT_CHECK_SCRIPT}"
+    "set(VALIDATOR [==[${PROJECT_SOURCE_DIR}/tools/validate_report.py]==])\n")
+file(APPEND "${CLI_REPORT_CHECK_SCRIPT}"
+    "set(SCHEMA [==[${PROJECT_SOURCE_DIR}/schema/report.v6.schema.json]==])\n")
+file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "set(FULL_REPORTS\n")
+foreach(report IN LISTS CLI_FULL_REPORT_FILES)
+    file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "  [==[${report}]==]\n")
+endforeach()
+file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" ")\nset(MOVES_REPORTS\n")
+foreach(report IN LISTS CLI_MOVES_REPORT_FILES)
+    file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "  [==[${report}]==]\n")
+endforeach()
+file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" ")\n")
+file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" [=[
+execute_process(
+    COMMAND "${PYTHON}" "${VALIDATOR}" "${SCHEMA}" ${FULL_REPORTS} ${MOVES_REPORTS}
+    RESULT_VARIABLE documents_result)
+if(NOT documents_result EQUAL 0)
+    message(FATAL_ERROR "full or moves report validation failed")
+endif()
+list(LENGTH FULL_REPORTS report_count)
+math(EXPR report_last "${report_count} - 1")
+foreach(index RANGE 0 ${report_last})
+    list(GET FULL_REPORTS ${index} full_report)
+    list(GET MOVES_REPORTS ${index} moves_report)
+    execute_process(
+        COMMAND "${PYTHON}" "${VALIDATOR}" "${SCHEMA}" --projection
+            "${full_report}" "${moves_report}"
+        RESULT_VARIABLE projection_result)
+    if(NOT projection_result EQUAL 0)
+        message(FATAL_ERROR "report projection failed for ${full_report}")
+    endif()
+endforeach()
+]=])
+
+add_test(NAME report_schema COMMAND "${CMAKE_COMMAND}" -P "${CLI_REPORT_CHECK_SCRIPT}")
 set_tests_properties(report_schema PROPERTIES
     LABELS engine
     FIXTURES_REQUIRED "${CLI_REPORT_FIXTURES}")

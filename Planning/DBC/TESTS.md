@@ -5,10 +5,9 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-23, M4 batch 2 (move reports, `--moves`, move report text, projection
-check): 171 CTests (134 `unit`, 35 `engine`, 2 `games`, no `model` yet). `unit` passes in
-Release; most `engine` tests fail on pre-v6 fixture expectations and the removed `--move`
-flag until the fixtures are re-blessed in M4.
+**Snapshot:** 2026-10-23, M4 batch 3 (fixtures re-blessed on report v6 and `--moves`):
+179 CTests (134 `unit`, 43 `engine`, 2 `games`, no `model` yet), all passing in
+Release.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -203,9 +202,9 @@ Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
-| `cli_fixture_F01` … `cli_fixture_F31` (one per F fixture, F16 absent: 30 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture and checks its `equals` fields, `fine_includes`, `motifs_include`, `positional_include`, `line_prefix` and `text_contains` (in the text report); with `CHESSWHY_CHECK_TIMING` on, fails above 12 s; saves the report for `report_schema` | `EngineFixtures`, `Verdict`, `OpportunityJudgement`, `StateMotif`, `Conditions` |
-| `report_schema` | `tools/validate_report.py` | engine | Every saved F report validates against `schema/report.v6.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic invariants); runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `EngineFixtures` |
-| `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30 (JSON) and a text report for a fixed position (`Nf6` after 3.Qh5) are byte-identical across two runs | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput` |
+| `cli_fixture_F01` … `cli_fixture_F39` (one per F fixture, F16 absent: 38 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture with `--json --full-report` and checks its `equals` fields, `playable_includes`, `motifs_include`, `positional_include`, `line_prefix`; `text_contains` on the move report text (plain run), `full_text_contains` on the full report text (`--full-report`), and the `moves_` keys on the move report document (`--json`); repeats this for each entry of `runs`; with `CHESSWHY_CHECK_TIMING` on, fails above 12 s on the default run; saves both JSON documents for `report_schema` | `EngineFixtures`, `Verdict`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `MoveReport`, `StateMotif`, `Conditions` |
+| `report_schema` | `tools/validate_report.py` | engine | Every saved F full report validates against `schema/report.v6.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic and opportunity relations); every saved move report document validates against `schema/moves.v6.schema.json` and passes the projection check against the full report of the same command; runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `ProjectionCheck`, `EngineFixtures` |
+| `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30: the full report JSON and the move report document are each byte-identical across two runs; so is the move report text for a fixed position (`--moves Nf6` after 3.Qh5) | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput`, `MoveReport` |
 
 ## 9. pgntool — `tests/pgntool/pgntool_unit_tests.cpp` (`pgntool_unit_tests`)
 

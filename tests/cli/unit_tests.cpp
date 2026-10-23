@@ -88,9 +88,6 @@ TEST_CASE("CLI error fixtures return the required status and one diagnostic", "[
     for (const auto& fixture : fixture_file.at("error_fixtures")) {
         INFO("fixture " << fixture.at("id").get<std::string>());
         const auto args = fixture_args(fixture.at("args"));
-        if (std::find(args.begin(), args.end(), "--move") != args.end()) {
-            continue;
-        }
         const auto arg_views = views(args);
         std::ostringstream out;
         std::ostringstream err;
@@ -110,8 +107,12 @@ TEST_CASE("CLI error fixtures return the required status and one diagnostic", "[
         REQUIRE_FALSE(diagnostic.empty());
         CHECK(diagnostic.back() == '\n');
         CHECK(diagnostic.find('\n') == diagnostic.size() - 1);
-        for (const auto& fragment : fixture.at("contains")) {
-            CHECK(diagnostic.find(fragment.get<std::string>()) != std::string::npos);
+        if (fixture.contains("message")) {
+            CHECK(diagnostic == fixture.at("message").get<std::string>() + '\n');
+        } else {
+            for (const auto& fragment : fixture.at("contains")) {
+                CHECK(diagnostic.find(fragment.get<std::string>()) != std::string::npos);
+            }
         }
     }
 }

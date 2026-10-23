@@ -132,7 +132,7 @@ TEST_CASE("input error fixtures report the required function-level fragments", "
         std::string message;
         try {
             if (const auto fen = string_argument(args, "--fen")) {
-                if (const auto token = string_argument(args, "--move")) {
+                if (const auto token = string_argument(args, "--moves")) {
                     const auto board = chesswhy::input::parse_fen(*fen);
                     static_cast<void>(chesswhy::input::parse_move(board, *token));
                 } else {
