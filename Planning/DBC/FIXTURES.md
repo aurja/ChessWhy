@@ -5,9 +5,10 @@ reports today and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (the
 code is in [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md)
 (§6.2 for the fixture kinds); the tests that read each set are in [TESTS.md](TESTS.md).
 
-**Snapshot:** F01–F39 and E01–E22: 2026-10-23, M4 batch 3, reconfirmed at the M4 gate 2026-10-24 (report v6, move reports,
-`--moves`; every F fixture runs `--json --full-report` plus its move report document,
-checked by schema and the projection check). T/C/U rows: 2026-10-21, PostM2_EM1 gate;
+**Snapshot:** F01–F44 and E01–E22: 2026-10-24, PostM4_EM3 gate (report v7: tempo value, tempo
+ledger, initiative runs, use test, impact order; every F fixture runs `--json --full-report`
+plus its move report document, checked by schema, the semantic checks and the projection
+check). §11 PU rows: 2026-10-24, PostM4_EM3 batch 1. T/C/U rows: 2026-10-21, PostM2_EM1 gate;
 their tests still pass unchanged. §8 P rows: 2026-10-22, M3 batch 1.
 Release build, Stockfish 19 from `assets/`, `Threads=1`, game-count table
 `lichess_broadcast_2200@e0cb7fab3212`. F reports now also list `pin_tactical`
