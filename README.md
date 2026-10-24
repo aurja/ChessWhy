@@ -30,7 +30,7 @@ search, so the same move can get a different verdict in a different request; eac
 reproducible. The current release renders reports without a language model; verbalisation is
 planned for M5.
 
-In report v6, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
+In report v7, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
 `restriction` object. Its `piece` is the held piece (the first target for either pin or a tactical
 pin, the actor for an overloaded defender); `restricted` and `free` are sorted UCI move lists.
 `restricted` contains moves the motif denies or makes costly: an absolute pin includes pseudo-legal
@@ -50,6 +50,18 @@ provenance. Lichess broadcast counts use `games` provenance and never judge a mo
 text shows `games: 262026 games ... [games]` under the position, and each move shows
 `Played in N of M games (platform: ...; source: ...) [games]`. Reports credit the source as `Lichess broadcast database,
 database.lichess.org` under CC BY-SA 4.0.
+
+The **tempo value** (`engine`) is how much a side's expected score drops if it passes instead of
+moving: at the root for the side to move (`position.tempo_value`), and after each detailed move
+for the opponent. Above 0.10 the position is **tempo-dependent**, below 0.05 **non-tempo**, and
+below 0 **zugzwang**. Each detailed line gets a **tempo ledger**: every walked ply is labelled
+`threatening`, `neither`, `counter_threat` or `pure_reply`, from a null-move threat search (a
+threat is mate or at least one pawn of material) and, after a threatening ply, a reply search
+(budget `L`). A threatening ply answered by a pure reply **gains a tempo**; an even trade
+threatens nothing by itself. An **initiative run** (`rule`) is a series of one side's tempo gains;
+it ends `spent`, `contested`, `runs` (the line turns into a tactic) or `unfinished`, and is
+`converted` when its holder wins material or a positional change in use during the run, otherwise
+`evaporated`. The tempo ledger is skipped in check and where a null move is unreliable.
 
 Loaded data digests use the in-tree SHA-256 implementation. When the loaded bytes match their
 pins, `games.table` reports `lichess_broadcast_2200@e0cb7fab3212` and `opening.dataset` reports
@@ -96,7 +108,11 @@ fixtures are in `tests/fixtures/positional.json`, and engine fixtures F25–F30 
 output.
 Use `tools/run_tests.py --build-dir build/release` to show live progress with concise test output;
 pass CTest arguments such as `-R 'cli_fixture_F0[1-3]' -j4` after the build directory. Alternatively,
-run `ctest --test-dir build/release -V` to stream all test output directly.
+run `ctest --test-dir build/release -V` to stream all test output directly. The runner also atomically
+writes `<build-dir>/test_progress.json` (override with `--status-file PATH`); OMP discovers
+`.omp/extensions/test-progress.ts` at startup and shows active runs and recent results in the TUI.
+With `CHESSWHY_CHECK_TIMING` on (the `release` preset), `cli_timing` runs alone and fails if a
+standard-budget F fixture takes more than 15 s.
 The `asan` preset builds with AddressSanitizer and UndefinedBehaviorSanitizer:
 
 ```sh
@@ -130,13 +146,21 @@ time. `--json` chooses the format and `--full-report` the content, independently
 | Flags | Output |
 |---|---|
 | none | move report text: one section per selected move |
-| `--json` | move report document (`schema/moves.v6.schema.json`) |
+| `--json` | move report document (`schema/moves.v7.schema.json`) |
 | `--full-report` | full report text: every computed fact |
-| `--json --full-report` | full report JSON (`schema/report.v6.schema.json`) |
+| `--json --full-report` | full report JSON (`schema/report.v7.schema.json`) |
 
 A move report keeps the move's verdict, line, consequence, tactic and opportunity judgements and
 refutation, and only the threats, motifs and positional changes that bear on that move; every
-field is a field of the full report or a filter of one.
+field is a field of the full report or a filter of one. A positional change enters it only when
+it is a **net change** (it differs from the root) that passes the **use test**: the line uses it
+(a weak pawn is attacked or captured, a passed pawn advances, a rook uses its file, a king that
+can still castle is pressed, a lead counts only in a tempo-dependent position) or it always
+counts (material, the exchange, the bishop pair, a rook on the seventh, an outpost, a bad
+bishop). The full report marks each change's `net_change` and `in_use`. After the core claims,
+the move report's groups follow its `impact_order`: the group with the highest consequence rank
+first (parried threat, created threat, motifs); ties keep tempo and dynamic positional facts
+first in a tempo-dependent position, static positional facts first otherwise.
 
 Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves from the game's start, with 0 denoting the initial position. Before White's move N, use ply `2(N−1)`; before Black's move N, use ply `2N−1`. Budgets are `quick`, `standard` (default), or `deep`.
 `--games FILE` selects the broadcast-count table (default
@@ -158,13 +182,14 @@ Save the full report JSON as `full.json` and the move report document of the sam
 from its `document` field (add more paths to validate several files):
 
 ```sh
-.venv/bin/python tools/validate_report.py schema/report.v6.schema.json full.json moves.json
-.venv/bin/python tools/validate_report.py schema/report.v6.schema.json --projection full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v7.schema.json full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v7.schema.json --projection full.json moves.json
 ```
 
 The checker validates the schema first, then checks report relations it cannot express: loss and
 verdict thresholds, FEN side/check/legal-move counts, legal move pairs and lines, the asked-move
-copy, tactic and opportunity relations, and held-piece restriction moves and `held_to`.
+copy, tactic and opportunity relations, held-piece restriction moves and `held_to`, tempo values
+and labels, ledger labels and tempi, initiative runs and outcomes, net changes and the use test.
 `--projection` also checks that every move report field is the full report's field or a filter
 of one. It uses python-jsonschema and python-chess from the development requirements.
 
