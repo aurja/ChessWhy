@@ -21,7 +21,7 @@ Captain's books); decided the same day.
 | A2 | Trades | (a) A capture counts only for what it threatens next, not for the piece it took: an even trade is neither a threatening move nor a tempo. V2's `Bxa4` still gains a tempo, because it threatens `…Bxb3` |
 | A3 | Ledger scope | T2: the tempo ledger covers every walked ply of every detailed line. The **timing check** becomes 15 s per F fixture at `standard` in Release (12 s before). Refined the same day: the second ledger search of a ply runs only after a threatening move ("why would we run it if there isn't a plausible reason to run it?") |
 | A4 | Tempo value | (a) Ship the number with labels on the verdict scale: **tempo-dependent position** above 0.10, **non-tempo position** below 0.05, **zugzwang** below 0 |
-| A5 | Initiative | (a) Derived from the tempo ledger with no extra search: one row per run with holder, plies, tempi gained, how it ended (spent, contested or runs) and converted or evaporated. "Runs" (the reply neither stops the threat nor is a pure reply, so the line turns into a tactic) was added by the Deputy on 2026-10-24 after the budget comparison showed such replies inside runs |
+| A5 | Initiative | (a) Derived from the tempo ledger with no extra search: one row per run with holder, plies, tempi gained, how it ended (spent, contested or runs) and converted or evaporated. "Runs" (the reply neither stops the threat nor is a pure reply, so the line turns into a tactic) was proposed by the Deputy after the budget comparison showed such replies inside runs and accepted by the Captain, both 2026-10-24 |
 
 ## 2. Rules the decisions fix
 
