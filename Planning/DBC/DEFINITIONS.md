@@ -38,7 +38,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | frozen | Changed only through a contract change approved by the Captain (§6.1) |
 | gate | A check that must pass for a batch or milestone to be accepted (§6.3) |
 | level | (1) **Audience level**: beginner, club or advanced, chosen by the user; changes only the wording of the explanation, never the analysis (§3.1). (2) **Diagram level**: L1, L2 or L3 in CONCEPTS.md (§7) |
-| tempo | (1) **Tempo gained** (Captain, 2026-10-24; proposed definition, open): a threatening move answered by a pure reply, so its side has made one more move of its own than the other side (§3.6). (2) Chess senses the project does not compute: the **development tempo** of opening theory (moves spent on development; `development_lead` is the nearest built fact) and the **spare tempo** of endgames (a waiting move that hands over the move: opposition, triangulation, zugzwang), where the null move is unreliable (§3.3) |
+| tempo | One move, the unit of time. Proposed senses for PostM4_EM3 (open, §3.6): (1) **tempo gained**: a threatening move answered by a pure reply, so its side has made one more move of its own than the other side (Captain, 2026-10-24). (2) **Tempo value**: what having the move is worth in a position, the loss of passing; negative in zugzwang, which covers the endgame sense of a spare tempo (opposition, triangulation). Not computed: the **development tempo** of opening theory (moves spent on development; `development_lead` is the nearest built fact) |
 
 ## 2. Chess notation in the plans
 
@@ -156,7 +156,7 @@ candidate D, E, R; then C, D, E, R for each asked move outside A.
 
 ### 3.6 Tempo and impact (proposed for PostM4_EM3, open)
 
-Proposed by the Deputy on 2026-10-24 at the PostM4_EM3 kickoff; none of these is decided or built.
+Proposed by the Deputy on 2026-10-24 at the PostM4_EM3 kickoff (tempo value, tempo-dependent position, counter-threat and initiative added the same day after reading three of the Captain's books); none of these is decided or built.
 
 | Term | Meaning | Defined in |
 |---|---|---|
@@ -164,6 +164,10 @@ Proposed by the Deputy on 2026-10-24 at the PostM4_EM3 kickoff; none of these is
 | pure reply | Open. The move after a threatening move when, after it, the threatening side's best line no longer reaches rank ≥ 2, and it is not itself a threatening move | proposal 2026-10-24 |
 | tempo gained | Open. A threatening move whose next move is a pure reply. A reply that stops the threat and threatens back returns the tempo; a reply that does not stop it lets the threat run (a tactic, not a tempo) | proposal 2026-10-24 |
 | tempo ledger | Open. For one line: each move marked threatening, pure reply or neither, and per side the count of tempi gained over the plies read | proposal 2026-10-24 |
+| counter-threat | Open. A reply to a threatening move that stops the threat and is itself a threatening move. It returns the tempo; a run of counter-threats is a struggle for the initiative | proposal 2026-10-24 |
+| initiative | Open. A side holds the initiative over the plies of a line where it gains tempi one after another: each of its moves is a threatening move and each reply a pure reply. It ends when the holder makes a move that does not threaten (spent) or the other side answers with a counter-threat (contested). At its end it is **converted** when the holder keeps a gain at the line's end (material, or a positional fact that holds at the end) and **evaporated** otherwise | proposal 2026-10-24 |
+| tempo value | Open. For the side to move `T`: `ES_T(T moves) − ES_T(T passes)`, the loss of passing on the verdict scale (§3.5). At the root it comes from searches A and B, after a move `m` from A's line and search E, so it needs no new search there. Negative means `T` would rather pass: zugzwang | proposal 2026-10-24 |
+| tempo-dependent position | Open. A position whose tempo value exceeds 0.10, so passing would be a mistake: every tempo counts and threats decide. Below 0.05 it is a **non-tempo position**, where time matters little and quiet improving moves are as good as forcing ones. Thresholds open | proposal 2026-10-24 |
 | impact rating | Open. A number on each fact of a move report that orders and cuts the facts for the text and the fact sheet: the rank (§3.3) of the consequence the fact bears on. The core claims (verdict, line, refutation, conditions) are not rated; they always come first | proposal 2026-10-24 |
 | break cost | Open. For a restricted-movement motif, measured by the engine on the board with the held side to move: the best score over the moves that are not restricted moves minus the best score over the restricted moves. Zero or less means the restriction costs the held side nothing | proposal 2026-10-24 |
 
