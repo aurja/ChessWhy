@@ -329,16 +329,56 @@ void check_move_expectations(const Json& fixture, const Json& document, std::str
         check_motifs_include(fixture.at("moves_motifs_include"), document, id, failures);
     }
 }
+
+int run_timing() {
+    try {
+        const Json fixture_file = read_fixtures();
+        const auto& fixtures = fixture_file.at("engine_fixtures");
+        std::vector<std::string> failures;
+        chesswhy::test::Progress progress("cli_timing", fixtures.size());
+        std::size_t index = 0;
+        for (const Json& fixture : fixtures) {
+            ++index;
+            const std::string fixture_id = fixture.at("id").get<std::string>();
+            progress.step_started(index, "run", fixture_id);
+            const auto start = Clock::now();
+            try {
+                const std::string full_output = run_fixture(fixture, OutputMode::FullJson);
+                static_cast<void>(full_output);
+            } catch (const std::exception& error) {
+                failures.push_back("fixture " + fixture_id +
+                                   " full-JSON invocation failed: " + error.what());
+            }
+            const double elapsed = std::chrono::duration<double>(Clock::now() - start).count();
+            std::cout << "fixture " << fixture_id << " wall time: " << elapsed << " s\n";
+            if (elapsed > 15.0) {
+                failures.push_back("fixture " + fixture_id +
+                                   " wall time: expected <= 15 s, actual " +
+                                   std::to_string(elapsed) + " s");
+            }
+            progress.step_finished(index, "run", fixture_id);
+        }
+        for (const auto& failure : failures) {
+            std::cerr << failure << '\n';
+        }
+        return failures.empty() ? 0 : 1;
+    } catch (const std::exception& error) {
+        std::cerr << "cli_timing failed: " << error.what() << '\n';
+        return 1;
+    }
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        std::cerr << "usage: cli_fixture_test FIXTURE_ID CHECK_TIMING\n";
+    if (argc == 2 && std::string_view(argv[1]) == "--timing") {
+        return run_timing();
+    }
+    if (argc != 2) {
+        std::cerr << "usage: cli_fixture_test FIXTURE_ID | --timing\n";
         return 2;
     }
     const std::string fixture_id = argv[1];
-    const bool check_timing = std::string_view(argv[2]) == "1";
-
     try {
         const Json fixture_file = read_fixtures();
         const auto& fixtures = fixture_file.at("engine_fixtures");
@@ -400,11 +440,6 @@ int main(int argc, char* argv[]) {
                             "full_text_contains", Json(expected), &actual, failures);
             }
             if (default_run) {
-                if (check_timing && elapsed > 15.0) {
-                    failures.push_back("fixture " + fixture_id +
-                                       " wall time: expected <= 15 s, actual " +
-                                       std::to_string(elapsed) + " s");
-                }
                 std::cout << "fixture " << fixture_id << " wall time: " << elapsed << " s\n";
             }
         };

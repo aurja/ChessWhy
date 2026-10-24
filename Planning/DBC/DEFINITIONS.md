@@ -437,7 +437,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 | Release / ASan build | `build/release` (optimised) and `build/asan` (debug with address and undefined-behaviour sanitisers) | AGENTS.md |
 | smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2 and PostM2_EM1: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 (M2), and from PostM2_EM1 a refutation that is a tactic with the fork `direct`, while the root (all lines at ES 1.0) is not a tactic. PostM3_EM2: `--fen '6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1' --budget standard --no-llm`, expecting Re8# with the back-rank weakness `indirect` | M2 §14, PostM2_EM1 §14, PostM3_EM2 §14 |
 | golden test | Compares rendered text with a stored expected file byte for byte | M2 §10 |
-| timing check | `standard` must finish within 15 s per F fixture in Release (Captain, 2026-10-24, PostM4_EM3 A3, for the tempo ledger; 12 s before, the target until PostM4_EM3 is built) | M2 §14, PostM4_EM3 §1 |
+| timing check | `standard` must finish within 15 s per F fixture in Release (Captain, 2026-10-24, PostM4_EM3 A3, for the tempo ledger; 12 s before, the target until PostM4_EM3 is built). Judged by `cli_timing`, one default run per F fixture with no other test running (from 2026-10-24; before, inside each `cli_fixture_<ID>` test) | M2 §14, PostM4_EM3 §1 |
 | usage guard | Background watcher that pauses agent work when a model subscription window nears its limit | AGENTS.md |
 
 ## 7. Driven by Concepts

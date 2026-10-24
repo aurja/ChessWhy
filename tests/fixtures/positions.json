@@ -496,7 +496,7 @@
         "/candidates/1/line": ["Qf8#"]
       }
     },
-    {"id":"F25","title":"Exchange Ruy Lopez bishop and c-pawn changes","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6","args":["--fen","r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4","--moves","Bxc6"],"positional_include":{"/position/positional":[{"tag":"bishop_pair","side":"white"},{"tag":"bishop_pair","side":"black"}],"/candidates/1/positional":[{"ply":2,"change":"appears","holds_at_end":true,"tag":"doubled_pawns","side":"black","file":"c"},{"ply":2,"change":"disappears","holds_at_end":true,"tag":"bishop_pair","side":"white"}]},"reason":"The recapture removes White's bishop pair at ply 2 and leaves Black with doubled c-pawns; Black's opposite-coloured bishops remain."},
+    {"id":"F25","title":"Exchange Ruy Lopez bishop and c-pawn changes","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6","args":["--fen","r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4","--moves","Bxc6"],"positional_include":{"/position/positional":[{"tag":"bishop_pair","side":"white"},{"tag":"bishop_pair","side":"black"}],"/candidates/1/positional":[{"ply":2,"change":"appears","holds_at_end":true,"tag":"doubled_pawns","side":"black","file":"c"},{"ply":2,"change":"disappears","holds_at_end":true,"tag":"bishop_pair","side":"white"}]},"moves_equals":{"/moves/0/positional":[{"source":"rule","ply":2,"change":"disappears","holds_at_end":true,"net_change":true,"in_use":true,"tag":"bishop_pair","side":"white","pieces":[{"square":"c1","piece":"B"},{"square":"c6","piece":"B"}],"file":null,"value":null},{"source":"rule","ply":2,"change":"appears","holds_at_end":true,"net_change":true,"in_use":true,"tag":"doubled_pawns","side":"black","pieces":[{"square":"c6","piece":"p"},{"square":"c7","piece":"p"}],"file":"c","value":null}]},"reason":"Bxc6's move report keeps the net bishop-pair and doubled-pawn changes and omits the passing material_ahead change."},
     {"id":"F26","title":"Passed pawns in the rook ending","source":"Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (F10 position)","args":["--fen","6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58","--moves","a7"],"positional_include":{"/position/positional":[{"tag":"passed_pawn","side":"white","file":"a","pieces":[{"square":"a6","piece":"P"}]},{"tag":"passed_pawn","side":"black","file":"g","pieces":[{"square":"g3","piece":"p"}]},{"tag":"material_ahead","side":"white","value":4}]},"reason":"The a6 and g3 pawns have no enemy pawn in front on their or adjacent files; White has material 6 to Black's 2."},
     {"id":"F27","title":"Kingside castling loses its right","source":"constructed","args":["--fen","k7/8/8/8/8/8/8/4K2R w K - 0 1","--moves","O-O"],"positional_include":{"/asked_moves/0/positional":[{"ply":1,"change":"disappears","holds_at_end":true,"tag":"castling_kingside","side":"white"}]},"reason":"O-O consumes White's remaining kingside castling right."},
     {"id":"F28","title":"The Exchange Ruy Lopez doubled c-pawns","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6","args":["--fen","r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],"positional_include":{"/position/positional":[{"tag":"doubled_pawns","side":"black","file":"c"},{"tag":"bishop_pair","side":"black"}]},"reason":"Black's c6 and c7 pawns share a file, and its c8 and f8 bishops occupy opposite colours."}
@@ -781,6 +781,89 @@
           {"tag": "back_rank_weakness", "side": "white", "actor": "g8", "contribution": "indirect"}
         ]
       }
+    },
+    {
+      "id": "F40",
+      "title": "Queen takes the d5 pawn and is met by Nc3",
+      "source": "constructed: Scandinavian after 1.e4 d5 2.exd5",
+      "args": ["--fen", "rnbqkbnr/ppp1pppp/8/3P4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2", "--moves", "Qxd5"],
+      "candidate": {
+        "Qxd5": {
+          "/tempo_ledger/plies/1/ply": 2,
+          "/tempo_ledger/plies/1/san": "Nc3",
+          "/tempo_ledger/plies/1/label": "threatening",
+          "/tempo_ledger/plies/1/tempo_gained": true,
+          "/tempo_ledger/plies/2/ply": 3,
+          "/tempo_ledger/plies/2/san": "Qd8",
+          "/tempo_ledger/plies/2/label": "pure_reply"
+        }
+      },
+      "reason": "The Qxd5 line marks Nc3 as tempo-gaining and Qd8 as the pure reply."
+    },
+    {
+      "id": "F41",
+      "title": "Tempo-dependent V2 position and ledger gains",
+      "source": "Romanko - Shulakova, Moscow Open 2012 (V2)",
+      "args": ["--fen", "1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1", "--moves", "Bxa4,Ba7"],
+      "equals": {
+        "/position/tempo_value/value": 0.2965,
+        "/position/tempo_value/label": "tempo_dependent"
+      },
+      "moves_equals": {
+        "/moves/0/tempo_gained": [{"ply": 6, "san": "Bxa7", "side": "white", "source": "engine"}],
+        "/moves/1/tempo_gained": []
+      },
+      "reason": "The root is tempo_dependent; the Bxa4 line records White's tempo gain with Bxa7, while the Ba7 move report records none."
+    },
+    {
+      "id": "F42",
+      "title": "Queen move in V1 produces a White tempo gain",
+      "source": "Navara - Ivanchuk, Wijk aan Zee 2012 (V1)",
+      "args": ["--fen", "5k2/7p/pr1pB1p1/2pP4/1P6/6PP/R3qP2/R5K1 b - - 1 33", "--moves", "Qc4"],
+      "equals": {
+        "/position/tempo_value/value": 1.0,
+        "/position/tempo_value/label": "tempo_dependent"
+      },
+      "candidate": {
+        "Qc4": {
+          "/tempo_ledger/plies/1/ply": 2,
+          "/tempo_ledger/plies/1/san": "bxc5",
+          "/tempo_ledger/plies/1/tempo_gained": true
+        }
+      },
+      "moves_equals": {
+        "/moves/0/tempo_gained": [{"ply": 2, "san": "bxc5", "side": "white", "source": "engine"}],
+        "/moves/0/initiative": [{"holder": "white", "start_ply": 2, "end_ply": 5, "tempi": 1, "ending": "runs", "outcome": "converted", "source": "rule"}]
+      },
+      "reason": "The root tempo value is 1.0; Qc4's ledger marks White's bxc5 tempo gain and a converted initiative run."
+    },
+    {
+      "id": "F43",
+      "title": "Mutual zugzwang skips every tempo ledger",
+      "source": "constructed: mutual zugzwang",
+      "args": ["--fen", "8/3k4/8/3K4/3P4/8/8/8 w - - 0 1"],
+      "equals": {
+        "/position/tempo_value/value": -0.5,
+        "/position/tempo_value/label": "zugzwang",
+        "/candidates/0/tempo_ledger_skipped": "null_move_unreliable",
+        "/candidates/1/tempo_ledger_skipped": "null_move_unreliable",
+        "/candidates/2/tempo_ledger_skipped": "null_move_unreliable",
+        "/candidates/3/tempo_ledger_skipped": "null_move_unreliable"
+      },
+      "reason": "The root label is zugzwang and every candidate ledger is skipped as null_move_unreliable."
+    },
+    {
+      "id": "F44",
+      "title": "Non-tempo position puts tempo last in impact order",
+      "source": "constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6",
+      "args": ["--fen", "r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],
+      "equals": {
+        "/position/tempo_value/label": "non_tempo"
+      },
+      "moves_equals": {
+        "/moves/0/impact_order": ["created_threat", "tempo"]
+      },
+      "reason": "The position reports non_tempo and its move report places tempo last in impact_order."
     }
   ],
   "unit_fixtures": [
