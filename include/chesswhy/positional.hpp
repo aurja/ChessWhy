@@ -33,5 +33,20 @@ inline constexpr int kDevelopmentLead = 2;
 // `root`. Ordered by ply, then appears before disappears, then §4.6.
 [[nodiscard]] std::vector<PositionalChange> line_changes(const chess::Board& root,
                                                          std::span<const chess::Move> line);
+enum class StaticScaleGroup : std::uint8_t {
+    KingSafety,
+    Material,
+    PawnStructure,
+    Pieces,
+    SpaceMobilityDevelopment
+};
+[[nodiscard]] StaticScaleGroup static_scale_group(PositionalTag tag);
+[[nodiscard]] bool is_dynamic(PositionalTag tag);
+[[nodiscard]] std::optional<Side> favours(const PositionalChange& change); // §6.4
+// §6.5 and §6.6 on the output of line_changes(root, line); computes the root features.
+void mark_use(std::vector<PositionalChange>& changes, const chess::Board& root,
+              std::span<const chess::Move> line, bool tempo_dependent);
+// §6.7 positional order; stable.
+void impact_order(std::vector<PositionalChange>& changes, bool tempo_dependent);
 
 } // namespace chesswhy::positional

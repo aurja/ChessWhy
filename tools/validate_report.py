@@ -1466,6 +1466,850 @@ def check_tactic_invariants(
         check_move_annotations(asked, f"/asked_moves/{index}", failures)
 
 
+TEMPO_WEAK_PAWNS = frozenset(
+    {"isolated_pawn", "doubled_pawns", "tripled_pawns", "backward_pawn"}
+)
+TEMPO_PASSERS = frozenset({"passed_pawn", "connected_passed_pawns"})
+TEMPO_KING_FILES = frozenset(
+    {"king_shield_gap", "open_file_near_king", "half_open_file_near_king"}
+)
+TEMPO_SHELTER = TEMPO_KING_FILES | frozenset(
+    {"castling_kingside", "castling_queenside"}
+)
+TEMPO_ROOK_FILES = frozenset({"rook_open_file", "rook_half_open_file"})
+TEMPO_WEAKNESS_TAGS = frozenset(
+    {
+        "isolated_pawn",
+        "doubled_pawns",
+        "tripled_pawns",
+        "backward_pawn",
+        "king_shield_gap",
+        "open_file_near_king",
+        "half_open_file_near_king",
+        "king_zone_attacker",
+        "bad_bishop",
+    }
+)
+TEMPO_DYNAMIC_TAGS = frozenset(
+    {
+        "castling_kingside",
+        "castling_queenside",
+        "king_zone_attacker",
+        "mobility_lead",
+        "development_lead",
+    }
+)
+TEMPO_STATIC_GROUPS = {
+    "castling_kingside": 0,
+    "castling_queenside": 0,
+    "king_shield_gap": 0,
+    "open_file_near_king": 0,
+    "half_open_file_near_king": 0,
+    "king_zone_attacker": 0,
+    "material_ahead": 1,
+    "exchange_up": 1,
+    "bishop_pair": 1,
+    "pawn_islands": 2,
+    "pawn_chain": 2,
+    "isolated_pawn": 2,
+    "doubled_pawns": 2,
+    "tripled_pawns": 2,
+    "backward_pawn": 2,
+    "passed_pawn": 2,
+    "connected_passed_pawns": 2,
+    "rook_open_file": 3,
+    "rook_half_open_file": 3,
+    "rook_seventh": 3,
+    "outpost": 3,
+    "bad_bishop": 3,
+    "space_lead": 4,
+    "mobility_lead": 4,
+    "development_lead": 4,
+}
+
+
+def rule_game_over(board: chess.Board) -> bool:
+    return board.is_checkmate() or board.is_stalemate()
+
+
+def material_balance(board: chess.Board, side: chess.Color) -> int:
+    values = {
+        chess.PAWN: 1,
+        chess.KNIGHT: 3,
+        chess.BISHOP: 3,
+        chess.ROOK: 5,
+        chess.QUEEN: 9,
+    }
+    balance = 0
+    for piece_type, value in values.items():
+        balance += value * len(board.pieces(piece_type, side))
+        balance -= value * len(board.pieces(piece_type, not side))
+    return balance
+
+
+def tempo_label(value_units: int) -> str | None:
+    if value_units > 200:
+        return "tempo_dependent"
+    if value_units < 0:
+        return "zugzwang"
+    if value_units < 100:
+        return "non_tempo"
+    return None
+
+
+def check_tempo_value(
+    value: JsonValue,
+    pointer: str,
+    side: chess.Color | None,
+    expected_moves: int | None,
+    must_be_null: bool,
+    failures: list[Failure],
+) -> None:
+    if must_be_null:
+        fail(
+            failures,
+            pointer,
+            "tempo value must be null when it cannot be measured",
+            value is None,
+        )
+        return
+    tempo = as_object(value)
+    fail(
+        failures,
+        pointer,
+        "tempo value must be set when both searches returned a line",
+        tempo is not None,
+    )
+    if tempo is None:
+        return
+    if side is not None:
+        fail(
+            failures,
+            f"{pointer}/side",
+            f"tempo side must be {side_name(side)!r}",
+            tempo.get("side") == side_name(side),
+        )
+    moves = number_units(tempo.get("moves"))
+    passes = number_units(tempo.get("passes"))
+    value_units = number_units(tempo.get("value"))
+    if expected_moves is not None:
+        fail(
+            failures,
+            f"{pointer}/moves",
+            "tempo moves must equal the expected score when the side moves",
+            moves == expected_moves,
+        )
+    fail(
+        failures,
+        f"{pointer}/value",
+        "tempo value must equal moves minus passes in ES units",
+        moves is not None and passes is not None and value_units == moves - passes,
+    )
+    expected_label = None if value_units is None else tempo_label(value_units)
+    fail(
+        failures,
+        f"{pointer}/label",
+        "tempo label must match the §6.1 ES-unit boundaries",
+        tempo.get("label") == expected_label,
+    )
+    fail(
+        failures,
+        f"{pointer}/source",
+        "tempo value provenance must be engine",
+        tempo.get("source") == "engine",
+    )
+
+
+def consequence_rank(consequence_value: JsonValue) -> int | None:
+    consequence = as_object(consequence_value)
+    if consequence is None:
+        return None
+    consequence_class = consequence.get("class")
+    if consequence_class == "mate":
+        return 4
+    if consequence_class == "material":
+        material = consequence.get("material")
+        if not isinstance(material, int) or isinstance(material, bool):
+            return None
+        return 3 if material >= 3 else 2 if material >= 1 else 0
+    if consequence_class == "promotion":
+        return 1
+    if consequence_class == "positional":
+        return 0
+    return None
+
+
+def replay_walk(
+    root: chess.Board,
+    assessment: JsonObject,
+) -> tuple[list[chess.Board], list[chess.Move]] | None:
+    line = as_array(assessment.get("line"))
+    walk = assessment.get("walked_plies")
+    if (
+        line is None
+        or not isinstance(walk, int)
+        or isinstance(walk, bool)
+        or walk < 0
+        or walk > len(line)
+    ):
+        return None
+    boards = [root.copy()]
+    moves: list[chess.Move] = []
+    current = root.copy()
+    for san in line[:walk]:
+        move = legal_san_move(current, san)
+        if move is None:
+            return None
+        current.push(move)
+        moves.append(move)
+        boards.append(current.copy())
+        if rule_game_over(current):
+            break
+    return boards, moves
+
+
+def null_move_has_no_legal_move(board: chess.Board) -> bool:
+    passed = board.copy()
+    passed.push(chess.Move.null())
+    return not any(passed.legal_moves)
+
+
+def favoured_side(change: JsonObject) -> str | None:
+    tag = change.get("tag")
+    if tag in ("pawn_islands", "pawn_chain"):
+        return None
+    side = change.get("side")
+    if side not in ("white", "black"):
+        return None
+    favours_owner = (change.get("change") == "appears") != (tag in TEMPO_WEAKNESS_TAGS)
+    if favours_owner:
+        return side
+    return "black" if side == "white" else "white"
+
+
+def change_squares(change: JsonObject) -> set[chess.Square]:
+    squares: set[chess.Square] = set()
+    for piece_value in as_array(change.get("pieces")) or []:
+        piece = as_object(piece_value)
+        square = None if piece is None else piece.get("square")
+        if isinstance(square, str):
+            try:
+                squares.add(chess.parse_square(square))
+            except ValueError:
+                pass
+    return squares
+
+
+def king_zone(board: chess.Board, side: chess.Color) -> chess.SquareSet:
+    king = board.king(side)
+    if king is None:
+        return chess.SquareSet()
+    return chess.SquareSet(chess.BB_KING_ATTACKS[king] | chess.BB_SQUARES[king])
+
+
+def king_pressed(
+    side: chess.Color,
+    start_ply: int,
+    boards: list[chess.Board],
+    moves: list[chess.Move],
+) -> bool:
+    other = not side
+    end_ply = len(moves)
+    for ply in range(start_ply, end_ply + 1):
+        before = boards[ply - 1]
+        move = moves[ply - 1]
+        if before.turn != other:
+            continue
+        after = boards[ply]
+        zone = king_zone(before, side)
+        if after.is_check() or (before.is_capture(move) and move.to_square in zone):
+            return True
+    end = boards[-1]
+    zone = king_zone(end, side)
+    attackers = chess.SquareSet()
+    for square in zone:
+        attackers |= end.attackers(other, square)
+    non_pawns = attackers & (
+        end.pieces_mask(chess.KNIGHT, other)
+        | end.pieces_mask(chess.BISHOP, other)
+        | end.pieces_mask(chess.ROOK, other)
+        | end.pieces_mask(chess.QUEEN, other)
+    )
+    return len(non_pawns) >= 2
+
+
+def use_test(
+    change: JsonObject,
+    boards: list[chess.Board],
+    moves: list[chess.Move],
+    tempo_dependent: bool,
+) -> bool:
+    tag = change.get("tag")
+    ply = change.get("ply")
+    side_name_value = change.get("side")
+    if (
+        not isinstance(ply, int)
+        or isinstance(ply, bool)
+        or ply < 1
+        or ply > len(moves)
+        or side_name_value not in ("white", "black")
+    ):
+        return False
+    side = side_name_value == "white"
+    other = not side
+    move = moves[ply - 1]
+    before = boards[ply - 1]
+    end = boards[-1]
+    squares = change_squares(change)
+    appearing = change.get("change") == "appears"
+
+    if end.is_checkmate():
+        return False
+    if (
+        tag in ("castling_kingside", "castling_queenside")
+        and not appearing
+        and before.is_castling(move)
+    ):
+        return False
+    if tag == "material_ahead" and not appearing and material_balance(end, side) != 0:
+        return False
+    if tag == "king_zone_attacker" and not appearing:
+        return False
+    if (
+        tag in TEMPO_KING_FILES
+        and not appearing
+        and end.king(side) != boards[0].king(side)
+    ):
+        return False
+    if tag in {
+        "material_ahead",
+        "exchange_up",
+        "rook_seventh",
+        "outpost",
+        "bad_bishop",
+        "bishop_pair",
+    }:
+        return True
+    if tag in ("pawn_islands", "pawn_chain"):
+        return False
+    if tag in {"mobility_lead", "space_lead", "development_lead"}:
+        return tempo_dependent
+    if tag in TEMPO_KING_FILES and (
+        end.has_kingside_castling_rights(side)
+        or end.has_queenside_castling_rights(side)
+    ):
+        return king_pressed(side, ply, boards, moves)
+    if ply <= 2 and tag in (
+        TEMPO_WEAK_PAWNS | TEMPO_PASSERS | TEMPO_SHELTER | TEMPO_ROOK_FILES
+    ):
+        return True
+    if tag in TEMPO_WEAK_PAWNS:
+        if appearing:
+            if any(
+                boards[later_ply - 1].turn == other
+                and boards[later_ply - 1].is_capture(moves[later_ply - 1])
+                and moves[later_ply - 1].to_square in squares
+                for later_ply in range(ply + 1, len(moves) + 1)
+            ):
+                return True
+            return any(
+                (piece := end.piece_at(square)) is not None
+                and piece.color == side
+                and piece.piece_type == chess.PAWN
+                and end.is_attacked_by(other, square)
+                for square in squares
+            )
+        return (
+            before.turn == other
+            and before.is_capture(move)
+            and move.to_square in squares
+        )
+    if tag in TEMPO_PASSERS:
+        if appearing:
+            return any(
+                moves[later_ply - 1].from_square in squares
+                for later_ply in range(ply + 1, len(moves) + 1)
+            )
+        return move.from_square in squares or (
+            before.turn == other and move.to_square in squares
+        )
+    if appearing and (tag in TEMPO_SHELTER or tag == "king_zone_attacker"):
+        return king_pressed(side, ply, boards, moves)
+    if tag in TEMPO_ROOK_FILES:
+        if not appearing:
+            return False
+        return any(
+            moves[later_ply - 1].from_square in squares
+            and chess.square_file(moves[later_ply - 1].from_square)
+            == chess.square_file(moves[later_ply - 1].to_square)
+            for later_ply in range(ply + 1, len(moves) + 1)
+        )
+    return False
+
+
+def expected_initiative_runs(
+    plies: list[JsonValue],
+    boards: list[chess.Board],
+    changes_value: JsonValue,
+) -> list[JsonObject]:
+    n = len(plies)
+    changes = as_array(changes_value) or []
+    runs: list[JsonObject] = []
+    scan = 1
+    while scan <= n:
+        first = as_object(plies[scan - 1])
+        if first is None or first.get("tempo_gained") is not True:
+            scan += 1
+            continue
+        start = scan
+        holder = first.get("side")
+        last_gain = start
+        while last_gain + 2 <= n:
+            following = as_object(plies[last_gain + 1])
+            if following is None or following.get("tempo_gained") is not True:
+                break
+            last_gain += 2
+        ending_ply = last_gain + 2
+        if ending_ply > n:
+            ending = "unfinished"
+            end = n
+        else:
+            ending_move = as_object(plies[ending_ply - 1]) or {}
+            if ending_move.get("threatening") is not True:
+                ending = "spent"
+                end = ending_ply
+            elif boards[ending_ply].is_checkmate():
+                ending = "runs"
+                end = ending_ply
+            elif ending_ply + 1 > n:
+                ending = "unfinished"
+                end = ending_ply
+            else:
+                reply = as_object(plies[ending_ply]) or {}
+                if reply.get("label") == "counter_threat":
+                    ending = "contested"
+                    end = ending_ply + 1
+                elif reply.get("stops_threat") is False:
+                    ending = "runs"
+                    end = ending_ply + 1
+                else:
+                    ending = "runs"
+                    end = ending_ply + 1
+        converted = False
+        holder_color = holder == "white"
+        if holder in ("white", "black") and (
+            material_balance(boards[-1], holder_color)
+            - material_balance(boards[start - 1], holder_color)
+            >= 1
+        ):
+            converted = True
+
+        def change_converts(
+            change_value: JsonValue,
+            run_start: int,
+            run_end: int,
+            run_holder: JsonValue,
+        ) -> bool:
+            change = as_object(change_value)
+            if change is None:
+                return False
+            ply = change.get("ply")
+            return (
+                change.get("net_change") is True
+                and change.get("in_use") is True
+                and isinstance(ply, int)
+                and not isinstance(ply, bool)
+                and run_start <= ply <= run_end
+                and favoured_side(change) == run_holder
+            )
+
+        if not converted:
+            converted = any(
+                change_converts(change_value, start, end, holder)
+                for change_value in changes
+            )
+        runs.append(
+            {
+                "holder": holder,
+                "start_ply": start,
+                "end_ply": end,
+                "tempi": (last_gain - start) // 2 + 1,
+                "ending": ending,
+                "outcome": "converted" if converted else "evaporated",
+                "source": "rule",
+            }
+        )
+        scan = max(start + 1, end)
+    return runs
+
+
+def check_tempo_ledger(
+    assessment: JsonObject,
+    pointer: str,
+    boards: list[chess.Board],
+    moves: list[chess.Move],
+    failures: list[Failure],
+) -> None:
+    ledger = as_object(assessment.get("tempo_ledger"))
+    plies_value = None if ledger is None else as_array(ledger.get("plies"))
+    if ledger is None or plies_value is None:
+        return
+    count = len(moves)
+    fail(
+        failures,
+        f"{pointer}/tempo_ledger/plies",
+        "ledger plies must cover the walked line, cut at its first terminal board",
+        len(plies_value) == count,
+    )
+    line = as_array(assessment.get("line")) or []
+    expected_labels: list[str] = []
+    for index, ply_value in enumerate(plies_value):
+        ply_pointer = f"{pointer}/tempo_ledger/plies/{index}"
+        ply = as_object(ply_value)
+        if ply is None:
+            expected_labels.append("neither")
+            continue
+        expected_ply = index + 1
+        fail(
+            failures,
+            f"{ply_pointer}/ply",
+            "ledger ply labels must be consecutive and start at one",
+            ply.get("ply") == expected_ply,
+        )
+        expected_san = line[index] if index < len(line) else None
+        fail(
+            failures,
+            f"{ply_pointer}/san",
+            "ledger SAN must match the walked line",
+            ply.get("san") == expected_san,
+        )
+        expected_side = side_name(boards[index].turn) if index < len(boards) else None
+        fail(
+            failures,
+            f"{ply_pointer}/side",
+            "ledger side must be the side to move before this ply",
+            ply.get("side") == expected_side,
+        )
+        if index >= len(moves):
+            expected_labels.append("neither")
+            continue
+        after = boards[index + 1]
+        by_check = after.is_check()
+        fail(
+            failures,
+            f"{ply_pointer}/by_check",
+            "by_check must match the board after this ply",
+            ply.get("by_check") is by_check,
+        )
+        threat_rank = ply.get("threat_rank")
+        if by_check:
+            expected_threatening = True
+            expected_rank: int | None = None
+        elif rule_game_over(after) or null_move_has_no_legal_move(after):
+            expected_threatening = False
+            expected_rank = None
+        elif index == 0:
+            created = as_object(assessment.get("creates_threat"))
+            expected_rank = (
+                None
+                if created is None
+                else consequence_rank(created.get("consequence"))
+            )
+            expected_threatening = expected_rank is not None and expected_rank >= 2
+        else:
+            expected_rank = (
+                threat_rank
+                if isinstance(threat_rank, int) and not isinstance(threat_rank, bool)
+                else None
+            )
+            expected_threatening = expected_rank is not None and expected_rank >= 2
+            fail(
+                failures,
+                f"{ply_pointer}/threat_rank",
+                "a searched threat must report its consequence rank",
+                expected_rank is not None,
+            )
+        fail(
+            failures,
+            f"{ply_pointer}/threat_rank",
+            "threat rank must match the available E consequence or be null when no search applies",
+            threat_rank == expected_rank,
+        )
+        fail(
+            failures,
+            f"{ply_pointer}/threatening",
+            "a ply is threatening iff it gives check or its consequence rank is at least two",
+            ply.get("threatening") is expected_threatening,
+        )
+
+        previous = as_object(plies_value[index - 1]) if index > 0 else None
+        previous_threatening = (
+            previous is not None and previous.get("threatening") is True
+        )
+        stops = ply.get("stops_threat")
+        if not previous_threatening:
+            fail(
+                failures,
+                f"{ply_pointer}/stops_threat",
+                "stops_threat must be null unless the preceding ply is threatening",
+                stops is None,
+            )
+        elif rule_game_over(after):
+            fail(
+                failures,
+                f"{ply_pointer}/stops_threat",
+                "a game-ending reply stops the preceding threat",
+                stops is True,
+            )
+        else:
+            fail(
+                failures,
+                f"{ply_pointer}/stops_threat",
+                "a reply to a threat must report whether it stops that threat",
+                isinstance(stops, bool),
+            )
+        if previous_threatening:
+            if isinstance(stops, bool):
+                label = (
+                    "counter_threat"
+                    if expected_threatening and stops
+                    else "pure_reply"
+                    if stops
+                    else "threatening"
+                    if expected_threatening
+                    else "neither"
+                )
+            else:
+                label = "neither"
+        else:
+            label = "threatening" if expected_threatening else "neither"
+        expected_labels.append(label)
+        fail(
+            failures,
+            f"{ply_pointer}/label",
+            "ledger label must follow the preceding threat, stop test, and this ply's threat",
+            ply.get("label") == label,
+        )
+
+    for index, ply_value in enumerate(plies_value):
+        ply = as_object(ply_value)
+        if ply is None:
+            continue
+        next_label = (
+            expected_labels[index + 1] if index + 1 < len(expected_labels) else None
+        )
+        expected_gained = next_label == "pure_reply"
+        fail(
+            failures,
+            f"{pointer}/tempo_ledger/plies/{index}/tempo_gained",
+            "tempo_gained must be set exactly when the next ply is a pure reply",
+            ply.get("tempo_gained") is expected_gained,
+        )
+
+    tempi = as_object(ledger.get("tempi"))
+    if tempi is not None:
+        for color in ("white", "black"):
+            expected_count = sum(
+                1
+                for ply_value in plies_value
+                if (ply := as_object(ply_value)) is not None
+                and ply.get("side") == color
+                and ply.get("tempo_gained") is True
+            )
+            fail(
+                failures,
+                f"{pointer}/tempo_ledger/tempi/{color}",
+                f"{color} tempi must count that side's tempo_gained plies",
+                tempi.get(color) == expected_count,
+            )
+
+    expected_runs = expected_initiative_runs(
+        plies_value, boards, assessment.get("positional")
+    )
+    runs = as_array(ledger.get("runs"))
+    fail(
+        failures,
+        f"{pointer}/tempo_ledger/runs",
+        "initiative runs must match the §6.3 scan",
+        runs is not None and len(runs) == len(expected_runs),
+    )
+    if runs is not None:
+        for index, expected in enumerate(expected_runs):
+            actual = as_object(runs[index]) if index < len(runs) else None
+            run_pointer = f"{pointer}/tempo_ledger/runs/{index}"
+            fail(
+                failures,
+                run_pointer,
+                "initiative run must be an object",
+                actual is not None,
+            )
+            if actual is None:
+                continue
+            for key, expected_value in expected.items():
+                fail(
+                    failures,
+                    f"{run_pointer}/{key}",
+                    f"initiative run {key} must match the §6.3 derivation",
+                    type(actual.get(key)) is type(expected_value)
+                    and actual.get(key) == expected_value,
+                )
+
+
+def check_positional_relations(
+    report: JsonObject,
+    assessment: JsonObject,
+    pointer: str,
+    boards: list[chess.Board],
+    moves: list[chess.Move],
+    tempo_dependent: bool,
+    failures: list[Failure],
+) -> None:
+    position = get_object(report, "position")
+    root_features = (
+        [] if position is None else as_array(position.get("positional")) or []
+    )
+    root_identities = {
+        positional_identity(feature)
+        for feature_value in root_features
+        if (feature := as_object(feature_value)) is not None
+    }
+    changes = as_array(assessment.get("positional")) or []
+    latest: dict[str, int] = {}
+    for index, change_value in enumerate(changes):
+        change = as_object(change_value)
+        if change is not None:
+            latest[positional_identity(change)] = index
+    for index, change_value in enumerate(changes):
+        change = as_object(change_value)
+        if change is None:
+            continue
+        change_pointer = f"{pointer}/positional/{index}"
+        identity = positional_identity(change)
+        expected_net = latest.get(identity) == index and (
+            (change.get("change") == "appears") != (identity in root_identities)
+        )
+        fail(
+            failures,
+            f"{change_pointer}/net_change",
+            "only the last change per identity is net, iff its final direction differs from root features",
+            change.get("net_change") is expected_net,
+        )
+        if not expected_net:
+            fail(
+                failures,
+                f"{change_pointer}/in_use",
+                "in_use must be null for a non-net change",
+                change.get("in_use") is None,
+            )
+            continue
+        expected_use = use_test(change, boards, moves, tempo_dependent)
+        fail(
+            failures,
+            f"{change_pointer}/in_use",
+            "in_use must match the §6.6 use test",
+            change.get("in_use") is expected_use,
+        )
+
+
+def check_tempo_and_positional_semantics(
+    report: JsonObject, root: chess.Board | None, failures: list[Failure]
+) -> None:
+    position = get_object(report, "position")
+    if position is None:
+        return
+    candidates = as_array(report.get("candidates")) or []
+    first = as_object(candidates[0]) if candidates else None
+    root_moves = None if first is None else score_units(first.get("eval"))
+    threats = as_object(report.get("threats"))
+    opponent_color = None if root is None else not root.turn
+    opponent_threat = (
+        None
+        if threats is None or opponent_color is None
+        else threats.get(side_name(opponent_color))
+    )
+    root_null = (
+        root is None
+        or root.is_check()
+        or position.get("terminal") is not None
+        or not isinstance(opponent_threat, dict)
+    )
+    check_tempo_value(
+        position.get("tempo_value"),
+        "/position/tempo_value",
+        None if root is None else root.turn,
+        root_moves,
+        root_null,
+        failures,
+    )
+    root_tempo = as_object(position.get("tempo_value"))
+    tempo_dependent = (
+        root_tempo is not None and root_tempo.get("label") == "tempo_dependent"
+    )
+    if root is None:
+        return
+    reliability = get_object(report.get("threats"), "null_move_reliable")
+    reliable = None if reliability is None else reliability.get("value")
+    for field in ("candidates", "asked_moves"):
+        for index, assessment_value in enumerate(as_array(report.get(field)) or []):
+            assessment = as_object(assessment_value)
+            if assessment is None:
+                continue
+            pointer = f"/{field}/{index}"
+            side = not root.turn
+            move_eval = score_units(assessment.get("eval"))
+            expected_moves = None if move_eval is None else 2000 - move_eval
+            detailed = assessment.get("detailed") is True
+            value_must_be_null = (
+                not detailed or assessment.get("creates_threat_skipped") is not None
+            )
+            check_tempo_value(
+                assessment.get("tempo_value"),
+                f"{pointer}/tempo_value",
+                side,
+                expected_moves,
+                value_must_be_null,
+                failures,
+            )
+
+            if root.is_check():
+                expected_skip = "in_check"
+            elif reliable is False:
+                expected_skip = "null_move_unreliable"
+            elif not detailed:
+                expected_skip = "not_detailed"
+            else:
+                expected_skip = None
+            ledger = assessment.get("tempo_ledger")
+            skip = assessment.get("tempo_ledger_skipped")
+            fail(
+                failures,
+                f"{pointer}/tempo_ledger_skipped",
+                "ledger skip reason must follow in-check, null-reliability, then detail priority",
+                skip == expected_skip,
+            )
+            fail(
+                failures,
+                f"{pointer}/tempo_ledger",
+                "tempo ledger must be null exactly when one of its skip rules applies",
+                (ledger is None) == (expected_skip is not None),
+            )
+            walk = replay_walk(root, assessment)
+            if walk is None:
+                continue
+            boards, moves = walk
+            check_positional_relations(
+                report, assessment, pointer, boards, moves, tempo_dependent, failures
+            )
+            if isinstance(ledger, dict):
+                check_tempo_ledger(
+                    assessment,
+                    pointer,
+                    boards,
+                    moves,
+                    failures,
+                )
+
+
 def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> None:
     report = as_object(report_value)
     if report is None:
@@ -1480,6 +2324,7 @@ def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> Non
     check_selection_relations(report, root, failures)
     check_playable_truncated(report, failures)
     check_position_relations(report, root, failures)
+    check_tempo_and_positional_semantics(report, root, failures)
     check_terminal_relations(report, failures)
     check_urgency(report, failures)
     check_parry_relations(report, root, failures)
@@ -1591,20 +2436,108 @@ def positional_identity(change: JsonObject) -> str:
     )
 
 
-def net_positional_changes(value: JsonValue) -> list[JsonValue]:
+def net_positional_changes(
+    value: JsonValue, tempo_dependent: bool = False
+) -> list[JsonValue]:
     changes = as_array(value) or []
-    latest_indexes: dict[str, int] = {}
+    selected: list[tuple[int, JsonValue, JsonObject]] = []
     for index, change_value in enumerate(changes):
         change = as_object(change_value)
-        if change is not None and change.get("holds_at_end") is True:
-            latest_indexes[positional_identity(change)] = index
-    return [
-        change
-        for index, change in enumerate(changes)
-        if (change_object := as_object(change)) is not None
-        and change_object.get("holds_at_end") is True
-        and latest_indexes.get(positional_identity(change_object)) == index
-    ]
+        if (
+            change is not None
+            and change.get("net_change") is True
+            and change.get("in_use") is True
+        ):
+            selected.append((index, change_value, change))
+
+    def order_key(item: tuple[int, JsonValue, JsonObject]) -> tuple[bool, int]:
+        tag = item[2].get("tag")
+        tag_name = tag if isinstance(tag, str) else ""
+        return (
+            (tag_name in TEMPO_DYNAMIC_TAGS) != tempo_dependent,
+            TEMPO_STATIC_GROUPS.get(tag_name, 99),
+        )
+
+    selected.sort(key=order_key)
+    return [change_value for _, change_value, _ in selected]
+
+
+def projected_tempo_gained(assessment: JsonObject) -> JsonValue:
+    ledger = as_object(assessment.get("tempo_ledger"))
+    if ledger is None:
+        return None
+    gained: list[JsonValue] = []
+    for ply_value in as_array(ledger.get("plies")) or []:
+        ply = as_object(ply_value)
+        if ply is not None and ply.get("tempo_gained") is True:
+            gained.append(
+                {
+                    "ply": ply.get("ply"),
+                    "san": ply.get("san"),
+                    "side": ply.get("side"),
+                    "source": "engine",
+                }
+            )
+    return gained
+
+
+def move_impact_order(
+    assessment: JsonObject, projected: JsonObject, tempo_dependent: bool
+) -> list[JsonValue]:
+    ranks: dict[str, int] = {}
+    parried = as_object(projected.get("parried_threat"))
+    parried_threat = None if parried is None else as_object(parried.get("threat"))
+    if parried_threat is not None:
+        ranks["parried_threat"] = (
+            consequence_rank(parried_threat.get("consequence")) or 0
+        )
+    created = as_object(projected.get("created_threat"))
+    if created is not None:
+        ranks["created_threat"] = consequence_rank(created.get("consequence")) or 0
+    if as_array(projected.get("motifs")) or as_array(projected.get("root_motifs")):
+        ranks["motifs"] = consequence_rank(assessment.get("consequence")) or 0
+    tempo_gained = as_array(projected.get("tempo_gained")) or []
+    initiative = as_array(projected.get("initiative")) or []
+    if projected.get("tempo_value") is not None or tempo_gained or initiative:
+        ranks["tempo"] = 0
+    positional_dynamic = False
+    positional_static = False
+    for change_value in as_array(projected.get("positional")) or []:
+        change = as_object(change_value)
+        if change is None:
+            continue
+        if change.get("tag") in TEMPO_DYNAMIC_TAGS:
+            positional_dynamic = True
+        else:
+            positional_static = True
+    if positional_dynamic:
+        ranks["positional_dynamic"] = 0
+    if positional_static:
+        ranks["positional_static"] = 0
+    base_order = (
+        [
+            "parried_threat",
+            "created_threat",
+            "motifs",
+            "tempo",
+            "positional_dynamic",
+            "positional_static",
+        ]
+        if tempo_dependent
+        else [
+            "parried_threat",
+            "created_threat",
+            "motifs",
+            "positional_static",
+            "positional_dynamic",
+            "tempo",
+        ]
+    )
+    ordered_groups: list[str] = sorted(
+        ranks.keys(),
+        key=lambda group: (-ranks[group], base_order.index(group)),
+    )
+    return [cast(JsonValue, group) for group in ordered_groups]
 
 
 def game_count_for_move(report: JsonObject, uci: JsonValue) -> JsonValue:
@@ -1630,6 +2563,12 @@ def project_assessment(
     rank: int | None,
     opponent_threat: JsonValue,
 ) -> JsonObject:
+    position = get_object(report, "position") or {}
+    tempo_value = as_object(position.get("tempo_value"))
+    tempo_dependent = (
+        tempo_value is not None and tempo_value.get("label") == "tempo_dependent"
+    )
+    ledger = as_object(assessment.get("tempo_ledger"))
     projected: JsonObject = {
         "rank": rank,
         "san": assessment.get("san"),
@@ -1648,7 +2587,13 @@ def project_assessment(
         "motifs": contribution_filtered(assessment.get("motifs")),
         "root_motifs": contribution_filtered(assessment.get("root_motifs")),
         "tactic_labels": assessment.get("tactic_labels"),
-        "positional": net_positional_changes(assessment.get("positional")),
+        "positional": net_positional_changes(
+            assessment.get("positional"), tempo_dependent
+        ),
+        "tempo_value": assessment.get("tempo_value"),
+        "tempo_gained": projected_tempo_gained(assessment),
+        "initiative": None if ledger is None else ledger.get("runs"),
+        "impact_order": [],
         "parried_threat": None,
         "created_threat": None,
         "refutation": None,
@@ -1669,6 +2614,9 @@ def project_assessment(
     refutation = assessment.get("refutation")
     if verdict not in ("best", "okay") and refutation is not None:
         projected["refutation"] = projected_threat(refutation, True)
+    projected["impact_order"] = move_impact_order(
+        assessment, projected, tempo_dependent
+    )
     return projected
 
 
@@ -1758,6 +2706,7 @@ def projected_move_document(report: JsonObject) -> JsonObject:
             "legal_moves",
             "terminal",
             "eval_white",
+            "tempo_value",
         )
     }
     return {
@@ -1836,7 +2785,7 @@ def compare_projected_values(
     fail(
         failures,
         pointer,
-        "field must equal its §4.6 full-report projection",
+        "field must equal its §7 full-report projection",
         type(expected) is type(actual) and expected == actual,
     )
 
@@ -1880,10 +2829,10 @@ def schema_error_message(error: ValidationError) -> str:
 def schema_for_document(base_schema: Path, document: JsonValue) -> Path:
     if document not in ("full", "moves"):
         return base_schema
-    if base_schema.name not in ("report.v6.schema.json", "moves.v6.schema.json"):
+    if base_schema.name not in ("report.v7.schema.json", "moves.v7.schema.json"):
         return base_schema
     schema_name = (
-        "report.v6.schema.json" if document == "full" else "moves.v6.schema.json"
+        "report.v7.schema.json" if document == "full" else "moves.v7.schema.json"
     )
     return base_schema.with_name(schema_name)
 
@@ -1934,7 +2883,7 @@ def validate_document_file(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="validate ChessWhy full and moves documents against their v6 schemas"
+        description="validate ChessWhy full and moves documents against their v7 schemas"
     )
     _ = parser.add_argument("schema", type=Path)
     _ = parser.add_argument("reports", type=Path, nargs="*")
@@ -1943,7 +2892,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=Path,
         nargs=2,
         metavar=("FULL_REPORT", "MOVES_DOCUMENT"),
-        help="validate a full report and moves document, then check their §4.6 projection",
+        help="validate a full report and moves document, then check their §7 projection",
     )
     arguments = parser.parse_args(argv, namespace=Arguments())
     if arguments.projection is None:

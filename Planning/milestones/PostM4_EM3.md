@@ -16,7 +16,7 @@ Captain's books); decided the same day.
 | # | Topic | Decision |
 |---|---|---|
 | A1 | Threat test | (a) **Threatening move**: after the move, its side's threat (the opponent passes, as in search E) has rank ≥ 2 over the walked plies, read from the board after the move. A check is a threatening move by rule. Not the parry test's ES margin (it fails when ES is pinned at 0 or 1: V1 sits at 1.00 throughout) and not the centipawn cost of passing (≥ 100 cp even after a quiet 3.Bc4) |
-| A2 | Trades | (a) A capture counts only for what it threatens next, not for the piece it took: an even trade is neither a threatening move nor a tempo. V2's `Bxa4` still gains a tempo, because it threatens `…Bxb3` |
+| A2 | Trades | (a) A capture counts only for what it threatens next, not for the piece it took: an even trade is neither a threatening move nor a tempo. Example amended at checkpoint 2 (2026-10-24): V2's `Bxa4` is `neither`, because after it, with White passing, Black's best line (`Bd7 Rfc2 Be5 …`) wins no material; the example said before that `Bxa4` gains a tempo because it threatens `…Bxb3`, read from the §3 probes |
 | A3 | Ledger scope | T2: the tempo ledger covers every walked ply of every detailed line. The **timing check** becomes 15 s per F fixture at `standard` in Release (12 s before). Refined the same day: the second ledger search of a ply runs only after a threatening move ("why would we run it if there isn't a plausible reason to run it?") |
 | A4 | Tempo value | (a) Ship the number with labels on the verdict scale: **tempo-dependent position** above 0.10, **non-tempo position** below 0.05, **zugzwang** below 0 |
 | A5 | Initiative | (a) Derived from the tempo ledger with no extra search: one row per run with holder, plies, tempi gained, how it ended (spent, contested or runs) and converted or evaporated. "Runs" (the reply neither stops the threat nor is a pure reply, so the line turns into a tactic) was proposed by the Deputy after the budget comparison showed such replies inside runs and accepted by the Captain, both 2026-10-24 |
@@ -73,7 +73,7 @@ move on a given board; ES from the engine's WDL.
 
 Lines: the Scandinavian (`Qxd5 Nc3 Qa5 d4 Nf6 Nf3 Bf5 Bc4`) gains White one tempo at
 plies 2–3 (`Nc3` threatening, `Qa5` a pure reply). V2 with `Bxa4` first gains Black a
-tempo at plies 1–2. At ply 4 `Rfc2` answers `Ba7` with a counter-threat, and the line
+tempo at plies 1–2 in these probes (the built ledger does not: see §17, checkpoint 2). At ply 4 `Rfc2` answers `Ba7` with a counter-threat, and the line
 settles at ply 8 as a non-tempo position (tempo value 0.09) with Black the exchange up,
 so Black's initiative is converted. V2 with `Ba7` first threatens on every ply at a
 tempo value of 0.50 ± 0.01 and has no run. V1's `Qc4` line gains White a tempo with
@@ -420,7 +420,8 @@ struct TempoGained { int ply = 1; std::string san; Side side = Side::White; };
 [[nodiscard]] std::vector<ImpactGroup> impact_order(const MoveReport& move, bool tempo_dependent);
 ```
 
-`rules.cpp` `node_budget`: `l` = 40 000 standard, 10 000 quick, 160 000 deep.
+`rules.cpp` `node_budget`: `l` = 30 000 standard (40 000 before the batch 1 timing
+fallback, §17), 10 000 quick, 160 000 deep.
 `analyse` fills the root tempo value after B, runs `mark_use` on every candidate's
 changes (walked moves, root tempo-dependent flag), then builds the ledger.
 
@@ -443,7 +444,7 @@ None: no motif or tactic rule changes.
 | ID | Position and arguments | Expected |
 |---|---|---|
 | F40 | `rnbqkbnr/ppp1pppp/8/3P4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2` `--moves Qxd5` | Qxd5's ledger: ply 2 Nc3 `tempo_gained`, ply 3 `pure_reply` |
-| F41 | V2 `1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1` `--moves Bxa4,Ba7` | root label `tempo_dependent` (≈ 0.314); Bxa4: Black gains a tempo with Bxa4, White with Bxa7, a run that is `converted`; Ba7: no tempo gained |
+| F41 | V2 `1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1` `--moves Bxa4,Ba7` | root label `tempo_dependent` (0.2965); Bxa4: `Bxa4` is `neither`, White gains a tempo with Bxa7, answered by the pure reply Nxc2; Ba7: no tempo gained. Before checkpoint 2: ≈ 0.314, Black gains a tempo with Bxa4, a run that is `converted` |
 | F42 | V1 `5k2/7p/pr1pB1p1/2pP4/1P6/6PP/R3qP2/R5K1 b - - 1 33` `--moves Qc4` | root value 1.0, `tempo_dependent`; Qc4's ledger: White gains a tempo with bxc5 |
 | F43 | `8/3k4/8/3K4/3P4/8/8/8 w - - 0 1` | root label `zugzwang` (≈ −0.5); every ledger skipped `null_move_unreliable` |
 | F44 | the first of F32's root, the start position and F28's root with root label `non_tempo` | root label `non_tempo`; `impact_order` ends with `tempo` where present |
@@ -533,8 +534,8 @@ checkpoint 2. Milestone end: WP7.
 
 Smoke command: `build/release/chesswhy --fen
 '1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1' --moves Bxa4,Ba7` (text: root
-tempo value with "tempo-dependent position"; Bxa4 with its tempo and initiative rows;
-Ba7 without a tempo gained).
+tempo value with "tempo-dependent position"; Bxa4 with White's tempo at Bxa7 and its
+initiative row; Ba7 without a tempo gained).
 
 ## 17. Contract changes
 
@@ -543,3 +544,7 @@ Ba7 without a tempo gained).
 | 2026-10-24 | Contract drafted (§4–§16) | Decisions A1–A5, B1–B3 |
 | 2026-10-24 | Checkpoint 1: contract, diagrams and terms approved as drafted, including `unfinished`, the converted rule and use-test rules 1, 2 and 6 | Captain |
 | 2026-10-24 | WP1's v7 cutover is version-only outside its files: it renames `moves.v6.schema.json` to `moves.v7.schema.json` (version 7, no new fields) and updates schema names and version numbers in `tools/validate_report.py`, `tests/report/CMakeLists.txt`, `tests/report/move_report_tests.cpp`, `include/chesswhy/move_report.hpp` (comment), `tests/cli/CMakeLists.txt` (schema path only) and `tests/checker/unit_tests.py`; WP3 and WP5 extend them in batch 2. `tests/positional/oracle/*` is not WP2's: the test-progress task (Captain's request, not milestone scope) owns it with the other long-running test drivers during batch 1 | keep the tree building between batches |
+| 2026-10-24 | §6.3 rule 3 clarified (no change of meaning): the endings are exhaustive on plies labelled by `label_ledger`, because a pure reply on ply e+1 gives ply e a tempo and so continues the run; `initiative_runs` states that precondition and treats a violation as a programming error | question from WP1 |
+| 2026-10-24 | Timing fallback of §2 and §10 applied: `l` at `standard` drops from 40 000 to 30 000; `quick` and `deep` unchanged. Batch 1 at 40k in the Release gate (`-j8`, games tests alongside): F32 19.9 s, F12 15.2 s; alone: F32 12.4–13.0 s, F12 14.6 s. At 30k alone: F32 11.0 s, F12 13.2 s | §10 trigger; measurements for the receipt |
+| 2026-10-24 | Checkpoint 2: the Captain confirms the built V2 ledger (`Bxa4` neither, `bxa4` neither, `Ba7` threatening, `Rfc2` threatening, `Nb4` counter-threat, `Bxa7` threatening with a tempo gained, `Nxc2` pure reply). A2's example and F41 follow it: no Black tempo with `Bxa4`; the only run is White's from ply 6, unfinished and evaporated; root value 0.2965 at 30k and 40k. The §3 probes, made before the ledger was built, had read `Bxa4` as threatening | Captain |
+| 2026-10-24 | Test redesign before the milestone-end ASan gate (Captain: test safety, not core-hours). `include/chesswhy/cli.hpp` gains `build_report` and a public `write_output` (`run` = both, unchanged output and exit codes; `src/cli/output.hpp` removed); the F fixture tests build each run's report once and write all four outputs from it; `cli_rerun_identity` builds twice and compares all four; `tactics_oracle` and `positional_oracle` run the oracle sample (`unit`) and `*_corpus` the whole corpus (`corpus`); `cli_timing` moves to label `timing`; the `sanitize` fixtures get a second label; the ASan preset builds `-O1`. Acceptance row 1 is judged on the gate as redefined in AGENTS.md (DEFINITIONS §6.3 gate). Reports byte-identical to the old harness (106 JSON documents compared) | Captain, 2026-10-24 |

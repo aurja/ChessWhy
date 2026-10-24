@@ -15,7 +15,6 @@
 #include <utility>
 #include <vector>
 
-#include "output.hpp"
 #include "selection.hpp"
 
 #ifndef CHESSWHY_ASSETS_DIR
@@ -197,6 +196,55 @@ Options parse_args(std::span<const std::string_view> args) {
     return options;
 }
 
+Report build_report(const Options& options) {
+    validate_options(options);
+
+    chess::Board board;
+    std::vector<chess::Board> mainline;
+    Report report;
+    if (options.fen.has_value()) {
+        board = input::parse_fen(options.fen.value());
+        report.input.source = InputSource::Fen;
+    } else if (options.pgn.has_value()) {
+        const input::PgnPosition position =
+            input::load_pgn(options.pgn.value(), options.game, options.ply);
+        board = position.board;
+        mainline = position.mainline;
+        report.input.source = InputSource::Pgn;
+        report.input.pgn_game = position.game;
+        report.input.pgn_ply = position.ply;
+    } else {
+        throw input::InputError("exactly one of --fen or --pgn must be supplied");
+    }
+
+    const std::optional<std::string_view> typed_moves =
+        options.moves ? std::optional<std::string_view>(*options.moves) : std::nullopt;
+    auto resolved_moves = detail::resolve_moves(board, typed_moves);
+    report.input.selection = std::move(resolved_moves.selection);
+    report.input.moves = options.moves;
+
+    report.input.fen = board.getFen();
+    report.input.level = options.level;
+    report.input.budget = options.budget;
+
+    const openings::Table opening_table = openings::Table::load(options.openings);
+    const games::Table game_table = games::Table::load(options.games);
+    report.games.by_source.push_back(game_table.find(board));
+    engine::Engine engine({.binary = options.engine, .threads = options.threads, .hash_mb = 64});
+    report.engine.name = engine.name();
+    report.engine.threads = options.threads;
+    report.engine.hash_mb = 64;
+    report.engine.reproducible = options.threads == 1;
+    analysis::analyse(engine,
+                      analysis::Request{.board = board,
+                                        .selection = report.input.selection,
+                                        .asked = std::move(resolved_moves.asked),
+                                        .budget = options.budget},
+                      report);
+    report.opening = openings::describe(opening_table, board, mainline);
+    return report;
+}
+
 int run(const Options& options, std::ostream& out, std::ostream& err) {
     if (options.help) {
         out << usage();
@@ -204,54 +252,8 @@ int run(const Options& options, std::ostream& out, std::ostream& err) {
     }
 
     try {
-        validate_options(options);
-
-        chess::Board board;
-        std::vector<chess::Board> mainline;
-        Report report;
-        if (options.fen.has_value()) {
-            board = input::parse_fen(options.fen.value());
-            report.input.source = InputSource::Fen;
-        } else if (options.pgn.has_value()) {
-            const input::PgnPosition position =
-                input::load_pgn(options.pgn.value(), options.game, options.ply);
-            board = position.board;
-            mainline = position.mainline;
-            report.input.source = InputSource::Pgn;
-            report.input.pgn_game = position.game;
-            report.input.pgn_ply = position.ply;
-        } else {
-            throw input::InputError("exactly one of --fen or --pgn must be supplied");
-        }
-
-        const std::optional<std::string_view> typed_moves =
-            options.moves ? std::optional<std::string_view>(*options.moves) : std::nullopt;
-        auto resolved_moves = detail::resolve_moves(board, typed_moves);
-        report.input.selection = std::move(resolved_moves.selection);
-        report.input.moves = options.moves;
-
-        report.input.fen = board.getFen();
-        report.input.level = options.level;
-        report.input.budget = options.budget;
-
-        const openings::Table opening_table = openings::Table::load(options.openings);
-        const games::Table game_table = games::Table::load(options.games);
-        report.games.by_source.push_back(game_table.find(board));
-        engine::Engine engine(
-            {.binary = options.engine, .threads = options.threads, .hash_mb = 64});
-        report.engine.name = engine.name();
-        report.engine.threads = options.threads;
-        report.engine.hash_mb = 64;
-        report.engine.reproducible = options.threads == 1;
-        analysis::analyse(engine,
-                          analysis::Request{.board = board,
-                                            .selection = report.input.selection,
-                                            .asked = std::move(resolved_moves.asked),
-                                            .budget = options.budget},
-                          report);
-        report.opening = openings::describe(opening_table, board, mainline);
-
-        detail::write_output(options, report, out);
+        const Report report = build_report(options);
+        write_output(options, report, out);
         return kExitOk;
     } catch (const input::InputError& error) {
         write_error(err, error.what());

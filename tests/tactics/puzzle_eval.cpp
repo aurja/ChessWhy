@@ -21,6 +21,8 @@
 
 #include <chess.hpp>
 
+#include "progress.hpp"
+
 namespace {
 
 using chesswhy::Motif;
@@ -621,67 +623,77 @@ void write_disagreements(const std::string& path, std::size_t limit,
 } // namespace
 
 int main(int argc, char* argv[]) {
-    Options options;
     try {
-        options = parse_options(argc, argv);
-    } catch (const std::exception& error) {
-        std::cerr << "tactics_puzzle_eval: " << error.what() << '\n';
-        return 2;
-    }
-
-    std::ifstream input(options.csv_path);
-    if (!input) {
-        std::cerr << "tactics_puzzle_eval: cannot open " << options.csv_path << '\n';
-        return 2;
-    }
-    std::string header;
-    if (!std::getline(input, header)) {
-        std::cerr << "tactics_puzzle_eval: empty CSV " << options.csv_path << '\n';
-        return 2;
-    }
-    if (!header.empty() && header.back() == '\r') {
-        header.pop_back();
-    }
-    try {
-        if (parse_csv_record(header) !=
-            std::vector<std::string>(kCsvColumns.begin(), kCsvColumns.end())) {
-            std::cerr << "tactics_puzzle_eval: unexpected CSV header\n";
+        Options options;
+        try {
+            options = parse_options(argc, argv);
+        } catch (const std::exception& error) {
+            std::cerr << "puzzle_eval: error: " << error.what() << '\n';
             return 2;
         }
-    } catch (const std::exception& error) {
-        std::cerr << "tactics_puzzle_eval: invalid CSV header: " << error.what() << '\n';
-        return 2;
-    }
 
-    std::array<Metrics, kTagCount> metrics{};
-    BackgroundSummary background_summary;
-    RemovalMetrics removal_metrics;
-    std::array<DisagreementBucket, kTagCount> disagreements{};
-    std::string line;
-    std::size_t line_number = 1;
-    try {
-        while (std::getline(input, line)) {
-            ++line_number;
-            process_row(line, line_number, options.disagreements_per_kind, metrics,
-                        background_summary, removal_metrics, disagreements);
+        std::ifstream input(options.csv_path);
+        if (!input) {
+            std::cerr << "puzzle_eval: error: cannot open " << options.csv_path << '\n';
+            return 2;
         }
-        if (input.bad()) {
-            throw std::runtime_error("failed reading " + options.csv_path);
+        std::string header;
+        if (!std::getline(input, header)) {
+            std::cerr << "puzzle_eval: error: empty CSV " << options.csv_path << '\n';
+            return 2;
         }
-        print_table(metrics);
-        print_background_mean(background_summary);
-        print_removal_metrics(removal_metrics);
-        if (options.disagreement_path) {
-            write_disagreements(*options.disagreement_path, options.disagreements_per_kind,
-                                disagreements);
+        if (!header.empty() && header.back() == '\r') {
+            header.pop_back();
         }
-    } catch (const RowError& error) {
-        std::cerr << "tactics_puzzle_eval: PuzzleId " << error.puzzle_id() << ": " << error.what()
-                  << '\n';
-        return 2;
+        try {
+            if (parse_csv_record(header) !=
+                std::vector<std::string>(kCsvColumns.begin(), kCsvColumns.end())) {
+                std::cerr << "puzzle_eval: error: unexpected CSV header\n";
+                return 2;
+            }
+        } catch (const std::exception& error) {
+            std::cerr << "puzzle_eval: error: invalid CSV header: " << error.what() << '\n';
+            return 2;
+        }
+        const std::size_t puzzle_total = chesswhy::test::count_csv_data_rows(options.csv_path);
+        chesswhy::test::Progress progress("tactics_puzzles puzzle", puzzle_total);
+        std::size_t puzzle_index = 0;
+
+        std::array<Metrics, kTagCount> metrics{};
+        BackgroundSummary background_summary;
+        RemovalMetrics removal_metrics;
+        std::array<DisagreementBucket, kTagCount> disagreements{};
+        std::string line;
+        std::size_t line_number = 1;
+        try {
+            while (std::getline(input, line)) {
+                ++line_number;
+                process_row(line, line_number, options.disagreements_per_kind, metrics,
+                            background_summary, removal_metrics, disagreements);
+                ++puzzle_index;
+                progress.item_completed(puzzle_index, "processed");
+            }
+            if (input.bad()) {
+                throw std::runtime_error("failed reading " + options.csv_path);
+            }
+            print_table(metrics);
+            print_background_mean(background_summary);
+            print_removal_metrics(removal_metrics);
+            if (options.disagreement_path) {
+                write_disagreements(*options.disagreement_path, options.disagreements_per_kind,
+                                    disagreements);
+            }
+        } catch (const RowError& error) {
+            std::cerr << "puzzle_eval: error: PuzzleId " << error.puzzle_id() << ": "
+                      << error.what() << '\n';
+            return 2;
+        } catch (const std::exception& error) {
+            std::cerr << "puzzle_eval: error: " << error.what() << '\n';
+            return 2;
+        }
+        return targets_met(metrics) ? 0 : 1;
     } catch (const std::exception& error) {
-        std::cerr << "tactics_puzzle_eval: " << error.what() << '\n';
+        std::cerr << "puzzle_eval: error: " << error.what() << '\n';
         return 2;
     }
-    return targets_met(metrics) ? 0 : 1;
 }

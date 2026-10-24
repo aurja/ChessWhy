@@ -804,6 +804,8 @@ std::vector<PositionalChange> reference_line_changes(const chess::Board& root,
             changes.push_back({.ply = static_cast<int>(ply),
                                .change = PositionalChangeKind::Appears,
                                .holds_at_end = holds_at_end,
+                               .net_change = false,
+                               .in_use = std::nullopt,
                                .feature = feature});
         }
         for (const PositionalFeature& feature : previous) {
@@ -821,6 +823,8 @@ std::vector<PositionalChange> reference_line_changes(const chess::Board& root,
             changes.push_back({.ply = static_cast<int>(ply),
                                .change = PositionalChangeKind::Disappears,
                                .holds_at_end = holds_at_end,
+                               .net_change = false,
+                               .in_use = std::nullopt,
                                .feature = feature});
         }
     }

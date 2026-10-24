@@ -18,7 +18,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 
 | Node | Code | Notes |
 |---|---|---|
-| `CommandLine` | `src/cli/cli.cpp` `parse_args` `run`; `include/chesswhy/cli.hpp` `Options` | `chesswhy`; `src/cli/main.cpp` only forwards |
+| `CommandLine` | `src/cli/cli.cpp` `parse_args` `build_report` `run`; `include/chesswhy/cli.hpp` `Options` | `chesswhy`; `src/cli/main.cpp` only forwards; `run` is `build_report` then `write_output` with exit codes |
 | `FenInput` | `src/input/fen.cpp` `parse_fen` | Rejects illegal positions and out-of-range counters |
 | `PgnInput` | `src/input/pgn.cpp` `load_pgn` `read_games` `PgnReader`; `include/chesswhy/input.hpp` `PgnPosition` `PgnGame` `PgnReader` `PgnReadOptions`; `src/pgntool/pgntool.cpp` `run` | `chesswhy-pgn` lists the games and plies of a file; `PgnReader` streams games one at a time and stops parsing at `max_plies` |
 | `AskedMove` | `src/input/move.cpp` `parse_move`; `src/cli/selection.cpp` `resolve_moves` | SAN or UCI; several moves, deduplicated by UCI, in typed order |
@@ -39,6 +39,8 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `SearchD` | `src/analysis/analyse.cpp` `search_parry`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
 | `SearchE` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
 | `SearchR` | `src/analysis/analyse.cpp` `judge_refutation`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
+| `ThreatSearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `src/analysis/rules.cpp` `node_budget` | Budget `L`; ply 1 reads E's result |
+| `ReplySearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `src/analysis/rules.cpp` `node_budget` | Budget `L`; only after a threatening ply |
 | `StockfishProcess` | `src/engine/engine.cpp` `Engine` `search`; `include/chesswhy/engine.hpp` `SearchRequest` `SearchResult` `Line` `MultiPvCollector` `EngineError`; `src/engine/info_line.cpp` `parse_info_line` | Talks UCI; never linked |
 | `ExpectedScore` | `src/analysis/rules.cpp` `es_units`; `src/analysis/analyse.cpp` `eval_for`; `include/chesswhy/report.hpp` `Eval` | |
 
@@ -105,7 +107,26 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `SpaceDevelopment` | `src/positional/positional.cpp` `mobility` `space` `undeveloped` `add_leads_and_material`; `include/chesswhy/positional.hpp` `kMobilityLead` `kSpaceLead` `kDevelopmentLead` | |
 | `MaterialBalance` | `src/positional/positional.cpp` `add_leads_and_material` | |
 | `PositionalChange` | `src/positional/positional.cpp` `same_identity` `line_changes`; `src/analysis/analyse.cpp` `assess_move` `walked_moves`; `include/chesswhy/report.hpp` `PositionalChange` | Over the same walked plies as the line motifs |
-| `TiedToLine` | `src/render/render.cpp` `write_positional_changes` | Prints only changes along lines; `position.positional` stays in the JSON |
+| `TiedToLine` | `src/report/move_report.cpp` `assess_move`; `src/render/render.cpp` `write_positional_changes` `write_positional_change` `write_move_positional_group` | Move reports keep `net_change && in_use`; the full report text marks passing changes and changes that fail the use test |
+| `NetChange` | `src/positional/positional.cpp` `mark_use` `contains_identity`; `include/chesswhy/report.hpp` `PositionalChange` | `mark_use` computes the root features itself |
+| `UseTest` | `src/positional/positional.cpp` `mark_use` `king_pressed` `king_zone` `used_by_later_capture` `has_attacked_feature_pawn` `used_passer` `used_rook_file` | Called by `src/analysis/analyse.cpp` `analyse` before the ledger |
+| `FavouredSide` | `src/positional/positional.cpp` `favours` | |
+| `StaticScale` | `src/positional/positional.cpp` `static_scale_group` `is_dynamic`; `include/chesswhy/positional.hpp` `StaticScaleGroup` | |
+
+## Tempo and initiative
+
+| Node | Code | Notes |
+|---|---|---|
+| `TempoValue` | `src/analysis/analyse.cpp` `make_tempo_value` `complete_move_details` `analyse`; `include/chesswhy/report.hpp` `TempoValue` | Root from A and B, after a move from its eval and E |
+| `TempoLabel` | `src/analysis/rules.cpp` `tempo_label` `tempo_dependent`; `include/chesswhy/analysis.hpp` `kTempoDependentUnits` `kNonTempoUnits` | |
+| `ThreatTest` | `src/analysis/analyse.cpp` `complete_tempo_ledger` | |
+| `ReplyTest` | `src/analysis/analyse.cpp` `complete_tempo_ledger` | |
+| `PlyLabel` | `src/analysis/rules.cpp` `label_ledger`; `include/chesswhy/report.hpp` `TempoPly` `TempoPlyLabel` | |
+| `TempoGained` | `src/analysis/rules.cpp` `label_ledger` | |
+| `TempoLedger` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `include/chesswhy/report.hpp` `TempoLedger` `TempoLedgerSkip` `Tempi` | |
+| `InitiativeRun` | `src/analysis/rules.cpp` `initiative_runs`; `include/chesswhy/report.hpp` `InitiativeRun` | Precondition: plies labelled by `label_ledger` |
+| `RunEnding` | `src/analysis/rules.cpp` `initiative_runs`; `include/chesswhy/report.hpp` `InitiativeEnding` | |
+| `RunOutcome` | `src/analysis/rules.cpp` `initiative_runs` `material_balance`; `include/chesswhy/report.hpp` `InitiativeOutcome` | Reads `positional::favours` |
 
 ## Reference knowledge
 
@@ -116,7 +137,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `LastNamed` | `src/openings/openings.cpp` `describe` | |
 | `BroadcastMonths` | `tools/fetch_assets.sh` `fetch_games` | Months and their SHA-256 pinned in the script |
 | `GameTable` | `src/games/games.cpp` `build_table` `Table`; `src/games/main.cpp` `parse_options`; `include/chesswhy/games.hpp` `kTable` `kRatingFloor` `kMaxPly` `kMinGames` | `chesswhy-games` builds the table from PGN on stdin |
-| `GameCounts` | `src/games/games.cpp` `Table`; `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `GamesInfo` `GameSourceCounts` `GameMoveCount`; `src/render/render.cpp` `write_games_summary` `write_game_move_counts` | `run` loads the table once (`--games`) and looks up the analysed position |
+| `GameCounts` | `src/games/games.cpp` `Table`; `src/cli/cli.cpp` `build_report`; `include/chesswhy/report.hpp` `GamesInfo` `GameSourceCounts` `GameMoveCount`; `src/render/render.cpp` `write_games_summary` `write_game_move_counts` | `build_report` loads the table once (`--games`) and looks up the analysed position |
 | `DataDigest` | `src/util/sha256.cpp` `sha256_hex`; `include/chesswhy/digest.hpp`; `src/games/games.cpp` `Table::load` `table_name`; `include/chesswhy/games.hpp` `kTableSha256`; `src/openings/openings.cpp` `Table::load`; `include/chesswhy/openings.hpp` `kDatasetSha256` | |
 
 ## Report
@@ -125,16 +146,17 @@ Rules, checked by `python3 tools/check_dbc.py`:
 |---|---|---|
 | `Fact` | `include/chesswhy/report.hpp` `Report` | Each field of the report is one fact |
 | `Provenance` | `src/report/report.cpp` `to_json`; `include/chesswhy/report.hpp` `parry_source` | Written as a `source` field beside each fact |
-| `Reproducible` | `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `EngineInfo` | |
+| `Reproducible` | `src/cli/cli.cpp` `build_report`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
-| `ReportSchema` | `schema/report.v6.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
-| `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` | Run by CTest `report_schema` on every F report |
+| `ReportSchema` | `schema/report.v7.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
+| `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` `check_tempo_and_positional_semantics` `check_tempo_value` `check_tempo_ledger` `use_test` `check_positional_relations` | Run by CTest `report_schema` on every F report; `use_test` re-implements the use test independently |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/output.cpp` `write_output`; `src/report/move_report.cpp` `to_json` | `--json` prints the move report document, `--json --full-report` the full report |
 | `MoveSelection` | `src/report/move_report.cpp` `move_reports` `selected_from_a` `selected_by_keyword`; `src/analysis/analyse.cpp` `selected_by_selection` | Engine order, asked moves outside A last, each move once |
-| `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence` | |
-| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v6.schema.json` | |
-| `ProjectionCheck` | `tools/validate_report.py` `projected_move_document` `project_assessment` `net_positional_changes` `positional_identity` `check_projection` | Second, independent filter; `--projection FULL MOVES` |
+| `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence` | Positional changes: `net_change && in_use`, ordered by `positional::impact_order` |
+| `ImpactRating` | `src/report/move_report.cpp` `impact_order`; `src/positional/positional.cpp` `impact_order`; `include/chesswhy/move_report.hpp` `ImpactGroup`; `src/render/render.cpp` `write_move_report` | Groups for the move report; positional facts ordered within their group |
+| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v7.schema.json` | |
+| `ProjectionCheck` | `tools/validate_report.py` `projected_move_document` `project_assessment` `net_positional_changes` `positional_identity` `projected_tempo_gained` `check_projection` | Second, independent filter; `--projection FULL MOVES` |
 
 ## Explanation
 
@@ -142,7 +164,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 |---|---|---|
 | `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` `write_restriction` `write_held_to` | |
 | `Conditions` | `src/render/render.cpp` `write_engine_line_count` `write_selection_count` `write_walk` `creates_threat_skip_reason` | |
-| `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` | Two overloads of `text`: move report text and full report text |
+| `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` `write_tempo_value` `write_tempo_ledger` `write_initiative_runs` `write_move_tempo_rows` | Two overloads of `text`: move report text and full report text |
 | `ExplanationText` | `src/cli/output.cpp` `write_output` | Prints the rendered text |
 
 ## Fixtures and measurement

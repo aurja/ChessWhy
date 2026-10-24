@@ -8,18 +8,26 @@ target_link_libraries(cli_unit_tests PRIVATE
 catch_discover_tests(cli_unit_tests PROPERTIES LABELS unit)
 
 add_executable(cli_fixture_test engine_fixture_test.cpp)
-target_link_libraries(cli_fixture_test PRIVATE chesswhy_cli chesswhy_warnings chesswhy_paths)
+target_link_libraries(cli_fixture_test PRIVATE chesswhy_cli chesswhy_warnings chesswhy_paths
+    chesswhy_test_progress)
 target_compile_definitions(cli_fixture_test PRIVATE
     CHESSWHY_CLI_REPORT_DIR="${CMAKE_CURRENT_BINARY_DIR}/reports")
 
 add_executable(cli_identity_test identity_test.cpp)
-target_link_libraries(cli_identity_test PRIVATE chesswhy_cli chesswhy_warnings chesswhy_paths)
+target_link_libraries(cli_identity_test PRIVATE chesswhy_cli chesswhy_warnings chesswhy_paths
+    chesswhy_test_progress)
 
 set(CLI_FIXTURES_FILE "${PROJECT_SOURCE_DIR}/tests/fixtures/positions.json")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CLI_FIXTURES_FILE}")
 file(READ "${CLI_FIXTURES_FILE}" CLI_FIXTURES_JSON)
 string(JSON CLI_FIXTURE_COUNT LENGTH "${CLI_FIXTURES_JSON}" engine_fixtures)
 math(EXPR CLI_FIXTURE_LAST_INDEX "${CLI_FIXTURE_COUNT} - 1")
+set(CLI_SANITIZE_FIXTURES
+    F02 F04 F10 F13 F14 F15 F17 F19 F20 F25 F31 F33 F40 F42 F43)
+# Chosen to cover code paths under sanitizers: in check, mate threat, null move unreliable,
+# checkmate, stalemate, PGN input, underpromotion, null-move stalemate skips in B and E,
+# positional changes and castling, restriction text, top-N selection with a run, tempo
+# ledger with runs, and zugzwang skip. Facts are judged in Release.
 set(CLI_FULL_REPORT_FILES)
 set(CLI_MOVES_REPORT_FILES)
 set(CLI_REPORT_FIXTURES)
@@ -27,18 +35,19 @@ file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/reports")
 foreach(index RANGE 0 ${CLI_FIXTURE_LAST_INDEX})
     string(JSON fixture_id GET "${CLI_FIXTURES_JSON}" engine_fixtures ${index} id)
     add_test(NAME cli_fixture_${fixture_id}
-        COMMAND cli_fixture_test "${fixture_id}" "$<BOOL:${CHESSWHY_CHECK_TIMING}>")
-    # TIMEOUT: F32 judges every legal move in two of its runs and exceeds CTest's
-    # default 1500 s under ASan/UBSan (Debug); same limit as tactics_oracle.
+        COMMAND cli_fixture_test "${fixture_id}")
+    # F36's old four-analysis test took 79.4 s; one analysis measured 6.6 s in Release
+    # and 31 s under ASan/UBSan (Debug). Keep 3600 s; the maximum ASan fixture time
+    # is unknown.
+    set(fixture_labels engine)
+    if(fixture_id IN_LIST CLI_SANITIZE_FIXTURES)
+        set(fixture_labels engine sanitize)
+    endif()
     set_tests_properties(cli_fixture_${fixture_id} PROPERTIES
-        LABELS engine
+        LABELS "${fixture_labels}"
+        PROCESSORS 2
         TIMEOUT 3600
         FIXTURES_SETUP cli_report_${fixture_id})
-    if(CHESSWHY_CHECK_TIMING)
-        # Timed runs must not share cores; untimed reports do not depend on load
-        # (Threads=1, fixed node budgets), so they run in parallel.
-        set_tests_properties(cli_fixture_${fixture_id} PROPERTIES RESOURCE_LOCK engine)
-    endif()
     set(report_prefix "${CMAKE_CURRENT_BINARY_DIR}/reports/${fixture_id}")
     list(APPEND CLI_FULL_REPORT_FILES "${report_prefix}.full.json")
     list(APPEND CLI_MOVES_REPORT_FILES "${report_prefix}.moves.json")
@@ -56,13 +65,20 @@ foreach(index RANGE 0 ${CLI_FIXTURE_LAST_INDEX})
     endif()
     list(APPEND CLI_REPORT_FIXTURES cli_report_${fixture_id})
 endforeach()
+if(CHESSWHY_CHECK_TIMING)
+    add_test(NAME cli_timing COMMAND cli_fixture_test --timing)
+    set_tests_properties(cli_timing PROPERTIES
+        LABELS timing
+        TIMEOUT 3600
+        RUN_SERIAL TRUE)
+endif()
 
 set(CLI_REPORT_CHECK_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/report_schema.cmake")
 file(WRITE "${CLI_REPORT_CHECK_SCRIPT}" "set(PYTHON [==[${CHESSWHY_PYTHON}]==])\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}"
     "set(VALIDATOR [==[${PROJECT_SOURCE_DIR}/tools/validate_report.py]==])\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}"
-    "set(SCHEMA [==[${PROJECT_SOURCE_DIR}/schema/report.v6.schema.json]==])\n")
+    "set(SCHEMA [==[${PROJECT_SOURCE_DIR}/schema/report.v7.schema.json]==])\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "set(FULL_REPORTS\n")
 foreach(report IN LISTS CLI_FULL_REPORT_FILES)
     file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "  [==[${report}]==]\n")
@@ -73,6 +89,8 @@ foreach(report IN LISTS CLI_MOVES_REPORT_FILES)
 endforeach()
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" ")\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" [=[
+string(TIMESTAMP progress_started "%s" UTC)
+message("progress: report_schema 1/1 combined validation (0.0 s elapsed)")
 execute_process(
     COMMAND "${PYTHON}" "${VALIDATOR}" "${SCHEMA}" ${FULL_REPORTS} ${MOVES_REPORTS}
     RESULT_VARIABLE documents_result)
@@ -81,13 +99,31 @@ if(NOT documents_result EQUAL 0)
 endif()
 list(LENGTH FULL_REPORTS report_count)
 math(EXPR report_last "${report_count} - 1")
+set(projection_index 0)
+set(projection_elapsed_total 0)
 foreach(index RANGE 0 ${report_last})
+    math(EXPR projection_index "${projection_index} + 1")
     list(GET FULL_REPORTS ${index} full_report)
     list(GET MOVES_REPORTS ${index} moves_report)
+    string(TIMESTAMP projection_started "%s" UTC)
+    math(EXPR progress_elapsed "${projection_started} - ${progress_started}")
+    set(projection_eta "")
+    if(projection_index GREATER 1)
+        math(EXPR projection_completed "${projection_index} - 1")
+        math(EXPR projection_remaining "${report_count} - ${projection_index}")
+        math(EXPR projection_left
+            "${projection_elapsed_total} * ${projection_remaining} / ${projection_completed}")
+        set(projection_eta ", ~${projection_left}.0 s left")
+    endif()
+    message("progress: report_schema ${projection_index}/${report_count} projection validation (${progress_elapsed}.0 s elapsed${projection_eta})")
     execute_process(
         COMMAND "${PYTHON}" "${VALIDATOR}" "${SCHEMA}" --projection
             "${full_report}" "${moves_report}"
         RESULT_VARIABLE projection_result)
+    string(TIMESTAMP projection_finished "%s" UTC)
+    math(EXPR projection_duration "${projection_finished} - ${projection_started}")
+    math(EXPR projection_elapsed_total
+        "${projection_elapsed_total} + ${projection_duration}")
     if(NOT projection_result EQUAL 0)
         message(FATAL_ERROR "report projection failed for ${full_report}")
     endif()
@@ -100,4 +136,4 @@ set_tests_properties(report_schema PROPERTIES
     FIXTURES_REQUIRED "${CLI_REPORT_FIXTURES}")
 
 add_test(NAME cli_rerun_identity COMMAND cli_identity_test)
-set_tests_properties(cli_rerun_identity PROPERTIES LABELS engine)
+set_tests_properties(cli_rerun_identity PROPERTIES LABELS engine PROCESSORS 2)

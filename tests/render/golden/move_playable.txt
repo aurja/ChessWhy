@@ -1,5 +1,5 @@
 Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]
-Budget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, R=100000 [rule]
+Budget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, L=30000, R=100000 [rule]
 Position: Black to move, 31 legal moves; evaluation 51.1% for White (cp 15) [engine]
 Opening dataset: lichess-org/chess-openings@a6189a3 [book]
 Current opening: null [book]

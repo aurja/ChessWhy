@@ -38,13 +38,27 @@ Updated 2026-10-24.
   The root `back_rank_weakness` behind Re8# now prints through `root_motifs`. Milestones
   renumbered: M5 = libllama prose (five GGUFs in `assets/models/`; pinning them is an
   M5 task), M6 = books, M7 = native apps.
-- Milestone: **PostM4_EM3 planning** (Captain's name, 2026-10-24): tempo, initiative and
-  an impact rating for facts. Plan `Planning/milestones/PostM4_EM3.md`: tempo and
-  initiative decisions A1–A5 frozen 2026-10-24 (threatening move with rank ≥ 2, even
-  trades neutral, tempo ledger on every walked ply of every detailed line, timing check
-  raised to 15 s, tempo value with tempo-dependent / non-tempo / zugzwang labels,
-  initiative runs). Open: impact rating B1–B3 (Captain directing further reading), then
-  the contract. Terms in `Planning/DBC/DEFINITIONS.md` §3.6.
+- Milestone: **PostM4_EM3 tempo, initiative and the impact rating complete, merged into
+  `main` 2026-10-24** (Captain ran the smoke commands at checkpoint 3). Receipt
+  `Planning/receipts/PostM4_EM3.md`; contract `Planning/milestones/PostM4_EM3.md`
+  (changes §17). Report v7: tempo value with tempo-dependent / non-tempo / zugzwang
+  labels, tempo ledger on every walked ply of every detailed line (budget `L`, 30k at
+  `standard` after the timing fallback), initiative runs with ending and outcome, net
+  change and the use test in move reports, impact order; F40–F44, PU01–PU18. At
+  checkpoint 2 V2 follows the built ledger (Bxa4 neither; White's Bxa7 the only tempo).
+  Test redesign (Captain, 2026-10-24): one analysis per fixture run, oracle sample under
+  `unit`, labels `corpus`, `timing`, `sanitize`, ASan at `-O1`. Release
+  `unit|engine|games|corpus` 205/205 in 376 s, `timing` 261 s (F12 12.0 s, limit 15 s);
+  ASan/UBSan `unit|sanitize` 168/168 in 101 s; F32 `--moves playable` 27.9 s (limit 30 s).
+- Next: **conceptual critique of all definitions and concepts** (Captain, 2026-10-24),
+  then PostM4_EM4. The pure reply definition is open (V2's `...Nxc2` wins a rook yet counts
+  as pure); EM4 replaces it with "forced and gains nothing". Eight critique agents started
+  and were paused on the OpenAI usage limit with provisional findings; they resume one at a
+  time, writing to `Planning/critiques/2026-10-24/`.
+- Test tooling (Captain's requests, 2026-10-24): long test drivers print progress lines;
+  `tools/run_tests.py --build-dir DIR [ctest args]` streams them and writes
+  `DIR/test_progress.json`; `.omp/extensions/test-progress.ts` shows running tests in
+  omp (loads at omp start).
 - Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
   (F26/F27 show 20–25 rows per line). Superseded for the output by M4's relevance
   filter (net change over the walk); the full report keeps every change.
@@ -71,10 +85,10 @@ Updated 2026-10-24.
   v2, recall targets met, reference implementation 0 mismatches.
 - Decided 2026-10-19/20 (M2 D1–D13): see M2 §1. ChessWhy stays MIT; lichess-puzzler
   (AGPL-3.0) is read for definitions only, never copied, and credited.
-- Engine CTests: the F fixture tests run one at a time only with
-  `CHESSWHY_CHECK_TIMING` on (Release); the ASan tree runs them in parallel. CTest
-  `TIMEOUT 3600` on `tactics_oracle` and the F fixture tests (F32 takes about 29 min
-  under ASan/UBSan).
+- Engine CTests: the F fixture tests run in parallel; the 15 s timing check is one
+  serial test, `cli_timing`, registered only with `CHESSWHY_CHECK_TIMING` on (Release).
+  CTest `TIMEOUT 3600` on `tactics_oracle` and the F fixture tests (F32 takes about 29 min
+  alone under ASan/UBSan at M4).
 - M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine
   analysis, report v1. Release and ASan/UBSan CTests 73/73; slowest `standard` fixture
   6.67 s.

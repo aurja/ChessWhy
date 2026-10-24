@@ -124,6 +124,8 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["ply"] = change.ply;
     value["change"] = to_string(change.change);
     value["holds_at_end"] = change.holds_at_end;
+    value["net_change"] = change.net_change;
+    value["in_use"] = change.in_use ? Json(*change.in_use) : Json(nullptr);
     serialize_positional_feature_fields(value, change.feature);
     return value;
 }
@@ -232,6 +234,63 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     return value;
 }
 
+[[nodiscard]] Json serialize_tempo_value(const TempoValue& tempo) {
+    Json value = Json::object();
+    value["side"] = to_string(tempo.side);
+    value["moves"] = static_cast<double>(tempo.moves_units) / 2000.0;
+    value["passes"] = static_cast<double>(tempo.passes_units) / 2000.0;
+    value["value"] = static_cast<double>(tempo.value_units) / 2000.0;
+    value["label"] = tempo.label ? Json(to_string(*tempo.label)) : Json(nullptr);
+    value["source"] = "engine";
+    return value;
+}
+
+[[nodiscard]] Json serialize_tempo_ply(const TempoPly& ply) {
+    Json value = Json::object();
+    value["ply"] = ply.ply;
+    value["san"] = ply.san;
+    value["side"] = to_string(ply.side);
+    value["threatening"] = ply.threatening;
+    value["by_check"] = ply.by_check;
+    value["threat_rank"] = ply.threat_rank ? Json(*ply.threat_rank) : Json(nullptr);
+    value["stops_threat"] = ply.stops_threat ? Json(*ply.stops_threat) : Json(nullptr);
+    value["label"] = to_string(ply.label);
+    value["tempo_gained"] = ply.tempo_gained;
+    return value;
+}
+
+[[nodiscard]] Json serialize_initiative_run(const InitiativeRun& run) {
+    Json value = Json::object();
+    value["holder"] = to_string(run.holder);
+    value["start_ply"] = run.start_ply;
+    value["end_ply"] = run.end_ply;
+    value["tempi"] = run.tempi;
+    value["ending"] = to_string(run.ending);
+    value["outcome"] = to_string(run.outcome);
+    value["source"] = "rule";
+    return value;
+}
+
+[[nodiscard]] Json serialize_tempo_ledger(const TempoLedger& ledger) {
+    Json value = Json::object();
+    Json plies = Json::array();
+    for (const TempoPly& ply : ledger.plies) {
+        plies.push_back(serialize_tempo_ply(ply));
+    }
+    value["plies"] = std::move(plies);
+    Json tempi = Json::object();
+    tempi["white"] = ledger.tempi.white;
+    tempi["black"] = ledger.tempi.black;
+    value["tempi"] = std::move(tempi);
+    Json runs = Json::array();
+    for (const InitiativeRun& run : ledger.runs) {
+        runs.push_back(serialize_initiative_run(run));
+    }
+    value["runs"] = std::move(runs);
+    value["source"] = "engine";
+    return value;
+}
+
 [[nodiscard]] Json serialize_threat(const Threat& threat) {
     Json value = Json::object();
     value["source"] = "engine";
@@ -283,6 +342,12 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
         move.creates_threat ? serialize_threat(*move.creates_threat) : Json(nullptr);
     value["creates_threat_skipped"] =
         move.creates_threat_skipped ? Json(to_string(*move.creates_threat_skipped)) : Json(nullptr);
+    value["tempo_value"] =
+        move.tempo_value ? serialize_tempo_value(*move.tempo_value) : Json(nullptr);
+    value["tempo_ledger"] =
+        move.tempo_ledger ? serialize_tempo_ledger(*move.tempo_ledger) : Json(nullptr);
+    value["tempo_ledger_skipped"] =
+        move.tempo_ledger_skipped ? Json(to_string(*move.tempo_ledger_skipped)) : Json(nullptr);
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
     value["motifs"] = serialize_motifs(move.motifs);
     value["opportunity"] = serialize_optional_opportunity(move.opportunity);
@@ -578,6 +643,68 @@ std::string to_string(PositionalChangeKind kind) {
     throw std::invalid_argument(invalid_enum("PositionalChangeKind", kind));
 }
 
+std::string to_string(TempoLabel label) {
+    switch (label) {
+    case TempoLabel::TempoDependent:
+        return "tempo_dependent";
+    case TempoLabel::NonTempo:
+        return "non_tempo";
+    case TempoLabel::Zugzwang:
+        return "zugzwang";
+    }
+    throw std::invalid_argument(invalid_enum("TempoLabel", label));
+}
+
+std::string to_string(TempoPlyLabel label) {
+    switch (label) {
+    case TempoPlyLabel::Threatening:
+        return "threatening";
+    case TempoPlyLabel::PureReply:
+        return "pure_reply";
+    case TempoPlyLabel::CounterThreat:
+        return "counter_threat";
+    case TempoPlyLabel::Neither:
+        return "neither";
+    }
+    throw std::invalid_argument(invalid_enum("TempoPlyLabel", label));
+}
+
+std::string to_string(InitiativeEnding ending) {
+    switch (ending) {
+    case InitiativeEnding::Spent:
+        return "spent";
+    case InitiativeEnding::Contested:
+        return "contested";
+    case InitiativeEnding::Runs:
+        return "runs";
+    case InitiativeEnding::Unfinished:
+        return "unfinished";
+    }
+    throw std::invalid_argument(invalid_enum("InitiativeEnding", ending));
+}
+
+std::string to_string(InitiativeOutcome outcome) {
+    switch (outcome) {
+    case InitiativeOutcome::Converted:
+        return "converted";
+    case InitiativeOutcome::Evaporated:
+        return "evaporated";
+    }
+    throw std::invalid_argument(invalid_enum("InitiativeOutcome", outcome));
+}
+
+std::string to_string(TempoLedgerSkip skip) {
+    switch (skip) {
+    case TempoLedgerSkip::InCheck:
+        return "in_check";
+    case TempoLedgerSkip::NullMoveUnreliable:
+        return "null_move_unreliable";
+    case TempoLedgerSkip::NotDetailed:
+        return "not_detailed";
+    }
+    throw std::invalid_argument(invalid_enum("TempoLedgerSkip", skip));
+}
+
 const char* parry_source(ParryTest test) {
     return test == ParryTest::Searched ? "engine" : "rule";
 }
@@ -640,6 +767,7 @@ nlohmann::ordered_json to_json(const Report& report) {
     nodes["C"] = report.engine.nodes.c;
     nodes["D"] = report.engine.nodes.d;
     nodes["E"] = report.engine.nodes.e;
+    nodes["L"] = report.engine.nodes.l;
     nodes["R"] = report.engine.nodes.r;
     engine["nodes"] = std::move(nodes);
     engine["nodes_searched"] = report.engine.nodes_searched;
@@ -654,6 +782,9 @@ nlohmann::ordered_json to_json(const Report& report) {
         report.position.terminal ? Json(to_string(*report.position.terminal)) : Json(nullptr);
     position["eval_white"] =
         report.position.eval_white ? serialize_eval(*report.position.eval_white) : Json(nullptr);
+    position["tempo_value"] = report.position.tempo_value
+                                  ? serialize_tempo_value(*report.position.tempo_value)
+                                  : Json(nullptr);
     position["motifs"] = serialize_motifs(report.position.motifs);
     position["positional"] = serialize_positional_features(report.position.positional);
     value["position"] = std::move(position);

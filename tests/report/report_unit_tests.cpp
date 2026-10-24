@@ -57,6 +57,22 @@ TEST_CASE("enum values use the schema spellings", "[unit]") {
     CHECK(to_string(CreatesThreatSkip::GivesCheck) == "gives_check");
     CHECK(to_string(CreatesThreatSkip::GameOver) == "game_over");
     CHECK(to_string(CreatesThreatSkip::NoLegalMove) == "no_legal_move");
+    CHECK(to_string(TempoLabel::TempoDependent) == "tempo_dependent");
+    CHECK(to_string(TempoLabel::NonTempo) == "non_tempo");
+    CHECK(to_string(TempoLabel::Zugzwang) == "zugzwang");
+    CHECK(to_string(TempoPlyLabel::Threatening) == "threatening");
+    CHECK(to_string(TempoPlyLabel::PureReply) == "pure_reply");
+    CHECK(to_string(TempoPlyLabel::CounterThreat) == "counter_threat");
+    CHECK(to_string(TempoPlyLabel::Neither) == "neither");
+    CHECK(to_string(InitiativeEnding::Spent) == "spent");
+    CHECK(to_string(InitiativeEnding::Contested) == "contested");
+    CHECK(to_string(InitiativeEnding::Runs) == "runs");
+    CHECK(to_string(InitiativeEnding::Unfinished) == "unfinished");
+    CHECK(to_string(InitiativeOutcome::Converted) == "converted");
+    CHECK(to_string(InitiativeOutcome::Evaporated) == "evaporated");
+    CHECK(to_string(TempoLedgerSkip::InCheck) == "in_check");
+    CHECK(to_string(TempoLedgerSkip::NullMoveUnreliable) == "null_move_unreliable");
+    CHECK(to_string(TempoLedgerSkip::NotDetailed) == "not_detailed");
     CHECK(to_string(HeldTo::Kind::File) == "file");
     CHECK(to_string(HeldTo::Kind::Rank) == "rank");
     CHECK(to_string(HeldTo::Kind::Diagonal) == "diagonal");
@@ -64,7 +80,7 @@ TEST_CASE("enum values use the schema spellings", "[unit]") {
     CHECK(to_string(HeldTo::Kind::Squares) == "squares");
 }
 
-TEST_CASE("JSON follows v6 report key order", "[unit]") {
+TEST_CASE("JSON follows v7 report key order", "[unit]") {
     using namespace chesswhy;
 
     const auto report = test_examples::normal_position();
@@ -80,11 +96,15 @@ TEST_CASE("JSON follows v6 report key order", "[unit]") {
     CHECK(keys(json["engine"]) == std::vector<std::string>{"name", "threads", "hash_mb", "multipv",
                                                            "reproducible", "nodes",
                                                            "nodes_searched"});
-    CHECK(keys(json["engine"]["nodes"]) == std::vector<std::string>{"A", "B", "C", "D", "E", "R"});
+    CHECK(keys(json["engine"]["nodes"]) ==
+          std::vector<std::string>{"A", "B", "C", "D", "E", "L", "R"});
+    CHECK(json["engine"]["nodes"]["L"] == 1000);
     CHECK(json["engine"]["nodes"]["R"] == 1000);
-    CHECK(keys(json["position"]) == std::vector<std::string>{"fen", "side_to_move", "in_check",
-                                                             "legal_moves", "terminal",
-                                                             "eval_white", "motifs", "positional"});
+    CHECK(keys(json["position"]) ==
+          std::vector<std::string>{"fen", "side_to_move", "in_check", "legal_moves", "terminal",
+                                   "eval_white", "tempo_value", "motifs", "positional"});
+    CHECK(keys(json["position"]["tempo_value"]) ==
+          std::vector<std::string>{"side", "moves", "passes", "value", "label", "source"});
     CHECK(keys(json["position"]["eval_white"]) ==
           std::vector<std::string>{"source", "es", "cp", "mate"});
     CHECK(keys(json["threats"]) ==
@@ -117,6 +137,9 @@ TEST_CASE("JSON follows v6 report key order", "[unit]") {
                                              "parries_threat",
                                              "creates_threat",
                                              "creates_threat_skipped",
+                                             "tempo_value",
+                                             "tempo_ledger",
+                                             "tempo_ledger_skipped",
                                              "refutation",
                                              "motifs",
                                              "opportunity",
@@ -139,12 +162,10 @@ TEST_CASE("JSON follows v6 report key order", "[unit]") {
                                    "black", "moves"});
     CHECK(keys(json["games"]["by_source"][0]["moves"][0]) ==
           std::vector<std::string>{"san", "uci", "games"});
-    CHECK(keys(json["position"]["positional"][0]) ==
-          std::vector<std::string>{"source", "tag", "side", "pieces", "file", "value"});
     CHECK(keys(json["candidates"][0]["positional"][0]) ==
-          std::vector<std::string>{"source", "ply", "change", "holds_at_end", "tag", "side",
-                                   "pieces", "file", "value"});
-    CHECK(json["schema_version"] == 6);
+          std::vector<std::string>{"source", "ply", "change", "holds_at_end", "net_change",
+                                   "in_use", "tag", "side", "pieces", "file", "value"});
+    CHECK(json["schema_version"] == 7);
     CHECK(json["document"] == "full");
     CHECK(json["position"]["positional"][0]["source"] == "rule");
     CHECK(json["position"]["positional"][0]["tag"] == "bishop_pair");
@@ -152,6 +173,9 @@ TEST_CASE("JSON follows v6 report key order", "[unit]") {
     CHECK(json["candidates"][0]["positional"][0]["value"] == 12);
     CHECK(json["candidates"][0]["positional"][0]["source"] == "rule");
     CHECK(json["asked_moves"][0]["positional"][1]["file"] == "c");
+    const auto& first_change = report.candidates[0].positional[0];
+    CHECK(json["candidates"][0]["positional"][0]["net_change"] == first_change.net_change);
+    CHECK(json["candidates"][0]["positional"][0]["in_use"].is_null() == !first_change.in_use);
     CHECK(json["asked_moves"][0]["positional"][1]["pieces"][0]["square"] == "c6");
     CHECK(json["asked_moves"][0]["positional"][0]["change"] == "disappears");
     CHECK(json["asked_moves"][0]["positional"][0]["holds_at_end"] == false);
@@ -162,7 +186,7 @@ TEST_CASE("JSON follows v6 report key order", "[unit]") {
     CHECK(keys(pgn["opening"]["last_named"]) == std::vector<std::string>{"eco", "name", "ply"});
 }
 
-TEST_CASE("v6 analysis fields and restriction serialize", "[unit]") {
+TEST_CASE("v7 analysis fields and restriction serialize", "[unit]") {
     const auto json = chesswhy::to_json(chesswhy::test_examples::schema_example());
     const auto& position = json["position"];
     const auto& candidate = json["candidates"][0];
@@ -172,6 +196,9 @@ TEST_CASE("v6 analysis fields and restriction serialize", "[unit]") {
     CHECK(candidate["walked_plies"] == 1);
     CHECK(candidate["creates_threat"].is_null());
     CHECK(candidate["creates_threat_skipped"] == "gives_check");
+    CHECK(position["tempo_value"].is_null());
+    CHECK(candidate["tempo_ledger"].is_null());
+    CHECK(candidate["tempo_ledger_skipped"] == "null_move_unreliable");
     const auto& pin = position["motifs"][0];
     CHECK(pin["tag"] == "pin_absolute");
     CHECK(keys(pin["restriction"]) ==
@@ -183,10 +210,100 @@ TEST_CASE("v6 analysis fields and restriction serialize", "[unit]") {
     CHECK(pin["restriction"]["held_to"]["name"] == "e");
 }
 
-TEST_CASE("motif JSON uses the schema v6 shape", "[unit]") {
+TEST_CASE("tempo fields serialize in v7", "[unit]") {
+    using namespace chesswhy;
+
+    Report report = test_examples::normal_position();
+    report.engine.nodes.l = 40'000;
+    report.position.tempo_value = TempoValue{.side = Side::Black,
+                                             .moves_units = 1234,
+                                             .passes_units = 606,
+                                             .value_units = 628,
+                                             .label = TempoLabel::TempoDependent};
+    MoveAssessment& candidate = report.candidates.front();
+    candidate.tempo_value = TempoValue{.side = Side::White,
+                                       .moves_units = 200,
+                                       .passes_units = 150,
+                                       .value_units = 50,
+                                       .label = TempoLabel::NonTempo};
+    candidate.tempo_ledger =
+        TempoLedger{.plies = {TempoPly{.ply = 1,
+                                       .san = "e4",
+                                       .side = Side::Black,
+                                       .threatening = true,
+                                       .by_check = false,
+                                       .threat_rank = 2,
+                                       .stops_threat = std::nullopt,
+                                       .label = TempoPlyLabel::Threatening,
+                                       .tempo_gained = true},
+                              TempoPly{.ply = 2,
+                                       .san = "e5",
+                                       .side = Side::White,
+                                       .threatening = false,
+                                       .by_check = false,
+                                       .threat_rank = 0,
+                                       .stops_threat = true,
+                                       .label = TempoPlyLabel::PureReply,
+                                       .tempo_gained = false},
+                              TempoPly{.ply = 3,
+                                       .san = "Nf3",
+                                       .side = Side::Black,
+                                       .threatening = false,
+                                       .by_check = false,
+                                       .threat_rank = std::nullopt,
+                                       .stops_threat = std::nullopt,
+                                       .label = TempoPlyLabel::Neither,
+                                       .tempo_gained = false}},
+                    .tempi = Tempi{.white = 0, .black = 1},
+                    .runs = {InitiativeRun{.holder = Side::Black,
+                                           .start_ply = 1,
+                                           .end_ply = 3,
+                                           .tempi = 1,
+                                           .ending = InitiativeEnding::Spent,
+                                           .outcome = InitiativeOutcome::Converted}}};
+    candidate.tempo_ledger_skipped.reset();
+    candidate.positional.front().net_change = true;
+    candidate.positional.front().in_use = true;
+    candidate.positional.front().feature.side = Side::Black;
+
+    const auto json = to_json(report);
+    const auto& root_value = json["position"]["tempo_value"];
+    CHECK(keys(root_value) ==
+          std::vector<std::string>{"side", "moves", "passes", "value", "label", "source"});
+    CHECK(root_value["moves"].get<double>() == Catch::Approx(0.617));
+    CHECK(root_value["passes"].get<double>() == Catch::Approx(0.303));
+    CHECK(root_value["value"].get<double>() == Catch::Approx(0.314));
+    CHECK(root_value["label"] == "tempo_dependent");
+    CHECK(root_value["source"] == "engine");
+
+    const auto& move = json["candidates"][0];
+    CHECK(move["tempo_value"]["value"].get<double>() == Catch::Approx(0.025));
+    CHECK(move["tempo_value"]["label"] == "non_tempo");
+    const auto& ledger = move["tempo_ledger"];
+    CHECK(keys(ledger) == std::vector<std::string>{"plies", "tempi", "runs", "source"});
+    CHECK(keys(ledger["plies"][0]) ==
+          std::vector<std::string>{"ply", "san", "side", "threatening", "by_check", "threat_rank",
+                                   "stops_threat", "label", "tempo_gained"});
+    CHECK(ledger["plies"][0]["label"] == "threatening");
+    CHECK(ledger["plies"][0]["tempo_gained"] == true);
+    CHECK(ledger["plies"][1]["stops_threat"] == true);
+    CHECK(ledger["plies"][1]["label"] == "pure_reply");
+    CHECK(keys(ledger["tempi"]) == std::vector<std::string>{"white", "black"});
+    CHECK(ledger["tempi"]["black"] == 1);
+    CHECK(keys(ledger["runs"][0]) == std::vector<std::string>{"holder", "start_ply", "end_ply",
+                                                              "tempi", "ending", "outcome",
+                                                              "source"});
+    CHECK(ledger["runs"][0]["ending"] == "spent");
+    CHECK(ledger["runs"][0]["outcome"] == "converted");
+    CHECK(move["tempo_ledger_skipped"].is_null());
+    CHECK(move["positional"][0]["net_change"] == true);
+    CHECK(move["positional"][0]["in_use"] == true);
+}
+
+TEST_CASE("motif JSON uses the schema v7 shape", "[unit]") {
     const auto json = chesswhy::to_json(chesswhy::test_examples::normal_position());
 
-    CHECK(json["schema_version"] == 6);
+    CHECK(json["schema_version"] == 7);
     CHECK(
         json["position"]["motifs"][0].dump() ==
         R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3,"threat":null,"restriction":null,"contribution":null})");
@@ -204,7 +321,7 @@ TEST_CASE("motif JSON uses the schema v6 shape", "[unit]") {
     CHECK(pin["threat"]["square"] == "f4");
 }
 
-TEST_CASE("opportunity judgements and tactic-line fields serialize in v6", "[unit]") {
+TEST_CASE("opportunity judgements and tactic-line fields serialize in v7", "[unit]") {
     using namespace chesswhy;
 
     const auto forced = to_json(test_examples::forced_opportunity());

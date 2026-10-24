@@ -55,8 +55,8 @@ namespace {
     document.engine.name = "Stockfish 19";
     document.engine.threads = 1;
     document.engine.hash_mb = 64;
-    document.engine.nodes =
-        NodeBudget{.a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .r = 100000};
+    document.engine.nodes = NodeBudget{
+        .a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .l = 30000, .r = 100000};
     document.position = PositionSummary{
         .fen = test_examples::kF03,
         .side_to_move = Side::Black,
@@ -64,6 +64,7 @@ namespace {
         .legal_moves = 28,
         .terminal = std::nullopt,
         .eval_white = Eval{.es_units = 1022, .cp = 15, .mate = std::nullopt},
+        .tempo_value = std::nullopt,
     };
     document.opening.dataset = "lichess-org/chess-openings@a6189a3";
     document.games.push_back(GameSourceSummary{
@@ -108,11 +109,107 @@ namespace {
     return move;
 }
 
+[[nodiscard]] chesswhy::TempoValue tempo_value(chesswhy::Side side, int value_units,
+                                               chesswhy::TempoLabel label) {
+    return chesswhy::TempoValue{
+        .side = side,
+        .moves_units = value_units,
+        .passes_units = 0,
+        .value_units = value_units,
+        .label = label,
+    };
+}
+
+[[nodiscard]] chesswhy::TempoPly tempo_ply(int ply, std::string san, chesswhy::Side side,
+                                           chesswhy::TempoPlyLabel label, bool tempo_gained) {
+    const bool threatening = label == chesswhy::TempoPlyLabel::Threatening ||
+                             label == chesswhy::TempoPlyLabel::CounterThreat;
+    return chesswhy::TempoPly{
+        .ply = ply,
+        .san = std::move(san),
+        .side = side,
+        .threatening = threatening,
+        .by_check = false,
+        .threat_rank = threatening ? std::optional<int>{2} : std::optional<int>{1},
+        .stops_threat =
+            label == chesswhy::TempoPlyLabel::PureReply ? std::optional<bool>{true} : std::nullopt,
+        .label = label,
+        .tempo_gained = tempo_gained,
+    };
+}
+
+[[nodiscard]] chesswhy::PositionalChange
+positional_change(chesswhy::PositionalTag tag, chesswhy::Side side, std::optional<int> value,
+                  bool net_change, std::optional<bool> in_use) {
+    using namespace chesswhy;
+    PositionalFeature feature{
+        .tag = tag,
+        .side = side,
+        .pieces = {},
+        .file = std::nullopt,
+        .value = value,
+    };
+    if (tag == PositionalTag::IsolatedPawn) {
+        feature.pieces = {test_examples::piece_on_square('c', 2, 'P')};
+    }
+    return PositionalChange{
+        .ply = 2,
+        .change = PositionalChangeKind::Appears,
+        .holds_at_end = true,
+        .net_change = net_change,
+        .in_use = in_use,
+        .feature = std::move(feature),
+    };
+}
+
+[[nodiscard]] chesswhy::MoveReportDocument impact_order_document(bool tempo_dependent,
+                                                                 bool dynamic_first) {
+    using namespace chesswhy;
+    MoveReportDocument document = base_move_document();
+    document.position.tempo_value = tempo_dependent
+                                        ? tempo_value(Side::Black, 628, TempoLabel::TempoDependent)
+                                        : tempo_value(Side::Black, 0, TempoLabel::NonTempo);
+    MoveReport move = report_move(1, "g6", "g7g6", Verdict::Best, 978, 0, 16,
+                                  {"g6", "Nc3", "Qa5", "Bf4", "Nf6", "Qd2"}, 6);
+    move.tempo_value = tempo_value(
+        Side::White, 788, tempo_dependent ? TempoLabel::TempoDependent : TempoLabel::NonTempo);
+    move.tempo_gained = std::vector<TempoGained>{
+        {.ply = 2, .san = "Nc3", .side = Side::White},
+        {.ply = 4, .san = "Bf4", .side = Side::White},
+    };
+    move.initiative = std::vector<InitiativeRun>{InitiativeRun{
+        .holder = Side::White,
+        .start_ply = 2,
+        .end_ply = 6,
+        .tempi = 2,
+        .ending = InitiativeEnding::Spent,
+        .outcome = InitiativeOutcome::Converted,
+    }};
+    move.positional = {
+        positional_change(PositionalTag::IsolatedPawn, Side::White, std::nullopt, true, true),
+        positional_change(PositionalTag::MobilityLead, Side::Black, 12, true, true),
+        positional_change(PositionalTag::DoubledPawns, Side::Black, std::nullopt, false,
+                          std::nullopt),
+        positional_change(PositionalTag::SpaceLead, Side::White, 4, true, false),
+    };
+    if (dynamic_first) {
+        move.impact_order = {ImpactGroup::Tempo, ImpactGroup::PositionalDynamic,
+                             ImpactGroup::PositionalStatic};
+    } else {
+        move.impact_order = {ImpactGroup::PositionalStatic, ImpactGroup::PositionalDynamic,
+                             ImpactGroup::Tempo};
+    }
+    document.moves.push_back(std::move(move));
+    return document;
+}
+
 [[nodiscard]] std::array<std::pair<const char*, chesswhy::MoveReportDocument>, 6>
 move_report_examples() {
     using namespace chesswhy;
     using namespace chesswhy::test_examples;
     auto best = base_move_document();
+    best.position.tempo_value = tempo_value(Side::Black, 628, TempoLabel::TempoDependent);
+
     best.input.selection.keywords = {Selection::Keyword::Best};
     best.selection = SelectionInfo{
         .selection = best.input.selection,
@@ -122,6 +219,21 @@ move_report_examples() {
     };
     MoveReport best_move =
         report_move(1, "g6", "g7g6", Verdict::Best, 978, 0, 17, {"g6", "d3", "Bc5", "Nf3"}, 3);
+    best_move.tempo_value = tempo_value(Side::White, 788, TempoLabel::TempoDependent);
+    best_move.tempo_gained = std::vector<TempoGained>{{.ply = 2, .san = "d3", .side = Side::White}};
+    best_move.initiative = std::vector<InitiativeRun>{InitiativeRun{
+        .holder = Side::White,
+        .start_ply = 2,
+        .end_ply = 4,
+        .tempi = 1,
+        .ending = InitiativeEnding::Spent,
+        .outcome = InitiativeOutcome::Converted,
+    }};
+    best_move.positional.push_back(
+        positional_change(PositionalTag::MobilityLead, Side::Black, 12, true, true));
+    best_move.positional.push_back(
+        positional_change(PositionalTag::IsolatedPawn, Side::White, std::nullopt, true, true));
+
     best_move.opportunity = OpportunityJudgement{
         .alternative =
             BestAlternative{
@@ -143,6 +255,8 @@ move_report_examples() {
         .ply = 2,
         .change = PositionalChangeKind::Appears,
         .holds_at_end = true,
+        .net_change = false,
+        .in_use = std::nullopt,
         .feature =
             PositionalFeature{
                 .tag = PositionalTag::IsolatedPawn,
@@ -159,6 +273,10 @@ move_report_examples() {
     };
     best_move.created_threat = threat(Side::Black, test_examples::kF03, {"Nxe4"},
                                       consequence(ConsequenceClass::Material, 1, 6));
+    best_move.impact_order = {
+        ImpactGroup::ParriedThreat, ImpactGroup::CreatedThreat,     ImpactGroup::Motifs,
+        ImpactGroup::Tempo,         ImpactGroup::PositionalDynamic, ImpactGroup::PositionalStatic};
+
     best_move.games = 5421;
     best.moves.push_back(std::move(best_move));
 
@@ -257,12 +375,15 @@ move_report_examples() {
     };
     empty.moves.clear();
 
-    return {{{"move_best.txt", std::move(best)},
-             {"move_playable.txt", std::move(playable)},
-             {"move_blunder_refutation.txt", std::move(blunder)},
-             {"move_asked_c.txt", std::move(asked)},
-             {"move_terminal.txt", std::move(terminal)},
-             {"move_empty_selection.txt", std::move(empty)}}};
+    std::array<std::pair<const char*, MoveReportDocument>, 6> examples{{
+        {"move_best.txt", std::move(best)},
+        {"move_playable.txt", std::move(playable)},
+        {"move_blunder_refutation.txt", std::move(blunder)},
+        {"move_asked_c.txt", std::move(asked)},
+        {"move_terminal.txt", std::move(terminal)},
+        {"move_empty_selection.txt", std::move(empty)},
+    }};
+    return examples;
 }
 
 [[nodiscard]] bool contains_candidate(std::string text) {
@@ -277,8 +398,8 @@ move_report_examples() {
 TEST_CASE("PostM3_EM2 template wording matches its golden lines", "[unit]") {
     using namespace chesswhy;
     Report report = test_examples::base_report(test_examples::kF03, Side::Black);
-    report.engine.nodes =
-        NodeBudget{.a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .r = 100000};
+    report.engine.nodes = NodeBudget{
+        .a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .l = 30000, .r = 100000};
 
     MoveAssessment candidate;
     candidate.san = "g6";
@@ -442,10 +563,10 @@ TEST_CASE("positional and game facts render only from report fields", "[unit]") 
     const std::string rendered = chesswhy::render::text(chesswhy::test_examples::normal_position());
 
     CHECK(rendered.find("+ mobility_lead: white 12 (ply 1) [rule]") != std::string::npos);
-    CHECK(rendered.find("- castling_kingside: white (ply 1, not at end) [rule]") !=
-          std::string::npos);
-    CHECK(rendered.find("+ doubled_pawns: black, c file: p c6, p c7 (ply 2) [rule]") !=
-          std::string::npos);
+    CHECK(rendered.find("- castling_kingside: white (ply 1, not at end) "
+                        "(passing change) [rule]") != std::string::npos);
+    CHECK(rendered.find("+ doubled_pawns: black, c file: p c6, p c7 (ply 2) "
+                        "(passing change) [rule]") != std::string::npos);
     CHECK(rendered.find("bishop_pair") == std::string::npos);
     CHECK(rendered.find("games: played in 1140 of 1840 games [games]") != std::string::npos);
     CHECK(rendered.find("games: not played in these games [games]") != std::string::npos);
@@ -534,4 +655,137 @@ TEST_CASE("position evaluation renders the mate score when available", "[unit]")
     report.position.eval_white = chesswhy::Eval{.es_units = 1000, .cp = std::nullopt, .mate = 3};
     const std::string rendered = chesswhy::render::text(report);
     CHECK(rendered.find("Position evaluation: 50.0% ES, mate=3 [engine]") != std::string::npos);
+}
+
+TEST_CASE("full report tempo rows follow the v7 templates", "[unit]") {
+    using namespace chesswhy;
+    const Report base = test_examples::normal_position();
+
+    const std::array<std::pair<TempoLabel, const char*>, 3> root_labels{{
+        {TempoLabel::TempoDependent, "tempo-dependent position"},
+        {TempoLabel::NonTempo, "non-tempo position"},
+        {TempoLabel::Zugzwang, "zugzwang"},
+    }};
+    for (const auto& [label, rendered_label] : root_labels) {
+        Report report = base;
+        report.position.tempo_value = tempo_value(Side::Black, 628, label);
+        const std::string rendered = render::text(report);
+        const std::string expected =
+            std::string("Tempo value: 31.4% for Black (") + rendered_label + ") [engine]";
+        CHECK(rendered.find(expected) != std::string::npos);
+        CHECK(rendered.find(expected) > rendered.find("Position evaluation:"));
+    }
+    Report no_root_value = base;
+    no_root_value.position.tempo_value.reset();
+    CHECK(render::text(no_root_value).find("Tempo value:") == std::string::npos);
+
+    Report unlabelled = base;
+    unlabelled.position.tempo_value = tempo_value(Side::Black, 628, TempoLabel::NonTempo);
+    unlabelled.position.tempo_value->label.reset();
+    const std::string unlabelled_text = render::text(unlabelled);
+    CHECK(unlabelled_text.find("Tempo value: 31.4% for Black [engine]") != std::string::npos);
+    CHECK(unlabelled_text.find("Tempo value: 31.4% for Black (") == std::string::npos);
+
+    Report report = base;
+    REQUIRE(report.candidates.size() >= 4);
+    report.position.tempo_value = tempo_value(Side::Black, 628, TempoLabel::TempoDependent);
+    MoveAssessment& detailed = report.candidates[0];
+    detailed.tempo_value = tempo_value(Side::White, 788, TempoLabel::TempoDependent);
+    detailed.tempo_ledger = TempoLedger{
+        .plies =
+            {
+                tempo_ply(1, "Qxd5", Side::Black, TempoPlyLabel::Threatening, true),
+                tempo_ply(2, "Nc3", Side::White, TempoPlyLabel::PureReply, false),
+                tempo_ply(3, "Qa5", Side::Black, TempoPlyLabel::Neither, false),
+                tempo_ply(4, "Bf4", Side::White, TempoPlyLabel::Threatening, true),
+                tempo_ply(5, "Nf6", Side::Black, TempoPlyLabel::PureReply, false),
+                tempo_ply(6, "Qd2", Side::White, TempoPlyLabel::Neither, false),
+            },
+        .tempi = Tempi{.white = 1, .black = 1},
+        .runs =
+            {
+                InitiativeRun{.holder = Side::Black,
+                              .start_ply = 1,
+                              .end_ply = 3,
+                              .tempi = 1,
+                              .ending = InitiativeEnding::Spent,
+                              .outcome = InitiativeOutcome::Evaporated},
+                InitiativeRun{.holder = Side::White,
+                              .start_ply = 4,
+                              .end_ply = 6,
+                              .tempi = 1,
+                              .ending = InitiativeEnding::Spent,
+                              .outcome = InitiativeOutcome::Converted},
+            },
+    };
+    detailed.tempo_ledger_skipped.reset();
+    detailed.positional = {
+        positional_change(PositionalTag::MobilityLead, Side::White, 12, false, std::nullopt),
+        positional_change(PositionalTag::SpaceLead, Side::Black, 3, true, false),
+    };
+    report.candidates[1].tempo_ledger.reset();
+    report.candidates[1].tempo_ledger_skipped = TempoLedgerSkip::NullMoveUnreliable;
+    report.candidates[2].tempo_ledger.reset();
+    report.candidates[2].tempo_ledger_skipped = TempoLedgerSkip::InCheck;
+    report.candidates[3].tempo_ledger.reset();
+    report.candidates[3].tempo_ledger_skipped = TempoLedgerSkip::NotDetailed;
+
+    const std::string rendered = render::text(report);
+    CHECK(rendered.find("After the move: tempo value 39.4% for White "
+                        "(tempo-dependent position) [engine]") != std::string::npos);
+    CHECK(rendered.find("Tempo ledger: 1. Qxd5 threatening, tempo gained; 2. Nc3 pure reply; "
+                        "3. Qa5 neither; 4. Bf4 threatening, tempo gained; "
+                        "5. Nf6 pure reply; 6. Qd2 neither; White 1 tempo, Black 1 [engine]") !=
+          std::string::npos);
+    CHECK(rendered.find("Initiative: Black from ply 1, 1 tempo; spent at ply 3; "
+                        "evaporated [rule]") != std::string::npos);
+    CHECK(rendered.find("Initiative: White from ply 4, 1 tempo; spent at ply 6; "
+                        "converted [rule]") != std::string::npos);
+    CHECK(rendered.find("Tempo ledger: skipped (null move unreliable) [engine]") !=
+          std::string::npos);
+    CHECK(rendered.find("Tempo ledger: skipped (S in check) [engine]") != std::string::npos);
+    CHECK(rendered.find("Tempo ledger: skipped (line not detailed) [engine]") != std::string::npos);
+    CHECK(rendered.find("(passing change) [rule]") != std::string::npos);
+    CHECK(rendered.find("(fails the use test) [rule]") != std::string::npos);
+    CHECK(rendered.find("because") == std::string::npos);
+    CHECK(rendered.find("wins") == std::string::npos);
+}
+
+TEST_CASE("move report tempo and positional groups follow impact order", "[unit]") {
+    using namespace chesswhy;
+    const std::string dynamic_first = render::text(impact_order_document(true, true));
+    CHECK(dynamic_first.find("Tempo value: 31.4% for Black "
+                             "(tempo-dependent position) [engine]") != std::string::npos);
+    CHECK(dynamic_first.find("After the move: tempo value 39.4% for White "
+                             "(tempo-dependent position) [engine]") != std::string::npos);
+    CHECK(dynamic_first.find("Tempo: White gains a tempo with Nc3 (ply 2) [engine]") !=
+          std::string::npos);
+    CHECK(dynamic_first.find("Initiative: White from ply 2, 2 tempi; spent at ply 6; "
+                             "converted [rule]") != std::string::npos);
+    const std::size_t tempo = dynamic_first.find("After the move: tempo value");
+    const std::size_t dynamic = dynamic_first.find("By ply 6: + mobility_lead: black 12");
+    const std::size_t statik = dynamic_first.find("By ply 6: + isolated_pawn: white");
+    REQUIRE(tempo != std::string::npos);
+    REQUIRE(dynamic != std::string::npos);
+    REQUIRE(statik != std::string::npos);
+    CHECK(tempo < dynamic);
+    CHECK(dynamic < statik);
+    CHECK(dynamic_first.find("doubled_pawns") == std::string::npos);
+    CHECK(dynamic_first.find("space_lead") == std::string::npos);
+    CHECK(dynamic_first.find("because") == std::string::npos);
+    CHECK(dynamic_first.find("wins") == std::string::npos);
+
+    const std::string static_first = render::text(impact_order_document(false, false));
+    const std::size_t static_row = static_first.find("By ply 6: + isolated_pawn: white");
+    const std::size_t dynamic_row = static_first.find("By ply 6: + mobility_lead: black 12");
+    const std::size_t tempo_row = static_first.find("After the move: tempo value");
+    REQUIRE(static_row != std::string::npos);
+    REQUIRE(dynamic_row != std::string::npos);
+    REQUIRE(tempo_row != std::string::npos);
+    CHECK(static_row < dynamic_row);
+    CHECK(dynamic_row < tempo_row);
+    CHECK(static_first.find("doubled_pawns") == std::string::npos);
+    CHECK(static_first.find("space_lead") == std::string::npos);
+    CHECK(static_first.find("Tempo value: 0.0% for Black (non-tempo position) [engine]") !=
+          std::string::npos);
 }

@@ -3,11 +3,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
-#include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
-#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -16,6 +14,8 @@
 
 #include <chess.hpp>
 #include <nlohmann/json.hpp>
+
+#include "progress.hpp"
 
 #ifndef CHESSWHY_SOURCE_DIR
 #error "CHESSWHY_SOURCE_DIR must be provided by chesswhy_paths"
@@ -38,11 +38,9 @@ using Clock = std::chrono::steady_clock;
     return Json::parse(input);
 }
 
-enum class OutputMode : std::uint8_t { FullJson, MovesJson, Text, FullText };
-
-[[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args, OutputMode mode) {
+[[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args) {
     std::vector<std::string> args;
-    args.reserve(json_args.size() + 2U);
+    args.reserve(json_args.size());
     for (const auto& value : json_args) {
         args.push_back(value.get<std::string>());
     }
@@ -53,34 +51,28 @@ enum class OutputMode : std::uint8_t { FullJson, MovesJson, Text, FullText };
                     .string();
         }
     }
-    if (mode == OutputMode::FullJson || mode == OutputMode::MovesJson) {
-        args.emplace_back("--json");
-    }
-    if (mode == OutputMode::FullJson || mode == OutputMode::FullText) {
-        args.emplace_back("--full-report");
-    }
     return args;
 }
 
-[[nodiscard]] std::string run_fixture(const Json& fixture, OutputMode mode) {
-    const auto args = fixture_args(fixture.at("args"), mode);
+[[nodiscard]] chesswhy::cli::Options parse_options(const Json& json_args) {
+    const auto args = fixture_args(json_args);
     std::vector<std::string_view> arg_views;
     arg_views.reserve(args.size());
     for (const auto& arg : args) {
         arg_views.emplace_back(arg);
     }
+    return chesswhy::cli::parse_args(arg_views);
+}
 
-    const auto options = chesswhy::cli::parse_args(arg_views);
-    std::ostringstream out;
-    std::ostringstream err;
-    const int result = chesswhy::cli::run(options, out, err);
-    if (result != chesswhy::cli::kExitOk) {
-        throw std::runtime_error("cli::run returned " + std::to_string(result) + ": " + err.str());
-    }
-    if (!err.str().empty()) {
-        throw std::runtime_error("cli::run wrote an unexpected diagnostic: " + err.str());
-    }
-    return out.str();
+[[nodiscard]] std::string render_output(const chesswhy::cli::Options& options,
+                                        const chesswhy::Report& report, bool json,
+                                        bool full_report) {
+    auto output_options = options;
+    output_options.json = json;
+    output_options.full_report = full_report;
+    std::ostringstream output;
+    chesswhy::cli::write_output(output_options, report, output);
+    return output.str();
 }
 
 void check_value(bool condition, std::string_view fixture_id, std::string_view key,
@@ -327,16 +319,58 @@ void check_move_expectations(const Json& fixture, const Json& document, std::str
         check_motifs_include(fixture.at("moves_motifs_include"), document, id, failures);
     }
 }
+
+int run_timing() {
+    try {
+        const Json fixture_file = read_fixtures();
+        const auto& fixtures = fixture_file.at("engine_fixtures");
+        std::vector<std::string> failures;
+        chesswhy::test::Progress progress("cli_timing", fixtures.size());
+        std::size_t index = 0;
+        for (const Json& fixture : fixtures) {
+            ++index;
+            const std::string fixture_id = fixture.at("id").get<std::string>();
+            progress.step_started(index, "run", fixture_id);
+            const auto options = parse_options(fixture.at("args"));
+            const auto start = Clock::now();
+            try {
+                const auto report = chesswhy::cli::build_report(options);
+                const std::string full_output = render_output(options, report, true, true);
+                static_cast<void>(full_output);
+            } catch (const std::exception& error) {
+                failures.push_back("fixture " + fixture_id +
+                                   " full-JSON invocation failed: " + error.what());
+            }
+            const double elapsed = std::chrono::duration<double>(Clock::now() - start).count();
+            std::cout << "fixture " << fixture_id << " wall time: " << elapsed << " s\n";
+            if (elapsed > 15.0) {
+                failures.push_back("fixture " + fixture_id +
+                                   " wall time: expected <= 15 s, actual " +
+                                   std::to_string(elapsed) + " s");
+            }
+            progress.step_finished(index, "run", fixture_id);
+        }
+        for (const auto& failure : failures) {
+            std::cerr << failure << '\n';
+        }
+        return failures.empty() ? 0 : 1;
+    } catch (const std::exception& error) {
+        std::cerr << "cli_timing failed: " << error.what() << '\n';
+        return 1;
+    }
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
-    if (argc != 3) {
-        std::cerr << "usage: cli_fixture_test FIXTURE_ID CHECK_TIMING\n";
+    if (argc == 2 && std::string_view(argv[1]) == "--timing") {
+        return run_timing();
+    }
+    if (argc != 2) {
+        std::cerr << "usage: cli_fixture_test FIXTURE_ID | --timing\n";
         return 2;
     }
     const std::string fixture_id = argv[1];
-    const bool check_timing = std::string_view(argv[2]) == "1";
-
     try {
         const Json fixture_file = read_fixtures();
         const auto& fixtures = fixture_file.at("engine_fixtures");
@@ -350,20 +384,25 @@ int main(int argc, char* argv[]) {
         const std::filesystem::path report_directory(CHESSWHY_CLI_REPORT_DIR);
         std::filesystem::create_directories(report_directory);
         std::vector<std::string> failures;
+        const std::size_t run_count =
+            1U + (found->contains("runs") ? found->at("runs").size() : 0U);
+        chesswhy::test::Progress progress(fixture_id, run_count);
         const auto run_and_check = [&](const Json& run, std::string_view run_name,
                                        bool default_run) {
             const std::string label =
                 default_run ? fixture_id : fixture_id + ":" + std::string(run_name);
             const std::string filename =
                 default_run ? fixture_id : fixture_id + "-" + std::string(run_name);
+            const auto options = parse_options(run.at("args"));
             const auto start = Clock::now();
-            const std::string full_output = run_fixture(run, OutputMode::FullJson);
+            const auto report = chesswhy::cli::build_report(options);
+            const double elapsed = std::chrono::duration<double>(Clock::now() - start).count();
+            const std::string full_output = render_output(options, report, true, true);
             const Json full_report = Json::parse(full_output);
-            const auto elapsed = std::chrono::duration<double>(Clock::now() - start).count();
-            const std::string moves_output = run_fixture(run, OutputMode::MovesJson);
+            const std::string moves_output = render_output(options, report, true, false);
             const Json moves_document = Json::parse(moves_output);
-            const std::string text_output = run_fixture(run, OutputMode::Text);
-            const std::string full_text_output = run_fixture(run, OutputMode::FullText);
+            const std::string text_output = render_output(options, report, false, false);
+            const std::string full_text_output = render_output(options, report, false, true);
 
             const auto save_report = [&](std::string_view suffix, const std::string& output) {
                 const auto path = report_directory / (filename + std::string(suffix));
@@ -395,19 +434,21 @@ int main(int argc, char* argv[]) {
                             "full_text_contains", Json(expected), &actual, failures);
             }
             if (default_run) {
-                if (check_timing && elapsed > 12.0) {
-                    failures.push_back("fixture " + fixture_id +
-                                       " wall time: expected <= 12 s, actual " +
-                                       std::to_string(elapsed) + " s");
-                }
                 std::cout << "fixture " << fixture_id << " wall time: " << elapsed << " s\n";
             }
         };
 
+        std::size_t run_index = 1;
+        progress.step_started(run_index, "run", "default");
         run_and_check(*found, "default", true);
+        progress.step_finished(run_index, "run", "default");
         if (found->contains("runs")) {
             for (const auto& run : found->at("runs")) {
-                run_and_check(run, run.at("name").get<std::string>(), false);
+                ++run_index;
+                const std::string run_name = run.at("name").get<std::string>();
+                progress.step_started(run_index, "run", run_name);
+                run_and_check(run, run_name, false);
+                progress.step_finished(run_index, "run", run_name);
             }
         }
         for (const auto& failure : failures) {

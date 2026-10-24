@@ -17,7 +17,6 @@
 #include <catch2/catch_test_macros.hpp>
 #include <nlohmann/json.hpp>
 
-#include "output.hpp"
 #include "selection.hpp"
 
 #ifndef CHESSWHY_SOURCE_DIR
@@ -331,7 +330,7 @@ TEST_CASE("CLI output flags select move/full content and text/JSON format", "[cl
         options.json = json;
         options.full_report = full_report;
         std::ostringstream output;
-        chesswhy::cli::detail::write_output(options, fake_report, output);
+        chesswhy::cli::write_output(options, fake_report, output);
         return output.str();
     };
 

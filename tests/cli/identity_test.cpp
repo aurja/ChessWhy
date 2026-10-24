@@ -1,5 +1,6 @@
 #include "chesswhy/cli.hpp"
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -12,6 +13,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "progress.hpp"
+
 #ifndef CHESSWHY_SOURCE_DIR
 #error "CHESSWHY_SOURCE_DIR must be provided by chesswhy_paths"
 #endif
@@ -19,6 +22,8 @@
 namespace {
 
 using Json = nlohmann::json;
+constexpr std::array<std::string_view, 6> kFixtureIds{"F01", "F03", "F12", "F25", "F29", "F30"};
+constexpr std::size_t kRerunCount = (kFixtureIds.size() * 2U) + 2U;
 
 [[nodiscard]] Json fixture_file() {
     const auto path = std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests/fixtures/positions.json";
@@ -29,10 +34,9 @@ using Json = nlohmann::json;
     return Json::parse(input);
 }
 
-[[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args, bool json_output,
-                                                    bool full_report = false) {
+[[nodiscard]] std::vector<std::string> fixture_args(const Json& json_args) {
     std::vector<std::string> args;
-    args.reserve(json_args.size() + (json_output ? 1U : 0U) + (full_report ? 1U : 0U));
+    args.reserve(json_args.size());
     for (const auto& value : json_args) {
         args.push_back(value.get<std::string>());
     }
@@ -43,30 +47,38 @@ using Json = nlohmann::json;
                     .string();
         }
     }
-    if (json_output) {
-        args.emplace_back("--json");
-    }
-    if (full_report) {
-        args.emplace_back("--full-report");
-    }
     return args;
 }
 
-[[nodiscard]] std::string run(const std::vector<std::string>& args) {
+[[nodiscard]] chesswhy::cli::Options parse_options(const std::vector<std::string>& args) {
     std::vector<std::string_view> arg_views;
     arg_views.reserve(args.size());
     for (const auto& arg : args) {
         arg_views.emplace_back(arg);
     }
-    const auto options = chesswhy::cli::parse_args(arg_views);
-    std::ostringstream out;
-    std::ostringstream err;
-    const int status = chesswhy::cli::run(options, out, err);
-    if (status != chesswhy::cli::kExitOk || !err.str().empty()) {
-        throw std::runtime_error("CLI run failed with status " + std::to_string(status) + ": " +
-                                 err.str());
-    }
-    return out.str();
+    return chesswhy::cli::parse_args(arg_views);
+}
+
+[[nodiscard]] chesswhy::cli::Options fixture_options(const Json& json_args) {
+    return parse_options(fixture_args(json_args));
+}
+
+[[nodiscard]] std::string render_output(const chesswhy::cli::Options& options,
+                                        const chesswhy::Report& report, bool json,
+                                        bool full_report) {
+    auto output_options = options;
+    output_options.json = json;
+    output_options.full_report = full_report;
+    std::ostringstream output;
+    chesswhy::cli::write_output(output_options, report, output);
+    return output.str();
+}
+
+[[nodiscard]] std::array<std::string, 4> render_outputs(const chesswhy::cli::Options& options,
+                                                        const chesswhy::Report& report) {
+    return {render_output(options, report, true, true), render_output(options, report, true, false),
+            render_output(options, report, false, false),
+            render_output(options, report, false, true)};
 }
 
 void require_identical(std::string_view name, const std::string& first, const std::string& second) {
@@ -81,7 +93,19 @@ void require_identical(std::string_view name, const std::string& first, const st
 int main() {
     try {
         const Json fixtures = fixture_file();
-        for (const std::string_view id : {"F01", "F03", "F12", "F25", "F29", "F30"}) {
+        chesswhy::test::Progress progress("cli_rerun_identity", kRerunCount);
+        std::size_t rerun_index = 0;
+        const auto rerun = [&](const chesswhy::cli::Options& options, std::string_view action,
+                               std::string_view detail) {
+            const std::size_t index = ++rerun_index;
+            progress.step_started(index, action, detail);
+            auto report = chesswhy::cli::build_report(options);
+            progress.step_finished(index, action, detail);
+            return report;
+        };
+        constexpr std::array<std::string_view, 4> output_names{"full JSON", "moves JSON", "text",
+                                                               "full text"};
+        for (const std::string_view id : kFixtureIds) {
             const auto& engine_fixtures = fixtures.at("engine_fixtures");
             const auto fixture = std::ranges::find_if(engine_fixtures, [id](const Json& value) {
                 return value.at("id").get<std::string>() == id;
@@ -89,22 +113,25 @@ int main() {
             if (fixture == engine_fixtures.end()) {
                 throw std::runtime_error("missing fixture " + std::string(id));
             }
-            const auto full_args = fixture_args(fixture->at("args"), true, true);
-            const std::string full_first = run(full_args);
-            const std::string full_second = run(full_args);
-            require_identical(std::string(id) + " full JSON", full_first, full_second);
-
-            const auto moves_args = fixture_args(fixture->at("args"), true);
-            const std::string moves_first = run(moves_args);
-            const std::string moves_second = run(moves_args);
-            require_identical(std::string(id) + " moves JSON", moves_first, moves_second);
+            const auto options = fixture_options(fixture->at("args"));
+            const auto first_report = rerun(options, id, "first report");
+            const auto second_report = rerun(options, id, "second report");
+            const auto first_outputs = render_outputs(options, first_report);
+            const auto second_outputs = render_outputs(options, second_report);
+            for (std::size_t index = 0; index < output_names.size(); ++index) {
+                require_identical(std::string(id) + " " + std::string(output_names[index]),
+                                  first_outputs[index], second_outputs[index]);
+            }
         }
         constexpr std::string_view smoke_fen =
             "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3";
         const std::vector<std::string> smoke_args{"--fen", std::string(smoke_fen), "--moves",
                                                   "Nf6"};
-        const std::string first = run(smoke_args);
-        const std::string second = run(smoke_args);
+        const auto smoke_options = parse_options(smoke_args);
+        const auto first_report = rerun(smoke_options, "smoke", "text first");
+        const auto second_report = rerun(smoke_options, "smoke", "text second");
+        const std::string first = render_output(smoke_options, first_report, false, false);
+        const std::string second = render_output(smoke_options, second_report, false, false);
         require_identical("smoke text", first, second);
     } catch (const std::exception& error) {
         std::cerr << "CLI rerun identity failed: " << error.what() << '\n';

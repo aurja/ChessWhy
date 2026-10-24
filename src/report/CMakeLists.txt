@@ -1,3 +1,3 @@
 add_library(chesswhy_report STATIC report.cpp move_report.cpp)
 target_link_libraries(chesswhy_report PUBLIC chesswhy_headers)
-target_link_libraries(chesswhy_report PRIVATE chesswhy_positional chesswhy_warnings)
+target_link_libraries(chesswhy_report PRIVATE chesswhy_analysis chesswhy_positional chesswhy_warnings)

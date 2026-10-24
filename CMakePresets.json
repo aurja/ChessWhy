@@ -12,12 +12,12 @@
     },
     {
       "name": "asan",
-      "displayName": "Debug with AddressSanitizer and UndefinedBehaviorSanitizer",
+      "displayName": "Debug -O1 with AddressSanitizer and UndefinedBehaviorSanitizer",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build/asan",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_CXX_FLAGS": "-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all",
+        "CMAKE_CXX_FLAGS": "-O1 -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all",
         "CMAKE_EXE_LINKER_FLAGS": "-fsanitize=address,undefined",
         "CHESSWHY_CHECK_TIMING": "OFF"
       }
@@ -29,6 +29,7 @@
   ],
   "testPresets": [
     {"name": "release", "configurePreset": "release", "output": {"outputOnFailure": true}},
-    {"name": "asan", "configurePreset": "asan", "output": {"outputOnFailure": true}}
+    {"name": "asan", "configurePreset": "asan", "output": {"outputOnFailure": true},
+     "filter": {"include": {"label": "unit|sanitize"}}}
   ]
 }

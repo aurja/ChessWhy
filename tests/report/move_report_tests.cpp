@@ -2,6 +2,7 @@
 
 #include <array>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -79,11 +80,14 @@ using namespace chesswhy;
 }
 
 [[nodiscard]] PositionalChange positional_change(PositionalTag tag, Side side, int value, int ply,
-                                                 bool holds) {
+                                                 bool holds, bool net_change = true,
+                                                 std::optional<bool> in_use = true) {
     return PositionalChange{
         .ply = ply,
         .change = PositionalChangeKind::Appears,
         .holds_at_end = holds,
+        .net_change = net_change,
+        .in_use = in_use,
         .feature =
             PositionalFeature{
                 .tag = tag,
@@ -183,7 +187,7 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
         GameMoveCount{.san = "c3", .uci = "c2c3", .games = 3});
 
     const auto document = move_reports(report);
-    CHECK(document.schema_version == 6);
+    CHECK(document.schema_version == 7);
     CHECK(document.input.moves == "all");
     CHECK(document.engine.multipv == 6);
     CHECK(document.position.fen == report.position.fen);
@@ -233,10 +237,12 @@ TEST_CASE("move report relevance filter keeps conditional fields and drops irrel
     label.ply = 1;
     best.tactic_labels.push_back(label);
     best.positional = {
-        positional_change(PositionalTag::MobilityLead, Side::White, 10, 1, true),
+        positional_change(PositionalTag::MobilityLead, Side::White, 10, 1, true, false,
+                          std::nullopt),
         positional_change(PositionalTag::MobilityLead, Side::White, 20, 2, true),
         positional_change(PositionalTag::MobilityLead, Side::Black, 5, 3, true),
-        positional_change(PositionalTag::SpaceLead, Side::White, 4, 4, false),
+        positional_change(PositionalTag::SpaceLead, Side::White, 4, 4, true),
+        positional_change(PositionalTag::MaterialAhead, Side::White, 8, 5, true, true, false),
     };
     best.parries_threat = ParryInfo{.parries = true, .test = ParryTest::ThreatMoveIllegal};
     okay.parries_threat = ParryInfo{.parries = false, .test = ParryTest::Searched};
@@ -280,10 +286,13 @@ TEST_CASE("move report relevance filter keeps conditional fields and drops irrel
     CHECK(best_report.root_motifs.size() == 2);
     CHECK(best_report.tactic_labels.size() == best.tactic_labels.size());
     CHECK(best_report.tactic_labels[0].tag == best.tactic_labels[0].tag);
-    CHECK(best_report.positional.size() == 2);
-    CHECK(best_report.positional[0].ply == 2);
-    CHECK(best_report.positional[0].feature.value == 20);
-    CHECK(best_report.positional[1].feature.side == Side::Black);
+    CHECK(best_report.positional.size() == 3);
+    CHECK(best_report.positional[0].feature.tag == PositionalTag::SpaceLead);
+    CHECK(best_report.positional[1].ply == 2);
+    CHECK(best_report.positional[1].feature.value == 20);
+    CHECK(best_report.positional[2].feature.side == Side::Black);
+    CHECK(best_report.positional[0].net_change);
+    CHECK(best_report.positional[0].in_use == true);
     REQUIRE(best_report.parried_threat.has_value());
     if (!best_report.parried_threat.has_value()) {
         return;
@@ -326,6 +335,131 @@ TEST_CASE("move report relevance filter keeps conditional fields and drops irrel
     CHECK(best_report.games == report.games.by_source.front().moves.front().games);
 }
 
+TEST_CASE("move report positional filtering and order follows root tempo dependence", "[unit]") {
+    using Keyword = chesswhy::Selection::Keyword;
+    auto report = base_report();
+    report.input.selection =
+        Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
+    report.position.tempo_value = TempoValue{.side = Side::White,
+                                             .moves_units = 1300,
+                                             .passes_units = 1000,
+                                             .value_units = 300,
+                                             .label = TempoLabel::NonTempo};
+    report.candidates[0].positional = {
+        positional_change(PositionalTag::MobilityLead, Side::White, 10, 1, true, false,
+                          std::nullopt),
+        positional_change(PositionalTag::MobilityLead, Side::White, 20, 2, true),
+        positional_change(PositionalTag::SpaceLead, Side::White, 4, 3, true),
+        positional_change(PositionalTag::MaterialAhead, Side::White, 8, 4, true, true, false),
+    };
+
+    auto document = move_reports(report);
+    REQUIRE(document.moves.size() == report.candidates.size());
+    CHECK(document.moves[0].positional.size() == 2);
+    CHECK(document.moves[0].positional[0].feature.tag == PositionalTag::SpaceLead);
+    CHECK(document.moves[0].positional[1].feature.tag == PositionalTag::MobilityLead);
+    CHECK(document.moves[0].impact_order ==
+          std::vector<ImpactGroup>{ImpactGroup::PositionalStatic, ImpactGroup::PositionalDynamic});
+
+    report.position.tempo_value->label = TempoLabel::TempoDependent;
+    document = move_reports(report);
+    CHECK(document.moves[0].positional.size() == 2);
+    CHECK(document.moves[0].positional[0].feature.tag == PositionalTag::MobilityLead);
+    CHECK(document.moves[0].positional[1].feature.tag == PositionalTag::SpaceLead);
+    CHECK(document.moves[0].impact_order ==
+          std::vector<ImpactGroup>{ImpactGroup::PositionalDynamic, ImpactGroup::PositionalStatic});
+}
+
+TEST_CASE("move report tempo projections are null exactly when no ledger exists", "[unit]") {
+    using Keyword = chesswhy::Selection::Keyword;
+    auto report = base_report();
+    report.input.selection =
+        Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
+    report.position.tempo_value = TempoValue{.side = Side::White,
+                                             .moves_units = 1300,
+                                             .passes_units = 1000,
+                                             .value_units = 300,
+                                             .label = TempoLabel::TempoDependent};
+    auto& candidate = report.candidates[0];
+    candidate.tempo_value = TempoValue{.side = Side::Black,
+                                       .moves_units = 1200,
+                                       .passes_units = 900,
+                                       .value_units = 300,
+                                       .label = TempoLabel::TempoDependent};
+    candidate.tempo_ledger =
+        TempoLedger{.plies = {TempoPly{.ply = 1,
+                                       .san = "a3",
+                                       .side = Side::White,
+                                       .threatening = true,
+                                       .by_check = false,
+                                       .threat_rank = 2,
+                                       .stops_threat = std::nullopt,
+                                       .label = TempoPlyLabel::Threatening,
+                                       .tempo_gained = true}},
+                    .tempi = Tempi{.white = 1, .black = 0},
+                    .runs = {InitiativeRun{.holder = Side::White,
+                                           .start_ply = 1,
+                                           .end_ply = 1,
+                                           .tempi = 1,
+                                           .ending = InitiativeEnding::Unfinished,
+                                           .outcome = InitiativeOutcome::Converted}}};
+
+    const auto document = move_reports(report);
+    REQUIRE(document.position.tempo_value.has_value());
+    REQUIRE(document.moves[0].tempo_value.has_value());
+    CHECK_FALSE(document.moves[1].tempo_value.has_value());
+    REQUIRE(document.moves[0].tempo_gained.has_value());
+    REQUIRE(document.moves[0].initiative.has_value());
+    const auto& tempo_gained_optional = document.moves[0].tempo_gained;
+    const auto& initiative_optional = document.moves[0].initiative;
+    if (!tempo_gained_optional.has_value()) {
+        throw std::logic_error("move report must include tempo gains");
+    }
+    if (!initiative_optional.has_value()) {
+        throw std::logic_error("move report must include initiative");
+    }
+    const auto& tempo_gained = *tempo_gained_optional;
+    const auto& initiative = *initiative_optional;
+    CHECK(tempo_gained.size() == 1);
+    CHECK(tempo_gained.front().ply == 1);
+    CHECK(initiative.size() == 1);
+    CHECK_FALSE(document.moves[1].tempo_gained.has_value());
+    CHECK_FALSE(document.moves[1].initiative.has_value());
+    const auto json = to_json(document);
+    CHECK(json["position"]["tempo_value"]["source"] == "engine");
+    CHECK(json["moves"][0]["tempo_gained"][0]["source"] == "engine");
+    CHECK(json["moves"][0]["initiative"][0]["source"] == "rule");
+    CHECK(json["moves"][1]["tempo_gained"].is_null());
+    CHECK(json["moves"][1]["initiative"].is_null());
+    CHECK(json["moves"][1]["tempo_value"].is_null());
+}
+
+TEST_CASE("impact order sorts ranked groups stably around both positional base orders", "[unit]") {
+    MoveReport move;
+    move.parried_threat = ParriedThreat{.threat = threat(ConsequenceClass::Material)};
+    move.created_threat = threat(ConsequenceClass::Material);
+    move.motifs.push_back(motif_with(MotifContribution::Direct));
+    move.consequence = Consequence{
+        .cls = ConsequenceClass::Mate, .mate_in = 1, .material = 0, .promotes = false, .plies = 1};
+    move.tempo_value = TempoValue{.side = Side::White,
+                                  .moves_units = 1200,
+                                  .passes_units = 1000,
+                                  .value_units = 200,
+                                  .label = std::nullopt};
+    move.positional = {
+        positional_change(PositionalTag::MobilityLead, Side::White, 10, 1, true),
+        positional_change(PositionalTag::SpaceLead, Side::White, 3, 1, true),
+    };
+
+    CHECK(impact_order(move, true) ==
+          std::vector<ImpactGroup>{ImpactGroup::Motifs, ImpactGroup::ParriedThreat,
+                                   ImpactGroup::CreatedThreat, ImpactGroup::Tempo,
+                                   ImpactGroup::PositionalDynamic, ImpactGroup::PositionalStatic});
+    CHECK(impact_order(move, false) ==
+          std::vector<ImpactGroup>{ImpactGroup::Motifs, ImpactGroup::ParriedThreat,
+                                   ImpactGroup::CreatedThreat, ImpactGroup::PositionalStatic,
+                                   ImpactGroup::PositionalDynamic, ImpactGroup::Tempo});
+}
 TEST_CASE("move report created threat keeps only the specified consequence classes", "[unit]") {
     using Keyword = chesswhy::Selection::Keyword;
     auto report = base_report();
@@ -347,7 +481,7 @@ TEST_CASE("move report created threat keeps only the specified consequence class
     CHECK_FALSE(document.moves[5].created_threat.has_value());
 }
 
-TEST_CASE("move report JSON uses the v6 moves shape and stable key order", "[unit]") {
+TEST_CASE("move report JSON uses the v7 moves shape and stable key order", "[unit]") {
     auto report = base_report();
     report.candidates[0].parries_threat = ParryInfo{.parries = true};
     report.threats.emplace();
@@ -367,14 +501,36 @@ TEST_CASE("move report JSON uses the v6 moves shape and stable key order", "[uni
     CHECK(keys(json["selection"]) == std::vector<std::string>{"keywords", "top", "moves",
                                                               "lines_searched", "playable_count",
                                                               "playable_truncated"});
-    CHECK(keys(json["moves"][0]) ==
-          std::vector<std::string>{
-              "rank",        "san",           "uci",           "eval",           "depth",
-              "loss",        "verdict",       "gives_check",   "line",           "walked_plies",
-              "consequence", "is_tactic",     "allows_tactic", "opportunity",    "motifs",
-              "root_motifs", "tactic_labels", "positional",    "parried_threat", "created_threat",
-              "refutation",  "games"});
+    CHECK(keys(json["position"]) == std::vector<std::string>{"fen", "side_to_move", "in_check",
+                                                             "legal_moves", "terminal",
+                                                             "eval_white", "tempo_value"});
+    CHECK(keys(json["moves"][0]) == std::vector<std::string>{"rank",
+                                                             "san",
+                                                             "uci",
+                                                             "eval",
+                                                             "depth",
+                                                             "loss",
+                                                             "verdict",
+                                                             "gives_check",
+                                                             "line",
+                                                             "walked_plies",
+                                                             "consequence",
+                                                             "is_tactic",
+                                                             "allows_tactic",
+                                                             "opportunity",
+                                                             "motifs",
+                                                             "root_motifs",
+                                                             "tactic_labels",
+                                                             "positional",
+                                                             "tempo_value",
+                                                             "tempo_gained",
+                                                             "initiative",
+                                                             "impact_order",
+                                                             "parried_threat",
+                                                             "created_threat",
+                                                             "refutation",
+                                                             "games"});
     CHECK(keys(json["moves"][0]["parried_threat"]) == std::vector<std::string>{"threat", "test"});
-    CHECK(json["schema_version"] == 6);
+    CHECK(json["schema_version"] == 7);
     CHECK(json["document"] == "moves");
 }

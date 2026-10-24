@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/report.v6.schema.json",
-  "title": "ChessWhy full report, schema version 6",
+  "$id": "https://chesswhy.local/schema/report.v7.schema.json",
+  "title": "ChessWhy full report, schema version 7",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,8 +19,8 @@
   ],
   "properties": {
     "schema_version": {
-      "description": "Schema version of the report; this schema accepts version 6 [rule].",
-      "const": 6
+      "description": "Schema version of the report; this schema accepts version 7 [rule].",
+      "const": 7
     },
     "document": {
       "description": "Kind of report document emitted by this schema [rule].",
@@ -188,6 +188,7 @@
             "C",
             "D",
             "E",
+            "L",
             "R"
           ],
           "properties": {
@@ -216,6 +217,11 @@
               "type": "integer",
               "minimum": 1
             },
+            "L": {
+              "description": "Node budget for each tempo-ledger threat and reply search [rule].",
+              "type": "integer",
+              "minimum": 1
+            },
             "R": {
               "description": "Node budget for the search after m excluding the refutation's first move [rule].",
               "type": "integer",
@@ -241,6 +247,7 @@
         "legal_moves",
         "terminal",
         "eval_white",
+        "tempo_value",
         "motifs",
         "positional"
       ],
@@ -275,6 +282,17 @@
           "oneOf": [
             {
               "$ref": "#/$defs/eval"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tempo_value": {
+          "description": "Tempo value at the analyzed position, or null when it cannot be measured [engine].",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/tempo_value"
             },
             {
               "type": "null"
@@ -559,6 +577,269 @@
       },
       "maxItems": 10
     },
+    "tempo_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "side",
+        "moves",
+        "passes",
+        "value",
+        "label",
+        "source"
+      ],
+      "properties": {
+        "side": {
+          "description": "Side whose tempo value is reported [engine].",
+          "$ref": "#/$defs/side"
+        },
+        "moves": {
+          "description": "Expected score for the side when it moves [engine].",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "passes": {
+          "description": "Expected score for the side when it passes [engine].",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "value": {
+          "description": "Expected-score difference between moving and passing [engine].",
+          "type": "number",
+          "minimum": -1,
+          "maximum": 1
+        },
+        "label": {
+          "description": "Tempo label for the value, or null in the unlabelled interval [rule].",
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "tempo_dependent",
+            "non_tempo",
+            "zugzwang",
+            null
+          ]
+        },
+        "source": {
+          "description": "Provenance of the tempo value [engine].",
+          "const": "engine"
+        }
+      }
+    },
+    "tempo_ply": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ply",
+        "san",
+        "side",
+        "threatening",
+        "by_check",
+        "threat_rank",
+        "stops_threat",
+        "label",
+        "tempo_gained"
+      ],
+      "properties": {
+        "ply": {
+          "description": "1-based ply in the walked line [engine].",
+          "type": "integer",
+          "minimum": 1
+        },
+        "san": {
+          "description": "SAN move played at this ply [engine].",
+          "type": "string"
+        },
+        "side": {
+          "description": "Side that played this ply [engine].",
+          "$ref": "#/$defs/side"
+        },
+        "threatening": {
+          "description": "Whether the move threatens by check or consequence rank [engine].",
+          "type": "boolean"
+        },
+        "by_check": {
+          "description": "Whether the move threatens because it gives check [rule].",
+          "type": "boolean"
+        },
+        "threat_rank": {
+          "description": "Consequence rank of the threat, or null when no search rank applies [engine/rule].",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 4
+        },
+        "stops_threat": {
+          "description": "Whether this move stops the previous ply's threat, or null when none is answered [engine].",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "label": {
+          "description": "Rule-derived label of this ply [rule].",
+          "enum": [
+            "threatening",
+            "pure_reply",
+            "counter_threat",
+            "neither"
+          ]
+        },
+        "tempo_gained": {
+          "description": "Whether this threat is answered by a pure reply [rule].",
+          "type": "boolean"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "ply": {
+                "const": 1
+              }
+            },
+            "required": [
+              "ply"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stops_threat": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "by_check": {
+                "const": true
+              }
+            },
+            "required": [
+              "by_check"
+            ]
+          },
+          "then": {
+            "properties": {
+              "threat_rank": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "initiative_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "holder",
+        "start_ply",
+        "end_ply",
+        "tempi",
+        "ending",
+        "outcome",
+        "source"
+      ],
+      "properties": {
+        "holder": {
+          "description": "Side holding the initiative [rule].",
+          "$ref": "#/$defs/side"
+        },
+        "start_ply": {
+          "description": "First tempo-gaining ply of the run [rule].",
+          "type": "integer",
+          "minimum": 1
+        },
+        "end_ply": {
+          "description": "Last ply included in the run [rule].",
+          "type": "integer",
+          "minimum": 1
+        },
+        "tempi": {
+          "description": "Number of tempi gained by the holder during the run [rule].",
+          "type": "integer",
+          "minimum": 1
+        },
+        "ending": {
+          "description": "Rule-derived ending of the initiative run [rule].",
+          "enum": [
+            "spent",
+            "contested",
+            "runs",
+            "unfinished"
+          ]
+        },
+        "outcome": {
+          "description": "Whether a run's gain is converted or evaporated [rule].",
+          "enum": [
+            "converted",
+            "evaporated"
+          ]
+        },
+        "source": {
+          "description": "Provenance of the initiative run [rule].",
+          "const": "rule"
+        }
+      }
+    },
+    "tempo_ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "plies",
+        "tempi",
+        "runs",
+        "source"
+      ],
+      "properties": {
+        "plies": {
+          "description": "Engine-derived threat and reply tests on the walked line [engine].",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/tempo_ply"
+          }
+        },
+        "tempi": {
+          "description": "Count of tempi gained by each side [rule].",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "white",
+            "black"
+          ],
+          "properties": {
+            "white": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "black": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "runs": {
+          "description": "Initiative runs derived from the ledger plies [rule].",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/initiative_run"
+          }
+        },
+        "source": {
+          "description": "Provenance of the tempo ledger tests [engine].",
+          "const": "engine"
+        }
+      }
+    },
     "eval": {
       "type": "object",
       "additionalProperties": false,
@@ -782,6 +1063,9 @@
         "parries_threat",
         "creates_threat",
         "creates_threat_skipped",
+        "tempo_value",
+        "tempo_ledger",
+        "tempo_ledger_skipped",
         "refutation",
         "motifs",
         "opportunity",
@@ -949,6 +1233,41 @@
             null
           ]
         },
+        "tempo_value": {
+          "description": "Tempo value after this move, or null when search E did not run [engine].",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/tempo_value"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tempo_ledger": {
+          "description": "Tempo tests and initiative runs for the move line, or null when skipped [engine/rule].",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/tempo_ledger"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "tempo_ledger_skipped": {
+          "description": "Why the tempo ledger is null, or null iff the ledger is set [rule].",
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "in_check",
+            "null_move_unreliable",
+            "not_detailed",
+            null
+          ]
+        },
         "refutation": {
           "description": "Opponent's refutation line, set iff verdict is not playable [engine].",
           "oneOf": [
@@ -1006,6 +1325,32 @@
         }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "tempo_ledger": {
+                "type": "null"
+              }
+            },
+            "required": [
+              "tempo_ledger"
+            ]
+          },
+          "then": {
+            "properties": {
+              "tempo_ledger_skipped": {
+                "type": "string"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "tempo_ledger_skipped": {
+                "type": "null"
+              }
+            }
+          }
+        },
         {
           "if": {
             "properties": {
@@ -1874,11 +2219,41 @@
     "positional_change": {
       "type": "object",
       "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "net_change": {
+                "const": true
+              }
+            },
+            "required": [
+              "net_change"
+            ]
+          },
+          "then": {
+            "properties": {
+              "in_use": {
+                "type": "boolean"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "in_use": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      ],
       "required": [
         "source",
         "ply",
         "change",
         "holds_at_end",
+        "net_change",
+        "in_use",
         "tag",
         "side",
         "pieces",
@@ -1905,6 +2280,17 @@
         "holds_at_end": {
           "description": "Whether the feature still holds at the end of the line [rule].",
           "type": "boolean"
+        },
+        "net_change": {
+          "description": "Whether this is the last change of a feature that differs from the root [rule].",
+          "type": "boolean"
+        },
+        "in_use": {
+          "description": "Whether a net positional change passes the use test, or null when it is not net [rule].",
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "tag": {
           "description": "Tag of the positional feature that changed [rule].",
