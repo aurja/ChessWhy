@@ -46,7 +46,7 @@ move on a given board; ES from the engine's WDL.
   at a board where the game is over.
 - **Budget.** A new search kind for the ledger searches. Measured on 2026-10-24: about
   0.37 M nodes per second (0.11 s per 40k search). The label comparison (§3.2) found no
-  gain from 75k or 400k over 40k. Proposed for the Captain: `standard` 40k, `quick` 10k,
+  gain from 75k or 400k over 40k. Decided (Captain, 2026-10-24): `standard` 40k, `quick` 10k,
   `deep` 160k (×¼ and ×4, as D and E). At 40k the worst case is about 1.6 s per line
   (15 searches), 8 s for five detailed lines where every move threatens; most lines need
   fewer. The slowest `standard` F fixture took 7.91 s at PostM3_EM2 (F12). If an F fixture
