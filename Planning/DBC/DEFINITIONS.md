@@ -38,7 +38,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | frozen | Changed only through a contract change approved by the Captain (§6.1) |
 | gate | A check that must pass for a batch or milestone to be accepted (§6.3) |
 | level | (1) **Audience level**: beginner, club or advanced, chosen by the user; changes only the wording of the explanation, never the analysis (§3.1). (2) **Diagram level**: L1, L2 or L3 in CONCEPTS.md (§7) |
-| tempo | One move, the unit of time. Proposed senses for PostM4_EM3 (open, §3.6): (1) **tempo gained**: a threatening move answered by a pure reply, so its side has made one more move of its own than the other side (Captain, 2026-10-24). (2) **Tempo value**: what having the move is worth in a position, the loss of passing; negative in zugzwang, which covers the endgame sense of a spare tempo (opposition, triangulation). Not computed: the **development tempo** of opening theory (moves spent on development; `development_lead` is the nearest built fact) |
+| tempo | One move, the unit of time. Senses decided for PostM4_EM3 (Captain, 2026-10-24; §3.6, not yet built): (1) **tempo gained**: a threatening move answered by a pure reply, so its side has made one more move of its own than the other side. (2) **Tempo value**: what having the move is worth in a position, the loss of passing; negative in zugzwang, which covers the endgame sense of a spare tempo (opposition, triangulation). Not computed: the **development tempo** of opening theory (moves spent on development; `development_lead` is the nearest built fact) |
 
 ## 2. Chess notation in the plans
 
@@ -154,20 +154,20 @@ candidate D, E, R; then C, D, E, R for each asked move outside A.
 | `fine_truncated` | Renamed `playable_truncated` in M4 (2026-10-23). Was: true iff all K of A's lines are fine, so more fine moves may exist than are listed. False does not mean the unlisted moves are not fine | M1 §4.7, PostM3_EM2 §5 |
 | `playable_truncated` | From M4 (2026-10-23): true iff A returned all K lines, K is less than the legal moves, and every line is playable, so more playable moves may exist than A listed. Always false with a whole-board keyword | M4 §4.1 |
 
-### 3.6 Tempo and impact (proposed for PostM4_EM3, open)
+### 3.6 Tempo and impact (PostM4_EM3)
 
-Proposed by the Deputy on 2026-10-24 at the PostM4_EM3 kickoff (tempo value, tempo-dependent position, counter-threat and initiative added the same day after reading three of the Captain's books); none of these is decided or built.
+Proposed by the Deputy on 2026-10-24 at the PostM4_EM3 kickoff (tempo value, tempo-dependent position, counter-threat and initiative added the same day after reading three of the Captain's books). The tempo and initiative terms were decided by the Captain the same day (PostM4_EM3 §1, A1–A5) and are not yet built; the impact rating terms are still open.
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| threatening move | Open. A move after which its side's threat (the opponent passes, as in search E) has rank ≥ 2, read over the walked plies from the board after the move; a check is a threatening move by rule, since the opponent cannot pass. A capture counts only for what it threatens next, not for the piece it took, so an even trade is not a threatening move | proposal 2026-10-24 |
-| pure reply | Open. The move after a threatening move when, after it, the threatening side's best line no longer reaches rank ≥ 2, and it is not itself a threatening move | proposal 2026-10-24 |
-| tempo gained | Open. A threatening move whose next move is a pure reply. A reply that stops the threat and threatens back returns the tempo; a reply that does not stop it lets the threat run (a tactic, not a tempo) | proposal 2026-10-24 |
-| tempo ledger | Open. For one line: each move marked threatening, pure reply or neither, and per side the count of tempi gained over the plies read | proposal 2026-10-24 |
-| counter-threat | Open. A reply to a threatening move that stops the threat and is itself a threatening move. It returns the tempo; a run of counter-threats is a struggle for the initiative | proposal 2026-10-24 |
-| initiative | Open. A side holds the initiative over the plies of a line where it gains tempi one after another: each of its moves is a threatening move and each reply a pure reply. It ends when the holder makes a move that does not threaten (spent) or the other side answers with a counter-threat (contested). At its end it is **converted** when the holder keeps a gain at the line's end (material, or a positional fact that holds at the end) and **evaporated** otherwise | proposal 2026-10-24 |
-| tempo value | Open. For the side to move `T`: `ES_T(T moves) − ES_T(T passes)`, the loss of passing on the verdict scale (§3.5). At the root it comes from searches A and B, after a move `m` from A's line and search E, so it needs no new search there. Negative means `T` would rather pass: zugzwang | proposal 2026-10-24 |
-| tempo-dependent position | Open. A position whose tempo value exceeds 0.10, so passing would be a mistake: every tempo counts and threats decide. Below 0.05 it is a **non-tempo position**, where time matters little and quiet improving moves are as good as forcing ones. Thresholds open | proposal 2026-10-24 |
+| threatening move | Decided (A1, A2). A move after which its side's threat (the opponent passes, as in search E) has rank ≥ 2, read over the walked plies from the board after the move; a check is a threatening move by rule, since the opponent cannot pass. A capture counts only for what it threatens next, not for the piece it took, so an even trade is not a threatening move | PostM4_EM3 §1 A1, A2 |
+| pure reply | Decided (A1). The move after a threatening move when, after it, the threatening side's best line no longer reaches rank ≥ 2, and it is not itself a threatening move | PostM4_EM3 §1 A1 |
+| tempo gained | Decided (A1). A threatening move whose next move is a pure reply. A reply that stops the threat and threatens back is a counter-threat and returns the tempo; a reply that does not stop it lets the threat run (a tactic, not a tempo) | PostM4_EM3 §1 A1 |
+| tempo ledger | Decided (A3). For one line: each move marked threatening, pure reply or neither, and per side the count of tempi gained. Covers every walked ply of every detailed line; not built when `null_move_reliable` is false | PostM4_EM3 §1 A3, §2 |
+| counter-threat | Decided (A5). A reply to a threatening move that stops the threat and is itself a threatening move. It returns the tempo; a run of counter-threats is a struggle for the initiative | PostM4_EM3 §1 A5 |
+| initiative | Decided (A5). A side holds the initiative over the plies of a line where it gains tempi one after another: each of its moves is a threatening move and each reply a pure reply. It ends when the holder makes a move that does not threaten (**spent**) or the other side answers with a counter-threat (**contested**). At its end it is **converted** when the holder keeps a gain at the line's end (material, or a positional fact that holds at the end) and **evaporated** otherwise. Derived from the tempo ledger, no extra search | PostM4_EM3 §1 A5 |
+| tempo value | Decided (A4). For the side to move `T`: `ES_T(T moves) − ES_T(T passes)`, the loss of passing on the verdict scale (§3.5). At the root it comes from searches A and B, after a move `m` from A's line and search E, along a line from the two ledger searches of each ply. Null when `T` is in check | PostM4_EM3 §1 A4, §2 |
+| tempo-dependent position | Decided (A4). A position whose tempo value exceeds 0.10, so passing would be a mistake: every tempo counts and threats decide. Below 0.05 it is a **non-tempo position**, where time matters little; below 0 it is **zugzwang**: `T` would rather pass | PostM4_EM3 §1 A4 |
 | impact rating | Open. A number on each fact of a move report that orders and cuts the facts for the text and the fact sheet: the rank (§3.3) of the consequence the fact bears on. The core claims (verdict, line, refutation, conditions) are not rated; they always come first | proposal 2026-10-24 |
 | break cost | Open. For a restricted-movement motif, measured by the engine on the board with the held side to move: the best score over the moves that are not restricted moves minus the best score over the restricted moves. Zero or less means the restriction costs the held side nothing | proposal 2026-10-24 |
 
@@ -272,7 +272,7 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 | claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
 | PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label, `pin_tactical`. Plan `Planning/milestones/PostM2_EM1.md`, receipt `Planning/receipts/PostM2_EM1.md`; complete, merged into `main` 2026-10-21 (branch `postm2-em1`). Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
 | PostM3_EM2 | The milestone after M3a/M3b (Captain's name, 2026-10-22): fixes from the conceptual audit of 2026-10-22 (`Planning/critiques/`) before M4: restricted and free moves, contribution rule 3′, `removal_of_defender` continuity, conditions in the template, report v5 with semantic checks, data digests; at checkpoint 3 also `tripled_pawns` and T60. Plan `Planning/milestones/PostM3_EM2.md`, receipt `Planning/receipts/PostM3_EM2.md`; complete, merged into `main` 2026-10-23 (branch `postm3-em2`) | vision §11 |
-| PostM4_EM3 | The milestone after M4 (Captain's name, 2026-10-24): tempo and an impact rating for facts (§3.6). Scope open: proposal of 2026-10-24, no plan yet | vision §11 |
+| PostM4_EM3 | The milestone after M4 (Captain's name, 2026-10-24): tempo, initiative and an impact rating for facts (§3.6). Plan `Planning/milestones/PostM4_EM3.md`: tempo and initiative decisions A1–A5 frozen 2026-10-24; impact rating (B1–B3) and the contract still open | vision §11 |
 
 ## 5. Measurement
 
@@ -364,12 +364,13 @@ PostM2_EM1 starts from commit `d5b703a`.
 | Term | Meaning | Defined in |
 |---|---|---|
 | vision | `Planning/PROJECT_VISION.md`: the source of truth for scope, method and decisions | AGENTS.md |
-| milestone (M0–M7, PostM2_EM1, M3a, M3b, PostM3_EM2) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sat between M2 and M3 (§4.5). M3 is split (Captain, 2026-10-21) into **M3a** (positional facts) and **M3b** (opening statistics), planned and built in parallel. PostM3_EM2 sits between M3b and M4 (Captain, 2026-10-22). Renumbered by the Captain on 2026-10-23: **M4** = playable moves and move reports (new), M5 = libllama prose (M4 before), M6 = books (M5 before), M7 = native apps (M6 before) | vision §11 |
+| milestone (M0–M7, PostM2_EM1, M3a, M3b, PostM3_EM2, PostM4_EM3) | A delivery step with its own plan `Planning/milestones/<name>.md` and frozen acceptance criteria. PostM2_EM1 sat between M2 and M3 (§4.5). M3 is split (Captain, 2026-10-21) into **M3a** (positional facts) and **M3b** (opening statistics), planned and built in parallel. PostM3_EM2 sits between M3b and M4 (Captain, 2026-10-22); PostM4_EM3 after M4 (Captain, 2026-10-24). Renumbered by the Captain on 2026-10-23: **M4** = playable moves and move reports (new), M5 = libllama prose (M4 before), M6 = books (M5 before), M7 = native apps (M6 before) | vision §11 |
 | contract | The frozen parts of a milestone plan: headers, report schema, fixtures, acceptance, owned files. Workers implement against it and do not change it | AGENTS.md |
 | contract change | Any change to a frozen item after freezing; recorded as a row in the plan's last section ("§15 row" in M2) with date, change and reason | M2 §15 |
 | D1–D13 | The Captain's numbered decisions in M2: D1–D10 at the start, D11–D13 at checkpoint 2b (motif/tactic split, reference implementation, `removal_of_defender` removed) | M2 §1 |
 | E1–E7 | The Captain's numbered decisions in PostM2_EM1 (briefed as P1–P5 on 2026-10-20): order, threshold, judged lines and search R, best move only, forced moves, contribution rule, `removal_of_defender` as a tactic label | PostM2_EM1 §1 |
 | G1–G15 | The Captain's decisions on the 2026-10-22 audit findings, frozen in PostM3_EM2 §1 (the Deputy's 15 recommendations, with the Captain's changes to G5 contribution "none" and G10 restricted movement) | PostM3_EM2 §1 |
+| A1–A5 | The Captain's tempo and initiative decisions in PostM4_EM3 (2026-10-24): threat test, trades, ledger scope with the 15 s timing check, tempo value, initiative. B1–B3 (impact rating) are still open | PostM4_EM3 §1 |
 | checkpoint | A point where the Captain approves something before it is frozen (M2: fixtures; targets; merge. PostM2_EM1: C fixtures and F rows; rule-versus-label mismatches; merge) | M2 §12, PostM2_EM1 §12 |
 | work package (WP) | One worker's slice of a milestone: owned files, done-condition, non-goals | M2 §11 |
 | batch | WPs run at the same time; integrated and tested together | AGENTS.md |
@@ -415,7 +416,7 @@ PostM2_EM1 starts from commit `d5b703a`.
 | Release / ASan build | `build/release` (optimised) and `build/asan` (debug with address and undefined-behaviour sanitisers) | AGENTS.md |
 | smoke command | One frozen CLI invocation run by hand at milestone end to see the feature work end to end. M2 and PostM2_EM1: `--fen 'k7/8/8/8/3Q3n/8/2P5/4K3 w - - 0 1' --move c3`, expecting Black's knight fork from f3 (M2), and from PostM2_EM1 a refutation that is a tactic with the fork `direct`, while the root (all lines at ES 1.0) is not a tactic. PostM3_EM2: `--fen '6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1' --budget standard --no-llm`, expecting Re8# with the back-rank weakness `indirect` | M2 §14, PostM2_EM1 §14, PostM3_EM2 §14 |
 | golden test | Compares rendered text with a stored expected file byte for byte | M2 §10 |
-| timing check | `standard` must finish within 12 s per F fixture in Release | M2 §14 |
+| timing check | `standard` must finish within 15 s per F fixture in Release (Captain, 2026-10-24, PostM4_EM3 A3, for the tempo ledger; 12 s before, the target until PostM4_EM3 is built) | M2 §14, PostM4_EM3 §1 |
 | usage guard | Background watcher that pauses agent work when a model subscription window nears its limit | AGENTS.md |
 
 ## 7. Driven by Concepts

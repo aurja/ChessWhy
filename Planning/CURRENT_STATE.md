@@ -38,6 +38,13 @@ Updated 2026-10-24.
   The root `back_rank_weakness` behind Re8# now prints through `root_motifs`. Milestones
   renumbered: M5 = libllama prose (five GGUFs in `assets/models/`; pinning them is an
   M5 task), M6 = books, M7 = native apps.
+- Milestone: **PostM4_EM3 planning** (Captain's name, 2026-10-24): tempo, initiative and
+  an impact rating for facts. Plan `Planning/milestones/PostM4_EM3.md`: tempo and
+  initiative decisions A1–A5 frozen 2026-10-24 (threatening move with rank ≥ 2, even
+  trades neutral, tempo ledger on every walked ply of every detailed line, timing check
+  raised to 15 s, tempo value with tempo-dependent / non-tempo / zugzwang labels,
+  initiative runs). Open: impact rating B1–B3 (Captain directing further reading), then
+  the contract. Terms in `Planning/DBC/DEFINITIONS.md` §3.6.
 - Decided 2026-10-22 (Captain, option A): lines keep printing every positional change
   (F26/F27 show 20–25 rows per line). Superseded for the output by M4's relevance
   filter (net change over the walk); the full report keeps every change.
