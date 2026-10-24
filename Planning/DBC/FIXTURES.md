@@ -497,3 +497,42 @@ In all three positions ChessWhy reported no wrong fact. The Deputy's two mistake
 were misreadings of correct rows. For M5 [inference]: a small model is likely to misread
 these rows more often than the Deputy did, so the useful rows above are the ones a fact
 sheet should lead with.
+
+## 11. PostM4_EM3 fixtures — tempo, initiative and the use test (planned)
+
+**Concepts:** `EngineFixtures`, `PositionalFixtures`, `TempoValue`, `TempoLabel`, `ThreatSearch`, `ReplySearch`, `PlyLabel`, `TempoGained`, `TempoLedger`, `InitiativeRun`, `RunEnding`, `RunOutcome`, `NetChange`, `UseTest`, `ImpactRating`
+
+Contracted on 2026-10-24 (`Planning/milestones/PostM4_EM3.md` §11); none exists in the
+JSON yet, so "Codebase today" says what the Deputy measured with throwaway probes, or
+"not built". F40–F44 go into `positions.json` and run like §1; boards are rendered when
+they land. PU01–PU18 are use-test fixtures in the new `uses` section of
+`positional.json`, run without the engine; a change is written as tag, owner, file or
+square, direction and ply, and "cut" means a net change that fails the use test. Their
+"Codebase today" column is the Deputy's Python oracle of the contract rules on the M4 full
+reports. Deviations found when they are built go to checkpoint 2.
+
+| ID | Board | Position | Fixture claims | Codebase today | Comments |
+|---|---|---|---|---|---|
+| F40 | — | `rnbqkbnr/ppp1pppp/8/3P4/8/8/PPPP1PPP/RNBQKBNR b KQkq - 0 2`<br>`--moves Qxd5`<br><sub>constructed: Scandinavian after 1.e4 d5 2.exd5</sub> | Qxd5's tempo ledger: White gains a tempo with Nc3 at ply 2, answered by a pure reply | Not built. Probe: tempo value after 3.Nc3 0.394 for White | |
+| F41 | — | `1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1`<br>`--moves Bxa4,Ba7`<br><sub>V2: Romanko – Shulakova, Moscow Open 2012</sub> | root tempo-dependent position (tempo value about 0.314 for Black); Bxa4: Black gains a tempo with Bxa4 and White with Bxa7, an initiative run that is converted; Ba7: no tempo gained | Not built. Probe: root tempo value 0.314 | |
+| F42 | — | `5k2/7p/pr1pB1p1/2pP4/1P6/6PP/R3qP2/R5K1 b - - 1 33`<br>`--moves Qc4`<br><sub>V1: Navara – Ivanchuk, Wijk aan Zee 2012</sub> | root tempo value 1.0; Qc4's ledger: White gains a tempo with bxc5 | Not built. Probe: root tempo value 1.0 | |
+| F43 | — | `8/3k4/8/3K4/3P4/8/8/8 w - - 0 1`<br><sub>constructed: mutual zugzwang</sub> | root label zugzwang (tempo value −0.5); every ledger skipped as `null_move_unreliable` | Not built. Probe: root tempo value −0.5 | |
+| F44 | — | First of F32's root, the start position and F28's root whose root label is non-tempo | root label non-tempo position; no tempo facts in the impact order before the positional facts | Not built. Probes: start position 0.048, so expected to be the start position unless F32's root qualifies first | Chosen by measurement when built; none qualifying goes to checkpoint 2 |
+| PU01 | — | F25 root; line `Bxc6 dxc6 O-O f6 d4 exd4 Nxd4` | **Kept:** `doubled_pawns` B c (ply 2); `bishop_pair` W disappears (ply 2)<br>**Cut:** `pawn_islands` B (ply 2); `king_shield_gap` B d (ply 2, king can castle, not pressed); `castling_kingside` W disappears (ply 3, castled); `king_shield_gap` W e disappears (ply 3, king moved)<br>**Passing:** `material_ahead` W | Oracle matches | |
+| PU02 | — | Start position; line `e4 e6 d4 d5 e5 c5` | **Kept:** `bad_bishop` W and B (ply 5)<br>**Cut:** `king_shield_gap` W e (ply 1, king can castle); `pawn_chain` B (ply 4) | Oracle matches | |
+| PU03 | — | F03 root; line `Kd1 a5 a3 Qd6 Ke1 a4` | **Kept:** `castling_kingside` W disappears (ply 1, own move)<br>**Cut:** `king_zone_attacker` W disappears (ply 4); `backward_pawn` W b (ply 6, not used) | Oracle matches | |
+| PU04 | — | F07 root; line `cxd3 Qg6 h4 Rxc5 bxc5 Ne6` | **Kept:** `backward_pawn` W d (ply 1); `outpost` W disappears (ply 4); `material_ahead` W (ply 5)<br>**Cut:** `material_ahead` B disappears (ply 1, superseded); `passed_pawn` W c (ply 5, not advanced) | Oracle matches | |
+| PU05 | — | F08 root; line `Nxf7+ Kg8 Nh6+ gxh6 Qxh6 Bf5` | **Kept:** `isolated_pawn` B h (ply 4, captured later); `king_zone_attacker` W (ply 6, king pressed)<br>**Cut:** `passed_pawn` W f (ply 4) | Oracle matches | |
+| PU06 | — | F11 root; line `h3 d3 Bxd3 d4 Qe2 Qd7` | **Kept:** `doubled_pawns` B d disappears (ply 3, won) | Oracle matches | |
+| PU07 | — | F05 root; line `Qe6 Re3 Na2 Rxc2 Rxc2 Qa8+` | **Kept:** `isolated_pawn` B d (ply 4, attacked at the end); `rook_open_file` B c (ply 4, used); `passed_pawn` B c disappears (ply 4); `rook_seventh` B (ply 5)<br>**Cut:** `rook_half_open_file` W c disappears (ply 4); `king_zone_attacker` B disappears (ply 2) | Oracle matches | |
+| PU08 | — | F01 root; line `Bxe6 Bxe6 Ng5 Bg8 f3 Rad8` | **Kept:** `bishop_pair` W disappears (ply 2); `king_zone_attacker` B (ply 3, king pressed)<br>**Cut:** `rook_half_open_file` B d (ply 6) | Oracle matches | |
+| PU09 | — | F06 root; line `Rxb7 Rxe6 dxe6 Rxd6 Re1 Rd2` | **Kept:** `half_open_file_near_king` B e (ply 3, king pressed); `isolated_pawn` W e (ply 3, attacked); `rook_open_file` B d (ply 3, used); `passed_pawn` W d disappears (ply 3); `exchange_up` W (ply 4)<br>**Cut:** `passed_pawn` W e (ply 3); `isolated_pawn` W d disappears (ply 3) | Oracle matches | |
+| PU10 | — | F04 root; line `g4 Nf3+ Kg2 Ne1+ Kg1 Rc1` | **Kept:** `king_shield_gap` W g (ply 5) and `king_zone_attacker` W (ply 4), king pressed | Oracle matches | |
+| PU11 | — | `7k/5K2/6Q1/8/8/8/8/8 w - - 0 1`; line `Qh5#`<br><sub>F19</sub> | **Cut:** both `king_zone_attacker` changes (the walk ends in mate) | Oracle matches | |
+| PU12 | — | F01 root; line `O-O-O Rae8 Qd2 Re7 Bg5 Ref7` | **Cut:** both castling rights (castled); `king_shield_gap` and `half_open_file_near_king` W e disappear (king moved) | Oracle matches | |
+| PU13 | — | F01 root; line `Kf1 Rae8 Bxe6 Bxe6 Ng5 Bg8` | **Kept:** both castling rights disappear (ply 1, own move) | Oracle matches | |
+| PU14 | — | F06 root; line `h3 Bf7 Rxf7+ Kxf7 Rxf5+ Kg6` | **Kept:** `exchange_up` B (ply 4); `isolated_pawn` B f disappears (ply 5, won); `open_file_near_king` B f (ply 5, king pressed)<br>**Cut:** `material_ahead` W disappears (ply 3, superseded); `open_file_near_king` B e disappears (ply 6, king moved); `pawn_islands` B (ply 5) | Oracle matches | |
+| PU15 | — | `k7/8/8/8/8/8/8/4K2R w K - 0 1`; line `O-O Kb7 Rf6 Kc7 Rh6 Kd7`<br><sub>F27</sub> | **Kept:** `king_shield_gap` W g (ply 1, own move)<br>**Cut:** `castling_kingside` W (castled); `king_shield_gap` W e disappears (ply 1, king moved); `king_shield_gap` B d (ply 4, not pressed) | Oracle matches | |
+| PU16 | — | F28 root; line `Nc3 f6 d3 c5 Be3 Bg4`; not tempo-dependent | **Cut:** `development_lead` W (ply 1); `mobility_lead` B disappears (ply 1); `pawn_chain` | Oracle matches | |
+| PU17 | — | as PU16, tempo-dependent | **Kept:** `development_lead` W (ply 1); `mobility_lead` B disappears (ply 1) | Oracle matches | |
+| PU18 | — | `7k/8/2p5/3P4/8/8/8/K7 b - - 0 1`; line `Kg8 Kb2 c5 d6`<br><sub>constructed</sub> | **Kept:** `passed_pawn` W d (ply 3, advanced at ply 4)<br>**Cut:** `passed_pawn` B c (ply 3, not advanced) | Not checked yet; the board may be adjusted when built | |
