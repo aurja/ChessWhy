@@ -268,50 +268,90 @@ void write_walk(std::ostringstream& output, const MoveReport& move) {
            << " of " << move.line_san.size() << " [engine]\n";
 }
 
-void write_motif_label(std::ostringstream& output, const Motif& motif) {
-    switch (motif.tag) {
+[[nodiscard]] bool restricted_movement_tag(MotifTag tag) {
+    switch (tag) {
     case MotifTag::PinAbsolute:
-        output << "restricted movement (absolute pin)";
+    case MotifTag::PinRelative:
+    case MotifTag::OverloadedDefender:
+    case MotifTag::PinTactical:
+        return true;
+    default:
+        return false;
+    }
+}
+
+void write_motif_inner_label(std::ostringstream& output, MotifTag tag,
+                             const std::optional<MotifThreat>& threat, const PieceOnSquare& actor) {
+    switch (tag) {
+    case MotifTag::PinAbsolute:
+        output << "absolute pin";
         return;
     case MotifTag::PinRelative:
-        output << "restricted movement (relative pin)";
+        output << "relative pin";
         return;
     case MotifTag::OverloadedDefender:
-        output << "restricted movement (overloaded defender)";
+        output << "overloaded defender";
         return;
     case MotifTag::PinTactical: {
-        if (!motif.threat.has_value()) {
+        if (!threat.has_value()) {
             throw std::bad_optional_access{};
         }
-        const MotifThreat& threat = *motif.threat;
-        char actor_piece = motif.actor.piece;
+        char actor_piece = actor.piece;
         if (actor_piece >= 'a' && actor_piece <= 'z') {
             actor_piece = static_cast<char>(actor_piece - ('a' - 'A'));
         }
-        std::string kind = to_string(threat.kind);
+        std::string kind = to_string(threat->kind);
         for (char& character : kind) {
             if (character == '_') {
                 character = ' ';
             }
         }
-        output << "restricted movement (tactic: " << actor_piece;
-        write_square(output, motif.actor.square);
+        output << "tactic: " << actor_piece;
+        write_square(output, actor.square);
         output << '-';
-        write_square(output, threat.square);
-        output << ' ' << kind << ')';
+        write_square(output, threat->square);
+        output << ' ' << kind;
         return;
     }
     default:
-        output << to_string(motif.tag);
+        output << to_string(tag);
         return;
     }
 }
 
-void write_motif(std::ostringstream& output, const Motif& motif, bool use) {
+void write_motif_label(std::ostringstream& output, const Motif& motif) {
+    const bool restricted = restricted_movement_tag(motif.tag);
+    if (restricted) {
+        output << "restricted movement (";
+    }
+    write_motif_inner_label(output, motif.tag, motif.threat, motif.actor);
+    if (restricted) {
+        output << ')';
+    }
+}
+
+void write_compact_restricted_motif_label(std::ostringstream& output, const Motif& motif) {
+    output << "restricted movement (";
+    write_motif_inner_label(output, motif.tag, motif.threat, motif.actor);
+    for (const MotifLabel& label : motif.also) {
+        output << "; ";
+        write_motif_inner_label(output, label.tag, label.threat, motif.actor);
+    }
+    output << ')';
+}
+
+void write_motif(std::ostringstream& output, const Motif& motif, bool use,
+                 bool compact_restricted) {
     if (use) {
         output << "Uses: ";
     }
-    write_motif_label(output, motif);
+    const bool compact =
+        compact_restricted && motif.restriction && restricted_movement_tag(motif.tag);
+    if (compact) {
+        write_compact_restricted_motif_label(output, motif);
+    } else {
+        write_motif_label(output, motif);
+    }
     output << ": " << motif.actor.piece << ' ';
     write_square(output, motif.actor.square);
     if (!motif.targets.empty()) {
@@ -328,7 +368,12 @@ void write_motif(std::ostringstream& output, const Motif& motif, bool use) {
         output << ", SEE " << *motif.gain;
     }
     if (motif.restriction) {
-        write_restriction(output, *motif.restriction);
+        if (compact) {
+            output << "; ";
+            write_held_to(output, motif.restriction->held_to);
+        } else {
+            write_restriction(output, *motif.restriction);
+        }
     }
     output << " (ply " << motif.ply;
     if (motif.contribution) {
@@ -337,9 +382,10 @@ void write_motif(std::ostringstream& output, const Motif& motif, bool use) {
     output << ") [rule]\n";
 }
 
-void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs, bool use = false) {
+void write_motifs(std::ostringstream& output, const std::vector<Motif>& motifs, bool use = false,
+                  bool compact_restricted = false) {
     for (const auto& motif : motifs) {
-        write_motif(output, motif, use);
+        write_motif(output, motif, use, compact_restricted);
     }
 }
 
@@ -762,8 +808,8 @@ void write_move_report_group(std::ostringstream& output, const MoveReportDocumen
         write_move_report_threat(output, move, document.position.side_to_move, group);
         return;
     case ImpactGroup::Motifs:
-        write_motifs(output, move.motifs, true);
-        write_motifs(output, move.root_motifs, true);
+        write_motifs(output, move.motifs, true, true);
+        write_motifs(output, move.root_motifs, true, true);
         return;
     case ImpactGroup::Tempo:
         write_move_tempo_rows(output, move);
@@ -798,7 +844,7 @@ void write_move_report(std::ostringstream& output, const MoveReportDocument& doc
         write_refutation(output, *move.refutation);
         write_opportunity(output, move.refutation->opportunity);
         write_tactic_labels(output, move.refutation->tactic_labels);
-        write_motifs(output, move.refutation->motifs, true);
+        write_motifs(output, move.refutation->motifs, true, true);
     }
     for (const ImpactGroup group : move.impact_order) {
         write_move_report_group(output, document, move, group);

@@ -61,7 +61,7 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class Question,Positional,Reference,Explanation,Proof,Report partial
+    class Question,Positional,Reference,Explanation,Proof partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -75,7 +75,7 @@ flowchart LR
 | `Positional` | Pawn structure, king safety, piece activity and other lasting features, reported as changes along lines | positional fact | partial |
 | `Tempo` | Whether having the move matters in the position, which moves of a line gain a tempo, and who holds the initiative and what becomes of it | tempo value, tempo ledger, initiative | implemented |
 | `Reference` | Knowledge from outside the engine: opening names, game counts, book passages | provenance, opening name, game counts, book passage | partial |
-| `Report` | The full report holds every fact, each with its provenance; one move report per selected move holds only the facts that bear on it, in impact order; nothing is claimed outside them | report, full report, move report, provenance, facts first, impact rating | partial |
+| `Report` | The full report holds every fact, each with its provenance; one move report per selected move holds only the facts that bear on it, in impact order; nothing is claimed outside them | report, full report, move report, provenance, facts first, impact rating | implemented |
 | `Explanation` | The words a reader gets: template text today, language-model prose checked against the report later | explanation, template rendering | partial |
 | `Proof` | Fixtures and measurements that show the facts are right | fixture, recall | partial |
 
@@ -583,7 +583,6 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class Explanation,MoveRequest,AskedMove,TempoLabel,StaticScale external
-    class RelevanceFilter partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -597,7 +596,7 @@ flowchart LR
 | `RerunIdentity` | Two fresh runs on the same input give the same bytes | rerun identity | implemented |
 | `JsonOutput` | A report printed as JSON when `--json` is given, for programs and for checking: the move report document, or the full report with `--full-report` (before 2026-10-23: the one report; until the Captain's P9 revision that day, `--full-report` alone printed JSON) | JSON output, move report document, `--full-report` | implemented |
 | `MoveSelection` | Which moves get a move report: everything the request names, together and each once, in the engine's order with asked moves outside A last; a keyword that matches no move adds nothing | selection, playable move, asked move | implemented |
-| `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute, the net changes of its line that pass the use test, its tempo facts; other moves and their facts are left out (positional changes before 2026-10-24: the last change per feature that holds at the end). Planned (Captain, 2026-10-24): motif repeats merge into one motif that lists the other labels | relevance filter, net change, use test, motif repeats | partial |
+| `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute with motif repeats merged into one motif that lists the other labels (from 2026-10-24), the net changes of its line that pass the use test, its tempo facts; other moves and their facts are left out (positional changes before 2026-10-24: the last change per feature that holds at the end) | relevance filter, net change, use test, motif repeats | implemented |
 | `ImpactRating` | The order of a move report's facts after the core claims (verdict, line, tactic and opportunity, refutation, conditions): parried threat, created threat, motifs, tempo facts and positional facts ranked by the consequence they bear on; ties and positional facts follow the static scale, dynamic facts first in a tempo-dependent position, static facts first otherwise | impact rating, `impact_order`, static scale | implemented |
 | `MoveReport` | The output for one selected move, each fact copied unchanged from the full report with its provenance | move report | implemented |
 | `ProjectionCheck` | Every move report fact equals the full-report field it came from, with the filter written a second time independently | projection check | implemented |
@@ -636,7 +635,7 @@ flowchart LR
     classDef external stroke-dasharray:1 3,color:#999
     class MoveReport,ReportDocument,BookPassages external
     class FactSheet,LevelPrompt,LanguageModel,FactCheck planned
-    class ExplanationText,RestrictedMovement partial
+    class ExplanationText partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -644,7 +643,7 @@ flowchart LR
 | `MoveReport` | See Report | — | external |
 | `ReportDocument` | See Report | — | external |
 | `BookPassages` | See Reference knowledge | — | external |
-| `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") is printed, and in the full report text also the restricted and free moves. Planned (Captain, 2026-10-24): the move report text prints a compact row without the move lists, naming every label of a merged motif ("relative pin; tactic: Ba7-f2 capture"); before, move report rows also listed the moves | restricted movement, held to, restricted moves, free moves, motif repeats | partial |
+| `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") is printed. The move report text prints a compact row naming every label of a merged motif ("relative pin; tactic: Ba7-f2 capture"); the full report text also prints the restricted and free moves (Captain, 2026-10-24; before, move report rows listed the moves too) | restricted movement, held to, restricted moves, free moves, motif repeats | implemented |
 | `Conditions` | What a fact depends on, printed beside it: a threat line assumes the opponent passes, a parry by check only defers the threat, why no created threat was searched, how far a line was read, which engine and budget, how many legal moves were not judged | conditions, `creates_threat_skipped`, `walked_plies`, `legal_moves` | implemented |
 | `TemplateRendering` | Fixed sentences filled from report fields, adding no claim; the output never says "candidate". Without `--full-report`: one block per move report, with their conditions and `SEE` for a capture's value; today's output, later the fallback. With `--full-report`: the full report text, every computed fact, always template text (before 2026-10-23: filled from the whole report, the only text) | template rendering, full report text | implemented |
 | `FactSheet` | A compact text form of the report for the model; the core claims (verdict, refutation, conditions) at every level, tactic and blunder evidence first | fact sheet, fact selection | planned |

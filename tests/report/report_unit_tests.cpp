@@ -80,7 +80,7 @@ TEST_CASE("enum values use the schema spellings", "[unit]") {
     CHECK(to_string(HeldTo::Kind::Squares) == "squares");
 }
 
-TEST_CASE("JSON follows v7 report key order", "[unit]") {
+TEST_CASE("JSON follows v8 report key order", "[unit]") {
     using namespace chesswhy;
 
     const auto report = test_examples::normal_position();
@@ -165,7 +165,7 @@ TEST_CASE("JSON follows v7 report key order", "[unit]") {
     CHECK(keys(json["candidates"][0]["positional"][0]) ==
           std::vector<std::string>{"source", "ply", "change", "holds_at_end", "net_change",
                                    "in_use", "tag", "side", "pieces", "file", "value"});
-    CHECK(json["schema_version"] == 7);
+    CHECK(json["schema_version"] == 8);
     CHECK(json["document"] == "full");
     CHECK(json["position"]["positional"][0]["source"] == "rule");
     CHECK(json["position"]["positional"][0]["tag"] == "bishop_pair");
@@ -186,7 +186,7 @@ TEST_CASE("JSON follows v7 report key order", "[unit]") {
     CHECK(keys(pgn["opening"]["last_named"]) == std::vector<std::string>{"eco", "name", "ply"});
 }
 
-TEST_CASE("v7 analysis fields and restriction serialize", "[unit]") {
+TEST_CASE("v8 analysis fields and restriction serialize", "[unit]") {
     const auto json = chesswhy::to_json(chesswhy::test_examples::schema_example());
     const auto& position = json["position"];
     const auto& candidate = json["candidates"][0];
@@ -210,7 +210,7 @@ TEST_CASE("v7 analysis fields and restriction serialize", "[unit]") {
     CHECK(pin["restriction"]["held_to"]["name"] == "e");
 }
 
-TEST_CASE("tempo fields serialize in v7", "[unit]") {
+TEST_CASE("tempo fields serialize in v8", "[unit]") {
     using namespace chesswhy;
 
     Report report = test_examples::normal_position();
@@ -300,13 +300,14 @@ TEST_CASE("tempo fields serialize in v7", "[unit]") {
     CHECK(move["positional"][0]["in_use"] == true);
 }
 
-TEST_CASE("motif JSON uses the schema v7 shape", "[unit]") {
+TEST_CASE("motif JSON uses the schema v8 shape", "[unit]") {
     const auto json = chesswhy::to_json(chesswhy::test_examples::normal_position());
 
-    CHECK(json["schema_version"] == 7);
+    CHECK(json["schema_version"] == 8);
     CHECK(
         json["position"]["motifs"][0].dump() ==
         R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3,"threat":null,"restriction":null,"contribution":null})");
+    CHECK_FALSE(json["position"]["motifs"][0].contains("also"));
     CHECK(json["threats"]["white"]["motifs"][0]["targets"].size() == 2);
     CHECK(json["candidates"][0]["motifs"][0]["tag"] == "promotion");
     CHECK(json["candidates"][0]["creates_threat"]["motifs"][0]["tag"] == "discovered_attack");
@@ -321,7 +322,7 @@ TEST_CASE("motif JSON uses the schema v7 shape", "[unit]") {
     CHECK(pin["threat"]["square"] == "f4");
 }
 
-TEST_CASE("opportunity judgements and tactic-line fields serialize in v7", "[unit]") {
+TEST_CASE("opportunity judgements and tactic-line fields serialize in v8", "[unit]") {
     using namespace chesswhy;
 
     const auto forced = to_json(test_examples::forced_opportunity());

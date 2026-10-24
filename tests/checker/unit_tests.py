@@ -380,7 +380,15 @@ class CheckerRelationsTests(unittest.TestCase):
             {"contribution": "none"},
             {"contribution": None},
         ]
-        self.assertEqual(checker.contribution_filtered(motifs), motifs[:2])
+        filtered = checker.relevant_motifs(motifs)
+        self.assertEqual(
+            filtered,
+            [
+                {"contribution": "direct", "also": []},
+                {"contribution": "indirect", "also": []},
+            ],
+        )
+        self.assertNotIn("also", object_value(motifs[0]))
         first: checker.JsonObject = {
             "tag": "bishop_pair",
             "side": "white",
@@ -447,6 +455,117 @@ class CheckerRelationsTests(unittest.TestCase):
         self.assertNotEqual(
             checker.positional_identity(chain_before),
             checker.positional_identity(chain_after),
+        )
+
+    def test_projection_merges_restricted_motif_repeats(self) -> None:
+        shared: checker.JsonObject = {
+            "side": "black",
+            "ply": 3,
+            "actor": "b a7",
+            "targets": ["B c5", "R f2"],
+            "restriction": "along diagonal a7-g1",
+            "contribution": "direct",
+        }
+
+        def motif(tag: str, threat: checker.JsonValue) -> checker.JsonObject:
+            return {"tag": tag, **shared, "threat": threat}
+
+        relative_pin = motif("pin_relative", None)
+        first_tactical_pin = motif("pin_tactical", {"move": "Ba7-f2"})
+        second_tactical_pin = motif("pin_tactical", {"move": "Ba7-c5"})
+
+        def full_report(motifs: list[checker.JsonValue]) -> checker.JsonObject:
+            return {
+                "schema_version": 8,
+                "document": "full",
+                "input": {
+                    "selection": {"keywords": ["all"], "top": None, "moves": []}
+                },
+                "engine": {"multipv": 1},
+                "position": {"side_to_move": "white", "terminal": None},
+                "candidates": [
+                    {"uci": "e2e4", "verdict": "best", "motifs": motifs}
+                ],
+                "asked_moves": [],
+                "playable_truncated": False,
+                "threats": {},
+                "games": {"by_source": []},
+            }
+
+        report = full_report([relative_pin, first_tactical_pin])
+        moves = checker.projected_move_document(report)
+        failures: list[checker.Failure] = []
+        checker.check_projection(report, moves, failures)
+        self.assertEqual(failures, [])
+        projected_move = object_value(array_field(moves, "moves")[0])
+        projected_motifs = array_field(projected_move, "motifs")
+        self.assertEqual(
+            projected_motifs,
+            [
+                {
+                    **relative_pin,
+                    "also": [
+                        {
+                            "tag": "pin_tactical",
+                            "threat": first_tactical_pin["threat"],
+                        }
+                    ],
+                }
+            ],
+        )
+        self.assertNotIn("also", relative_pin)
+        self.assertNotIn("also", first_tactical_pin)
+
+        unmerged = deepcopy(moves)
+        unmerged_move = object_value(array_field(unmerged, "moves")[0])
+        unmerged_move["motifs"] = [
+            deepcopy(relative_pin),
+            deepcopy(first_tactical_pin),
+        ]
+        unmerged_failures: list[checker.Failure] = []
+        checker.check_projection(report, unmerged, unmerged_failures)
+        self.assertTrue(
+            any(path.startswith("/moves/0/motifs") for path, _ in unmerged_failures)
+        )
+
+        three_report = full_report(
+            [relative_pin, first_tactical_pin, second_tactical_pin]
+        )
+        three_moves = checker.projected_move_document(three_report)
+        three_failures: list[checker.Failure] = []
+        checker.check_projection(three_report, three_moves, three_failures)
+        self.assertEqual(three_failures, [])
+
+        dropped = deepcopy(three_moves)
+        dropped_motifs = array_field(
+            object_value(array_field(dropped, "moves")[0]), "motifs"
+        )
+        dropped_also = array_field(object_value(dropped_motifs[0]), "also")
+        _ = dropped_also.pop()
+        dropped_failures: list[checker.Failure] = []
+        checker.check_projection(three_report, dropped, dropped_failures)
+        self.assertTrue(
+            any(
+                path.startswith("/moves/0/motifs/0/also")
+                for path, _ in dropped_failures
+            )
+        )
+
+        wrong_order = deepcopy(three_moves)
+        wrong_order_motifs = array_field(
+            object_value(array_field(wrong_order, "moves")[0]), "motifs"
+        )
+        wrong_order_also = array_field(
+            object_value(wrong_order_motifs[0]), "also"
+        )
+        wrong_order_also.reverse()
+        order_failures: list[checker.Failure] = []
+        checker.check_projection(three_report, wrong_order, order_failures)
+        self.assertTrue(
+            any(
+                path.startswith("/moves/0/motifs/0/also")
+                for path, _ in order_failures
+            )
         )
 
     def test_projection_detects_move_fact_mismatch(self) -> None:
@@ -519,7 +638,7 @@ class CheckerRelationsTests(unittest.TestCase):
             "refutation": None,
         }
         full: checker.JsonObject = {
-            "schema_version": 7,
+            "schema_version": 8,
             "document": "full",
             "input": {
                 "source": "fen",

@@ -1,5 +1,5 @@
-// Report data model, schema version 7. Frozen by Planning/milestones/PostM4_EM3.md.
-// JSON shape: schema/report.v7.schema.json. Every chess fact in the report is a field here.
+// Report data model, schema version 8. Frozen by Planning/milestones/PostM4_EM4.md.
+// JSON shape: schema/report.v8.schema.json. Every chess fact in the report is a field here.
 // The renderers may only verbalise these fields.
 #pragma once
 
@@ -12,7 +12,7 @@
 
 namespace chesswhy {
 
-inline constexpr int kSchemaVersion = 7;
+inline constexpr int kSchemaVersion = 8;
 
 enum class Side : std::uint8_t { White, Black };
 enum class Budget : std::uint8_t { Quick, Standard, Deep };
@@ -259,6 +259,13 @@ struct MotifRestriction {
     bool operator==(const MotifRestriction&) const = default;
 };
 
+// An additional label of a merged restricted-movement motif in a move report.
+struct MotifLabel {
+    MotifTag tag = MotifTag::HangingPiece;
+    std::optional<MotifThreat> threat;
+    bool operator==(const MotifLabel&) const = default;
+};
+
 // A tactical motif (M2 §4, §5): a pattern of one position. Source: rule. Identity for
 // "newly present" (M2 §5) is (tag, side, actor, targets, threat); `ply`, `gain`,
 // `restriction` and `contribution` are not part of it.
@@ -273,6 +280,8 @@ struct Motif {
     std::optional<MotifRestriction> restriction;   // set iff tag is PinAbsolute, PinRelative,
                                                    // OverloadedDefender or PinTactical
     std::optional<MotifContribution> contribution; // null: not judged (PostM2_EM1 §4.2)
+    // Move reports only (PostM4_EM4 §2.1); empty in the full report and not serialised there.
+    std::vector<MotifLabel> also{};
 };
 
 // A tactic-side label (PostM2_EM1 §4.4). Source: rule. Set only on tactic lines.

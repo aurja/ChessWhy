@@ -83,12 +83,42 @@ using Json = nlohmann::ordered_json;
     const auto relevant = [](const Motif& motif) {
         return motif.contribution && *motif.contribution != MotifContribution::None;
     };
+    const auto restricted_movement = [](MotifTag tag) {
+        switch (tag) {
+        case MotifTag::PinAbsolute:
+        case MotifTag::PinRelative:
+        case MotifTag::OverloadedDefender:
+        case MotifTag::PinTactical:
+            return true;
+        default:
+            return false;
+        }
+    };
+    const auto repeats = [&restricted_movement](const Motif& first, const Motif& later) {
+        return restricted_movement(first.tag) && restricted_movement(later.tag) &&
+               first.side == later.side && first.ply == later.ply && first.actor == later.actor &&
+               first.targets == later.targets && first.restriction == later.restriction &&
+               first.contribution == later.contribution;
+    };
     std::vector<Motif> result;
     result.reserve(static_cast<std::size_t>(std::ranges::count_if(motifs, relevant)));
     for (const auto& motif : motifs) {
-        if (relevant(motif)) {
-            result.push_back(motif);
+        if (!relevant(motif)) {
+            continue;
         }
+        Motif projected = motif;
+        projected.also.clear();
+        if (restricted_movement(projected.tag)) {
+            const auto first =
+                std::ranges::find_if(result, [&projected, &repeats](const Motif& entry) {
+                    return repeats(entry, projected);
+                });
+            if (first != result.end()) {
+                first->also.push_back(MotifLabel{.tag = projected.tag, .threat = projected.threat});
+                continue;
+            }
+        }
+        result.push_back(std::move(projected));
     }
     return result;
 }
@@ -196,6 +226,14 @@ using Json = nlohmann::ordered_json;
         motif.restriction ? serialize_motif_restriction(*motif.restriction) : Json(nullptr);
     value["contribution"] =
         motif.contribution ? Json(to_string(*motif.contribution)) : Json(nullptr);
+    Json also = Json::array();
+    for (const MotifLabel& label : motif.also) {
+        Json item = Json::object();
+        item["tag"] = to_string(label.tag);
+        item["threat"] = label.threat ? serialize_motif_threat(*label.threat) : Json(nullptr);
+        also.push_back(std::move(item));
+    }
+    value["also"] = std::move(also);
     return value;
 }
 

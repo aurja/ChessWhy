@@ -2358,14 +2358,41 @@ def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> Non
     check_restrictions_everywhere(report, root, failures)
 
 
-def contribution_filtered(motifs_value: JsonValue) -> list[JsonValue]:
+def relevant_motifs(motifs_value: JsonValue) -> list[JsonValue]:
     motifs = as_array(motifs_value) or []
-    return [
-        motif
-        for motif in motifs
-        if (motif_object := as_object(motif)) is not None
-        and motif_object.get("contribution") in ("direct", "indirect")
-    ]
+    projected: list[JsonValue] = []
+    restricted_motifs: list[tuple[tuple[JsonValue, ...], int]] = []
+    identity_fields = (
+        "side",
+        "ply",
+        "actor",
+        "targets",
+        "restriction",
+        "contribution",
+    )
+    for motif_value in motifs:
+        motif = as_object(motif_value)
+        if motif is None or motif.get("contribution") not in ("direct", "indirect"):
+            continue
+        projected_motif = dict(motif)
+        projected_motif["also"] = []
+        tag = motif.get("tag")
+        if tag in RESTRICTED_TAGS:
+            identity = tuple(motif.get(field) for field in identity_fields)
+            for earlier_identity, earlier_index in restricted_motifs:
+                if identity == earlier_identity:
+                    earlier = as_object(projected[earlier_index])
+                    assert earlier is not None
+                    also = as_array(earlier["also"])
+                    assert also is not None
+                    also.append({"tag": tag, "threat": motif.get("threat")})
+                    break
+            else:
+                restricted_motifs.append((identity, len(projected)))
+                projected.append(projected_motif)
+            continue
+        projected.append(projected_motif)
+    return projected
 
 
 def projected_threat(value: JsonValue, filter_motifs: bool) -> JsonValue:
@@ -2374,7 +2401,7 @@ def projected_threat(value: JsonValue, filter_motifs: bool) -> JsonValue:
         return None
     projected = dict(threat)
     projected["motifs"] = (
-        contribution_filtered(threat.get("motifs")) if filter_motifs else []
+        relevant_motifs(threat.get("motifs")) if filter_motifs else []
     )
     return projected
 
@@ -2584,8 +2611,8 @@ def project_assessment(
         "is_tactic": assessment.get("is_tactic"),
         "allows_tactic": assessment.get("allows_tactic"),
         "opportunity": assessment.get("opportunity"),
-        "motifs": contribution_filtered(assessment.get("motifs")),
-        "root_motifs": contribution_filtered(assessment.get("root_motifs")),
+        "motifs": relevant_motifs(assessment.get("motifs")),
+        "root_motifs": relevant_motifs(assessment.get("root_motifs")),
         "tactic_labels": assessment.get("tactic_labels"),
         "positional": net_positional_changes(
             assessment.get("positional"), tempo_dependent
@@ -2829,10 +2856,10 @@ def schema_error_message(error: ValidationError) -> str:
 def schema_for_document(base_schema: Path, document: JsonValue) -> Path:
     if document not in ("full", "moves"):
         return base_schema
-    if base_schema.name not in ("report.v7.schema.json", "moves.v7.schema.json"):
+    if base_schema.name not in ("report.v8.schema.json", "moves.v8.schema.json"):
         return base_schema
     schema_name = (
-        "report.v7.schema.json" if document == "full" else "moves.v7.schema.json"
+        "report.v8.schema.json" if document == "full" else "moves.v8.schema.json"
     )
     return base_schema.with_name(schema_name)
 
@@ -2883,7 +2910,7 @@ def validate_document_file(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="validate ChessWhy full and moves documents against their v7 schemas"
+        description="validate ChessWhy full and moves documents against their v8 schemas"
     )
     _ = parser.add_argument("schema", type=Path)
     _ = parser.add_argument("reports", type=Path, nargs="*")

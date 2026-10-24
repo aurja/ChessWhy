@@ -548,6 +548,71 @@ TEST_CASE("move report documents match golden text without candidate wording", "
     }
 }
 
+TEST_CASE("move report text compacts restricted-movement rows", "[unit]") {
+    using namespace chesswhy;
+
+    MoveReportDocument document = base_move_document();
+    MoveReport move = report_move(1, "Bxa4", "b7a4", Verdict::Best, 978, 0, 16, {"Bxa4"}, 1);
+    Motif merged;
+    merged.tag = MotifTag::PinRelative;
+    merged.side = Side::Black;
+    merged.ply = 3;
+    merged.actor = test_examples::piece_on_square('a', 7, 'b');
+    merged.targets = {test_examples::piece_on_square('c', 5, 'B'),
+                      test_examples::piece_on_square('f', 2, 'R')};
+    merged.restriction =
+        restriction(test_examples::piece_on_square('a', 7, 'P'), {"a7a8"}, {"a7a6"},
+                    HeldTo{.kind = HeldTo::Kind::Diagonal, .name = "a7-g1"});
+    merged.contribution = MotifContribution::Direct;
+    merged.also.push_back(MotifLabel{
+        .tag = MotifTag::PinTactical,
+        .threat =
+            MotifThreat{
+                .kind = ThreatKind::Capture,
+                .square = test_examples::piece_on_square('f', 2, 'R').square,
+            },
+    });
+
+    Motif unmerged;
+    unmerged.tag = MotifTag::PinAbsolute;
+    unmerged.ply = 2;
+    unmerged.actor = test_examples::piece_on_square('h', 8, 'R');
+    unmerged.targets = {test_examples::piece_on_square('h', 1, 'k')};
+    unmerged.restriction = restriction(test_examples::piece_on_square('h', 8, 'P'), {"h8h1"}, {},
+                                       HeldTo{.kind = HeldTo::Kind::Square, .name = "h8"});
+    unmerged.contribution = MotifContribution::Indirect;
+
+    move.motifs = {merged, unmerged};
+    move.impact_order = {ImpactGroup::Motifs};
+    document.moves.push_back(std::move(move));
+    const std::string rendered = render::text(document);
+
+    CHECK(rendered.find("Uses: restricted movement (relative pin; tactic: Ba7-f2 capture): "
+                        "b a7 → B c5, R f2; along diagonal a7-g1 (ply 3, direct) [rule]") !=
+          std::string::npos);
+    CHECK(rendered.find("Uses: restricted movement (absolute pin): R h8 → k h1; at square h8 "
+                        "(ply 2, indirect) [rule]") != std::string::npos);
+    CHECK(rendered.find("; restricted:") == std::string::npos);
+    CHECK(rendered.find("; free:") == std::string::npos);
+}
+
+TEST_CASE("full report text retains restricted and free move lists", "[unit]") {
+    using namespace chesswhy;
+
+    Report report = test_examples::normal_position();
+    Motif motif;
+    motif.tag = MotifTag::PinRelative;
+    motif.actor = test_examples::piece_on_square('b', 1, 'B');
+    motif.targets = {test_examples::piece_on_square('c', 2, 'n')};
+    motif.restriction = restriction(test_examples::piece_on_square('c', 2, 'N'), {"c2c4"}, {"c2c3"},
+                                    HeldTo{.kind = HeldTo::Kind::File, .name = "e"});
+    report.position.motifs.push_back(std::move(motif));
+
+    const std::string rendered = render::text(report);
+    CHECK(rendered.find("restricted movement (relative pin): B b1 → n c2; along file e; "
+                        "restricted: Nc2-c4; free: Nc2-c3 (ply 0) [rule]") != std::string::npos);
+}
+
 TEST_CASE("motif rows and level-independent output", "[unit]") {
     auto report = chesswhy::test_examples::normal_position();
     const std::string club_text = chesswhy::render::text(report);
