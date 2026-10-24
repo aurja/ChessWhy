@@ -809,11 +809,20 @@
         "/position/tempo_value/value": 0.2965,
         "/position/tempo_value/label": "tempo_dependent"
       },
+      "candidate": {
+        "Bxa4": {
+          "/tempo_ledger/plies/0/san": "Bxa4",
+          "/tempo_ledger/plies/0/label": "neither",
+          "/tempo_ledger/plies/6/san": "Nxc2",
+          "/tempo_ledger/plies/6/label": "pure_reply"
+        }
+      },
       "moves_equals": {
         "/moves/0/tempo_gained": [{"ply": 6, "san": "Bxa7", "side": "white", "source": "engine"}],
+        "/moves/0/initiative": [{"holder": "white", "start_ply": 6, "end_ply": 7, "tempi": 1, "ending": "unfinished", "outcome": "evaporated", "source": "rule"}],
         "/moves/1/tempo_gained": []
       },
-      "reason": "The root is tempo_dependent; the Bxa4 line records White's tempo gain with Bxa7, while the Ba7 move report records none."
+      "reason": "The root is tempo_dependent; Bxa4 is an even trade and threatens nothing, so the only tempo is White's Bxa7, answered by the pure reply Nxc2; its run is unfinished when the line ends. The Ba7 move report records no tempo."
     },
     {
       "id": "F42",
