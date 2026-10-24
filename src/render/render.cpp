@@ -1,6 +1,7 @@
 #include "chesswhy/render.hpp"
 
 #include "chesswhy/move_report.hpp"
+#include "chesswhy/positional.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -110,6 +111,109 @@ void write_restriction(std::ostringstream& output, const MotifRestriction& restr
     return side == Side::White ? "White" : "Black";
 }
 
+[[nodiscard]] const char* tempo_label_text(TempoLabel label) {
+    switch (label) {
+    case TempoLabel::TempoDependent:
+        return "tempo-dependent position";
+    case TempoLabel::NonTempo:
+        return "non-tempo position";
+    case TempoLabel::Zugzwang:
+        return "zugzwang";
+    }
+    return "";
+}
+
+void write_tempo_value(std::ostringstream& output, const std::optional<TempoValue>& tempo_value,
+                       bool after_move = false) {
+    if (!tempo_value) {
+        return;
+    }
+    output << (after_move ? "After the move: tempo value " : "Tempo value: ") << std::fixed
+           << std::setprecision(1) << static_cast<double>(tempo_value->value_units) / 20.0
+           << "% for " << side_name(tempo_value->side);
+    if (tempo_value->label) {
+        output << " (" << tempo_label_text(*tempo_value->label) << ')';
+    }
+    output << " [engine]\n";
+}
+
+[[nodiscard]] const char* tempo_ply_label_text(TempoPlyLabel label) {
+    switch (label) {
+    case TempoPlyLabel::Threatening:
+        return "threatening";
+    case TempoPlyLabel::PureReply:
+        return "pure reply";
+    case TempoPlyLabel::CounterThreat:
+        return "counter threat";
+    case TempoPlyLabel::Neither:
+        return "neither";
+    }
+    return "";
+}
+
+void write_initiative_runs(std::ostringstream& output, const std::vector<InitiativeRun>& runs) {
+    for (const InitiativeRun& run : runs) {
+        output << "Initiative: " << side_name(run.holder) << " from ply " << run.start_ply << ", "
+               << run.tempi << (run.tempi == 1 ? " tempo" : " tempi") << "; "
+               << to_string(run.ending) << " at ply " << run.end_ply << "; "
+               << to_string(run.outcome) << " [rule]\n";
+    }
+}
+
+void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) {
+    if (!move.tempo_ledger) {
+        if (move.tempo_ledger_skipped) {
+            const char* reason = "";
+            switch (*move.tempo_ledger_skipped) {
+            case TempoLedgerSkip::InCheck:
+                reason = "S in check";
+                break;
+            case TempoLedgerSkip::NullMoveUnreliable:
+                reason = "null move unreliable";
+                break;
+            case TempoLedgerSkip::NotDetailed:
+                reason = "line not detailed";
+                break;
+            }
+            output << "Tempo ledger: skipped (" << reason << ") [engine]\n";
+        }
+        return;
+    }
+
+    output << "Tempo ledger: ";
+    bool has_ply = false;
+    for (const TempoPly& ply : move.tempo_ledger->plies) {
+        if (has_ply) {
+            output << "; ";
+        }
+        output << ply.ply << ". " << ply.san << ' ' << tempo_ply_label_text(ply.label);
+        if (ply.tempo_gained) {
+            output << ", tempo gained";
+        }
+        has_ply = true;
+    }
+    if (has_ply) {
+        output << "; ";
+    }
+    const int white_tempi = move.tempo_ledger->tempi.white;
+    output << "White " << white_tempi << (white_tempi == 1 ? " tempo" : " tempi") << ", Black "
+           << move.tempo_ledger->tempi.black << " [engine]\n";
+    write_initiative_runs(output, move.tempo_ledger->runs);
+}
+
+void write_move_tempo_rows(std::ostringstream& output, const MoveReport& move) {
+    write_tempo_value(output, move.tempo_value, true);
+    if (move.tempo_gained) {
+        for (const TempoGained& gained : *move.tempo_gained) {
+            output << "Tempo: " << side_name(gained.side) << " gains a tempo with " << gained.san
+                   << " (ply " << gained.ply << ") [engine]\n";
+        }
+    }
+    if (move.initiative) {
+        write_initiative_runs(output, *move.initiative);
+    }
+}
+
 [[nodiscard]] const char* creates_threat_skip_reason(CreatesThreatSkip skip) {
     switch (skip) {
     case CreatesThreatSkip::GivesCheck:
@@ -127,8 +231,8 @@ void write_header(std::ostringstream& output, const EngineInfo& engine, Budget b
            << ", Hash=" << engine.hash_mb << " MB) [rule]\n";
     const NodeBudget& nodes = engine.nodes;
     output << "Budget: " << to_string(budget) << ", nodes A=" << nodes.a << ", B=" << nodes.b
-           << ", C=" << nodes.c << ", D=" << nodes.d << ", E=" << nodes.e << ", R=" << nodes.r
-           << " [rule]\n";
+           << ", C=" << nodes.c << ", D=" << nodes.d << ", E=" << nodes.e << ", L=" << nodes.l
+           << ", R=" << nodes.r << " [rule]\n";
 }
 
 void write_header(std::ostringstream& output, const Report& report) {
@@ -384,13 +488,31 @@ void write_positional_change(std::ostringstream& output, const PositionalChange&
     if (!change.holds_at_end) {
         output << ", not at end";
     }
-    output << ") [rule]\n";
+    output << ')';
+    if (!change.net_change) {
+        output << " (passing change)";
+    }
+    if (change.in_use && !*change.in_use) {
+        output << " (fails the use test)";
+    }
+    output << " [rule]\n";
 }
 
 void write_positional_changes(std::ostringstream& output,
                               const std::vector<PositionalChange>& changes) {
     for (const auto& change : changes) {
         write_positional_change(output, change);
+    }
+}
+
+void write_move_positional_group(std::ostringstream& output, const MoveReport& move,
+                                 ImpactGroup group) {
+    const bool dynamic = group == ImpactGroup::PositionalDynamic;
+    for (const PositionalChange& change : move.positional) {
+        if (change.net_change && change.in_use == true &&
+            positional::is_dynamic(change.feature.tag) == dynamic) {
+            write_positional_change(output, change, move.walked_plies);
+        }
     }
 }
 
@@ -614,22 +736,42 @@ void write_move_games(std::ostringstream& output, const MoveReport& move,
            << ") [games]\n";
 }
 
-void write_move_report_threat(std::ostringstream& output, const MoveReport& move,
-                              Side side_to_move) {
-    if (move.parried_threat) {
+void write_move_report_threat(std::ostringstream& output, const MoveReport& move, Side side_to_move,
+                              ImpactGroup group) {
+    if (group == ImpactGroup::ParriedThreat && move.parried_threat) {
         const ParriedThreat& parried = *move.parried_threat;
         output << "Parries " << side_name(parried.threat.side)
                << "'s threat: " << san_line(parried.threat.line_san) << " (";
         write_consequence_summary(output, parried.threat.consequence, parried.threat.side, true);
         output << ") [" << parry_source(parried.test) << "]\n";
-    }
-    if (move.created_threat) {
+    } else if (group == ImpactGroup::CreatedThreat && move.created_threat) {
         const Side passing_side = side_to_move == Side::White ? Side::Black : Side::White;
         output << "Threatens (if " << side_name(passing_side)
                << " passes): " << san_line(move.created_threat->line_san) << " (";
         write_consequence_summary(output, move.created_threat->consequence,
                                   move.created_threat->side, true);
         output << ") [engine]\n";
+    }
+}
+
+void write_move_report_group(std::ostringstream& output, const MoveReportDocument& document,
+                             const MoveReport& move, ImpactGroup group) {
+    switch (group) {
+    case ImpactGroup::ParriedThreat:
+    case ImpactGroup::CreatedThreat:
+        write_move_report_threat(output, move, document.position.side_to_move, group);
+        return;
+    case ImpactGroup::Motifs:
+        write_motifs(output, move.motifs, true);
+        write_motifs(output, move.root_motifs, true);
+        return;
+    case ImpactGroup::Tempo:
+        write_move_tempo_rows(output, move);
+        return;
+    case ImpactGroup::PositionalDynamic:
+    case ImpactGroup::PositionalStatic:
+        write_move_positional_group(output, move, group);
+        return;
     }
 }
 
@@ -652,17 +794,14 @@ void write_move_report(std::ostringstream& output, const MoveReportDocument& doc
     }
     write_opportunity(output, move.opportunity);
     write_tactic_labels(output, move.tactic_labels);
-    write_motifs(output, move.motifs, true);
-    write_motifs(output, move.root_motifs, true);
-    for (const PositionalChange& change : move.positional) {
-        write_positional_change(output, change, move.walked_plies);
-    }
-    write_move_report_threat(output, move, document.position.side_to_move);
     if (move.refutation) {
         write_refutation(output, *move.refutation);
         write_opportunity(output, move.refutation->opportunity);
         write_tactic_labels(output, move.refutation->tactic_labels);
         write_motifs(output, move.refutation->motifs, true);
+    }
+    for (const ImpactGroup group : move.impact_order) {
+        write_move_report_group(output, document, move, group);
     }
     write_move_games(output, move, document.games);
 }
@@ -686,6 +825,8 @@ void write_move_details(std::ostringstream& output, const std::string& label,
                         const MoveAssessment& move, const GamesInfo& games, Side side_to_move) {
     output << label << " line: " << san_line(move.line_san) << " [engine]\n";
     write_walk(output, label, move);
+    write_tempo_value(output, move.tempo_value, true);
+    write_tempo_ledger(output, move);
     if (move.is_tactic) {
         write_tactic(output, move.consequence);
     }
@@ -763,6 +904,8 @@ std::string text(const Report& report) {
     } else {
         output << "Position evaluation: null [rule]\n";
     }
+    write_tempo_value(output, report.position.tempo_value);
+
     if (!report.position.motifs.empty()) {
         output << "Position motifs: [rule]\n";
         write_motifs(output, report.position.motifs);
@@ -824,6 +967,7 @@ std::string text(const MoveReportDocument& document) {
     output.imbue(std::locale::classic());
     write_header(output, document.engine, document.input.budget);
     write_move_position(output, document.position);
+    write_tempo_value(output, document.position.tempo_value);
     write_opening(output, document.opening);
     write_selection(output, document);
     for (const MoveReport& move : document.moves) {

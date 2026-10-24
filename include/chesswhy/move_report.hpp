@@ -9,6 +9,21 @@
 
 namespace chesswhy {
 
+enum class ImpactGroup : std::uint8_t {
+    ParriedThreat,
+    CreatedThreat,
+    Motifs,
+    Tempo,
+    PositionalDynamic,
+    PositionalStatic
+};
+
+struct TempoGained {
+    int ply = 1;
+    std::string san;
+    Side side = Side::White;
+};
+
 struct ParriedThreat {
     Threat threat;
     ParryTest test = ParryTest::Searched;
@@ -31,6 +46,10 @@ struct MoveReport {
     std::vector<Motif> motifs, root_motifs; // contribution direct or indirect only
     std::vector<TacticLabel> tactic_labels;
     std::vector<PositionalChange> positional; // net change (§4.6)
+    std::optional<TempoValue> tempo_value;
+    std::optional<std::vector<TempoGained>> tempo_gained; // null iff no ledger
+    std::optional<std::vector<InitiativeRun>> initiative; // null iff no ledger
+    std::vector<ImpactGroup> impact_order;
     std::optional<ParriedThreat> parried_threat;
     std::optional<Threat> created_threat; // mate, material or promotion; no motifs
     std::optional<Threat> refutation;     // motifs filtered (§4.6)
@@ -51,6 +70,7 @@ struct PositionSummary {
     int legal_moves = 0;
     std::optional<Terminal> terminal;
     std::optional<Eval> eval_white;
+    std::optional<TempoValue> tempo_value;
 };
 
 struct GameSourceSummary {
@@ -79,6 +99,8 @@ struct MoveReportDocument {
     std::vector<GameSourceSummary> games;
     std::vector<MoveReport> moves;
 };
+
+[[nodiscard]] std::vector<ImpactGroup> impact_order(const MoveReport& move, bool tempo_dependent);
 
 [[nodiscard]] MoveReportDocument move_reports(const Report& report); // §4.1, §4.6; pure
 [[nodiscard]] nlohmann::ordered_json to_json(const MoveReportDocument& document);

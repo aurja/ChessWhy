@@ -103,7 +103,8 @@ TEST_CASE("JSON follows v7 report key order", "[unit]") {
     CHECK(keys(json["position"]) ==
           std::vector<std::string>{"fen", "side_to_move", "in_check", "legal_moves", "terminal",
                                    "eval_white", "tempo_value", "motifs", "positional"});
-    CHECK(json["position"]["tempo_value"].is_null());
+    CHECK(keys(json["position"]["tempo_value"]) ==
+          std::vector<std::string>{"side", "moves", "passes", "value", "label", "source"});
     CHECK(keys(json["position"]["eval_white"]) ==
           std::vector<std::string>{"source", "es", "cp", "mate"});
     CHECK(keys(json["threats"]) ==
@@ -172,8 +173,9 @@ TEST_CASE("JSON follows v7 report key order", "[unit]") {
     CHECK(json["candidates"][0]["positional"][0]["value"] == 12);
     CHECK(json["candidates"][0]["positional"][0]["source"] == "rule");
     CHECK(json["asked_moves"][0]["positional"][1]["file"] == "c");
-    CHECK(json["candidates"][0]["positional"][0]["net_change"] == false);
-    CHECK(json["candidates"][0]["positional"][0]["in_use"].is_null());
+    const auto& first_change = report.candidates[0].positional[0];
+    CHECK(json["candidates"][0]["positional"][0]["net_change"] == first_change.net_change);
+    CHECK(json["candidates"][0]["positional"][0]["in_use"].is_null() == !first_change.in_use);
     CHECK(json["asked_moves"][0]["positional"][1]["pieces"][0]["square"] == "c6");
     CHECK(json["asked_moves"][0]["positional"][0]["change"] == "disappears");
     CHECK(json["asked_moves"][0]["positional"][0]["holds_at_end"] == false);

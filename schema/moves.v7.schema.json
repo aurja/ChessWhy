@@ -192,13 +192,14 @@
           "description": "Configured node budget for each search kind [rule].",
           "type": "object",
           "additionalProperties": false,
-          "required": ["A", "B", "C", "D", "E", "R"],
+          "required": ["A", "B", "C", "D", "E", "L", "R"],
           "properties": {
             "A": {"description": "Scaled node budget for MultiPV K from the current position [rule].", "type": "integer", "minimum": 0},
             "B": {"description": "Node budget for the null-move search with the opponent to move [rule].", "type": "integer", "minimum": 1},
             "C": {"description": "Node budget for the searchmoves m search for an asked move outside A [rule].", "type": "integer", "minimum": 1},
             "D": {"description": "Node budget for the search after m restricted to the opponent's threat move [rule].", "type": "integer", "minimum": 1},
             "E": {"description": "Node budget for the search after m with a null move [rule].", "type": "integer", "minimum": 1},
+            "L": {"description": "Node budget for each threat and reply search of the tempo ledger [rule].", "type": "integer", "minimum": 1},
             "R": {"description": "Node budget for the search after m excluding the refutation's first move [rule].", "type": "integer", "minimum": 1}
           }
         },
@@ -212,7 +213,7 @@
     "position": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["fen", "side_to_move", "in_check", "legal_moves", "terminal", "eval_white"],
+      "required": ["fen", "side_to_move", "in_check", "legal_moves", "terminal", "eval_white", "tempo_value"],
       "properties": {
         "fen": {
           "description": "Full FEN of the analyzed board [rule].",
@@ -238,6 +239,10 @@
         "eval_white": {
           "description": "Best line evaluation from search A, from White's point of view; null iff terminal [engine].",
           "oneOf": [{"$ref": "#/$defs/eval"}, {"type": "null"}]
+        },
+        "tempo_value": {
+          "description": "Tempo value at the analyzed position, or null when it cannot be measured [engine].",
+          "oneOf": [{"$ref": "#/$defs/tempo_value"}, {"type": "null"}]
         }
       }
     },
@@ -346,7 +351,7 @@
     "move": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rank", "san", "uci", "eval", "depth", "loss", "verdict", "gives_check", "line", "walked_plies", "consequence", "is_tactic", "allows_tactic", "opportunity", "motifs", "root_motifs", "tactic_labels", "positional", "parried_threat", "created_threat", "refutation", "games"],
+      "required": ["rank", "san", "uci", "eval", "depth", "loss", "verdict", "gives_check", "line", "walked_plies", "consequence", "is_tactic", "allows_tactic", "opportunity", "motifs", "root_motifs", "tactic_labels", "positional", "tempo_value", "tempo_gained", "initiative", "impact_order", "parried_threat", "created_threat", "refutation", "games"],
       "properties": {
         "rank": {"description": "1-based MultiPV rank, or null for a move assessed by Search C [engine].", "type": ["integer", "null"], "minimum": 1},
         "san": {"description": "Standard algebraic notation for the move [engine].", "type": "string"},
@@ -365,7 +370,31 @@
         "motifs": {"description": "Move-line motifs whose contribution is direct or indirect [rule].", "$ref": "#/$defs/relevant_motifs"},
         "root_motifs": {"description": "Root motifs whose contribution is direct or indirect for this move line [rule].", "$ref": "#/$defs/relevant_motifs"},
         "tactic_labels": {"description": "Rule-derived labels for this tactic line; empty otherwise [rule].", "type": "array", "items": {"$ref": "#/$defs/tactic_label"}},
-        "positional": {"description": "Net positional changes that hold at the end of the analyzed line, with the last change per feature identity [rule].", "type": "array", "items": {"$ref": "#/$defs/positional_change"}},
+        "positional": {"description": "Positional changes with net_change and in_use true, ordered by §6.7 positional impact order [rule].", "type": "array", "items": {"$ref": "#/$defs/positional_change"}},
+        "tempo_value": {
+          "description": "Tempo value after this move, or null when search E did not run [engine].",
+          "oneOf": [{"$ref": "#/$defs/tempo_value"}, {"type": "null"}]
+        },
+        "tempo_gained": {
+          "description": "Tempo-gaining plies from the ledger, or null iff no ledger [engine].",
+          "oneOf": [
+            {"type": "array", "items": {"$ref": "#/$defs/tempo_gained"}, "maxItems": 10},
+            {"type": "null"}
+          ]
+        },
+        "initiative": {
+          "description": "Initiative runs from the ledger, or null iff no ledger [rule].",
+          "oneOf": [
+            {"type": "array", "items": {"$ref": "#/$defs/initiative_run"}},
+            {"type": "null"}
+          ]
+        },
+        "impact_order": {
+          "description": "Non-empty impact groups, sorted by rule-derived rank [rule].",
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/impact_group"}
+        },
         "parried_threat": {
           "description": "Opponent threat and parry test when the move parries that threat, or null [engine/rule].",
           "oneOf": [
@@ -411,8 +440,28 @@
             {"type": "null"}
           ]
         },
-        "games": {"description": "Source game count for this move, or null when no count is available [games].", "type": ["integer", "null"], "minimum": 0}
-      }
+        "games": {
+          "description": "Number of source games that played this move [games].",
+          "type": ["integer", "null"],
+          "minimum": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"tempo_gained": {"type": "null"}},
+            "required": ["tempo_gained"]
+          },
+          "then": {"properties": {"initiative": {"type": "null"}}}
+        },
+        {
+          "if": {
+            "properties": {"initiative": {"type": "null"}},
+            "required": ["initiative"]
+          },
+          "then": {"properties": {"tempo_gained": {"type": "null"}}}
+        }
+      ]
     },
     "relevant_motifs": {
       "type": "array",
@@ -547,15 +596,69 @@
         "targets": {"description": "Captured defender followed by the piece it defended [rule].", "type": "array", "items": {"$ref": "#/$defs/piece_on_square"}, "minItems": 2, "maxItems": 2}
       }
     },
+    "tempo_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["side", "moves", "passes", "value", "label", "source"],
+      "properties": {
+        "side": {"description": "Side whose tempo value is reported [engine].", "$ref": "#/$defs/side"},
+        "moves": {"description": "Expected score for the side when it moves [engine].", "type": "number", "minimum": 0, "maximum": 1},
+        "passes": {"description": "Expected score for the side when it passes [engine].", "type": "number", "minimum": 0, "maximum": 1},
+        "value": {"description": "Expected-score difference between moving and passing [engine].", "type": "number", "minimum": -1, "maximum": 1},
+        "label": {"description": "Tempo label for the value, or null in the unlabelled interval [rule].", "type": ["string", "null"], "enum": ["tempo_dependent", "non_tempo", "zugzwang", null]},
+        "source": {"description": "Provenance of the tempo value [engine].", "const": "engine"}
+      }
+    },
+    "tempo_gained": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ply", "san", "side", "source"],
+      "properties": {
+        "ply": {"description": "Ply on which a tempo was gained [engine].", "type": "integer", "minimum": 1},
+        "san": {"description": "SAN of the tempo-gaining move [engine].", "type": "string"},
+        "side": {"description": "Side that gained the tempo [engine].", "$ref": "#/$defs/side"},
+        "source": {"description": "Provenance of the tempo-gaining ply [engine].", "const": "engine"}
+      }
+    },
+    "initiative_run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["holder", "start_ply", "end_ply", "tempi", "ending", "outcome", "source"],
+      "properties": {
+        "holder": {"description": "Side holding the initiative [rule].", "$ref": "#/$defs/side"},
+        "start_ply": {"description": "First tempo-gaining ply of the run [rule].", "type": "integer", "minimum": 1},
+        "end_ply": {"description": "Last ply included in the run [rule].", "type": "integer", "minimum": 1},
+        "tempi": {"description": "Number of tempi gained by the holder during the run [rule].", "type": "integer", "minimum": 1},
+        "ending": {"description": "Rule-derived ending of the initiative run [rule].", "enum": ["spent", "contested", "runs", "unfinished"]},
+        "outcome": {"description": "Whether a run's gain is converted or evaporated [rule].", "enum": ["converted", "evaporated"]},
+        "source": {"description": "Provenance of the initiative run [rule].", "const": "rule"}
+      }
+    },
+    "impact_group": {
+      "description": "Move-report group name, in §6.7 base order and rank sorting [rule].",
+      "enum": ["parried_threat", "created_threat", "motifs", "tempo", "positional_dynamic", "positional_static"]
+    },
     "positional_change": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "ply", "change", "holds_at_end", "tag", "side", "pieces", "file", "value"],
+      "allOf": [
+        {
+          "if": {
+            "properties": {"net_change": {"const": true}},
+            "required": ["net_change"]
+          },
+          "then": {"properties": {"in_use": {"type": "boolean"}}},
+          "else": {"properties": {"in_use": {"type": "null"}}}
+        }
+      ],
+      "required": ["source", "ply", "change", "holds_at_end", "net_change", "in_use", "tag", "side", "pieces", "file", "value"],
       "properties": {
         "source": {"description": "Positional-change provenance [rule].", "const": "rule"},
         "ply": {"description": "Ply at which the feature appeared or disappeared [rule].", "type": "integer", "minimum": 1},
         "change": {"description": "Whether the feature appeared or disappeared [rule].", "enum": ["appears", "disappears"]},
-        "holds_at_end": {"description": "Whether the change's feature identity has this final state at the end of the analyzed line [rule].", "const": true},
+        "holds_at_end": {"description": "Whether the change's feature identity has this final state at the end of the analyzed line [rule].", "type": "boolean"},
+        "net_change": {"description": "Whether this is the last change of a feature that differs from the root [rule].", "type": "boolean"},
+        "in_use": {"description": "Whether a net positional change passes the use test, or null when it is not net [rule].", "type": ["boolean", "null"]},
         "tag": {"description": "Positional feature tag [rule].", "enum": ["isolated_pawn", "doubled_pawns", "tripled_pawns", "backward_pawn", "passed_pawn", "connected_passed_pawns", "pawn_islands", "pawn_chain", "castling_kingside", "castling_queenside", "king_shield_gap", "open_file_near_king", "half_open_file_near_king", "king_zone_attacker", "bishop_pair", "rook_open_file", "rook_half_open_file", "rook_seventh", "outpost", "bad_bishop", "mobility_lead", "space_lead", "development_lead", "material_ahead", "exchange_up"]},
         "side": {"description": "Side that owns or benefits from the positional feature [rule].", "$ref": "#/$defs/side"},
         "pieces": {"description": "Pieces participating in the feature, in its defined order [rule].", "type": "array", "items": {"$ref": "#/$defs/piece_on_square"}},

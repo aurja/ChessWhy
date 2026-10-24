@@ -107,7 +107,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `SpaceDevelopment` | `src/positional/positional.cpp` `mobility` `space` `undeveloped` `add_leads_and_material`; `include/chesswhy/positional.hpp` `kMobilityLead` `kSpaceLead` `kDevelopmentLead` | |
 | `MaterialBalance` | `src/positional/positional.cpp` `add_leads_and_material` | |
 | `PositionalChange` | `src/positional/positional.cpp` `same_identity` `line_changes`; `src/analysis/analyse.cpp` `assess_move` `walked_moves`; `include/chesswhy/report.hpp` `PositionalChange` | Over the same walked plies as the line motifs |
-| `TiedToLine` | `src/render/render.cpp` `write_positional_changes` | Prints only changes along lines; `position.positional` stays in the JSON |
+| `TiedToLine` | `src/report/move_report.cpp` `assess_move`; `src/render/render.cpp` `write_positional_changes` `write_positional_change` `write_move_positional_group` | Move reports keep `net_change && in_use`; the full report text marks passing changes and changes that fail the use test |
 | `NetChange` | `src/positional/positional.cpp` `mark_use` `contains_identity`; `include/chesswhy/report.hpp` `PositionalChange` | `mark_use` computes the root features itself |
 | `UseTest` | `src/positional/positional.cpp` `mark_use` `king_pressed` `king_zone` `used_by_later_capture` `has_attacked_feature_pawn` `used_passer` `used_rook_file` | Called by `src/analysis/analyse.cpp` `analyse` before the ledger |
 | `FavouredSide` | `src/positional/positional.cpp` `favours` | |
@@ -149,14 +149,14 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Reproducible` | `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
 | `ReportSchema` | `schema/report.v7.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
-| `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` | Run by CTest `report_schema` on every F report |
+| `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` `check_tempo_and_positional_semantics` `check_tempo_value` `check_tempo_ledger` `use_test` `check_positional_relations` | Run by CTest `report_schema` on every F report; `use_test` re-implements the use test independently |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/output.cpp` `write_output`; `src/report/move_report.cpp` `to_json` | `--json` prints the move report document, `--json --full-report` the full report |
 | `MoveSelection` | `src/report/move_report.cpp` `move_reports` `selected_from_a` `selected_by_keyword`; `src/analysis/analyse.cpp` `selected_by_selection` | Engine order, asked moves outside A last, each move once |
-| `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence` | |
-| `ImpactRating` | `src/positional/positional.cpp` `impact_order` | As built: the order of positional facts only |
+| `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence` | Positional changes: `net_change && in_use`, ordered by `positional::impact_order` |
+| `ImpactRating` | `src/report/move_report.cpp` `impact_order`; `src/positional/positional.cpp` `impact_order`; `include/chesswhy/move_report.hpp` `ImpactGroup`; `src/render/render.cpp` `write_move_report` | Groups for the move report; positional facts ordered within their group |
 | `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v7.schema.json` | |
-| `ProjectionCheck` | `tools/validate_report.py` `projected_move_document` `project_assessment` `net_positional_changes` `positional_identity` `check_projection` | Second, independent filter; `--projection FULL MOVES` |
+| `ProjectionCheck` | `tools/validate_report.py` `projected_move_document` `project_assessment` `net_positional_changes` `positional_identity` `projected_tempo_gained` `check_projection` | Second, independent filter; `--projection FULL MOVES` |
 
 ## Explanation
 
@@ -164,7 +164,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 |---|---|---|
 | `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` `write_restriction` `write_held_to` | |
 | `Conditions` | `src/render/render.cpp` `write_engine_line_count` `write_selection_count` `write_walk` `creates_threat_skip_reason` | |
-| `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` | Two overloads of `text`: move report text and full report text |
+| `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` `write_tempo_value` `write_tempo_ledger` `write_initiative_runs` `write_move_tempo_rows` | Two overloads of `text`: move report text and full report text |
 | `ExplanationText` | `src/cli/output.cpp` `write_output` | Prints the rendered text |
 
 ## Fixtures and measurement

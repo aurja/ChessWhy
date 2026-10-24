@@ -61,7 +61,7 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class Question,Positional,Reference,Report,Explanation,Proof partial
+    class Question,Positional,Reference,Explanation,Proof partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -75,7 +75,7 @@ flowchart LR
 | `Positional` | Pawn structure, king safety, piece activity and other lasting features, reported as changes along lines | positional fact | partial |
 | `Tempo` | Whether having the move matters in the position, which moves of a line gain a tempo, and who holds the initiative and what becomes of it | tempo value, tempo ledger, initiative | implemented |
 | `Reference` | Knowledge from outside the engine: opening names, game counts, book passages | provenance, opening name, game counts, book passage | partial |
-| `Report` | The full report holds every fact, each with its provenance; one move report per selected move holds only the facts that bear on it, in impact order; nothing is claimed outside them | report, full report, move report, provenance, facts first, impact rating | partial |
+| `Report` | The full report holds every fact, each with its provenance; one move report per selected move holds only the facts that bear on it, in impact order; nothing is claimed outside them | report, full report, move report, provenance, facts first, impact rating | implemented |
 | `Explanation` | The words a reader gets: template text today, language-model prose checked against the report later | explanation, template rendering | partial |
 | `Proof` | Fixtures and measurements that show the facts are right | fixture, recall | partial |
 
@@ -407,7 +407,6 @@ flowchart LR
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,WalkedPlies,TempoLabel,RunOutcome,ImpactRating external
     class NamedStructures,Imbalances planned
-    class TiedToLine partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -425,7 +424,7 @@ flowchart LR
 | `MaterialBalance` | Who is ahead in material and by how much, and an exchange up. Called `MaterialImbalance` before 2026-10-21, when it meant which pieces each side has beyond the count (now `Imbalances`) | `material_ahead`, `exchange_up` | implemented |
 | `Imbalances` | Which pieces each side has beyond the material count (two minor pieces against a rook and the like); deferred on 2026-10-21 | positional fact | planned |
 | `PositionalChange` | A positional feature that appears or disappears along a line, judged by its identity, and whether that still holds at the end | positional change, feature identity, `holds_at_end` | implemented |
-| `TiedToLine` | A positional fact enters the move report only when a line changes it. As built: the last change per feature identity that holds at the end; decided 2026-10-24: a net change that passes the use test. The full report keeps every change | positional fact, net change, use test | partial |
+| `TiedToLine` | A positional fact enters the move report only when it is a net change of the line that passes the use test (since 2026-10-24; before, the last change per feature identity that holds at the end). The full report keeps every change, marked as passing or failing the use test | positional fact, net change, use test | implemented |
 | `NetChange` | For one line, the last change per feature identity, kept only when the root and the end of the walk differ (the feature is there at one and not at the other); the rest are passing changes | net change, passing change, `net_change` | implemented |
 | `UseTest` | Whether a later move of the walk uses a net change (attacks or wins a weak pawn, advances a passed pawn, moves a rook along its file, presses a weakened king), or the move or its reply made it; per-tag rules in the L3 diagram | use test, `in_use`, king pressed | implemented |
 | `FavouredSide` | The side a change helps: a weakness that appears helps the opponent of its owner, any other feature that appears helps its owner, a disappearance helps the other side; pawn islands and pawn chains help nobody | favoured side | implemented |
@@ -584,7 +583,6 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class Explanation,MoveRequest,AskedMove,TempoLabel,StaticScale external
-    class RelevanceFilter,ImpactRating partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -594,12 +592,12 @@ flowchart LR
 | `Reproducible` | The settings that make a report repeat exactly, recorded in the report: budget, threads, hash and nodes. The engine binary and the ChessWhy revision are not identified (named 2026-10-22) | reproducible | implemented |
 | `ReportDocument` | The full report: the JSON document of one question with every computed fact; the only place chess claims live; what fixtures and checks read. Called "report document" before 2026-10-23 | report, full report, facts first | implemented |
 | `ReportSchema` | The versioned JSON Schema every report must satisfy, with a description on every field and if/then rules for local relations | report schema | implemented |
-| `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves | semantic check | implemented |
+| `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves; tempo values and labels, ledger labels and tempi, initiative runs and outcomes, net changes and the use test | semantic check | implemented |
 | `RerunIdentity` | Two fresh runs on the same input give the same bytes | rerun identity | implemented |
 | `JsonOutput` | A report printed as JSON when `--json` is given, for programs and for checking: the move report document, or the full report with `--full-report` (before 2026-10-23: the one report; until the Captain's P9 revision that day, `--full-report` alone printed JSON) | JSON output, move report document, `--full-report` | implemented |
 | `MoveSelection` | Which moves get a move report: everything the request names, together and each once, in the engine's order with asked moves outside A last; a keyword that matches no move adds nothing | selection, playable move, asked move | implemented |
-| `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute, the positional changes tied to its line, its tempo facts; other moves and their facts are left out. Positional changes: as built, the last change per feature that holds at the end; decided 2026-10-24, net changes that pass the use test | relevance filter, net change, use test | partial |
-| `ImpactRating` | The order of a move report's facts after the core claims (verdict, line, tactic and opportunity, refutation, conditions): parried threat, created threat, motifs, tempo facts and positional facts ranked by the consequence they bear on; ties and positional facts follow the static scale, dynamic facts first in a tempo-dependent position, static facts first otherwise. As built: the order of positional facts only | impact rating, `impact_order`, static scale | partial |
+| `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute, the net changes of its line that pass the use test, its tempo facts; other moves and their facts are left out (positional changes before 2026-10-24: the last change per feature that holds at the end) | relevance filter, net change, use test | implemented |
+| `ImpactRating` | The order of a move report's facts after the core claims (verdict, line, tactic and opportunity, refutation, conditions): parried threat, created threat, motifs, tempo facts and positional facts ranked by the consequence they bear on; ties and positional facts follow the static scale, dynamic facts first in a tempo-dependent position, static facts first otherwise | impact rating, `impact_order`, static scale | implemented |
 | `MoveReport` | The output for one selected move, each fact copied unchanged from the full report with its provenance | move report | implemented |
 | `ProjectionCheck` | Every move report fact equals the full-report field it came from, with the filter written a second time independently | projection check | implemented |
 | `MoveRequest` | See Question | — | external |

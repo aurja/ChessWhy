@@ -1,9 +1,9 @@
 #include "chesswhy/move_report.hpp"
 
+#include "chesswhy/analysis.hpp"
 #include "chesswhy/positional.hpp"
 
 #include <algorithm>
-#include <ranges>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -126,6 +126,17 @@ using Json = nlohmann::ordered_json;
     return result;
 }
 
+[[nodiscard]] Json serialize_tempo_value(const TempoValue& tempo) {
+    Json value = Json::object();
+    value["side"] = to_string(tempo.side);
+    value["moves"] = static_cast<double>(tempo.moves_units) / 2000.0;
+    value["passes"] = static_cast<double>(tempo.passes_units) / 2000.0;
+    value["value"] = static_cast<double>(tempo.value_units) / 2000.0;
+    value["label"] = tempo.label ? Json(to_string(*tempo.label)) : Json(nullptr);
+    value["source"] = "engine";
+    return value;
+}
+
 [[nodiscard]] Json serialize_eval(const Eval& eval) {
     Json value = Json::object();
     value["source"] = "engine";
@@ -215,6 +226,8 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["ply"] = change.ply;
     value["change"] = to_string(change.change);
     value["holds_at_end"] = change.holds_at_end;
+    value["net_change"] = change.net_change;
+    value["in_use"] = change.in_use ? Json(*change.in_use) : Json(nullptr);
     serialize_positional_feature_fields(value, change.feature);
     return value;
 }
@@ -240,6 +253,45 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
         result.push_back(serialize_tactic_label(label));
     }
     return result;
+}
+
+[[nodiscard]] Json serialize_tempo_gained(const TempoGained& tempo) {
+    Json value = Json::object();
+    value["ply"] = tempo.ply;
+    value["san"] = tempo.san;
+    value["side"] = to_string(tempo.side);
+    value["source"] = "engine";
+    return value;
+}
+
+[[nodiscard]] Json serialize_initiative_run(const InitiativeRun& run) {
+    Json value = Json::object();
+    value["holder"] = to_string(run.holder);
+    value["start_ply"] = run.start_ply;
+    value["end_ply"] = run.end_ply;
+    value["tempi"] = run.tempi;
+    value["ending"] = to_string(run.ending);
+    value["outcome"] = to_string(run.outcome);
+    value["source"] = "rule";
+    return value;
+}
+
+[[nodiscard]] std::string to_string(ImpactGroup group) {
+    switch (group) {
+    case ImpactGroup::ParriedThreat:
+        return "parried_threat";
+    case ImpactGroup::CreatedThreat:
+        return "created_threat";
+    case ImpactGroup::Motifs:
+        return "motifs";
+    case ImpactGroup::Tempo:
+        return "tempo";
+    case ImpactGroup::PositionalDynamic:
+        return "positional_dynamic";
+    case ImpactGroup::PositionalStatic:
+        return "positional_static";
+    }
+    throw std::invalid_argument(invalid_enum("ImpactGroup", static_cast<unsigned int>(group)));
 }
 
 [[nodiscard]] Json serialize_opportunity(const OpportunityJudgement& opportunity) {
@@ -316,6 +368,31 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
         positional.push_back(serialize_positional_change(change));
     }
     value["positional"] = std::move(positional);
+    value["tempo_value"] =
+        move.tempo_value ? serialize_tempo_value(*move.tempo_value) : Json(nullptr);
+    if (move.tempo_gained) {
+        Json gained = Json::array();
+        for (const auto& tempo : *move.tempo_gained) {
+            gained.push_back(serialize_tempo_gained(tempo));
+        }
+        value["tempo_gained"] = std::move(gained);
+    } else {
+        value["tempo_gained"] = nullptr;
+    }
+    if (move.initiative) {
+        Json runs = Json::array();
+        for (const auto& run : *move.initiative) {
+            runs.push_back(serialize_initiative_run(run));
+        }
+        value["initiative"] = std::move(runs);
+    } else {
+        value["initiative"] = nullptr;
+    }
+    Json impact_order = Json::array();
+    for (const ImpactGroup group : move.impact_order) {
+        impact_order.push_back(to_string(group));
+    }
+    value["impact_order"] = std::move(impact_order);
     if (move.parried_threat) {
         Json parried = Json::object();
         parried["threat"] = serialize_threat(move.parried_threat->threat);
@@ -369,6 +446,7 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     nodes["C"] = engine.nodes.c;
     nodes["D"] = engine.nodes.d;
     nodes["E"] = engine.nodes.e;
+    nodes["L"] = engine.nodes.l;
     nodes["R"] = engine.nodes.r;
     value["nodes"] = std::move(nodes);
     value["nodes_searched"] = engine.nodes_searched;
@@ -384,6 +462,8 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["terminal"] = position.terminal ? Json(to_string(*position.terminal)) : Json(nullptr);
     value["eval_white"] =
         position.eval_white ? serialize_eval(*position.eval_white) : Json(nullptr);
+    value["tempo_value"] =
+        position.tempo_value ? serialize_tempo_value(*position.tempo_value) : Json(nullptr);
     return value;
 }
 
@@ -458,17 +538,34 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     result.motifs = relevant_motifs(assessment.motifs);
     result.root_motifs = relevant_motifs(assessment.root_motifs);
     result.tactic_labels = assessment.tactic_labels;
+    result.tempo_value = assessment.tempo_value;
 
-    for (const auto& change : std::views::reverse(assessment.positional)) {
-        if (!change.holds_at_end ||
-            std::ranges::any_of(result.positional, [&change](const PositionalChange& later) {
-                return positional::same_identity(later.feature, change.feature);
-            })) {
-            continue;
+    const bool tempo_dependent = analysis::tempo_dependent(report.position.tempo_value);
+    if (assessment.tempo_ledger) {
+        std::vector<TempoGained> tempo_gained;
+        tempo_gained.reserve(static_cast<std::size_t>(
+            std::ranges::count_if(assessment.tempo_ledger->plies, &TempoPly::tempo_gained)));
+        for (const TempoPly& ply : assessment.tempo_ledger->plies) {
+            if (ply.tempo_gained) {
+                tempo_gained.push_back(
+                    TempoGained{.ply = ply.ply, .san = ply.san, .side = ply.side});
+            }
         }
-        result.positional.push_back(change);
+        result.tempo_gained = std::move(tempo_gained);
+        result.initiative = assessment.tempo_ledger->runs;
     }
-    std::ranges::reverse(result.positional);
+
+    const auto used_net_change = [](const PositionalChange& change) {
+        return change.net_change && change.in_use == true;
+    };
+    result.positional.reserve(
+        static_cast<std::size_t>(std::ranges::count_if(assessment.positional, used_net_change)));
+    for (const auto& change : assessment.positional) {
+        if (used_net_change(change)) {
+            result.positional.push_back(change);
+        }
+    }
+    positional::impact_order(result.positional, tempo_dependent);
 
     if (assessment.parries_threat && assessment.parries_threat->parries && report.threats) {
         const auto& opponent_threat = report.position.side_to_move == Side::White
@@ -493,10 +590,82 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     if (has_games_for_move(report.games, assessment.uci, games)) {
         result.games = games;
     }
+    result.impact_order = impact_order(result, tempo_dependent);
     return result;
 }
 
 } // namespace
+
+std::vector<ImpactGroup> impact_order(const MoveReport& move, bool tempo_dependent) {
+    std::vector<ImpactGroup> groups;
+    groups.reserve(6);
+    if (move.parried_threat) {
+        groups.push_back(ImpactGroup::ParriedThreat);
+    }
+    if (move.created_threat) {
+        groups.push_back(ImpactGroup::CreatedThreat);
+    }
+    if (!move.motifs.empty() || !move.root_motifs.empty()) {
+        groups.push_back(ImpactGroup::Motifs);
+    }
+    const bool has_tempo = move.tempo_value || (move.tempo_gained && !move.tempo_gained->empty()) ||
+                           (move.initiative && !move.initiative->empty());
+    const bool has_dynamic =
+        std::ranges::any_of(move.positional, [](const PositionalChange& change) {
+            return positional::is_dynamic(change.feature.tag);
+        });
+    const bool has_static =
+        std::ranges::any_of(move.positional, [](const PositionalChange& change) {
+            return !positional::is_dynamic(change.feature.tag);
+        });
+    if (tempo_dependent) {
+        if (has_tempo) {
+            groups.push_back(ImpactGroup::Tempo);
+        }
+        if (has_dynamic) {
+            groups.push_back(ImpactGroup::PositionalDynamic);
+        }
+        if (has_static) {
+            groups.push_back(ImpactGroup::PositionalStatic);
+        }
+    } else {
+        if (has_static) {
+            groups.push_back(ImpactGroup::PositionalStatic);
+        }
+        if (has_dynamic) {
+            groups.push_back(ImpactGroup::PositionalDynamic);
+        }
+        if (has_tempo) {
+            groups.push_back(ImpactGroup::Tempo);
+        }
+    }
+
+    const auto rank = [&move](ImpactGroup group) {
+        switch (group) {
+        case ImpactGroup::ParriedThreat:
+            return analysis::consequence_rank(move.parried_threat->threat.consequence);
+        case ImpactGroup::CreatedThreat:
+            return analysis::consequence_rank(move.created_threat->consequence);
+        case ImpactGroup::Motifs:
+            return analysis::consequence_rank(move.consequence);
+        case ImpactGroup::Tempo:
+        case ImpactGroup::PositionalDynamic:
+        case ImpactGroup::PositionalStatic:
+            return 0;
+        }
+        return 0;
+    };
+    for (std::size_t index = 1; index < groups.size(); ++index) {
+        const ImpactGroup group = groups[index];
+        std::size_t position = index;
+        while (position > 0 && rank(group) > rank(groups[position - 1])) {
+            groups[position] = groups[position - 1];
+            --position;
+        }
+        groups[position] = group;
+    }
+    return groups;
+}
 
 MoveReportDocument move_reports(const Report& report) {
     MoveReportDocument document;
@@ -510,6 +679,7 @@ MoveReportDocument move_reports(const Report& report) {
         .legal_moves = report.position.legal_moves,
         .terminal = report.position.terminal,
         .eval_white = report.position.eval_white,
+        .tempo_value = report.position.tempo_value,
     };
     document.selection.selection = report.input.selection;
     document.selection.lines_searched = report.position.terminal ? 0 : report.engine.multipv;

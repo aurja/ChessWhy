@@ -69,7 +69,7 @@
         "Kd1": {"/verdict": "mistake"},
         "Bd2": {"/verdict": "blunder"}
       },
-      "text_contains": "Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]\nBudget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, R=100000 [rule]"
+      "text_contains": "Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]\nBudget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, L=30000, R=100000 [rule]"
     },
     {
       "id": "F04",

@@ -194,6 +194,11 @@ inline constexpr const char* kAfterE4E5 =
     threats.null_move_reliable = true;
     threats.urgency = {.more_urgent = Side::White, .rule = UrgencyRule::ConsequenceClass};
     report.threats = std::move(threats);
+    report.position.tempo_value = TempoValue{.side = Side::Black,
+                                             .moves_units = 1234,
+                                             .passes_units = 1000,
+                                             .value_units = 234,
+                                             .label = TempoLabel::TempoDependent};
 
     GameSourceCounts& game_source = report.games.by_source.front();
     game_source.found = true;
@@ -204,17 +209,33 @@ inline constexpr const char* kAfterE4E5 =
     game_source.moves.push_back(GameMoveCount{.san = "Nf6", .uci = "g8f6", .games = 1140});
 
     report.candidates.push_back(move("d6", "d7d6", {"d6"}, 1234, kF03));
+    report.candidates.back().tempo_value = TempoValue{.side = Side::White,
+                                                      .moves_units = 1200,
+                                                      .passes_units = 900,
+                                                      .value_units = 300,
+                                                      .label = TempoLabel::TempoDependent};
     report.candidates.back().positional.push_back(
         PositionalChange{.ply = 1,
                          .change = PositionalChangeKind::Appears,
                          .holds_at_end = true,
-                         .net_change = false,
-                         .in_use = std::nullopt,
+                         .net_change = true,
+                         .in_use = true,
                          .feature = PositionalFeature{.tag = PositionalTag::MobilityLead,
                                                       .side = Side::White,
                                                       .pieces = {},
                                                       .file = std::nullopt,
                                                       .value = 12}});
+    report.candidates.back().positional.push_back(
+        PositionalChange{.ply = 1,
+                         .change = PositionalChangeKind::Appears,
+                         .holds_at_end = true,
+                         .net_change = true,
+                         .in_use = false,
+                         .feature = PositionalFeature{.tag = PositionalTag::SpaceLead,
+                                                      .side = Side::White,
+                                                      .pieces = {},
+                                                      .file = std::nullopt,
+                                                      .value = 3}});
     report.candidates.back().motifs.push_back(
         motif(MotifTag::Promotion, Side::Black, 1, piece_on_square('e', 8, 'Q')));
     if (auto& creates_threat = report.candidates.back().creates_threat; creates_threat) {
@@ -302,6 +323,11 @@ inline constexpr const char* kAfterE4E5 =
     threats.null_move_reliable = true;
     threats.urgency = {.more_urgent = std::nullopt, .rule = UrgencyRule::Quiet};
     report.threats = std::move(threats);
+    report.position.tempo_value = TempoValue{.side = Side::White,
+                                             .moves_units = 1234,
+                                             .passes_units = 1000,
+                                             .value_units = 234,
+                                             .label = TempoLabel::TempoDependent};
 
     report.candidates.push_back(move("Nf3", "g1f3", {"Nf3", "Nc6"}, 1234, kAfterE4E5, Side::White));
     report.candidates.push_back(move("Nc3", "b1c3", {"Nc3", "Nc6"}, 1234, kAfterE4E5, Side::White));
@@ -470,7 +496,7 @@ inline constexpr const char* kAfterE4E5 =
                            .c = 200'000,
                            .d = 100'000,
                            .e = 100'000,
-                           .l = 40'000,
+                           .l = 30'000,
                            .r = 100'000};
     report.engine.nodes_searched = report.engine.nodes.a + report.engine.nodes.b +
                                    report.engine.nodes.c + report.engine.nodes.d +
@@ -625,7 +651,106 @@ inline void add_schema_refutation_judgements(Report& report) {
 [[nodiscard]] inline Report schema_quiet_example() {
     constexpr const char* fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     Report report = schema_base_report(fen, Side::White, 1100);
+    report.position.tempo_value = TempoValue{.side = Side::White,
+                                             .moves_units = 1100,
+                                             .passes_units = 1100,
+                                             .value_units = 0,
+                                             .label = TempoLabel::NonTempo};
+    report.threats->black =
+        threat(Side::Black, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1", {"e5"},
+               consequence(ConsequenceClass::Positional, 0, 2));
     MoveAssessment candidate = schema_move("e4", "e2e4", 1100, 9, {"e4", "e5"}, 2);
+    candidate.detailed = true;
+    candidate.tempo_ledger_skipped.reset();
+    candidate.tempo_value = TempoValue{.side = Side::Black,
+                                       .moves_units = 900,
+                                       .passes_units = 900,
+                                       .value_units = 0,
+                                       .label = TempoLabel::NonTempo};
+    candidate.creates_threat =
+        threat(Side::Black, "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1", {"e5"},
+               consequence(ConsequenceClass::Material, 1, 2));
+    candidate.positional.push_back(
+        PositionalChange{.ply = 1,
+                         .change = PositionalChangeKind::Appears,
+                         .holds_at_end = true,
+                         .net_change = true,
+                         .in_use = true,
+                         .feature = PositionalFeature{.tag = PositionalTag::MaterialAhead,
+                                                      .side = Side::White,
+                                                      .pieces = {},
+                                                      .file = std::nullopt,
+                                                      .value = 1}});
+    candidate.positional.push_back(
+        PositionalChange{.ply = 1,
+                         .change = PositionalChangeKind::Appears,
+                         .holds_at_end = false,
+                         .net_change = false,
+                         .in_use = std::nullopt,
+                         .feature = PositionalFeature{.tag = PositionalTag::PawnChain,
+                                                      .side = Side::White,
+                                                      .pieces = {},
+                                                      .file = std::nullopt,
+                                                      .value = std::nullopt}});
+    candidate.positional.push_back(
+        PositionalChange{.ply = 2,
+                         .change = PositionalChangeKind::Disappears,
+                         .holds_at_end = true,
+                         .net_change = false,
+                         .in_use = std::nullopt,
+                         .feature = PositionalFeature{.tag = PositionalTag::PawnChain,
+                                                      .side = Side::White,
+                                                      .pieces = {},
+                                                      .file = std::nullopt,
+                                                      .value = std::nullopt}});
+    candidate.positional.push_back(
+        PositionalChange{.ply = 1,
+                         .change = PositionalChangeKind::Appears,
+                         .holds_at_end = true,
+                         .net_change = true,
+                         .in_use = false,
+                         .feature = PositionalFeature{.tag = PositionalTag::MobilityLead,
+                                                      .side = Side::White,
+                                                      .pieces = {},
+                                                      .file = std::nullopt,
+                                                      .value = 10}});
+    candidate.positional.push_back(
+        PositionalChange{.ply = 2,
+                         .change = PositionalChangeKind::Appears,
+                         .holds_at_end = true,
+                         .net_change = true,
+                         .in_use = false,
+                         .feature = PositionalFeature{.tag = PositionalTag::SpaceLead,
+                                                      .side = Side::White,
+                                                      .pieces = {},
+                                                      .file = std::nullopt,
+                                                      .value = 3}});
+    candidate.tempo_ledger =
+        TempoLedger{.plies = {TempoPly{.ply = 1,
+                                       .san = "e4",
+                                       .side = Side::White,
+                                       .threatening = true,
+                                       .by_check = false,
+                                       .threat_rank = 2,
+                                       .stops_threat = std::nullopt,
+                                       .label = TempoPlyLabel::Threatening,
+                                       .tempo_gained = true},
+                              TempoPly{.ply = 2,
+                                       .san = "e5",
+                                       .side = Side::Black,
+                                       .threatening = false,
+                                       .by_check = false,
+                                       .threat_rank = 1,
+                                       .stops_threat = true,
+                                       .label = TempoPlyLabel::PureReply,
+                                       .tempo_gained = false}},
+                    .tempi = Tempi{.white = 1, .black = 0},
+                    .runs = {InitiativeRun{.holder = Side::White,
+                                           .start_ply = 1,
+                                           .end_ply = 2,
+                                           .tempi = 1,
+                                           .ending = InitiativeEnding::Unfinished,
+                                           .outcome = InitiativeOutcome::Converted}}};
     report.candidates.push_back(std::move(candidate));
     report.playable_truncated = false;
     add_schema_root_judgement(report);
