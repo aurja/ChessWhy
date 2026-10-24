@@ -1,10 +1,9 @@
 # PostM4_EM3 — Tempo, initiative and the impact rating
 
-Status: **tempo and initiative decisions frozen** (A1–A5, Captain, 2026-10-24). The impact
-rating (B1–B3) is still open: the Captain is pointing the Deputy to further reading
-first. Not yet written: the contract (headers, report schema, fixtures, acceptance,
-work packages). The contract is frozen at checkpoint 1, together with the changed
-concept diagrams; from then on, changes are contract changes recorded in the last section.
+Status: **decisions frozen** (A1–A5 and B1–B3, Captain, 2026-10-24). Not yet written: the
+contract (headers, report schema, fixtures, acceptance, work packages). The contract is
+frozen at checkpoint 1, together with the changed concept diagrams; from then on, changes
+are contract changes recorded in the last section.
 
 Intent: the report says, from engine searches and frozen rules, whether time matters
 in the position, which moves of a line gain a tempo, and who holds the initiative and
@@ -22,6 +21,9 @@ Captain's books); decided the same day.
 | A3 | Ledger scope | T2: the tempo ledger covers every walked ply of every detailed line. The **timing check** becomes 15 s per F fixture at `standard` in Release (12 s before). Refined the same day: the second ledger search of a ply runs only after a threatening move ("why would we run it if there isn't a plausible reason to run it?") |
 | A4 | Tempo value | (a) Ship the number with labels on the verdict scale: **tempo-dependent position** above 0.10, **non-tempo position** below 0.05, **zugzwang** below 0 |
 | A5 | Initiative | (a) Derived from the tempo ledger with no extra search: one row per run with holder, plies, tempi gained, how it ended (spent, contested or runs) and converted or evaporated. "Runs" (the reply neither stops the threat nor is a pure reply, so the line turns into a tactic) was proposed by the Deputy after the budget comparison showed such replies inside runs and accepted by the Captain, both 2026-10-24 |
+| B1 | Impact basis | (b) Consequence rank of the fact's line first; among positional facts the **static scale** (king safety, material, pawn structure, pieces, space/mobility/development); dynamic facts ahead of static facts in a tempo-dependent position, static facts first otherwise. Briefed after the reading of four more of the Captain's books and the move-report probe (§3.3, §3.4) |
+| B2 | Use | (b) The **use test** cuts positional changes from the move report; the full report keeps every change. No cap per move report |
+| B3 | Net change | (b) The relevance filter compares the root with the end of the walk, so **passing changes** leave the move report (today: the last change per feature that holds at the end) |
 
 ## 2. Rules the decisions fix
 
@@ -127,16 +129,9 @@ Counted on the 88 move reports of the F fixtures (`build/release/tests/cli/repor
 
 ## 4. Open
 
-- B1, basis of the impact rating: (a) consequence rank only; (b) consequence rank, then
-  the static scale, dynamic facts first in a tempo-dependent position (Deputy); (c) an
-  engine measure per fact (not computable: a doubled pawn cannot be removed and searched).
-- B2, use: (a) order only, nothing cut; (b) the use test cuts positional changes from the
-  move report, the full report keeps all (Deputy); (c) (b) plus a cap of N positional
-  changes per move report.
-- B3, net change: (a) today's "last change per feature that holds at the end"; (b) root
-  against end of the walk, which drops passing changes (Deputy).
 - Contract sections: schema v7 fields, headers, fixtures (Scandinavian, V2 both orders,
-  V1, the zugzwang position, a quiet position), acceptance, work packages.
+  V1, the zugzwang position, a quiet position, use test and passing change fixtures),
+  acceptance, work packages.
 
 ## 5. Contract changes
 
