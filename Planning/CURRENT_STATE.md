@@ -38,9 +38,8 @@ Updated 2026-10-24.
   The root `back_rank_weakness` behind Re8# now prints through `root_motifs`. Milestones
   renumbered: M5 = libllama prose (five GGUFs in `assets/models/`; pinning them is an
   M5 task), M6 = books, M7 = native apps.
-- Milestone: **PostM4_EM3 tempo, initiative and the impact rating complete on branch
-  `postm4-em3`** (2026-10-24): gate passed, completion review without blockers; awaiting
-  the Captain's checkpoint 3 (smoke commands), then the merge. Receipt
+- Milestone: **PostM4_EM3 tempo, initiative and the impact rating complete, merged into
+  `main` 2026-10-24** (Captain ran the smoke commands at checkpoint 3). Receipt
   `Planning/receipts/PostM4_EM3.md`; contract `Planning/milestones/PostM4_EM3.md`
   (changes §17). Report v7: tempo value with tempo-dependent / non-tempo / zugzwang
   labels, tempo ledger on every walked ply of every detailed line (budget `L`, 30k at

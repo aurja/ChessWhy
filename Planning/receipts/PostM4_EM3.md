@@ -107,4 +107,5 @@ White's Bxa7).
 1. Contract, diagrams and terms approved as drafted (2026-10-24).
 2. The Captain confirmed the built V2 ledger (2026-10-24). The pre-build probes had read
    Bxa4 as threatening; Black's best reply to a pass after Bxa4 wins no material.
-3. Milestone end: the Captain tries the smoke commands.
+3. The Captain ran the smoke commands and found them working (2026-10-24); merged into
+   `main` the same day.
