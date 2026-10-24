@@ -99,9 +99,42 @@ more nodes (400k is off as often as 40k). The tempo gained facts agree at 40k an
 75k loses one. Fixtures pin tempo gained and initiative runs, not per-ply labels inside
 exchanges.
 
+### 3.3 Positional facts in today's move reports
+
+Counted on the 88 move reports of the F fixtures (`build/release/tests/cli/reports/`):
+913 positional changes, 10.4 per move report, at most 32. The most frequent tags are
+`king_zone_attacker` 163, `pawn_islands` 134, `king_shield_gap` 126, `material_ahead` 91.
+
+- **Passing changes**: 196 of the 913 (21%, matched by tag, side, file and value, so
+  approximate). `material_ahead` alone gives 37: the momentary material inside an exchange.
+- **Use test** (throwaway probe, rules as in DEFINITIONS §3.6): 338 changes pass, 521 fail,
+  54 are leads that depend on the tempo value. Per move report 3.8 on average, at most 17
+  (plus about 0.6 leads). Without the plies 1–2 rule it is 2.7, but that cuts F25 `Bxc6`'s
+  doubled c-pawns and the lost bishop pair, which are the point of the move.
+
+### 3.4 Reading (four of the Captain's books on positional and strategic play)
+
+- One book gives a fixed order of static factors (king position, material including the
+  bishop pair, the ending after a queen trade, pawn structure), splits factors into
+  lasting (static) and fading (dynamic), and names the decisions that matter: an exchange,
+  a change of the pawn structure, the end of a forced series.
+- The other three give no fixed order. They agree on a relevance rule: a weakness counts
+  only if it can be attacked or occupied; a file, a hole, space or a passed pawn counts
+  only if it is used (penetration, targets, advance); a blockaded passed pawn is worth
+  little; an unsafe king counts once it can be attacked.
+- All four put the opponent's threat and tactics first and treat a dynamic advantage as
+  "use it or lose it": with a dynamic edge, act; with a static edge, prevent counterplay.
+
 ## 4. Open
 
-- B1–B3, the impact rating: basis, use, and the relevance filter.
+- B1, basis of the impact rating: (a) consequence rank only; (b) consequence rank, then
+  the static scale, dynamic facts first in a tempo-dependent position (Deputy); (c) an
+  engine measure per fact (not computable: a doubled pawn cannot be removed and searched).
+- B2, use: (a) order only, nothing cut; (b) the use test cuts positional changes from the
+  move report, the full report keeps all (Deputy); (c) (b) plus a cap of N positional
+  changes per move report.
+- B3, net change: (a) today's "last change per feature that holds at the end"; (b) root
+  against end of the walk, which drops passing changes (Deputy).
 - Contract sections: schema v7 fields, headers, fixtures (Scandinavian, V2 both orders,
   V1, the zugzwang position, a quiet position), acceptance, work packages.
 
