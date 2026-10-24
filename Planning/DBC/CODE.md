@@ -164,6 +164,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 |---|---|---|
 | `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` `write_motif_inner_label` `write_compact_restricted_motif_label` `write_restriction` `write_held_to` | Compact rows in the move report text: `write_motifs(…, compact_restricted = true)` |
 | `Conditions` | `src/render/render.cpp` `write_engine_line_count` `write_selection_count` `write_walk` `creates_threat_skip_reason` | |
+| `PlyWalk` | `src/render/render.cpp` `write_move_report` `write_move_start` `write_move_report_group` `write_move_motifs` `write_move_tactic_labels` `write_move_tempo_rows` `write_move_positional_group`; `src/report/move_report.cpp` `replay_line_fens`; `tools/validate_report.py` (line_fens replay in the projection check) | One start block and `walked_plies` ply blocks per move; facts placed by their ply |
 | `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` `write_tempo_value` `write_tempo_ledger` `write_initiative_runs` `write_move_tempo_rows` | Two overloads of `text`: move report text and full report text |
 | `ExplanationText` | `src/cli/output.cpp` `write_output` | Prints the rendered text |
 

@@ -158,6 +158,10 @@ time. `--json` chooses the format and `--full-report` the content, independently
 | `--full-report` | full report text: every computed fact |
 | `--json --full-report` | full report JSON (`schema/report.v8.schema.json`) |
 
+The default move report lays out each selected move as a ply walk: a `Start` block shows the root
+position and tempo value, then each walked ply shows its SAN move, resulting FEN, and facts assigned
+to that ply.
+
 A move report keeps the move's verdict, line, consequence, tactic and opportunity judgements and
 refutation, and only the threats, motifs and positional changes that bear on that move; every
 field is a field of the full report or a filter of one. A positional change enters it only when

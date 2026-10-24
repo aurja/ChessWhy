@@ -482,9 +482,19 @@ class CheckerRelationsTests(unittest.TestCase):
                     "selection": {"keywords": ["all"], "top": None, "moves": []}
                 },
                 "engine": {"multipv": 1},
-                "position": {"side_to_move": "white", "terminal": None},
+                "position": {
+                    "fen": START_FEN,
+                    "side_to_move": "white",
+                    "terminal": None,
+                },
                 "candidates": [
-                    {"uci": "e2e4", "verdict": "best", "motifs": motifs}
+                    {
+                        "uci": "e2e4",
+                        "verdict": "best",
+                        "line": ["e4"],
+                        "walked_plies": 1,
+                        "motifs": motifs,
+                    }
                 ],
                 "asked_moves": [],
                 "playable_truncated": False,
@@ -699,6 +709,12 @@ class CheckerRelationsTests(unittest.TestCase):
         self.assertLess(
             position_keys.index("eval_white"), position_keys.index("tempo_value")
         )
+        self.assertEqual(len(array_field(first_move, "line_fens")), 2)
+
+        def remove_last_line_fen(document: checker.JsonObject) -> None:
+            _ = array_field(
+                array_field(document, "moves")[0], "line_fens"
+            ).pop()
 
         mutations: list[tuple[str, Mutation]] = [
             (
@@ -736,6 +752,16 @@ class CheckerRelationsTests(unittest.TestCase):
                 lambda document: object_value(
                     array_field(array_field(document, "moves")[0], "positional")[0]
                 ).update({"tag": "outpost"}),
+            ),
+            (
+                "/moves/0/line_fens/0",
+                lambda document: array_field(
+                    array_field(document, "moves")[0], "line_fens"
+                ).__setitem__(0, START_FEN),
+            ),
+            (
+                "/moves/0/line_fens",
+                remove_last_line_fen,
             ),
         ]
         for pointer, mutate in mutations:

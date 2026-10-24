@@ -351,7 +351,7 @@
     "move": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rank", "san", "uci", "eval", "depth", "loss", "verdict", "gives_check", "line", "walked_plies", "consequence", "is_tactic", "allows_tactic", "opportunity", "motifs", "root_motifs", "tactic_labels", "positional", "tempo_value", "tempo_gained", "initiative", "impact_order", "parried_threat", "created_threat", "refutation", "games"],
+      "required": ["rank", "san", "uci", "eval", "depth", "loss", "verdict", "gives_check", "line", "walked_plies", "line_fens", "consequence", "is_tactic", "allows_tactic", "opportunity", "motifs", "root_motifs", "tactic_labels", "positional", "tempo_value", "tempo_gained", "initiative", "impact_order", "parried_threat", "created_threat", "refutation", "games"],
       "properties": {
         "rank": {"description": "1-based MultiPV rank, or null for a move assessed by Search C [engine].", "type": ["integer", "null"], "minimum": 1},
         "san": {"description": "Standard algebraic notation for the move [engine].", "type": "string"},
@@ -363,6 +363,7 @@
         "gives_check": {"description": "Whether the move gives check [rule].", "type": "boolean"},
         "line": {"description": "SAN line from the current position, starting with this move, up to 10 plies [engine].", "$ref": "#/$defs/san_line"},
         "walked_plies": {"description": "Number of line plies from which motif and positional facts were read [rule].", "type": "integer", "minimum": 0},
+        "line_fens": {"description": "FEN after each walked ply in line [rule].", "type": "array", "items": {"type": "string"}},
         "consequence": {"description": "Rule-derived consequence of this move's own line from the analyzed position [rule].", "$ref": "#/$defs/consequence"},
         "is_tactic": {"description": "Whether this move's own line has consequence class mate or material [rule].", "type": "boolean"},
         "allows_tactic": {"description": "Whether the move loses at least one pawn net or is mated along its own line [rule].", "type": "boolean"},

@@ -1668,6 +1668,32 @@ def replay_walk(
     return boards, moves
 
 
+def replay_line_fens(
+    position_fen: JsonValue, line_value: JsonValue, walked_plies: JsonValue
+) -> list[str] | None:
+    line = as_array(line_value)
+    if (
+        not isinstance(position_fen, str)
+        or line is None
+        or not isinstance(walked_plies, int)
+        or isinstance(walked_plies, bool)
+        or walked_plies < 0
+        or walked_plies > len(line)
+    ):
+        return None
+    try:
+        board = chess.Board(position_fen)
+        line_fens: list[str] = []
+        for san in line[:walked_plies]:
+            if not isinstance(san, str):
+                return None
+            _ = board.push_san(san)
+            line_fens.append(board.fen(en_passant="legal"))
+        return line_fens
+    except ValueError:
+        return None
+
+
 def null_move_has_no_legal_move(board: chess.Board) -> bool:
     passed = board.copy()
     passed.push(chess.Move.null())
@@ -2596,6 +2622,9 @@ def project_assessment(
         tempo_value is not None and tempo_value.get("label") == "tempo_dependent"
     )
     ledger = as_object(assessment.get("tempo_ledger"))
+    line_fens = replay_line_fens(
+        position.get("fen"), assessment.get("line"), assessment.get("walked_plies")
+    )
     projected: JsonObject = {
         "rank": rank,
         "san": assessment.get("san"),
@@ -2607,6 +2636,11 @@ def project_assessment(
         "gives_check": assessment.get("gives_check"),
         "line": assessment.get("line"),
         "walked_plies": assessment.get("walked_plies"),
+        **(
+            {"line_fens": cast(JsonValue, line_fens)}
+            if line_fens is not None
+            else {}
+        ),
         "consequence": assessment.get("consequence"),
         "is_tactic": assessment.get("is_tactic"),
         "allows_tactic": assessment.get("allows_tactic"),
@@ -2766,6 +2800,8 @@ def compare_projected_values(
         if actual_object is None:
             return
         for key, value in expected.items():
+            if key == "line_fens" and is_projected_move_pointer(pointer):
+                continue
             child_pointer = f"{pointer}/{key}"
             if key not in actual_object:
                 fail(
@@ -2779,6 +2815,8 @@ def compare_projected_values(
                     value, actual_object[key], child_pointer, failures
                 )
         for key in actual_object.keys() - expected.keys():
+            if key == "line_fens" and is_projected_move_pointer(pointer):
+                continue
             fail(
                 failures,
                 f"{pointer}/{key}",
@@ -2817,6 +2855,92 @@ def compare_projected_values(
     )
 
 
+def is_projected_move_pointer(pointer: str) -> bool:
+    parts = pointer.split("/")
+    return len(parts) == 3 and parts[1] == "moves" and parts[2].isdigit()
+
+
+def check_line_fens(moves_document: JsonValue, failures: list[Failure]) -> None:
+    document = as_object(moves_document)
+    if document is None:
+        return
+    position = as_object(document.get("position"))
+    position_fen = None if position is None else position.get("fen")
+    moves = as_array(document.get("moves"))
+    if not isinstance(position_fen, str) or moves is None:
+        return
+    for move_index, move_value in enumerate(moves):
+        move = as_object(move_value)
+        if move is None:
+            continue
+        pointer = f"/moves/{move_index}"
+        line = as_array(move.get("line"))
+        walked_plies = move.get("walked_plies")
+        if (
+            line is None
+            or not isinstance(walked_plies, int)
+            or isinstance(walked_plies, bool)
+            or walked_plies < 0
+            or walked_plies > len(line)
+        ):
+            continue
+        line_fens = as_array(move.get("line_fens"))
+        fail(
+            failures,
+            f"{pointer}/line_fens",
+            "line_fens must be an array with one FEN per walked ply",
+            line_fens is not None,
+        )
+        if line_fens is None:
+            continue
+        expected_fens = replay_line_fens(position_fen, line, walked_plies)
+        if expected_fens is None:
+            fail(
+                failures,
+                f"{pointer}/line",
+                "line SAN must be replayable from position.fen",
+                False,
+            )
+            continue
+        fail(
+            failures,
+            f"{pointer}/line_fens",
+            f"line_fens must contain {walked_plies} FENs",
+            len(line_fens) == walked_plies,
+        )
+        for ply, (expected_fen, actual_fen) in enumerate(
+            zip(expected_fens, line_fens)
+        ):
+            fen_pointer = f"{pointer}/line_fens/{ply}"
+            if not isinstance(actual_fen, str):
+                fail(
+                    failures,
+                    fen_pointer,
+                    "FEN must match the position after the corresponding SAN",
+                    False,
+                )
+                continue
+            try:
+                actual_position = chess.Board(actual_fen).fen(en_passant="legal")
+                expected_position = chess.Board(expected_fen).fen(
+                    en_passant="legal"
+                )
+            except ValueError:
+                fail(
+                    failures,
+                    fen_pointer,
+                    "FEN must be parseable by python-chess",
+                    False,
+                )
+                continue
+            fail(
+                failures,
+                fen_pointer,
+                "FEN must match the position after the corresponding SAN",
+                actual_position == expected_position,
+            )
+
+
 def check_projection(
     full_report: JsonValue, moves_document: JsonValue, failures: list[Failure]
 ) -> None:
@@ -2829,6 +2953,7 @@ def check_projection(
         "",
         failures,
     )
+    check_line_fens(moves_document, failures)
 
 
 def schema_error_message(error: ValidationError) -> str:

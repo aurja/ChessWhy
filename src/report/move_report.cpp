@@ -394,6 +394,7 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["gives_check"] = move.gives_check;
     value["line"] = move.line_san;
     value["walked_plies"] = move.walked_plies;
+    value["line_fens"] = move.line_fens;
     value["consequence"] = serialize_consequence(move.consequence);
     value["is_tactic"] = move.is_tactic;
     value["allows_tactic"] = move.allows_tactic;
@@ -556,6 +557,23 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     return value;
 }
 
+[[nodiscard]] std::vector<std::string> replay_line_fens(const Report& report,
+                                                        const MoveAssessment& assessment) {
+    chess::Board board(report.position.fen);
+    std::vector<std::string> fens;
+    fens.reserve(static_cast<std::size_t>(assessment.walked_plies));
+    for (int ply = 0; ply < assessment.walked_plies; ++ply) {
+        const chess::Move move =
+            chess::uci::parseSan(board, assessment.line_san.at(static_cast<std::size_t>(ply)));
+        if (move == chess::Move::NO_MOVE) {
+            throw std::invalid_argument("cannot replay move report SAN line");
+        }
+        board.makeMove(move);
+        fens.push_back(board.getFen());
+    }
+    return fens;
+}
+
 [[nodiscard]] MoveReport assess_move(const Report& report, const MoveAssessment& assessment,
                                      std::optional<int> rank) {
     MoveReport result;
@@ -569,6 +587,7 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     result.gives_check = assessment.gives_check;
     result.line_san = assessment.line_san;
     result.walked_plies = assessment.walked_plies;
+    result.line_fens = replay_line_fens(report, assessment);
     result.consequence = assessment.consequence;
     result.is_tactic = assessment.is_tactic;
     result.allows_tactic = assessment.allows_tactic;

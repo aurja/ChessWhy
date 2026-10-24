@@ -1,7 +1,9 @@
 Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]
 Budget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, L=30000, R=100000 [rule]
-Position: White to move, 0 legal moves; checkmate [rule]
 Opening dataset: lichess-org/chess-openings@a6189a3 [book]
 Current opening: null [book]
 Last named opening: null [book]
 Showing the best move; none (terminal position) [rule]
+
+Start: rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3
+  Position: White to move, 0 legal moves; checkmate [rule]

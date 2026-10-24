@@ -37,7 +37,7 @@ using namespace chesswhy;
 
 [[nodiscard]] Report base_report() {
     Report report;
-    report.input.fen = "8/8/8/8/8/8/8/K6k w - - 0 1";
+    report.input.fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     report.input.selection.keywords = {Selection::Keyword::Best};
     report.engine.name = "Test engine";
     report.engine.multipv = 6;
@@ -245,6 +245,21 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
     report.position.terminal = Terminal::Stalemate;
     CHECK(move_reports(report).selection.lines_searched == 0);
     CHECK(move_reports(report).moves.empty());
+}
+
+TEST_CASE("move reports record the FEN after each walked SAN ply", "[unit]") {
+    auto report = base_report();
+    report.candidates[0] = assessment("e4", "e2e4", Verdict::Best);
+    report.candidates[0].line_san = {"e4", "e5"};
+    report.candidates[0].walked_plies = 2;
+
+    const std::vector<std::string> expected{
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"};
+    const auto document = move_reports(report);
+    REQUIRE(document.moves.size() == 1);
+    CHECK(document.moves[0].line_fens == expected);
+    CHECK(to_json(document)["moves"][0]["line_fens"] == expected);
 }
 
 TEST_CASE("move report relevance filter keeps conditional fields and drops irrelevant ones",
@@ -593,32 +608,14 @@ TEST_CASE("move report JSON uses the v8 moves shape and stable key order", "[uni
     CHECK(keys(json["position"]) == std::vector<std::string>{"fen", "side_to_move", "in_check",
                                                              "legal_moves", "terminal",
                                                              "eval_white", "tempo_value"});
-    CHECK(keys(json["moves"][0]) == std::vector<std::string>{"rank",
-                                                             "san",
-                                                             "uci",
-                                                             "eval",
-                                                             "depth",
-                                                             "loss",
-                                                             "verdict",
-                                                             "gives_check",
-                                                             "line",
-                                                             "walked_plies",
-                                                             "consequence",
-                                                             "is_tactic",
-                                                             "allows_tactic",
-                                                             "opportunity",
-                                                             "motifs",
-                                                             "root_motifs",
-                                                             "tactic_labels",
-                                                             "positional",
-                                                             "tempo_value",
-                                                             "tempo_gained",
-                                                             "initiative",
-                                                             "impact_order",
-                                                             "parried_threat",
-                                                             "created_threat",
-                                                             "refutation",
-                                                             "games"});
+    CHECK(keys(json["moves"][0]) ==
+          std::vector<std::string>{
+              "rank",         "san",         "uci",           "eval",           "depth",
+              "loss",         "verdict",     "gives_check",   "line",           "walked_plies",
+              "line_fens",    "consequence", "is_tactic",     "allows_tactic",  "opportunity",
+              "motifs",       "root_motifs", "tactic_labels", "positional",     "tempo_value",
+              "tempo_gained", "initiative",  "impact_order",  "parried_threat", "created_threat",
+              "refutation",   "games"});
     CHECK(keys(json["moves"][0]["parried_threat"]) == std::vector<std::string>{"threat", "test"});
     CHECK(json["schema_version"] == 8);
     CHECK(json["document"] == "moves");
