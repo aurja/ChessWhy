@@ -1,9 +1,8 @@
 # PostM4_EM3 — Tempo, initiative and the impact rating
 
-Status: **contract drafted** (2026-10-24), waiting for checkpoint 1. Decisions A1–A5 and
-B1–B3 frozen by the Captain on 2026-10-24 (§1). The contract (§4–§16) is frozen at
-checkpoint 1, together with the changed concept diagrams; from then on, changes are
-contract changes recorded in §17.
+Status: **contract frozen** (2026-10-24): approved by the Captain at checkpoint 1 with the
+changed concept diagrams and terms. Decisions A1–A5 and B1–B3 (§1) frozen the same day.
+From here on, changes are contract changes recorded in §17.
 
 Intent: the report says, from engine searches and frozen rules, whether time matters
 in the position, which moves of a line gain a tempo, and who holds the initiative and
@@ -542,3 +541,5 @@ Ba7 without a tempo gained).
 | Date | Change | Reason |
 |---|---|---|
 | 2026-10-24 | Contract drafted (§4–§16) | Decisions A1–A5, B1–B3 |
+| 2026-10-24 | Checkpoint 1: contract, diagrams and terms approved as drafted, including `unfinished`, the converted rule and use-test rules 1, 2 and 6 | Captain |
+| 2026-10-24 | WP1's v7 cutover is version-only outside its files: it renames `moves.v6.schema.json` to `moves.v7.schema.json` (version 7, no new fields) and updates schema names and version numbers in `tools/validate_report.py`, `tests/report/CMakeLists.txt`, `tests/report/move_report_tests.cpp`, `include/chesswhy/move_report.hpp` (comment), `tests/cli/CMakeLists.txt` (schema path only) and `tests/checker/unit_tests.py`; WP3 and WP5 extend them in batch 2. `tests/positional/oracle/*` is not WP2's: the test-progress task (Captain's request, not milestone scope) owns it with the other long-running test drivers during batch 1 | keep the tree building between batches |
