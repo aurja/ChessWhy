@@ -38,6 +38,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | frozen | Changed only through a contract change approved by the Captain (§6.1) |
 | gate | A check that must pass for a batch or milestone to be accepted (§6.3) |
 | level | (1) **Audience level**: beginner, club or advanced, chosen by the user; changes only the wording of the explanation, never the analysis (§3.1). (2) **Diagram level**: L1, L2 or L3 in CONCEPTS.md (§7) |
+| tempo | (1) **Tempo gained** (Captain, 2026-10-24; proposed definition, open): a threatening move answered by a pure reply, so its side has made one more move of its own than the other side (§3.6). (2) Chess senses the project does not compute: the **development tempo** of opening theory (moves spent on development; `development_lead` is the nearest built fact) and the **spare tempo** of endgames (a waiting move that hands over the move: opposition, triangulation, zugzwang), where the null move is unreliable (§3.3) |
 
 ## 2. Chess notation in the plans
 
@@ -153,6 +154,19 @@ candidate D, E, R; then C, D, E, R for each asked move outside A.
 | `fine_truncated` | Renamed `playable_truncated` in M4 (2026-10-23). Was: true iff all K of A's lines are fine, so more fine moves may exist than are listed. False does not mean the unlisted moves are not fine | M1 §4.7, PostM3_EM2 §5 |
 | `playable_truncated` | From M4 (2026-10-23): true iff A returned all K lines, K is less than the legal moves, and every line is playable, so more playable moves may exist than A listed. Always false with a whole-board keyword | M4 §4.1 |
 
+### 3.6 Tempo and impact (proposed for PostM4_EM3, open)
+
+Proposed by the Deputy on 2026-10-24 at the PostM4_EM3 kickoff; none of these is decided or built.
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| threatening move | Open. A move after which its side's threat (the opponent passes, as in search E) has rank ≥ 2, read over the walked plies from the board after the move; a check is a threatening move by rule, since the opponent cannot pass. A capture counts only for what it threatens next, not for the piece it took, so an even trade is not a threatening move | proposal 2026-10-24 |
+| pure reply | Open. The move after a threatening move when, after it, the threatening side's best line no longer reaches rank ≥ 2, and it is not itself a threatening move | proposal 2026-10-24 |
+| tempo gained | Open. A threatening move whose next move is a pure reply. A reply that stops the threat and threatens back returns the tempo; a reply that does not stop it lets the threat run (a tactic, not a tempo) | proposal 2026-10-24 |
+| tempo ledger | Open. For one line: each move marked threatening, pure reply or neither, and per side the count of tempi gained over the plies read | proposal 2026-10-24 |
+| impact rating | Open. A number on each fact of a move report that orders and cuts the facts for the text and the fact sheet: the rank (§3.3) of the consequence the fact bears on. The core claims (verdict, line, refutation, conditions) are not rated; they always come first | proposal 2026-10-24 |
+| break cost | Open. For a restricted-movement motif, measured by the engine on the board with the held side to move: the best score over the moves that are not restricted moves minus the best score over the restricted moves. Zero or less means the restriction costs the held side nothing | proposal 2026-10-24 |
+
 ## 4. Tactical motifs
 
 ### 4.1 Kinds of facts
@@ -254,6 +268,7 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 | claim tag / presence tag / rule fact | Former split of the tags (2026-10-19/20) by whether the tag's name claims a material win. Retired 2026-10-20: every motif is a presence fact | M2 §15 |
 | PostM2_EM1 | The milestone after M2 (Captain's name): tactic recognition, motif contribution, `removal_of_defender` as a tactic label, `pin_tactical`. Plan `Planning/milestones/PostM2_EM1.md`, receipt `Planning/receipts/PostM2_EM1.md`; complete, merged into `main` 2026-10-21 (branch `postm2-em1`). Seeds: `5cc9582^` (former detector), `2e4104e^` (fixtures T33, T34) | vision §11 |
 | PostM3_EM2 | The milestone after M3a/M3b (Captain's name, 2026-10-22): fixes from the conceptual audit of 2026-10-22 (`Planning/critiques/`) before M4: restricted and free moves, contribution rule 3′, `removal_of_defender` continuity, conditions in the template, report v5 with semantic checks, data digests; at checkpoint 3 also `tripled_pawns` and T60. Plan `Planning/milestones/PostM3_EM2.md`, receipt `Planning/receipts/PostM3_EM2.md`; complete, merged into `main` 2026-10-23 (branch `postm3-em2`) | vision §11 |
+| PostM4_EM3 | The milestone after M4 (Captain's name, 2026-10-24): tempo and an impact rating for facts (§3.6). Scope open: proposal of 2026-10-24, no plan yet | vision §11 |
 
 ## 5. Measurement
 
