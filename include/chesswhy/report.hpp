@@ -1,5 +1,5 @@
-// Report data model, schema version 6. Frozen by Planning/milestones/M4.md.
-// JSON shape: schema/report.v6.schema.json. Every chess fact in the report is a field here.
+// Report data model, schema version 7. Frozen by Planning/milestones/PostM4_EM3.md.
+// JSON shape: schema/report.v7.schema.json. Every chess fact in the report is a field here.
 // The renderers may only verbalise these fields.
 #pragma once
 
@@ -12,7 +12,7 @@
 
 namespace chesswhy {
 
-inline constexpr int kSchemaVersion = 6;
+inline constexpr int kSchemaVersion = 7;
 
 enum class Side : std::uint8_t { White, Black };
 enum class Budget : std::uint8_t { Quick, Standard, Deep };
@@ -98,6 +98,52 @@ enum class PositionalTag : std::uint8_t {
 // M3a §5: a feature that appears or disappears along a line.
 enum class PositionalChangeKind : std::uint8_t { Appears, Disappears };
 
+enum class TempoLabel : std::uint8_t { TempoDependent, NonTempo, Zugzwang };
+struct TempoValue {
+    Side side = Side::White;
+    int moves_units = 0;
+    int passes_units = 0;
+    int value_units = 0;
+    std::optional<TempoLabel> label;
+};
+enum class TempoPlyLabel : std::uint8_t { Threatening, PureReply, CounterThreat, Neither };
+struct TempoPly {
+    int ply = 1;
+    std::string san;
+    Side side = Side::White;
+    bool threatening = false;
+    bool by_check = false;
+    std::optional<int> threat_rank;
+    std::optional<bool> stops_threat;
+    TempoPlyLabel label = TempoPlyLabel::Neither;
+    bool tempo_gained = false;
+};
+enum class InitiativeEnding : std::uint8_t { Spent, Contested, Runs, Unfinished };
+enum class InitiativeOutcome : std::uint8_t { Converted, Evaporated };
+struct InitiativeRun {
+    Side holder = Side::White;
+    int start_ply = 1;
+    int end_ply = 1;
+    int tempi = 1;
+    InitiativeEnding ending = InitiativeEnding::Spent;
+    InitiativeOutcome outcome = InitiativeOutcome::Evaporated;
+};
+struct Tempi {
+    int white = 0;
+    int black = 0;
+};
+struct TempoLedger {
+    std::vector<TempoPly> plies;
+    Tempi tempi;
+    std::vector<InitiativeRun> runs;
+};
+enum class TempoLedgerSkip : std::uint8_t { InCheck, NullMoveUnreliable, NotDetailed };
+
+[[nodiscard]] std::string to_string(TempoLabel label);
+[[nodiscard]] std::string to_string(TempoPlyLabel label);
+[[nodiscard]] std::string to_string(InitiativeEnding ending);
+[[nodiscard]] std::string to_string(InitiativeOutcome outcome);
+[[nodiscard]] std::string to_string(TempoLedgerSkip skip);
 // Lower-case JSON spellings: "white", "standard", "consequence_class", ...
 [[nodiscard]] std::string to_string(Side side);
 [[nodiscard]] std::string to_string(Budget budget);
@@ -145,13 +191,13 @@ struct InputInfo {
     Budget budget = Budget::Standard;
 };
 
-// Node budget per search kind (M1 §Budgets).
 struct NodeBudget {
     std::uint64_t a = 0; // MultiPV K from the current position
     std::uint64_t b = 0; // null move, opponent to move
     std::uint64_t c = 0; // searchmoves m, for an asked move outside A
     std::uint64_t d = 0; // after m, searchmoves t (opponent's threat move)
     std::uint64_t e = 0; // after m, null move
+    std::uint64_t l = 0; // tempo ledger: threat and reply searches
     std::uint64_t r = 0; // after m, searchmoves all but the refutation's first move
 };
 
@@ -268,6 +314,8 @@ struct PositionalChange {
     int ply = 0; // 1..walked plies; appears: as on P_k, disappears: as on P_k-1
     PositionalChangeKind change = PositionalChangeKind::Appears;
     bool holds_at_end = false;
+    bool net_change = false;
+    std::optional<bool> in_use;
     PositionalFeature feature;
 };
 
@@ -278,7 +326,8 @@ struct PositionInfo {
     int legal_moves = 0;              // legal moves of `fen` (PostM3_EM2 G8); source rule
     std::optional<Terminal> terminal; // set: no searches ran
     std::optional<Eval> eval_white;   // A's best line, White's point of view; null iff terminal
-    std::vector<Motif> motifs;        // state motifs at ply 0, both sides; empty if terminal
+    std::optional<TempoValue> tempo_value;
+    std::vector<Motif> motifs; // state motifs at ply 0, both sides; empty if terminal
     std::vector<PositionalFeature> positional; // M3a §4 features at ply 0, both sides, §4.6
                                                // order; also set for terminal positions
 };
@@ -329,6 +378,9 @@ struct MoveAssessment {
     std::optional<ParryInfo> parries_threat; // null: no opponent threat of class mate/material
     std::optional<Threat> creates_threat;    // search E
     std::optional<CreatesThreatSkip> creates_threat_skipped; // null iff creates_threat is set
+    std::optional<TempoValue> tempo_value;
+    std::optional<TempoLedger> tempo_ledger;
+    std::optional<TempoLedgerSkip> tempo_ledger_skipped;
     std::optional<Threat> refutation; // opponent reply line; set iff verdict is not playable
     std::vector<Motif> motifs;        // plies 1..walked_plies of `line_san`
     std::optional<OpportunityJudgement> opportunity; // A line 1

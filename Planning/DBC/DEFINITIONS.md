@@ -110,7 +110,7 @@ Read these first. Each word is used in two or more senses in the plans.
 | C | current position, `searchmoves m` | each asked move that is not among A's lines |
 | D(m) | after `m`, `searchmoves t` | does `m` parry `O`'s threat? |
 | E(m) | after `m`, null move | which threat `m` creates |
-| L | from PostM4_EM3 (contracted 2026-10-24): the tempo ledger searches, MultiPV 1 each: the threat search after each ply from ply 2 on (null move) and the reply search after the answer to each threatening move; node budget `L` (40k standard, 10k quick, 160k deep) | which plies are threatening moves and which replies stop the threat (§3.6) |
+| L | from PostM4_EM3 (contracted 2026-10-24): the tempo ledger searches, MultiPV 1 each: the threat search after each ply from ply 2 on (null move) and the reply search after the answer to each threatening move; node budget `L` (30k standard, 10k quick, 160k deep; standard was 40k until the timing fallback of 2026-10-24) | which plies are threatening moves and which replies stop the threat (§3.6) |
 | R(m) | after a move `m` that is not fine, `searchmoves` all of `O`'s legal moves except the refutation's first | `O`'s best alternative to the refutation, for the refutation's tactic judgement (§4.5) |
 
 Node counts per budget: M1 §3; R (same size as D and E): PostM2_EM1 §3. Order: A, B, per

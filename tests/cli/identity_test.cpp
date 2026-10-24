@@ -1,5 +1,6 @@
 #include "chesswhy/cli.hpp"
 
+#include <array>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -12,6 +13,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "progress.hpp"
+
 #ifndef CHESSWHY_SOURCE_DIR
 #error "CHESSWHY_SOURCE_DIR must be provided by chesswhy_paths"
 #endif
@@ -19,6 +22,8 @@
 namespace {
 
 using Json = nlohmann::json;
+constexpr std::array<std::string_view, 6> kFixtureIds{"F01", "F03", "F12", "F25", "F29", "F30"};
+constexpr std::size_t kRerunCount = kFixtureIds.size() * 4U + 2U;
 
 [[nodiscard]] Json fixture_file() {
     const auto path = std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests/fixtures/positions.json";
@@ -81,7 +86,17 @@ void require_identical(std::string_view name, const std::string& first, const st
 int main() {
     try {
         const Json fixtures = fixture_file();
-        for (const std::string_view id : {"F01", "F03", "F12", "F25", "F29", "F30"}) {
+        chesswhy::test::Progress progress("cli_rerun_identity", kRerunCount);
+        std::size_t rerun_index = 0;
+        const auto rerun = [&](const std::vector<std::string>& args, std::string_view action,
+                               std::string_view detail) {
+            const std::size_t index = ++rerun_index;
+            progress.step_started(index, action, detail);
+            const std::string result = run(args);
+            progress.step_finished(index, action, detail);
+            return result;
+        };
+        for (const std::string_view id : kFixtureIds) {
             const auto& engine_fixtures = fixtures.at("engine_fixtures");
             const auto fixture = std::ranges::find_if(engine_fixtures, [id](const Json& value) {
                 return value.at("id").get<std::string>() == id;
@@ -90,21 +105,21 @@ int main() {
                 throw std::runtime_error("missing fixture " + std::string(id));
             }
             const auto full_args = fixture_args(fixture->at("args"), true, true);
-            const std::string full_first = run(full_args);
-            const std::string full_second = run(full_args);
+            const std::string full_first = rerun(full_args, id, "full JSON first");
+            const std::string full_second = rerun(full_args, id, "full JSON second");
             require_identical(std::string(id) + " full JSON", full_first, full_second);
 
             const auto moves_args = fixture_args(fixture->at("args"), true);
-            const std::string moves_first = run(moves_args);
-            const std::string moves_second = run(moves_args);
+            const std::string moves_first = rerun(moves_args, id, "moves JSON first");
+            const std::string moves_second = rerun(moves_args, id, "moves JSON second");
             require_identical(std::string(id) + " moves JSON", moves_first, moves_second);
         }
         constexpr std::string_view smoke_fen =
             "r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3";
         const std::vector<std::string> smoke_args{"--fen", std::string(smoke_fen), "--moves",
                                                   "Nf6"};
-        const std::string first = run(smoke_args);
-        const std::string second = run(smoke_args);
+        const std::string first = rerun(smoke_args, "smoke", "text first");
+        const std::string second = rerun(smoke_args, "smoke", "text second");
         require_identical("smoke text", first, second);
     } catch (const std::exception& error) {
         std::cerr << "CLI rerun identity failed: " << error.what() << '\n';

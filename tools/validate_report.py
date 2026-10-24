@@ -1880,10 +1880,10 @@ def schema_error_message(error: ValidationError) -> str:
 def schema_for_document(base_schema: Path, document: JsonValue) -> Path:
     if document not in ("full", "moves"):
         return base_schema
-    if base_schema.name not in ("report.v6.schema.json", "moves.v6.schema.json"):
+    if base_schema.name not in ("report.v7.schema.json", "moves.v7.schema.json"):
         return base_schema
     schema_name = (
-        "report.v6.schema.json" if document == "full" else "moves.v6.schema.json"
+        "report.v7.schema.json" if document == "full" else "moves.v7.schema.json"
     )
     return base_schema.with_name(schema_name)
 
@@ -1934,7 +1934,7 @@ def validate_document_file(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="validate ChessWhy full and moves documents against their v6 schemas"
+        description="validate ChessWhy full and moves documents against their v7 schemas"
     )
     _ = parser.add_argument("schema", type=Path)
     _ = parser.add_argument("reports", type=Path, nargs="*")

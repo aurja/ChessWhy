@@ -84,6 +84,8 @@ using namespace chesswhy;
         .ply = ply,
         .change = PositionalChangeKind::Appears,
         .holds_at_end = holds,
+        .net_change = false,
+        .in_use = std::nullopt,
         .feature =
             PositionalFeature{
                 .tag = tag,
@@ -183,7 +185,7 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
         GameMoveCount{.san = "c3", .uci = "c2c3", .games = 3});
 
     const auto document = move_reports(report);
-    CHECK(document.schema_version == 6);
+    CHECK(document.schema_version == 7);
     CHECK(document.input.moves == "all");
     CHECK(document.engine.multipv == 6);
     CHECK(document.position.fen == report.position.fen);
@@ -347,7 +349,7 @@ TEST_CASE("move report created threat keeps only the specified consequence class
     CHECK_FALSE(document.moves[5].created_threat.has_value());
 }
 
-TEST_CASE("move report JSON uses the v6 moves shape and stable key order", "[unit]") {
+TEST_CASE("move report JSON uses the v7 moves shape and stable key order", "[unit]") {
     auto report = base_report();
     report.candidates[0].parries_threat = ParryInfo{.parries = true};
     report.threats.emplace();
@@ -375,6 +377,6 @@ TEST_CASE("move report JSON uses the v6 moves shape and stable key order", "[uni
               "root_motifs", "tactic_labels", "positional",    "parried_threat", "created_threat",
               "refutation",  "games"});
     CHECK(keys(json["moves"][0]["parried_threat"]) == std::vector<std::string>{"threat", "test"});
-    CHECK(json["schema_version"] == 6);
+    CHECK(json["schema_version"] == 7);
     CHECK(json["document"] == "moves");
 }

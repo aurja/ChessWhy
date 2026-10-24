@@ -39,6 +39,8 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `SearchD` | `src/analysis/analyse.cpp` `search_parry`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
 | `SearchE` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
 | `SearchR` | `src/analysis/analyse.cpp` `judge_refutation`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
+| `ThreatSearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `src/analysis/rules.cpp` `node_budget` | Budget `L`; ply 1 reads E's result |
+| `ReplySearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `src/analysis/rules.cpp` `node_budget` | Budget `L`; only after a threatening ply |
 | `StockfishProcess` | `src/engine/engine.cpp` `Engine` `search`; `include/chesswhy/engine.hpp` `SearchRequest` `SearchResult` `Line` `MultiPvCollector` `EngineError`; `src/engine/info_line.cpp` `parse_info_line` | Talks UCI; never linked |
 | `ExpectedScore` | `src/analysis/rules.cpp` `es_units`; `src/analysis/analyse.cpp` `eval_for`; `include/chesswhy/report.hpp` `Eval` | |
 
@@ -106,6 +108,25 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `MaterialBalance` | `src/positional/positional.cpp` `add_leads_and_material` | |
 | `PositionalChange` | `src/positional/positional.cpp` `same_identity` `line_changes`; `src/analysis/analyse.cpp` `assess_move` `walked_moves`; `include/chesswhy/report.hpp` `PositionalChange` | Over the same walked plies as the line motifs |
 | `TiedToLine` | `src/render/render.cpp` `write_positional_changes` | Prints only changes along lines; `position.positional` stays in the JSON |
+| `NetChange` | `src/positional/positional.cpp` `mark_use` `contains_identity`; `include/chesswhy/report.hpp` `PositionalChange` | `mark_use` computes the root features itself |
+| `UseTest` | `src/positional/positional.cpp` `mark_use` `king_pressed` `king_zone` `used_by_later_capture` `has_attacked_feature_pawn` `used_passer` `used_rook_file` | Called by `src/analysis/analyse.cpp` `analyse` before the ledger |
+| `FavouredSide` | `src/positional/positional.cpp` `favours` | |
+| `StaticScale` | `src/positional/positional.cpp` `static_scale_group` `is_dynamic`; `include/chesswhy/positional.hpp` `StaticScaleGroup` | |
+
+## Tempo and initiative
+
+| Node | Code | Notes |
+|---|---|---|
+| `TempoValue` | `src/analysis/analyse.cpp` `make_tempo_value` `complete_move_details` `analyse`; `include/chesswhy/report.hpp` `TempoValue` | Root from A and B, after a move from its eval and E |
+| `TempoLabel` | `src/analysis/rules.cpp` `tempo_label` `tempo_dependent`; `include/chesswhy/analysis.hpp` `kTempoDependentUnits` `kNonTempoUnits` | |
+| `ThreatTest` | `src/analysis/analyse.cpp` `complete_tempo_ledger` | |
+| `ReplyTest` | `src/analysis/analyse.cpp` `complete_tempo_ledger` | |
+| `PlyLabel` | `src/analysis/rules.cpp` `label_ledger`; `include/chesswhy/report.hpp` `TempoPly` `TempoPlyLabel` | |
+| `TempoGained` | `src/analysis/rules.cpp` `label_ledger` | |
+| `TempoLedger` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `include/chesswhy/report.hpp` `TempoLedger` `TempoLedgerSkip` `Tempi` | |
+| `InitiativeRun` | `src/analysis/rules.cpp` `initiative_runs`; `include/chesswhy/report.hpp` `InitiativeRun` | Precondition: plies labelled by `label_ledger` |
+| `RunEnding` | `src/analysis/rules.cpp` `initiative_runs`; `include/chesswhy/report.hpp` `InitiativeEnding` | |
+| `RunOutcome` | `src/analysis/rules.cpp` `initiative_runs` `material_balance`; `include/chesswhy/report.hpp` `InitiativeOutcome` | Reads `positional::favours` |
 
 ## Reference knowledge
 
@@ -127,13 +148,14 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Provenance` | `src/report/report.cpp` `to_json`; `include/chesswhy/report.hpp` `parry_source` | Written as a `source` field beside each fact |
 | `Reproducible` | `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
-| `ReportSchema` | `schema/report.v6.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
+| `ReportSchema` | `schema/report.v7.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
 | `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` | Run by CTest `report_schema` on every F report |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/output.cpp` `write_output`; `src/report/move_report.cpp` `to_json` | `--json` prints the move report document, `--json --full-report` the full report |
 | `MoveSelection` | `src/report/move_report.cpp` `move_reports` `selected_from_a` `selected_by_keyword`; `src/analysis/analyse.cpp` `selected_by_selection` | Engine order, asked moves outside A last, each move once |
 | `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence` | |
-| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v6.schema.json` | |
+| `ImpactRating` | `src/positional/positional.cpp` `impact_order` | As built: the order of positional facts only |
+| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v7.schema.json` | |
 | `ProjectionCheck` | `tools/validate_report.py` `projected_move_document` `project_assessment` `net_positional_changes` `positional_identity` `check_projection` | Second, independent filter; `--projection FULL MOVES` |
 
 ## Explanation

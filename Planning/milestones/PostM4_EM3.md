@@ -420,7 +420,8 @@ struct TempoGained { int ply = 1; std::string san; Side side = Side::White; };
 [[nodiscard]] std::vector<ImpactGroup> impact_order(const MoveReport& move, bool tempo_dependent);
 ```
 
-`rules.cpp` `node_budget`: `l` = 40 000 standard, 10 000 quick, 160 000 deep.
+`rules.cpp` `node_budget`: `l` = 30 000 standard (40 000 before the batch 1 timing
+fallback, §17), 10 000 quick, 160 000 deep.
 `analyse` fills the root tempo value after B, runs `mark_use` on every candidate's
 changes (walked moves, root tempo-dependent flag), then builds the ledger.
 
@@ -543,3 +544,5 @@ Ba7 without a tempo gained).
 | 2026-10-24 | Contract drafted (§4–§16) | Decisions A1–A5, B1–B3 |
 | 2026-10-24 | Checkpoint 1: contract, diagrams and terms approved as drafted, including `unfinished`, the converted rule and use-test rules 1, 2 and 6 | Captain |
 | 2026-10-24 | WP1's v7 cutover is version-only outside its files: it renames `moves.v6.schema.json` to `moves.v7.schema.json` (version 7, no new fields) and updates schema names and version numbers in `tools/validate_report.py`, `tests/report/CMakeLists.txt`, `tests/report/move_report_tests.cpp`, `include/chesswhy/move_report.hpp` (comment), `tests/cli/CMakeLists.txt` (schema path only) and `tests/checker/unit_tests.py`; WP3 and WP5 extend them in batch 2. `tests/positional/oracle/*` is not WP2's: the test-progress task (Captain's request, not milestone scope) owns it with the other long-running test drivers during batch 1 | keep the tree building between batches |
+| 2026-10-24 | §6.3 rule 3 clarified (no change of meaning): the endings are exhaustive on plies labelled by `label_ledger`, because a pure reply on ply e+1 gives ply e a tempo and so continues the run; `initiative_runs` states that precondition and treats a violation as a programming error | question from WP1 |
+| 2026-10-24 | Timing fallback of §2 and §10 applied: `l` at `standard` drops from 40 000 to 30 000; `quick` and `deep` unchanged. Batch 1 at 40k in the Release gate (`-j8`, games tests alongside): F32 19.9 s, F12 15.2 s; alone: F32 12.4–13.0 s, F12 14.6 s. At 30k alone: F32 11.0 s, F12 13.2 s | §10 trigger; measurements for the receipt |

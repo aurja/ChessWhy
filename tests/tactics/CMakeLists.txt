@@ -12,7 +12,7 @@ catch_discover_tests(tactics_unit_tests PROPERTIES LABELS unit)
 # targets are frozen it only prints the table and exits 0.
 add_executable(tactics_puzzle_eval puzzle_eval.cpp)
 target_link_libraries(tactics_puzzle_eval PRIVATE chesswhy_tactics chesswhy_report
-    chesswhy_warnings)
+    chesswhy_warnings chesswhy_test_progress)
 add_test(NAME tactics_puzzles
     COMMAND tactics_puzzle_eval "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv")
 set_tests_properties(tactics_puzzles PROPERTIES LABELS unit)
@@ -23,7 +23,7 @@ set_tests_properties(tactics_puzzles PROPERTIES LABELS unit)
 add_executable(tactics_motif_oracle motif_oracle.cpp oracle/reference.cpp)
 target_include_directories(tactics_motif_oracle PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(tactics_motif_oracle PRIVATE chesswhy_tactics chesswhy_report
-    chesswhy_warnings)
+    chesswhy_warnings chesswhy_test_progress)
 add_test(NAME tactics_oracle
     COMMAND tactics_motif_oracle "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
     --fixtures "${PROJECT_SOURCE_DIR}/tests/fixtures/motifs.json")

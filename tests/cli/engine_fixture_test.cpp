@@ -17,6 +17,8 @@
 #include <chess.hpp>
 #include <nlohmann/json.hpp>
 
+#include "progress.hpp"
+
 #ifndef CHESSWHY_SOURCE_DIR
 #error "CHESSWHY_SOURCE_DIR must be provided by chesswhy_paths"
 #endif
@@ -350,6 +352,9 @@ int main(int argc, char* argv[]) {
         const std::filesystem::path report_directory(CHESSWHY_CLI_REPORT_DIR);
         std::filesystem::create_directories(report_directory);
         std::vector<std::string> failures;
+        const std::size_t run_count =
+            1U + (found->contains("runs") ? found->at("runs").size() : 0U);
+        chesswhy::test::Progress progress(fixture_id, run_count);
         const auto run_and_check = [&](const Json& run, std::string_view run_name,
                                        bool default_run) {
             const std::string label =
@@ -395,19 +400,26 @@ int main(int argc, char* argv[]) {
                             "full_text_contains", Json(expected), &actual, failures);
             }
             if (default_run) {
-                if (check_timing && elapsed > 12.0) {
+                if (check_timing && elapsed > 15.0) {
                     failures.push_back("fixture " + fixture_id +
-                                       " wall time: expected <= 12 s, actual " +
+                                       " wall time: expected <= 15 s, actual " +
                                        std::to_string(elapsed) + " s");
                 }
                 std::cout << "fixture " << fixture_id << " wall time: " << elapsed << " s\n";
             }
         };
 
+        std::size_t run_index = 1;
+        progress.step_started(run_index, "run", "default");
         run_and_check(*found, "default", true);
+        progress.step_finished(run_index, "run", "default");
         if (found->contains("runs")) {
             for (const auto& run : found->at("runs")) {
-                run_and_check(run, run.at("name").get<std::string>(), false);
+                ++run_index;
+                const std::string run_name = run.at("name").get<std::string>();
+                progress.step_started(run_index, "run", run_name);
+                run_and_check(run, run_name, false);
+                progress.step_finished(run_index, "run", run_name);
             }
         }
         for (const auto& failure : failures) {

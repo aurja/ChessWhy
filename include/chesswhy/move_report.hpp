@@ -1,4 +1,4 @@
-// Move report document declarations for report v6. Implemented in batch 2.
+// Move report document declarations for report v7. Implemented in batch 2.
 #pragma once
 
 #include "chesswhy/report.hpp"

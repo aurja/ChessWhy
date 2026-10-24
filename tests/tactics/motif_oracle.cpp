@@ -23,6 +23,7 @@
 #include <nlohmann/json.hpp>
 
 #include "oracle/reference.hpp"
+#include "progress.hpp"
 
 namespace {
 
@@ -505,6 +506,8 @@ void process_csv(const std::string& path, Statistics& statistics, std::ostream* 
         std::vector<std::string>{"PuzzleId", "FEN", "Moves", "Themes", "Stratum"}) {
         throw std::runtime_error("unexpected CSV header in " + path);
     }
+    const std::size_t puzzle_total = chesswhy::test::count_csv_data_rows(path);
+    chesswhy::test::Progress progress("tactics_oracle puzzle", puzzle_total);
 
     std::size_t line_number = 1;
     std::size_t puzzle_index = 0;
@@ -526,6 +529,7 @@ void process_csv(const std::string& path, Statistics& statistics, std::ostream* 
             process_position(fields[0], fields[1], tokens, fields[2], statistics, mismatch_output,
                              mismatch_limit, mismatch_rows, include_pin_tactical);
             ++puzzle_index;
+            progress.item_completed(puzzle_index, fields[0]);
         } catch (const std::exception& error) {
             throw std::runtime_error("CSV row " + std::to_string(line_number) + ": " +
                                      error.what());
@@ -548,6 +552,8 @@ void process_fixtures(const std::string& path, Statistics& statistics,
     if (!fixtures.is_array()) {
         throw std::runtime_error("motif_fixtures is not an array in " + path);
     }
+    chesswhy::test::Progress progress("tactics_oracle fixture", fixtures.size());
+    std::size_t fixture_index = 0;
     for (const Json& fixture : fixtures) {
         const std::string id = fixture.at("id").get<std::string>();
         const std::string fen = fixture.at("fen").get<std::string>();
@@ -578,6 +584,8 @@ void process_fixtures(const std::string& path, Statistics& statistics,
         } catch (const std::exception& error) {
             throw std::runtime_error(id + ": " + error.what());
         }
+        ++fixture_index;
+        progress.item_completed(fixture_index, id);
     }
 }
 

@@ -8,12 +8,14 @@ target_link_libraries(cli_unit_tests PRIVATE
 catch_discover_tests(cli_unit_tests PROPERTIES LABELS unit)
 
 add_executable(cli_fixture_test engine_fixture_test.cpp)
-target_link_libraries(cli_fixture_test PRIVATE chesswhy_cli chesswhy_warnings chesswhy_paths)
+target_link_libraries(cli_fixture_test PRIVATE chesswhy_cli chesswhy_warnings chesswhy_paths
+    chesswhy_test_progress)
 target_compile_definitions(cli_fixture_test PRIVATE
     CHESSWHY_CLI_REPORT_DIR="${CMAKE_CURRENT_BINARY_DIR}/reports")
 
 add_executable(cli_identity_test identity_test.cpp)
-target_link_libraries(cli_identity_test PRIVATE chesswhy_cli chesswhy_warnings chesswhy_paths)
+target_link_libraries(cli_identity_test PRIVATE chesswhy_cli chesswhy_warnings chesswhy_paths
+    chesswhy_test_progress)
 
 set(CLI_FIXTURES_FILE "${PROJECT_SOURCE_DIR}/tests/fixtures/positions.json")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CLI_FIXTURES_FILE}")
@@ -62,7 +64,7 @@ file(WRITE "${CLI_REPORT_CHECK_SCRIPT}" "set(PYTHON [==[${CHESSWHY_PYTHON}]==])\
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}"
     "set(VALIDATOR [==[${PROJECT_SOURCE_DIR}/tools/validate_report.py]==])\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}"
-    "set(SCHEMA [==[${PROJECT_SOURCE_DIR}/schema/report.v6.schema.json]==])\n")
+    "set(SCHEMA [==[${PROJECT_SOURCE_DIR}/schema/report.v7.schema.json]==])\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "set(FULL_REPORTS\n")
 foreach(report IN LISTS CLI_FULL_REPORT_FILES)
     file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "  [==[${report}]==]\n")
@@ -73,6 +75,8 @@ foreach(report IN LISTS CLI_MOVES_REPORT_FILES)
 endforeach()
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" ")\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" [=[
+string(TIMESTAMP progress_started "%s" UTC)
+message("progress: report_schema 1/1 combined validation (0.0 s elapsed)")
 execute_process(
     COMMAND "${PYTHON}" "${VALIDATOR}" "${SCHEMA}" ${FULL_REPORTS} ${MOVES_REPORTS}
     RESULT_VARIABLE documents_result)
@@ -81,13 +85,31 @@ if(NOT documents_result EQUAL 0)
 endif()
 list(LENGTH FULL_REPORTS report_count)
 math(EXPR report_last "${report_count} - 1")
+set(projection_index 0)
+set(projection_elapsed_total 0)
 foreach(index RANGE 0 ${report_last})
+    math(EXPR projection_index "${projection_index} + 1")
     list(GET FULL_REPORTS ${index} full_report)
     list(GET MOVES_REPORTS ${index} moves_report)
+    string(TIMESTAMP projection_started "%s" UTC)
+    math(EXPR progress_elapsed "${projection_started} - ${progress_started}")
+    set(projection_eta "")
+    if(projection_index GREATER 1)
+        math(EXPR projection_completed "${projection_index} - 1")
+        math(EXPR projection_remaining "${report_count} - ${projection_index}")
+        math(EXPR projection_left
+            "${projection_elapsed_total} * ${projection_remaining} / ${projection_completed}")
+        set(projection_eta ", ~${projection_left}.0 s left")
+    endif()
+    message("progress: report_schema ${projection_index}/${report_count} projection validation (${progress_elapsed}.0 s elapsed${projection_eta})")
     execute_process(
         COMMAND "${PYTHON}" "${VALIDATOR}" "${SCHEMA}" --projection
             "${full_report}" "${moves_report}"
         RESULT_VARIABLE projection_result)
+    string(TIMESTAMP projection_finished "%s" UTC)
+    math(EXPR projection_duration "${projection_finished} - ${projection_started}")
+    math(EXPR projection_elapsed_total
+        "${projection_elapsed_total} + ${projection_duration}")
     if(NOT projection_result EQUAL 0)
         message(FATAL_ERROR "report projection failed for ${full_report}")
     endif()

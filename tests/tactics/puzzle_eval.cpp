@@ -21,6 +21,8 @@
 
 #include <chess.hpp>
 
+#include "progress.hpp"
+
 namespace {
 
 using chesswhy::Motif;
@@ -652,6 +654,9 @@ int main(int argc, char* argv[]) {
         std::cerr << "tactics_puzzle_eval: invalid CSV header: " << error.what() << '\n';
         return 2;
     }
+    const std::size_t puzzle_total = chesswhy::test::count_csv_data_rows(options.csv_path);
+    chesswhy::test::Progress progress("tactics_puzzles puzzle", puzzle_total);
+    std::size_t puzzle_index = 0;
 
     std::array<Metrics, kTagCount> metrics{};
     BackgroundSummary background_summary;
@@ -664,6 +669,8 @@ int main(int argc, char* argv[]) {
             ++line_number;
             process_row(line, line_number, options.disagreements_per_kind, metrics,
                         background_summary, removal_metrics, disagreements);
+            ++puzzle_index;
+            progress.item_completed(puzzle_index, "processed");
         }
         if (input.bad()) {
             throw std::runtime_error("failed reading " + options.csv_path);

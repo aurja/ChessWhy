@@ -502,14 +502,15 @@ sheet should lead with.
 
 **Concepts:** `EngineFixtures`, `PositionalFixtures`, `TempoValue`, `TempoLabel`, `ThreatSearch`, `ReplySearch`, `PlyLabel`, `TempoGained`, `TempoLedger`, `InitiativeRun`, `RunEnding`, `RunOutcome`, `NetChange`, `UseTest`, `ImpactRating`
 
-Contracted on 2026-10-24 (`Planning/milestones/PostM4_EM3.md` §11); none exists in the
-JSON yet, so "Codebase today" says what the Deputy measured with throwaway probes, or
-"not built". F40–F44 go into `positions.json` and run like §1; boards are rendered when
-they land. PU01–PU18 are use-test fixtures in the new `uses` section of
+Contracted on 2026-10-24 (`Planning/milestones/PostM4_EM3.md` §11). F40–F44 are not in
+the JSON yet, so their "Codebase today" says what the Deputy measured with throwaway
+probes. F40–F44 go into `positions.json` and run like §1; boards are rendered when
+they land. PU01–PU18 are use-test fixtures in the `uses` section of
 `positional.json`, run without the engine; a change is written as tag, owner, file or
-square, direction and ply, and "cut" means a net change that fails the use test. Their
-"Codebase today" column is the Deputy's Python oracle of the contract rules on the M4 full
-reports. Deviations found when they are built go to checkpoint 2.
+square, direction and ply, and "cut" means a net change that fails the use test. Built
+on 2026-10-24: all eighteen pass in `positional_unit_positional P fixtures exercise every
+include and exclude`, so "Oracle matches" now means the Deputy's Python oracle of the
+contract rules and the C++ use test agree. Deviations found for F40–F44 go to checkpoint 2.
 
 | ID | Board | Position | Fixture claims | Codebase today | Comments |
 |---|---|---|---|---|---|
@@ -535,4 +536,4 @@ reports. Deviations found when they are built go to checkpoint 2.
 | PU15 | — | `k7/8/8/8/8/8/8/4K2R w K - 0 1`; line `O-O Kb7 Rf6 Kc7 Rh6 Kd7`<br><sub>F27</sub> | **Kept:** `king_shield_gap` W g (ply 1, own move)<br>**Cut:** `castling_kingside` W (castled); `king_shield_gap` W e disappears (ply 1, king moved); `king_shield_gap` B d (ply 4, not pressed) | Oracle matches | |
 | PU16 | — | F28 root; line `Nc3 f6 d3 c5 Be3 Bg4`; not tempo-dependent | **Cut:** `development_lead` W (ply 1); `mobility_lead` B disappears (ply 1); `pawn_chain` | Oracle matches | |
 | PU17 | — | as PU16, tempo-dependent | **Kept:** `development_lead` W (ply 1); `mobility_lead` B disappears (ply 1) | Oracle matches | |
-| PU18 | — | `7k/8/2p5/3P4/8/8/8/K7 b - - 0 1`; line `Kg8 Kb2 c5 d6`<br><sub>constructed</sub> | **Kept:** `passed_pawn` W d (ply 3, advanced at ply 4)<br>**Cut:** `passed_pawn` B c (ply 3, not advanced) | Not checked yet; the board may be adjusted when built | |
+| PU18 | — | `7k/8/2p5/3P4/8/8/8/K7 b - - 0 1`; line `Kg8 Kb2 c5 d6`<br><sub>constructed</sub> | **Kept:** `passed_pawn` W d (ply 3, advanced at ply 4)<br>**Cut:** `passed_pawn` B c (ply 3, not advanced) | Built as drawn; C++ use test passes | |

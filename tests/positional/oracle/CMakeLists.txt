@@ -10,7 +10,8 @@ set_tests_properties(positional_reference_self_check PROPERTIES LABELS unit)
 if(TARGET chesswhy_positional)
     add_executable(positional_oracle positional_oracle.cpp reference.cpp)
     target_include_directories(positional_oracle PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
-    target_link_libraries(positional_oracle PRIVATE chesswhy_positional chesswhy_warnings)
+    target_link_libraries(positional_oracle PRIVATE chesswhy_positional chesswhy_warnings
+        chesswhy_test_progress)
     add_test(NAME positional_oracle
         COMMAND positional_oracle
             "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"

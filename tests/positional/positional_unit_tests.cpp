@@ -10,6 +10,7 @@
 #include <ranges>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <vector>
 
 #include <catch2/catch_test_macros.hpp>
@@ -242,6 +243,129 @@ void validate_partial_feature(const json& expected, bool is_change) {
     return result;
 }
 
+void validate_use_change(const json& expected) {
+    REQUIRE(expected.is_object());
+    REQUIRE((expected.size() == 4 || expected.size() == 5));
+    for (const std::string_view key : {"tag", "side", "change", "ply"}) {
+        REQUIRE(expected.contains(key));
+    }
+    REQUIRE_FALSE((expected.contains("file") && expected.contains("square")));
+    for (auto iterator = expected.begin(); iterator != expected.end(); ++iterator) {
+        if (iterator.key() == "tag") {
+            REQUIRE(valid_tag(*iterator));
+        } else if (iterator.key() == "side") {
+            REQUIRE(iterator->is_string());
+            REQUIRE((iterator->get<std::string>() == "white" ||
+                     iterator->get<std::string>() == "black"));
+        } else if (iterator.key() == "change") {
+            REQUIRE(iterator->is_string());
+            REQUIRE((iterator->get<std::string>() == "appears" ||
+                     iterator->get<std::string>() == "disappears"));
+        } else if (iterator.key() == "ply") {
+            REQUIRE(iterator->is_number_integer());
+            REQUIRE(iterator->get<int>() >= 1);
+        } else if (iterator.key() == "file") {
+            REQUIRE(iterator->is_string());
+            const std::string file = iterator->get<std::string>();
+            REQUIRE(file.size() == 1);
+            REQUIRE((file.front() >= 'a' && file.front() <= 'h'));
+        } else if (iterator.key() == "square") {
+            REQUIRE(square_name_is_valid(*iterator));
+        } else {
+            FAIL("unknown positional use fixture field: " << iterator.key());
+        }
+    }
+}
+
+[[nodiscard]] bool use_change_matches(const PositionalChange& actual, const json& expected) {
+    if (expected["tag"].get<std::string>() != chesswhy::to_string(actual.feature.tag) ||
+        expected["side"].get<std::string>() != chesswhy::to_string(actual.feature.side) ||
+        expected["change"].get<std::string>() != chesswhy::to_string(actual.change) ||
+        expected["ply"].get<int>() != actual.ply) {
+        return false;
+    }
+    if (expected.contains("file")) {
+        return actual.feature.file &&
+               expected["file"].get<std::string>() ==
+                   std::string(1, static_cast<char>('a' + *actual.feature.file));
+    }
+    if (expected.contains("square")) {
+        return !actual.feature.pieces.empty() &&
+               expected["square"].get<std::string>() ==
+                   square_name(actual.feature.pieces.front().square);
+    }
+    return true;
+}
+
+[[nodiscard]] json marked_change_summary(const PositionalChange& change) {
+    json result = change_summary(change);
+    result["net_change"] = change.net_change;
+    result["in_use"] = change.in_use ? json(*change.in_use) : json(nullptr);
+    return result;
+}
+
+void run_use_fixture(const json& fixture) {
+    REQUIRE(fixture.is_object());
+    REQUIRE(fixture.size() == 8);
+    for (const std::string_view key : {"id", "source", "fen"}) {
+        REQUIRE(fixture.contains(key));
+        REQUIRE(fixture[std::string(key)].is_string());
+    }
+    REQUIRE(fixture.contains("tempo_dependent"));
+    REQUIRE(fixture["tempo_dependent"].is_boolean());
+    REQUIRE(fixture.contains("line_uci"));
+    REQUIRE(fixture["line_uci"].is_array());
+    for (const std::string_view key : {"kept", "cut", "passing"}) {
+        REQUIRE(fixture.contains(key));
+        REQUIRE(fixture[std::string(key)].is_array());
+    }
+
+    INFO("positional use fixture " << fixture["id"].get<std::string>() << " from "
+                                   << fixture["source"].get<std::string>());
+    chess::Board board(fixture["fen"].get<std::string>());
+    const chess::Board root = board;
+    std::vector<chess::Move> line;
+    line.reserve(fixture["line_uci"].size());
+    for (const json& move_json : fixture["line_uci"]) {
+        REQUIRE(move_json.is_string());
+        const std::string uci = move_json.get<std::string>();
+        REQUIRE((uci.size() == 4 || uci.size() == 5));
+        const chess::Move move = chess::uci::uciToMove(board, uci);
+        REQUIRE(move != chess::Move::NO_MOVE);
+        REQUIRE(board.isLegal(move));
+        line.push_back(move);
+        board.makeMove(move);
+    }
+    std::vector<PositionalChange> actual = chesswhy::positional::line_changes(root, line);
+    chesswhy::positional::mark_use(actual, root, line, fixture["tempo_dependent"].get<bool>());
+
+    for (const auto& [key, net, used] :
+         {std::tuple<std::string_view, bool, bool>{"kept", true, true},
+          std::tuple<std::string_view, bool, bool>{"cut", true, false},
+          std::tuple<std::string_view, bool, bool>{"passing", false, false}}) {
+        for (const json& expected : fixture[std::string(key)]) {
+            validate_use_change(expected);
+            INFO(key << " " << expected.dump());
+            const bool matched = std::ranges::any_of(actual, [&](const PositionalChange& change) {
+                const bool use_matches = net ? change.in_use.has_value() && *change.in_use == used
+                                             : !change.in_use.has_value();
+                return use_change_matches(change, expected) && change.net_change == net &&
+                       use_matches;
+            });
+            if (!matched) {
+                json summary = json::array();
+                for (const PositionalChange& change : actual) {
+                    summary.push_back(marked_change_summary(change));
+                }
+                INFO("fixture FEN " << fixture["fen"].get<std::string>());
+                INFO("fixture line " << fixture["line_uci"].dump());
+                INFO("actual marked changes " << summary.dump());
+            }
+            CHECK(matched);
+        }
+    }
+}
+
 void validate_fixture_row(const json& fixture, bool line_fixture) {
     REQUIRE(fixture.is_object());
     REQUIRE(fixture.size() == (line_fixture ? 8 : 7));
@@ -268,6 +392,8 @@ void run_fixture_document(const json& root) {
     REQUIRE(root["features"].is_array());
     REQUIRE(root.contains("lines"));
     REQUIRE(root["lines"].is_array());
+    REQUIRE(root.contains("uses"));
+    REQUIRE(root["uses"].is_array());
 
     for (const json& fixture : root["features"]) {
         validate_fixture_row(fixture, false);
@@ -345,6 +471,9 @@ void run_fixture_document(const json& root) {
                 return change_matches(change, forbidden);
             }));
         }
+    }
+    for (const json& fixture : root["uses"]) {
+        run_use_fixture(fixture);
     }
 }
 
@@ -861,6 +990,243 @@ TEST_CASE("positional fixture matching handles locally constructed rows", "[unit
              {"ply", 1}, {"change", "appears"}, {"tag", "castling_kingside"}, {"side", "white"}}})},
         {"reason", "the captured rook no longer supports the castling right"},
     };
-    run_fixture_document(
-        json{{"features", json::array({feature_fixture})}, {"lines", json::array({line_fixture})}});
+    run_fixture_document(json{{"features", json::array({feature_fixture})},
+                              {"lines", json::array({line_fixture})},
+                              {"uses", json::array()}});
+}
+
+TEST_CASE("favoured side follows change direction and weakness polarity", "[unit]") {
+    constexpr std::array weak_tags{
+        PositionalTag::IsolatedPawn,
+        PositionalTag::DoubledPawns,
+        PositionalTag::TripledPawns,
+        PositionalTag::BackwardPawn,
+        PositionalTag::KingShieldGap,
+        PositionalTag::OpenFileNearKing,
+        PositionalTag::HalfOpenFileNearKing,
+        PositionalTag::KingZoneAttacker,
+        PositionalTag::BadBishop,
+    };
+    constexpr std::array neutral_tags{PositionalTag::PawnIslands, PositionalTag::PawnChain};
+    constexpr std::array other_tags{
+        PositionalTag::PassedPawn,       PositionalTag::ConnectedPassedPawns,
+        PositionalTag::CastlingKingside, PositionalTag::CastlingQueenside,
+        PositionalTag::BishopPair,       PositionalTag::RookOpenFile,
+        PositionalTag::RookHalfOpenFile, PositionalTag::RookSeventh,
+        PositionalTag::Outpost,          PositionalTag::MobilityLead,
+        PositionalTag::SpaceLead,        PositionalTag::DevelopmentLead,
+        PositionalTag::MaterialAhead,    PositionalTag::ExchangeUp,
+    };
+
+    for (const PositionalTag tag : weak_tags) {
+        PositionalChange change;
+        change.feature.tag = tag;
+        change.feature.side = Side::Black;
+        change.change = PositionalChangeKind::Appears;
+        CHECK(chesswhy::positional::favours(change) == Side::White);
+        change.change = PositionalChangeKind::Disappears;
+        CHECK(chesswhy::positional::favours(change) == Side::Black);
+    }
+    for (const PositionalTag tag : other_tags) {
+        PositionalChange change;
+        change.feature.tag = tag;
+        change.feature.side = Side::Black;
+        change.change = PositionalChangeKind::Appears;
+        CHECK(chesswhy::positional::favours(change) == Side::Black);
+        change.change = PositionalChangeKind::Disappears;
+        CHECK(chesswhy::positional::favours(change) == Side::White);
+    }
+    for (const PositionalTag tag : neutral_tags) {
+        PositionalChange change;
+        change.feature.tag = tag;
+        change.feature.side = Side::Black;
+        CHECK_FALSE(chesswhy::positional::favours(change).has_value());
+        change.change = PositionalChangeKind::Disappears;
+        CHECK_FALSE(chesswhy::positional::favours(change).has_value());
+    }
+}
+
+TEST_CASE("static scale groups and dynamic tags follow the contracted tables", "[unit]") {
+    constexpr std::array king_safety{
+        PositionalTag::CastlingKingside,     PositionalTag::CastlingQueenside,
+        PositionalTag::KingShieldGap,        PositionalTag::OpenFileNearKing,
+        PositionalTag::HalfOpenFileNearKing, PositionalTag::KingZoneAttacker,
+    };
+    constexpr std::array material_tags{
+        PositionalTag::MaterialAhead,
+        PositionalTag::ExchangeUp,
+        PositionalTag::BishopPair,
+    };
+    constexpr std::array pawn_structure{
+        PositionalTag::IsolatedPawn, PositionalTag::DoubledPawns,
+        PositionalTag::TripledPawns, PositionalTag::BackwardPawn,
+        PositionalTag::PassedPawn,   PositionalTag::ConnectedPassedPawns,
+        PositionalTag::PawnIslands,  PositionalTag::PawnChain,
+    };
+    constexpr std::array pieces{
+        PositionalTag::RookOpenFile, PositionalTag::RookHalfOpenFile, PositionalTag::RookSeventh,
+        PositionalTag::Outpost,      PositionalTag::BadBishop,
+    };
+    constexpr std::array space_mobility_development{
+        PositionalTag::MobilityLead,
+        PositionalTag::SpaceLead,
+        PositionalTag::DevelopmentLead,
+    };
+    constexpr std::array all_tags{
+        PositionalTag::IsolatedPawn,
+        PositionalTag::DoubledPawns,
+        PositionalTag::TripledPawns,
+        PositionalTag::BackwardPawn,
+        PositionalTag::PassedPawn,
+        PositionalTag::ConnectedPassedPawns,
+        PositionalTag::PawnIslands,
+        PositionalTag::PawnChain,
+        PositionalTag::CastlingKingside,
+        PositionalTag::CastlingQueenside,
+        PositionalTag::KingShieldGap,
+        PositionalTag::OpenFileNearKing,
+        PositionalTag::HalfOpenFileNearKing,
+        PositionalTag::KingZoneAttacker,
+        PositionalTag::BishopPair,
+        PositionalTag::RookOpenFile,
+        PositionalTag::RookHalfOpenFile,
+        PositionalTag::RookSeventh,
+        PositionalTag::Outpost,
+        PositionalTag::BadBishop,
+        PositionalTag::MobilityLead,
+        PositionalTag::SpaceLead,
+        PositionalTag::DevelopmentLead,
+        PositionalTag::MaterialAhead,
+        PositionalTag::ExchangeUp,
+    };
+    for (const PositionalTag tag : king_safety) {
+        CHECK(chesswhy::positional::static_scale_group(tag) ==
+              chesswhy::positional::StaticScaleGroup::KingSafety);
+    }
+    for (const PositionalTag tag : material_tags) {
+        CHECK(chesswhy::positional::static_scale_group(tag) ==
+              chesswhy::positional::StaticScaleGroup::Material);
+    }
+    for (const PositionalTag tag : pawn_structure) {
+        CHECK(chesswhy::positional::static_scale_group(tag) ==
+              chesswhy::positional::StaticScaleGroup::PawnStructure);
+    }
+    for (const PositionalTag tag : pieces) {
+        CHECK(chesswhy::positional::static_scale_group(tag) ==
+              chesswhy::positional::StaticScaleGroup::Pieces);
+    }
+    for (const PositionalTag tag : space_mobility_development) {
+        CHECK(chesswhy::positional::static_scale_group(tag) ==
+              chesswhy::positional::StaticScaleGroup::SpaceMobilityDevelopment);
+    }
+    constexpr std::array dynamic_tags{
+        PositionalTag::CastlingKingside, PositionalTag::CastlingQueenside,
+        PositionalTag::KingZoneAttacker, PositionalTag::MobilityLead,
+        PositionalTag::DevelopmentLead,
+    };
+    for (const PositionalTag tag : all_tags) {
+        CHECK(chesswhy::positional::is_dynamic(tag) ==
+              (std::ranges::find(dynamic_tags, tag) != dynamic_tags.end()));
+    }
+}
+
+TEST_CASE("positional impact order uses both mode orders and preserves ties", "[unit]") {
+    const auto make_change = [](PositionalTag tag) {
+        PositionalChange change;
+        change.feature.tag = tag;
+        return change;
+    };
+    const auto tags_of = [](const std::vector<PositionalChange>& changes) {
+        std::vector<PositionalTag> tags;
+        tags.reserve(changes.size());
+        for (const PositionalChange& change : changes) {
+            tags.push_back(change.feature.tag);
+        }
+        return tags;
+    };
+    const std::vector<PositionalChange> original{
+        make_change(PositionalTag::MobilityLead),  make_change(PositionalTag::KingZoneAttacker),
+        make_change(PositionalTag::MaterialAhead), make_change(PositionalTag::DoubledPawns),
+        make_change(PositionalTag::BishopPair),    make_change(PositionalTag::CastlingKingside),
+        make_change(PositionalTag::Outpost),       make_change(PositionalTag::DevelopmentLead),
+        make_change(PositionalTag::SpaceLead),
+    };
+    std::vector<PositionalChange> tempo = original;
+    chesswhy::positional::impact_order(tempo, true);
+    CHECK((tags_of(tempo) ==
+           std::vector<PositionalTag>{PositionalTag::KingZoneAttacker,
+                                      PositionalTag::CastlingKingside, PositionalTag::MobilityLead,
+                                      PositionalTag::DevelopmentLead, PositionalTag::MaterialAhead,
+                                      PositionalTag::BishopPair, PositionalTag::DoubledPawns,
+                                      PositionalTag::Outpost, PositionalTag::SpaceLead}));
+
+    std::vector<PositionalChange> non_tempo = original;
+    chesswhy::positional::impact_order(non_tempo, false);
+    CHECK((tags_of(non_tempo) ==
+           std::vector<PositionalTag>{PositionalTag::MaterialAhead, PositionalTag::BishopPair,
+                                      PositionalTag::DoubledPawns, PositionalTag::Outpost,
+                                      PositionalTag::SpaceLead, PositionalTag::KingZoneAttacker,
+                                      PositionalTag::CastlingKingside, PositionalTag::MobilityLead,
+                                      PositionalTag::DevelopmentLead}));
+}
+TEST_CASE("king pressure uses checks, zone captures, and distinct end attackers", "[unit]") {
+    const auto check_king_file = [](std::string_view fen,
+                                    std::initializer_list<std::string_view> uci_line) {
+        const chess::Board root(fen);
+        chess::Board board = root;
+        const std::vector<chess::Move> line = parse_line(board, uci_line);
+        std::vector<PositionalChange> changes = chesswhy::positional::line_changes(root, line);
+        chesswhy::positional::mark_use(changes, root, line, false);
+        const auto change = std::ranges::find_if(changes, [](const PositionalChange& candidate) {
+            return candidate.feature.tag == PositionalTag::KingShieldGap &&
+                   candidate.feature.side == Side::White && candidate.feature.file == 4 &&
+                   candidate.ply == 1 && candidate.change == PositionalChangeKind::Appears;
+        });
+        REQUIRE(change != changes.end());
+        CHECK(change->net_change);
+        CHECK(change->in_use == true);
+    };
+
+    check_king_file("k3r3/8/8/8/8/8/4P3/4K2R w K - 0 1", {"e2e4", "e8e4"});
+    check_king_file("k2r4/8/8/8/8/8/3NP3/4K2R w K - 0 1", {"e2e4", "d8d2"});
+    check_king_file("k7/8/8/8/8/2n3n1/4P3/4K2R w K - 0 1", {"e2e4", "a8b8"});
+}
+
+TEST_CASE("early passer and rook-file changes pass within two plies", "[unit]") {
+    const chess::Board root("7k/8/2p5/3P4/8/8/8/1R2K3 w - - 0 1");
+    chess::Board board = root;
+    const std::vector<chess::Move> line = parse_line(board, {"b1a1", "c6c5"});
+    std::vector<PositionalChange> changes = chesswhy::positional::line_changes(root, line);
+    chesswhy::positional::mark_use(changes, root, line, false);
+
+    for (const PositionalTag tag : {PositionalTag::PassedPawn, PositionalTag::RookOpenFile}) {
+        const auto found = std::ranges::find_if(changes, [tag](const PositionalChange& change) {
+            return change.feature.tag == tag && change.net_change && change.in_use == true;
+        });
+        CHECK(found != changes.end());
+    }
+    CHECK(std::ranges::any_of(changes, [](const PositionalChange& change) {
+        return change.feature.tag == PositionalTag::PassedPawn &&
+               change.feature.side == Side::White && change.feature.file == 3 && change.ply == 2 &&
+               change.change == PositionalChangeKind::Appears && change.net_change &&
+               change.in_use == true;
+    }));
+    CHECK(std::ranges::any_of(changes, [](const PositionalChange& change) {
+        return change.feature.tag == PositionalTag::PassedPawn &&
+               change.feature.side == Side::Black && change.feature.file == 2 && change.ply == 2 &&
+               change.change == PositionalChangeKind::Appears && change.net_change &&
+               change.in_use == true;
+    }));
+    CHECK(std::ranges::any_of(changes, [](const PositionalChange& change) {
+        return change.feature.tag == PositionalTag::RookOpenFile &&
+               change.feature.side == Side::White && change.feature.file == 0 && change.ply == 1 &&
+               change.change == PositionalChangeKind::Appears && change.net_change &&
+               change.in_use == true;
+    }));
+    CHECK(std::ranges::any_of(changes, [](const PositionalChange& change) {
+        return change.feature.tag == PositionalTag::RookOpenFile &&
+               change.feature.side == Side::White && change.feature.file == 1 && change.ply == 1 &&
+               change.change == PositionalChangeKind::Disappears && change.net_change &&
+               change.in_use == true;
+    }));
 }

@@ -24,6 +24,15 @@ constexpr int kParryMarginUnits = 60;
     return color == chess::Color::WHITE ? Side::White : Side::Black;
 }
 
+[[nodiscard]] TempoValue make_tempo_value(Side side, int moves_units, int passes_units) {
+    const int value_units = moves_units - passes_units;
+    return TempoValue{.side = side,
+                      .moves_units = moves_units,
+                      .passes_units = passes_units,
+                      .value_units = value_units,
+                      .label = tempo_label(value_units)};
+}
+
 [[nodiscard]] Eval eval_for(const engine::Line& line, chess::Color searched_side,
                             chess::Color requested_side) {
     const int sign = searched_side == requested_side ? 1 : -1;
@@ -305,7 +314,8 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
                                          const engine::Line& best_line, std::string_view uci,
                                          bool in_multipv, bool same_score_as_best,
                                          std::optional<OpportunityJudgement> opportunity,
-                                         const std::vector<Motif>& root_motifs) {
+                                         const std::vector<Motif>& root_motifs,
+                                         std::vector<chess::Move>& walked_line) {
     if (line.pv_uci.empty()) {
         throw engine::EngineError("Stockfish search returned an empty principal variation");
     }
@@ -361,6 +371,7 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
             annotate_threat_line(after_move, refutation_moves, *result.refutation);
         }
     }
+    walked_line = std::move(moves);
     return result;
 }
 
@@ -405,6 +416,9 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
             const auto& created_line = first_line(searched);
             result.creates_threat = make_threat(null_after_move, created_line.pv_uci, created_line,
                                                 report_side(null_after_move.sideToMove()));
+            result.tempo_value =
+                make_tempo_value(report_side(after_move.sideToMove()), 2000 - result.eval.es_units,
+                                 2000 - es_units(created_line));
         }
     }
 
@@ -414,6 +428,100 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
         judge_refutation(engine, budget, nodes_searched, after_move, reply, result.eval,
                          *result.refutation);
     }
+}
+
+void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
+                           std::uint64_t& nodes_searched, const chess::Board& root,
+                           std::span<const chess::Move> walked_line, MoveAssessment& result,
+                           std::optional<bool> null_move_reliable) {
+    result.tempo_ledger.reset();
+    if (root.inCheck()) {
+        result.tempo_ledger_skipped = TempoLedgerSkip::InCheck;
+        return;
+    }
+    if (null_move_reliable && !*null_move_reliable) {
+        result.tempo_ledger_skipped = TempoLedgerSkip::NullMoveUnreliable;
+        return;
+    }
+    if (!result.detailed) {
+        result.tempo_ledger_skipped = TempoLedgerSkip::NotDetailed;
+        return;
+    }
+
+    TempoLedger ledger;
+    ledger.plies.reserve(walked_line.size());
+    chess::Board board = root;
+    for (std::size_t index = 0; index < walked_line.size(); ++index) {
+        board.makeMove(walked_line[index]);
+        const bool game_over = !has_legal_moves(board);
+        TempoPly ply;
+        ply.ply = static_cast<int>(index + 1);
+        ply.san = result.line_san[index];
+        ply.side = report_side(~board.sideToMove());
+
+        if (board.inCheck()) {
+            ply.threatening = true;
+            ply.by_check = true;
+        } else if (index == 0) {
+            if (result.creates_threat) {
+                const int rank = consequence_rank(result.creates_threat->consequence);
+                ply.threat_rank = rank;
+                ply.threatening = rank >= 2;
+            }
+        } else if (!game_over) {
+            chess::Board null_board = board;
+            null_board.makeNullMove();
+            if (has_legal_moves(null_board)) {
+                engine::SearchRequest request;
+                request.fen = null_board.getFen();
+                request.nodes = budget.l;
+                request.multipv = 1;
+                const auto searched = engine.search(request);
+                nodes_searched += searched.nodes;
+                const auto& threat_line = first_line(searched);
+                const int rank =
+                    consequence_rank(consequence(null_board, threat_line.pv_uci, threat_line));
+                ply.threat_rank = rank;
+                ply.threatening = rank >= 2;
+            }
+        }
+
+        if (!ledger.plies.empty() && ledger.plies.back().threatening) {
+            if (game_over) {
+                ply.stops_threat = true;
+            } else {
+                engine::SearchRequest request;
+                request.fen = board.getFen();
+                request.nodes = budget.l;
+                request.multipv = 1;
+                const auto searched = engine.search(request);
+                nodes_searched += searched.nodes;
+                const auto& reply_line = first_line(searched);
+                const int rank =
+                    consequence_rank(consequence(board, reply_line.pv_uci, reply_line));
+                ply.stops_threat = rank < 2;
+            }
+        }
+        ledger.plies.push_back(std::move(ply));
+        if (game_over) {
+            break;
+        }
+    }
+    label_ledger(ledger.plies);
+    for (const TempoPly& ply : ledger.plies) {
+        if (!ply.tempo_gained) {
+            continue;
+        }
+        if (ply.side == Side::White) {
+            ++ledger.tempi.white;
+        } else {
+            ++ledger.tempi.black;
+        }
+    }
+    ledger.runs = initiative_runs(ledger.plies, root, walked_line.first(ledger.plies.size()),
+                                  result.positional);
+    result.tempo_ledger = std::move(ledger);
+    result.tempo_ledger_skipped.reset();
 }
 [[nodiscard]] bool selected_by_selection(const Selection& selection, const MoveAssessment& move,
                                          std::size_t line_index) {
@@ -463,6 +571,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.position.side_to_move = report_side(side_to_move);
     report.position.in_check = in_check;
     report.position.terminal.reset();
+    report.position.tempo_value.reset();
     report.position.eval_white.reset();
     report.position.motifs.clear();
     report.position.positional = positional::features(board);
@@ -537,16 +646,17 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
             b_request.multipv = 1;
             auto b_result = engine.search(b_request);
             report.engine.nodes_searched += b_result.nodes;
-            if (b_result.lines.empty()) {
-                throw engine::EngineError(
-                    "Stockfish search B returned no complete principal variation");
+            if (!b_result.lines.empty()) {
+                opponent_line.emplace(std::move(b_result.lines.front()));
+                opponent_threat = make_threat(null_board, opponent_line->pv_uci, *opponent_line,
+                                              report_side(opponent));
             }
-            opponent_line.emplace(std::move(b_result.lines.front()));
-            opponent_threat = make_threat(null_board, opponent_line->pv_uci, *opponent_line,
-                                          report_side(opponent));
         }
     }
-
+    if (opponent_line) {
+        report.position.tempo_value = make_tempo_value(
+            report_side(side_to_move), es_units(best_line), 2000 - es_units(*opponent_line));
+    }
     Threat own_threat = make_threat(board, best_line.pv_uci, best_line, report_side(side_to_move));
     const int own_rank = consequence_rank(own_threat.consequence);
     const int opponent_rank =
@@ -561,6 +671,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     }
     threats.null_move_reliable =
         in_check ? std::optional<bool>() : std::optional<bool>(!null_move_prone(board));
+    const bool root_tempo_dependent = tempo_dependent(report.position.tempo_value);
 
     report.candidates.reserve(a_result.lines.size());
     for (std::size_t index = 0; index < a_result.lines.size(); ++index) {
@@ -570,14 +681,18 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         }
         const Eval line_eval = eval_for(line, side_to_move, side_to_move);
         const bool same_score_as_best = index == 0 || same_score(line_eval, best_eval);
-        auto candidate =
-            assess_move(board, line, best_line, line.pv_uci.front(), true, same_score_as_best,
-                        index == 0 ? root_opportunity : std::nullopt, report.position.motifs);
+        std::vector<chess::Move> walked_line;
+        auto candidate = assess_move(
+            board, line, best_line, line.pv_uci.front(), true, same_score_as_best,
+            index == 0 ? root_opportunity : std::nullopt, report.position.motifs, walked_line);
         const bool selected = selected_by_selection(request.selection, candidate, index);
         if (is_detailed_line(static_cast<int>(index + 1), selected)) {
             complete_move_details(engine, budget, report.engine.nodes_searched, board, line,
                                   candidate, opponent_rank, opponent_line);
         }
+        positional::mark_use(candidate.positional, board, walked_line, root_tempo_dependent);
+        complete_tempo_ledger(engine, budget, report.engine.nodes_searched, board, walked_line,
+                              candidate, threats.null_move_reliable);
         report.candidates.push_back(std::move(candidate));
     }
 
@@ -639,10 +754,14 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         if (line.pv_uci.empty() || line.pv_uci.front() != asked_uci) {
             throw engine::EngineError("Stockfish search C did not return the requested move first");
         }
+        std::vector<chess::Move> walked_line;
         auto assessment = assess_move(board, line, best_line, asked_uci, false, false, std::nullopt,
-                                      report.position.motifs);
+                                      report.position.motifs, walked_line);
         complete_move_details(engine, budget, report.engine.nodes_searched, board, line, assessment,
                               opponent_rank, opponent_line);
+        positional::mark_use(assessment.positional, board, walked_line, root_tempo_dependent);
+        complete_tempo_ledger(engine, budget, report.engine.nodes_searched, board, walked_line,
+                              assessment, threats.null_move_reliable);
         report.asked_moves.push_back(std::move(assessment));
     }
 }

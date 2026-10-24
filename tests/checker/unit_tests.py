@@ -356,7 +356,7 @@ class CheckerRelationsTests(unittest.TestCase):
             "refutation": None,
         }
         full: checker.JsonObject = {
-            "schema_version": 6,
+            "schema_version": 7,
             "document": "full",
             "input": {
                 "source": "fen",

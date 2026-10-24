@@ -17,6 +17,7 @@
 
 #include <nlohmann/json.hpp>
 
+#include "progress.hpp"
 #include "reference.hpp"
 
 namespace {
@@ -458,6 +459,9 @@ void process_csv(const std::string& path, Statistics& statistics) {
         std::vector<std::string>{"PuzzleId", "FEN", "Moves", "Themes", "Stratum"}) {
         throw std::runtime_error("unexpected puzzle CSV header in " + path);
     }
+    const std::size_t puzzle_total = chesswhy::test::count_csv_data_rows(path);
+    chesswhy::test::Progress progress("positional_oracle puzzle", puzzle_total);
+    std::size_t puzzle_index = 0;
 
     std::size_t line_number = 1;
     while (std::getline(input, line)) {
@@ -473,6 +477,8 @@ void process_csv(const std::string& path, Statistics& statistics) {
             const std::vector<std::string_view> tokens = words(fields[2]);
             compare_line(fields[1], tokens, statistics);
             ++statistics.puzzles;
+            ++puzzle_index;
+            progress.item_completed(puzzle_index, fields[0]);
         } catch (const std::exception& error) {
             throw std::runtime_error("CSV row " + std::to_string(line_number) + ": " +
                                      error.what());
@@ -492,8 +498,13 @@ void process_positional_fixtures(const std::string& path, Statistics& statistics
         !fixtures.contains("lines") || !fixtures.at("lines").is_array()) {
         throw std::runtime_error("positional fixtures must contain feature and line arrays");
     }
+    const auto& feature_fixtures = fixtures.at("features");
+    const auto& line_fixtures = fixtures.at("lines");
+    chesswhy::test::Progress progress("positional_oracle fixture",
+                                      feature_fixtures.size() + line_fixtures.size());
+    std::size_t entry_index = 0;
 
-    for (const auto& fixture : fixtures.at("features")) {
+    for (const auto& fixture : feature_fixtures) {
         const std::string id = fixture.at("id").get<std::string>();
         try {
             const std::string fen = fixture.at("fen").get<std::string>();
@@ -505,9 +516,11 @@ void process_positional_fixtures(const std::string& path, Statistics& statistics
         } catch (const std::exception& error) {
             throw std::runtime_error("feature fixture " + id + ": " + error.what());
         }
+        ++entry_index;
+        progress.item_completed(entry_index, id);
     }
 
-    for (const auto& fixture : fixtures.at("lines")) {
+    for (const auto& fixture : line_fixtures) {
         const std::string id = fixture.at("id").get<std::string>();
         try {
             const std::string fen = fixture.at("fen").get<std::string>();
@@ -522,6 +535,8 @@ void process_positional_fixtures(const std::string& path, Statistics& statistics
         } catch (const std::exception& error) {
             throw std::runtime_error("line fixture " + id + ": " + error.what());
         }
+        ++entry_index;
+        progress.item_completed(entry_index, id);
     }
 }
 

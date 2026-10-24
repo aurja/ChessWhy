@@ -94,6 +94,9 @@ recall, and `tactics_oracle` checks exact agreement with the independent referen
 fixtures are in `tests/fixtures/positional.json`, and engine fixtures F25–F30 cover positional facts.
 `games_oracle` independently rebuilds the table with `tools/count_games.py` and requires byte-identical
 output.
+Use `tools/run_tests.py --build-dir build/release` to show live progress with concise test output;
+pass CTest arguments such as `-R 'cli_fixture_F0[1-3]' -j4` after the build directory. Alternatively,
+run `ctest --test-dir build/release -V` to stream all test output directly.
 The `asan` preset builds with AddressSanitizer and UndefinedBehaviorSanitizer:
 
 ```sh

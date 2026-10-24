@@ -55,8 +55,8 @@ namespace {
     document.engine.name = "Stockfish 19";
     document.engine.threads = 1;
     document.engine.hash_mb = 64;
-    document.engine.nodes =
-        NodeBudget{.a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .r = 100000};
+    document.engine.nodes = NodeBudget{
+        .a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .l = 40000, .r = 100000};
     document.position = PositionSummary{
         .fen = test_examples::kF03,
         .side_to_move = Side::Black,
@@ -143,6 +143,8 @@ move_report_examples() {
         .ply = 2,
         .change = PositionalChangeKind::Appears,
         .holds_at_end = true,
+        .net_change = false,
+        .in_use = std::nullopt,
         .feature =
             PositionalFeature{
                 .tag = PositionalTag::IsolatedPawn,
@@ -277,8 +279,8 @@ move_report_examples() {
 TEST_CASE("PostM3_EM2 template wording matches its golden lines", "[unit]") {
     using namespace chesswhy;
     Report report = test_examples::base_report(test_examples::kF03, Side::Black);
-    report.engine.nodes =
-        NodeBudget{.a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .r = 100000};
+    report.engine.nodes = NodeBudget{
+        .a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .l = 40000, .r = 100000};
 
     MoveAssessment candidate;
     candidate.san = "g6";

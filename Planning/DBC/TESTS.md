@@ -91,6 +91,14 @@ Rules that turn engine numbers into report facts; no engine runs.
 | illegal PV suffix stops consequence walking defensively | unit | An illegal engine move ends the walk instead of crashing | `WalkedPlies`, `CqMaterial` |
 | null move reliability depends on side-to-move non-pawn material | unit | The null-move threat search is marked unreliable when the side to move has at most one piece besides king and pawns | `NullMoveReliable`, `SearchB` |
 | UCI move line retains a positive search depth | unit | The parsed `depth` of a PV line is kept for `depth` in the report | `CandidateMove` |
+| tempo labels use the frozen boundaries | unit | Tempo value −1 is zugzwang, 0 and 99 WDL units non-tempo, 100 and 200 no label, 201 tempo-dependent | `TempoLabel` |
+| tempo-dependent positions require a labelled root value | unit | A missing root tempo value or one without the tempo-dependent label is not a tempo-dependent position | `TempoLabel`, `TempoValue` |
+| tempo ledger labels cover threat, reply, counter-threat and neither | unit | Hand-built ply flags give threatening, pure reply, counter-threat and neither; only a threatening ply answered by a pure reply gains a tempo | `PlyLabel`, `TempoGained`, `PlFirst`, `PlStops`, `PlOwn`, `PlCounter`, `PlThreatening`, `PlNeither`, `PlCounterThreat`, `PlPure` |
+| material balance uses pawn, minor, rook and queen values | unit | Material balance 1/3/5/9 from each side's view | `RunOutcome` |
+| initiative runs identify each ending | unit | Spent, unfinished (walk ends first, also right after a tempo gained), contested and runs (mate, or an answer that does not stop the threat) with their start and end plies and tempi | `InitiativeRun`, `RunEnding` |
+| initiative runs reject invalid labelled ledgers | unit | A ledger whose labels `label_ledger` cannot produce is a programming error (`std::logic_error`) | `InitiativeRun` |
+| initiative scanning resumes at the previous run's ending ply | unit | A contested run's counter-threat can start the other side's run at its ending ply | `InitiativeRun`, `RunEnding` |
+| initiative conversion checks material and used positional changes | unit | Converted by a material gain from the run's start to the end of the walk, or by a change in use inside the run that favours the holder; evaporated otherwise | `RunOutcome`, `FavouredSide` |
 
 ## 5. Tactics — `tests/tactics/`
 
@@ -143,12 +151,13 @@ Program tests:
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| report_JSON follows v6 report key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
+| report_JSON follows v7 report key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
 | report_enum values use the schema spellings | unit | Nine report enums serialise to the schema's strings | `ReportSchema`, `JsonOutput` |
 | report_scores and optional values are serialized | unit | ES, cp, mate and nulls | `ExpectedScore`, `ReportSchema`, `JsonOutput` |
-| report_motif JSON uses the schema v6 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
-| report_opportunity judgements and tactic-line fields serialize in v6 | unit | Opportunity judgement, `is_tactic`, `allows_tactic`, tactic labels, root motifs and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLine`, `TacticLabel`, `Contribution` |
-| report_v6 analysis fields and restriction serialize | unit | `legal_moves`, `playable_truncated`, `depth`, `walked_plies`, `detailed`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
+| report_motif JSON uses the schema v7 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
+| report_opportunity judgements and tactic-line fields serialize in v7 | unit | Opportunity judgement, `is_tactic`, `allows_tactic`, tactic labels, root motifs and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLine`, `TacticLabel`, `Contribution` |
+| report_v7 analysis fields and restriction serialize | unit | `legal_moves`, `playable_truncated`, `depth`, `walked_plies`, `detailed`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
+| report_tempo fields serialize in v7 | unit | Root and per-move `tempo_value`, the tempo ledger with plies, tempi and initiative runs, `tempo_ledger_skipped`, and `net_change` / `in_use` on positional changes | `ReportSchema`, `TempoValue`, `TempoLedger`, `NetChange`, `UseTest` |
 
 `move_report_tests.cpp` (`move_report_unit_tests`), on hand-built full reports:
 
@@ -159,15 +168,15 @@ Program tests:
 | move_report_move report headers copy only the M4 position and game fields | unit | The document's position, opening and game-source headers equal the full report's fields | `MoveReport`, `RelevanceFilter` |
 | move_report_move report relevance filter keeps conditional fields and drops irrelevant ones | unit | Refutation, parried threat, contributing motifs and the net positional change are kept when they bear on the move; other facts are dropped | `RelevanceFilter`, `MoveReport`, `Contribution`, `TiedToLine` |
 | move_report_move report created threat keeps only the specified consequence classes | unit | A created threat is kept only when its consequence class wins something | `RelevanceFilter`, `CreatedThreat` |
-| move_report_move report JSON uses the v6 moves shape and stable key order | unit | `to_json` writes `document: "moves"` with keys in schema order | `JsonOutput`, `MoveReport`, `Reproducible` |
+| move_report_move report JSON uses the v7 moves shape and stable key order | unit | `to_json` writes `document: "moves"` with keys in schema order | `JsonOutput`, `MoveReport`, `Reproducible` |
 
 Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
 | `report_schema_examples` | `report_schema_examples` (`write_examples.cpp`) | unit | Writes eight example reports (terminal checkmate, side in check, normal, PGN opening, tactic with labels, forced, negative margin, refutation) and the move report document of each; they carry positional features and changes and a games source, found and not found | `ReportDocument`, `MoveReport`, `JsonOutput`, `ReportSchema`, `GameCounts` |
-| `report_schema_unit` | `tools/validate_report.py` | unit | The eight full reports validate against `schema/report.v6.schema.json` | `ReportSchema` |
-| `move_report_schema_unit` | `tools/validate_report.py` | unit | The eight move report documents validate against `schema/moves.v6.schema.json` | `ReportSchema`, `MoveReport` |
+| `report_schema_unit` | `tools/validate_report.py` | unit | The eight full reports validate against `schema/report.v7.schema.json` | `ReportSchema` |
+| `move_report_schema_unit` | `tools/validate_report.py` | unit | The eight move report documents validate against `schema/moves.v7.schema.json` | `ReportSchema`, `MoveReport` |
 
 ## 7. Render — `tests/render/render_unit_tests.cpp` (`render_unit_tests`)
 
@@ -201,8 +210,8 @@ Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
-| `cli_fixture_F01` … `cli_fixture_F39` (one per F fixture, F16 absent: 38 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture with `--json --full-report` and checks its `equals` fields, `playable_includes`, `motifs_include`, `positional_include`, `line_prefix`; `text_contains` on the move report text (plain run), `full_text_contains` on the full report text (`--full-report`), and the `moves_` keys on the move report document (`--json`); repeats this for each entry of `runs`; with `CHESSWHY_CHECK_TIMING` on (Release), fails above 12 s on the default run and runs alone (engine lock); without it (ASan preset) the fixtures run in parallel; CTest timeout 3600 s; saves both JSON documents for `report_schema` | `EngineFixtures`, `Verdict`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `MoveReport`, `StateMotif`, `Conditions` |
-| `report_schema` | `tools/validate_report.py` | engine | Every saved F full report validates against `schema/report.v6.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic and opportunity relations); every saved move report document validates against `schema/moves.v6.schema.json` and passes the projection check against the full report of the same command; runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `ProjectionCheck`, `EngineFixtures` |
+| `cli_fixture_F01` … `cli_fixture_F39` (one per F fixture, F16 absent: 38 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture with `--json --full-report` and checks its `equals` fields, `playable_includes`, `motifs_include`, `positional_include`, `line_prefix`; `text_contains` on the move report text (plain run), `full_text_contains` on the full report text (`--full-report`), and the `moves_` keys on the move report document (`--json`); repeats this for each entry of `runs`; with `CHESSWHY_CHECK_TIMING` on (Release), fails above 15 s on the default run (12 s before 2026-10-24) and runs alone (engine lock); without it (ASan preset) the fixtures run in parallel; CTest timeout 3600 s; prints a progress line per CLI run; saves both JSON documents for `report_schema` | `EngineFixtures`, `Verdict`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `MoveReport`, `StateMotif`, `Conditions` |
+| `report_schema` | `tools/validate_report.py` | engine | Every saved F full report validates against `schema/report.v7.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic and opportunity relations); every saved move report document validates against `schema/moves.v7.schema.json` and passes the projection check against the full report of the same command; runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `ProjectionCheck`, `EngineFixtures` |
 | `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30: the full report JSON and the move report document are each byte-identical across two runs; so is the move report text for a fixed position (`--moves Nf6` after 3.Qh5) | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput`, `MoveReport` |
 
 ## 9. pgntool — `tests/pgntool/pgntool_unit_tests.cpp` (`pgntool_unit_tests`)
@@ -232,8 +241,13 @@ Developer tool that lists PGN moves or games as TSV; compared with `tests/pgntoo
 | positional identity follows each tag's identity column | unit | `same_identity` for every tag | `PcCompare`, `PcSame` |
 | line changes compare identities and hold at the final position | unit | Appears and disappears per ply, `holds_at_end`, ordering | `PositionalChange`, `PcAppears`, `PcDisappears`, `PcEnd`, `PcHolds`, `PcUndone` |
 | promotions, en passant and identity persistence are reflected along a line | unit | A promoted piece, an en-passant capture, and a feature whose pieces or value change keeping its identity | `PositionalChange`, `PcBoards`, `PcSame` |
-| positional P fixtures exercise every include and exclude | unit | P fixtures: every hand-labelled feature and change reported, every excluded one absent | `PositionalFixtures`, `PawnStructure`, `KingSafety`, `PieceActivity`, `SpaceDevelopment`, `MaterialBalance`, `PositionalChange` |
+| positional P fixtures exercise every include and exclude | unit | P fixtures: every hand-labelled feature and change reported, every excluded one absent; PU fixtures: every kept net change passes the use test, every cut one fails it, every passing change is not a net change | `PositionalFixtures`, `PawnStructure`, `KingSafety`, `PieceActivity`, `SpaceDevelopment`, `MaterialBalance`, `PositionalChange`, `NetChange`, `UseTest` |
 | positional fixture matching handles locally constructed rows | unit | The fixture matcher itself on rows built in the test | `PositionalFixtures` |
+| early passer and rook-file changes pass within two plies | unit | A passed pawn or rook-file change made by the move or its reply passes the use test without later use | `UseTest`, `UtOwn` |
+| favoured side follows change direction and weakness polarity | unit | An appearing weakness favours the owner's opponent, another appearing feature its owner, a disappearance the other side; pawn islands and chains favour nobody | `FavouredSide` |
+| king pressure uses checks, zone captures, and distinct end attackers | unit | King pressed by a check or a capture next to the king from the change's ply on, or two distinct enemy pieces attacking the king zone at the end | `UtPressed`, `UtCastle`, `UtUsed` |
+| static scale groups and dynamic tags follow the contracted tables | unit | Every positional tag's static-scale group and dynamic flag | `StaticScale` |
+| positional impact order uses both mode orders and preserves ties | unit | Dynamic facts first in a tempo-dependent position, static facts first otherwise, then static-scale group; equal facts keep their order | `ImpactRating`, `StaticScale` |
 
 Program tests (`tests/positional/oracle/`):
 
