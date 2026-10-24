@@ -102,8 +102,10 @@ CTest's `unit` label does not need an engine; `engine` tests need the fetched St
 needs the broadcast months. `tactics_unit_tests` checks the T fixtures (motifs) and C fixtures
 (hand-labelled contributions and tactic labels) in CTest's `unit` suite; `tactics_puzzles` measures
 recall, and `tactics_oracle` checks exact agreement with the independent reference implementation.
-`positional_oracle` compares detectors with an independent reference on 53,378 puzzle boards; P
+`positional_oracle` compares detectors with an independent reference on puzzle boards; P
 fixtures are in `tests/fixtures/positional.json`, and engine fixtures F25–F30 cover positional facts.
+Both oracles run every 31st test puzzle (300 of 9,300) under `unit`; `tactics_oracle_corpus` and
+`positional_oracle_corpus` (label `corpus`) run every puzzle (53,378 positional boards).
 `games_oracle` independently rebuilds the table with `tools/count_games.py` and requires byte-identical
 output.
 Use `tools/run_tests.py --build-dir build/release` to show live progress with concise test output;
@@ -111,9 +113,13 @@ pass CTest arguments such as `-R 'cli_fixture_F0[1-3]' -j4` after the build dire
 run `ctest --test-dir build/release -V` to stream all test output directly. The runner also atomically
 writes `<build-dir>/test_progress.json` (override with `--status-file PATH`); OMP discovers
 `.omp/extensions/test-progress.ts` at startup and shows active runs and recent results in the TUI.
-With `CHESSWHY_CHECK_TIMING` on (the `release` preset), `cli_timing` runs alone and fails if a
-standard-budget F fixture takes more than 15 s.
-The `asan` preset builds with AddressSanitizer and UndefinedBehaviorSanitizer:
+Engine fixture tests build each report once and check all four outputs from it; each takes two
+CTest slots (`PROCESSORS 2`: our process plus one Stockfish).
+With `CHESSWHY_CHECK_TIMING` on (the `release` preset), `cli_timing` (label `timing`) runs alone and
+fails if a standard-budget F fixture takes more than 15 s.
+The `asan` preset builds at `-O1` with AddressSanitizer and UndefinedBehaviorSanitizer, and its test
+preset runs the labels `unit` and `sanitize` (F fixtures chosen to cover code paths; Release checks
+the facts):
 
 ```sh
 cmake --preset asan && cmake --build --preset asan

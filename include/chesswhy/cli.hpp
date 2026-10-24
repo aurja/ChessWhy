@@ -37,7 +37,15 @@ struct Options {
 // Throws input::InputError on bad usage.
 [[nodiscard]] Options parse_args(std::span<const std::string_view> args);
 
-// Builds the report and prints JSON or text to `out`; errors go to `err` as
+// Builds the report using the same input, selection, opening, game, engine and analysis
+// pipeline as run. Validation and processing errors are propagated to the caller.
+[[nodiscard]] Report build_report(const Options& options);
+
+// Writes the moves or full report as text or JSON, selected by options.json and
+// options.full_report.
+void write_output(const Options& options, const Report& report, std::ostream& out);
+
+// Builds a report and prints JSON or text to `out`; errors go to `err` as
 // "chesswhy: error: <message>\n". Returns an exit code above.
 [[nodiscard]] int run(const Options& options, std::ostream& out, std::ostream& err);
 

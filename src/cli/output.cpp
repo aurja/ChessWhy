@@ -1,5 +1,4 @@
-#include "output.hpp"
-
+#include "chesswhy/cli.hpp"
 #include "chesswhy/move_report.hpp"
 #include "chesswhy/render.hpp"
 
@@ -7,7 +6,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace chesswhy::cli::detail {
+namespace chesswhy::cli {
 
 void write_output(const Options& options, const Report& report, std::ostream& out) {
     if (options.full_report) {
@@ -27,4 +26,4 @@ void write_output(const Options& options, const Report& report, std::ostream& ou
     }
 }
 
-} // namespace chesswhy::cli::detail
+} // namespace chesswhy::cli

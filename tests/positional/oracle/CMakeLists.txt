@@ -1,5 +1,5 @@
-# Owned by WP-A2 (Planning/milestones/M3a.md §11): positional_oracle (label unit), an
-# independent reference of M3a §4-§5 compared against chesswhy_positional.
+# Positional oracle against the independent M3a §4-§5 reference. The unit test samples every 31st
+# puzzle across the CSV; the corpus test checks every puzzle.
 
 add_executable(positional_reference_self_check reference_self_check.cpp reference.cpp)
 target_include_directories(positional_reference_self_check PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
@@ -15,6 +15,13 @@ if(TARGET chesswhy_positional)
     add_test(NAME positional_oracle
         COMMAND positional_oracle
             "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
-            "${PROJECT_SOURCE_DIR}/tests/fixtures/positional.json")
+            "${PROJECT_SOURCE_DIR}/tests/fixtures/positional.json"
+            --stride 31)
     set_tests_properties(positional_oracle PROPERTIES LABELS unit)
+
+    add_test(NAME positional_oracle_corpus
+        COMMAND positional_oracle
+            "${PROJECT_SOURCE_DIR}/tests/fixtures/puzzles/test.csv"
+            "${PROJECT_SOURCE_DIR}/tests/fixtures/positional.json")
+    set_tests_properties(positional_oracle_corpus PROPERTIES LABELS corpus TIMEOUT 3600)
 endif()

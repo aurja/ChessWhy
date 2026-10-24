@@ -5,8 +5,9 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-24, M4 milestone-end gate: 179 CTests (134 `unit`, 43 `engine`,
-2 `games`, no `model` yet), all passing in Release and ASan/UBSan.
+**Snapshot:** 2026-10-24, PostM4_EM3 milestone-end gate after the test redesign: 206 CTests
+(153 `unit`, 48 `engine` of which 15 also `sanitize`, 2 `games`, 2 `corpus`, 1 `timing`, no
+`model` yet). Release runs all of them; ASan/UBSan runs `unit` and `sanitize` (168); all pass.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -143,7 +144,8 @@ Program tests:
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
 | `tactics_puzzles` | `tactics_puzzle_eval` (`puzzle_eval.cpp`) | unit | On the test puzzle sample (with `pin_tactical` switched off): recall per measured tag must meet its frozen M2 target; also prints the recall table, the untagged firing rate, Lichess agreement and the `removal_of_defender` line (not gated) | `PuzzleSample`, `Recall`, `TacticLabel`, `MotifFixtures` |
-| `tactics_oracle` | `tactics_motif_oracle` (`motif_oracle.cpp`, `oracle/reference.cpp`) | unit | Detectors against the independent reference implementation on every puzzle position and every T fixture; passes only with zero mismatches. `pin_tactical` is compared on every 16th puzzle (0-based data row index divisible by 16; 582 puzzles) and on every T fixture. CTest `TIMEOUT 3600` (about 24 min under ASan/UBSan) | `ReferenceImplementation`, `MotifFixtures`, `PuzzleSample`, `TacticalPin` |
+| `tactics_oracle` | `tactics_motif_oracle` (`motif_oracle.cpp`, `oracle/reference.cpp`) | unit | Detectors against the independent reference implementation on every position of the oracle sample (`--stride 31`, 300 puzzles) and every T fixture; passes only with zero mismatches. `pin_tactical` is compared on every 16th compared puzzle and on every T fixture. Ran the whole corpus until 2026-10-24 | `ReferenceImplementation`, `MotifFixtures`, `PuzzleSample`, `TacticalPin` |
+| `tactics_oracle_corpus` | `tactics_motif_oracle` | corpus | The same comparison on every `test.csv` puzzle (`pin_tactical` on every 16th, 582 puzzles); Release at milestone end; CTest `TIMEOUT 3600` | `ReferenceImplementation`, `MotifFixtures`, `PuzzleSample`, `TacticalPin` |
 
 ## 6. Report — `tests/report/`
 
@@ -215,10 +217,10 @@ Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
-| `cli_fixture_F01` … `cli_fixture_F44` (one per F fixture, F16 absent: 43 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine | Runs the CLI on the fixture with `--json --full-report` and checks its `equals` fields, `playable_includes`, `motifs_include`, `positional_include`, `line_prefix`; `text_contains` on the move report text (plain run), `full_text_contains` on the full report text (`--full-report`), and the `moves_` keys on the move report document (`--json`); repeats this for each entry of `runs`; prints the default run's wall time without judging it (the 15 s limit moved to `cli_timing` on 2026-10-24); fixtures run in parallel; CTest timeout 3600 s; prints a progress line per CLI run; saves both JSON documents for `report_schema` | `EngineFixtures`, `Verdict`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `MoveReport`, `StateMotif`, `Conditions`, `TempoValue`, `TempoLabel`, `TempoLedger`, `TempoGained`, `InitiativeRun`, `RunOutcome`, `ImpactRating`, `TiedToLine` |
-| `cli_timing` | `cli_fixture_test --timing` (`engine_fixture_test.cpp`) | engine | Registered only with `CHESSWHY_CHECK_TIMING` on (Release): runs alone (`RUN_SERIAL`), times one `--json --full-report` run of every F fixture's default arguments, prints each time and fails listing every fixture above 15 s (12 s before 2026-10-24; judged inside each `cli_fixture_<ID>` until then, where load from parallel tests inflated it) | `EngineFixtures`, `Reproducible` |
+| `cli_fixture_F01` … `cli_fixture_F44` (one per F fixture, F16 absent: 43 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine; also `sanitize` for the `sanitize` fixtures | Builds the report once per run (`cli::build_report`, from 2026-10-24; before, one CLI run per output) and writes all four outputs from it: checks the full report JSON's `equals` fields, `playable_includes`, `motifs_include`, `positional_include`, `line_prefix`; `text_contains` on the move report text, `full_text_contains` on the full report text, and the `moves_` keys on the move report document; repeats this for each entry of `runs`; prints the default run's wall time without judging it; `PROCESSORS 2` (our process plus one Stockfish); CTest timeout 3600 s; prints a progress line per run; saves both JSON documents for `report_schema` | `EngineFixtures`, `Verdict`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `MoveReport`, `StateMotif`, `Conditions`, `TempoValue`, `TempoLabel`, `TempoLedger`, `TempoGained`, `InitiativeRun`, `RunOutcome`, `ImpactRating`, `TiedToLine` |
+| `cli_timing` | `cli_fixture_test --timing` (`engine_fixture_test.cpp`) | timing | Registered only with `CHESSWHY_CHECK_TIMING` on (Release): runs alone (`RUN_SERIAL`), times one report build plus full report JSON of every F fixture's default arguments, prints each time and fails listing every fixture above 15 s (12 s before 2026-10-24; judged inside each `cli_fixture_<ID>` until then, where load from parallel tests inflated it). Label `engine` until 2026-10-24 | `EngineFixtures`, `Reproducible` |
 | `report_schema` | `tools/validate_report.py` | engine | Every saved F full report validates against `schema/report.v7.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic and opportunity relations); every saved move report document validates against `schema/moves.v7.schema.json` and passes the projection check against the full report of the same command; runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `ProjectionCheck`, `EngineFixtures` |
-| `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30: the full report JSON and the move report document are each byte-identical across two runs; so is the move report text for a fixed position (`--moves Nf6` after 3.Qh5) | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput`, `MoveReport` |
+| `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30: two report builds give byte-identical full report JSON, move report document, move report text and full report text; so do two builds of a fixed position's move report text (`--moves Nf6` after 3.Qh5); `PROCESSORS 2` | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput`, `MoveReport` |
 
 ## 9. pgntool — `tests/pgntool/pgntool_unit_tests.cpp` (`pgntool_unit_tests`)
 
@@ -260,7 +262,8 @@ Program tests (`tests/positional/oracle/`):
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
 | `positional_reference_self_check` | `positional_reference_self_check` (`reference_self_check.cpp`) | unit | The independent reference on its own hand cases for every rule group | `PositionalReference` |
-| `positional_oracle` | `positional_oracle` (`positional_oracle.cpp`, `reference.cpp`) | unit | Detectors against the independent reference on every board of every test-sample puzzle line (53,378 boards, 9,300 lines) and on every P fixture board: features, line changes and the mobility, space and development counts; passes only with zero mismatches; prints the per-tag board counts | `PositionalReference`, `PuzzleSample`, `PositionalFixtures`, `PcFeatures` |
+| `positional_oracle` | `positional_oracle` (`positional_oracle.cpp`, `reference.cpp`) | unit | Detectors against the independent reference on every board of the oracle sample's puzzle lines (`--stride 31`, 300 lines) and on every P fixture board: features, line changes and the mobility, space and development counts; passes only with zero mismatches; prints the per-tag board counts. Ran the whole corpus until 2026-10-24 | `PositionalReference`, `PuzzleSample`, `PositionalFixtures`, `PcFeatures` |
+| `positional_oracle_corpus` | `positional_oracle` | corpus | The same comparison on every board of every test-sample puzzle line (53,378 boards, 9,300 lines); Release at milestone end | `PositionalReference`, `PuzzleSample`, `PositionalFixtures`, `PcFeatures` |
 
 ## 11. Games — `tests/games/`
 

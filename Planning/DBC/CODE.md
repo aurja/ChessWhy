@@ -18,7 +18,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 
 | Node | Code | Notes |
 |---|---|---|
-| `CommandLine` | `src/cli/cli.cpp` `parse_args` `run`; `include/chesswhy/cli.hpp` `Options` | `chesswhy`; `src/cli/main.cpp` only forwards |
+| `CommandLine` | `src/cli/cli.cpp` `parse_args` `build_report` `run`; `include/chesswhy/cli.hpp` `Options` | `chesswhy`; `src/cli/main.cpp` only forwards; `run` is `build_report` then `write_output` with exit codes |
 | `FenInput` | `src/input/fen.cpp` `parse_fen` | Rejects illegal positions and out-of-range counters |
 | `PgnInput` | `src/input/pgn.cpp` `load_pgn` `read_games` `PgnReader`; `include/chesswhy/input.hpp` `PgnPosition` `PgnGame` `PgnReader` `PgnReadOptions`; `src/pgntool/pgntool.cpp` `run` | `chesswhy-pgn` lists the games and plies of a file; `PgnReader` streams games one at a time and stops parsing at `max_plies` |
 | `AskedMove` | `src/input/move.cpp` `parse_move`; `src/cli/selection.cpp` `resolve_moves` | SAN or UCI; several moves, deduplicated by UCI, in typed order |
@@ -137,7 +137,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `LastNamed` | `src/openings/openings.cpp` `describe` | |
 | `BroadcastMonths` | `tools/fetch_assets.sh` `fetch_games` | Months and their SHA-256 pinned in the script |
 | `GameTable` | `src/games/games.cpp` `build_table` `Table`; `src/games/main.cpp` `parse_options`; `include/chesswhy/games.hpp` `kTable` `kRatingFloor` `kMaxPly` `kMinGames` | `chesswhy-games` builds the table from PGN on stdin |
-| `GameCounts` | `src/games/games.cpp` `Table`; `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `GamesInfo` `GameSourceCounts` `GameMoveCount`; `src/render/render.cpp` `write_games_summary` `write_game_move_counts` | `run` loads the table once (`--games`) and looks up the analysed position |
+| `GameCounts` | `src/games/games.cpp` `Table`; `src/cli/cli.cpp` `build_report`; `include/chesswhy/report.hpp` `GamesInfo` `GameSourceCounts` `GameMoveCount`; `src/render/render.cpp` `write_games_summary` `write_game_move_counts` | `build_report` loads the table once (`--games`) and looks up the analysed position |
 | `DataDigest` | `src/util/sha256.cpp` `sha256_hex`; `include/chesswhy/digest.hpp`; `src/games/games.cpp` `Table::load` `table_name`; `include/chesswhy/games.hpp` `kTableSha256`; `src/openings/openings.cpp` `Table::load`; `include/chesswhy/openings.hpp` `kDatasetSha256` | |
 
 ## Report
@@ -146,7 +146,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 |---|---|---|
 | `Fact` | `include/chesswhy/report.hpp` `Report` | Each field of the report is one fact |
 | `Provenance` | `src/report/report.cpp` `to_json`; `include/chesswhy/report.hpp` `parry_source` | Written as a `source` field beside each fact |
-| `Reproducible` | `src/cli/cli.cpp` `run`; `include/chesswhy/report.hpp` `EngineInfo` | |
+| `Reproducible` | `src/cli/cli.cpp` `build_report`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
 | `ReportSchema` | `schema/report.v7.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
 | `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` `check_tempo_and_positional_semantics` `check_tempo_value` `check_tempo_ledger` `use_test` `check_positional_relations` | Run by CTest `report_schema` on every F report; `use_test` re-implements the use test independently |

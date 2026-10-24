@@ -22,6 +22,12 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${CLI_FIXTURES_F
 file(READ "${CLI_FIXTURES_FILE}" CLI_FIXTURES_JSON)
 string(JSON CLI_FIXTURE_COUNT LENGTH "${CLI_FIXTURES_JSON}" engine_fixtures)
 math(EXPR CLI_FIXTURE_LAST_INDEX "${CLI_FIXTURE_COUNT} - 1")
+set(CLI_SANITIZE_FIXTURES
+    F02 F04 F10 F13 F14 F15 F17 F19 F20 F25 F31 F33 F40 F42 F43)
+# Chosen to cover code paths under sanitizers: in check, mate threat, null move unreliable,
+# checkmate, stalemate, PGN input, underpromotion, null-move stalemate skips in B and E,
+# positional changes and castling, restriction text, top-N selection with a run, tempo
+# ledger with runs, and zugzwang skip. Facts are judged in Release.
 set(CLI_FULL_REPORT_FILES)
 set(CLI_MOVES_REPORT_FILES)
 set(CLI_REPORT_FIXTURES)
@@ -30,10 +36,16 @@ foreach(index RANGE 0 ${CLI_FIXTURE_LAST_INDEX})
     string(JSON fixture_id GET "${CLI_FIXTURES_JSON}" engine_fixtures ${index} id)
     add_test(NAME cli_fixture_${fixture_id}
         COMMAND cli_fixture_test "${fixture_id}")
-    # TIMEOUT: F32 judges every legal move in two of its runs and exceeds CTest's
-    # default 1500 s under ASan/UBSan (Debug); same limit as tactics_oracle.
+    # F36's old four-analysis test took 79.4 s; one analysis measured 6.6 s in Release
+    # and 31 s under ASan/UBSan (Debug). Keep 3600 s; the maximum ASan fixture time
+    # is unknown.
+    set(fixture_labels engine)
+    if(fixture_id IN_LIST CLI_SANITIZE_FIXTURES)
+        set(fixture_labels engine sanitize)
+    endif()
     set_tests_properties(cli_fixture_${fixture_id} PROPERTIES
-        LABELS engine
+        LABELS "${fixture_labels}"
+        PROCESSORS 2
         TIMEOUT 3600
         FIXTURES_SETUP cli_report_${fixture_id})
     set(report_prefix "${CMAKE_CURRENT_BINARY_DIR}/reports/${fixture_id}")
@@ -56,7 +68,7 @@ endforeach()
 if(CHESSWHY_CHECK_TIMING)
     add_test(NAME cli_timing COMMAND cli_fixture_test --timing)
     set_tests_properties(cli_timing PROPERTIES
-        LABELS engine
+        LABELS timing
         TIMEOUT 3600
         RUN_SERIAL TRUE)
 endif()
@@ -124,4 +136,4 @@ set_tests_properties(report_schema PROPERTIES
     FIXTURES_REQUIRED "${CLI_REPORT_FIXTURES}")
 
 add_test(NAME cli_rerun_identity COMMAND cli_identity_test)
-set_tests_properties(cli_rerun_identity PROPERTIES LABELS engine)
+set_tests_properties(cli_rerun_identity PROPERTIES LABELS engine PROCESSORS 2)

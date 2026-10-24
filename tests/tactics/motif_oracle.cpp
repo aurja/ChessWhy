@@ -53,6 +53,7 @@ struct Options {
     std::optional<std::string> fixtures_path;
     std::optional<std::string> mismatches_path;
     std::size_t mismatch_limit = 0;
+    std::size_t stride = 1;
 };
 
 struct Mismatch {
@@ -80,14 +81,28 @@ struct Statistics {
 
 [[nodiscard]] Options parse_options(int argc, char** argv) {
     if (argc < 2) {
-        throw std::invalid_argument("usage: tactics_motif_oracle <csv> [--fixtures <motifs.json>] "
-                                    "[--mismatches N <out.tsv>]");
+        throw std::invalid_argument("usage: tactics_motif_oracle <csv> [--stride N] "
+                                    "[--fixtures <motifs.json>] [--mismatches N <out.tsv>]");
     }
     Options options;
     options.csv_path = argv[1];
+    bool stride_set = false;
     for (int index = 2; index < argc; ++index) {
         const std::string_view option(argv[index]);
-        if (option == "--fixtures") {
+        if (option == "--stride") {
+            if (stride_set || index + 1 >= argc) {
+                throw std::invalid_argument("--stride requires one positive integer and may appear "
+                                            "once");
+            }
+            const std::string_view stride_text(argv[++index]);
+            const auto [end, error] = std::from_chars(
+                stride_text.data(), stride_text.data() + stride_text.size(), options.stride);
+            if (error != std::errc{} || end != stride_text.data() + stride_text.size() ||
+                options.stride == 0) {
+                throw std::invalid_argument("--stride requires a positive integer");
+            }
+            stride_set = true;
+        } else if (option == "--fixtures") {
             if (options.fixtures_path || index + 1 >= argc) {
                 throw std::invalid_argument("--fixtures requires one path and may appear once");
             }
@@ -489,8 +504,9 @@ void process_position(const std::string& id, const std::string& fen,
                   root.getFen(), moves_text, detector, reference);
 }
 
-void process_csv(const std::string& path, Statistics& statistics, std::ostream* mismatch_output,
-                 std::size_t mismatch_limit, std::size_t& mismatch_rows) {
+std::size_t process_csv(const std::string& path, Statistics& statistics,
+                        std::ostream* mismatch_output, std::size_t mismatch_limit,
+                        std::size_t& mismatch_rows, std::size_t stride) {
     std::ifstream input(path);
     if (!input) {
         throw std::runtime_error("cannot open CSV " + path);
@@ -507,10 +523,15 @@ void process_csv(const std::string& path, Statistics& statistics, std::ostream* 
         throw std::runtime_error("unexpected CSV header in " + path);
     }
     const std::size_t puzzle_total = chesswhy::test::count_csv_data_rows(path);
-    chesswhy::test::Progress progress("tactics_oracle puzzle", puzzle_total);
+    const std::size_t compared_total =
+        (puzzle_total / stride) + static_cast<std::size_t>(puzzle_total % stride != 0);
+    const std::string progress_label = "tactics_oracle puzzle (stride " + std::to_string(stride) +
+                                       ", compared " + std::to_string(compared_total) + ")";
+    chesswhy::test::Progress progress(progress_label, compared_total);
 
     std::size_t line_number = 1;
     std::size_t puzzle_index = 0;
+    std::size_t puzzles_compared = 0;
     while (std::getline(input, line)) {
         ++line_number;
         if (!line.empty() && line.back() == '\r') {
@@ -521,15 +542,19 @@ void process_csv(const std::string& path, Statistics& statistics, std::ostream* 
             if (fields.size() != 5 || fields[0].empty()) {
                 throw std::invalid_argument("expected five CSV fields and a non-empty PuzzleId");
             }
-            const std::vector<std::string_view> tokens = words(fields[2]);
-            const bool include_pin_tactical = puzzle_index % 16 == 0;
-            if (include_pin_tactical) {
-                ++statistics.sampled_puzzles;
+            if (puzzle_index % stride == 0) {
+                const std::vector<std::string_view> tokens = words(fields[2]);
+                const bool include_pin_tactical = puzzles_compared % 16 == 0;
+                if (include_pin_tactical) {
+                    ++statistics.sampled_puzzles;
+                }
+                process_position(fields[0], fields[1], tokens, fields[2], statistics,
+                                 mismatch_output, mismatch_limit, mismatch_rows,
+                                 include_pin_tactical);
+                ++puzzles_compared;
+                progress.item_completed(puzzles_compared, fields[0]);
             }
-            process_position(fields[0], fields[1], tokens, fields[2], statistics, mismatch_output,
-                             mismatch_limit, mismatch_rows, include_pin_tactical);
             ++puzzle_index;
-            progress.item_completed(puzzle_index, fields[0]);
         } catch (const std::exception& error) {
             throw std::runtime_error("CSV row " + std::to_string(line_number) + ": " +
                                      error.what());
@@ -538,6 +563,7 @@ void process_csv(const std::string& path, Statistics& statistics, std::ostream* 
     if (!input.eof()) {
         throw std::runtime_error("failed while reading CSV " + path);
     }
+    return puzzles_compared;
 }
 
 void process_fixtures(const std::string& path, Statistics& statistics,
@@ -589,8 +615,15 @@ void process_fixtures(const std::string& path, Statistics& statistics,
     }
 }
 
-void print_statistics(std::string_view label, const Statistics& statistics) {
-    std::cout << label << ": lists compared=" << statistics.compared
+void print_statistics(
+    std::string_view label, const Statistics& statistics,
+    std::optional<std::pair<std::size_t, std::size_t>> csv_sample = std::nullopt) {
+    std::cout << label << ": ";
+    if (csv_sample.has_value()) {
+        std::cout << "stride=" << csv_sample->first
+                  << ", CSV puzzles compared=" << csv_sample->second << ", ";
+    }
+    std::cout << "lists compared=" << statistics.compared
               << ", mismatching lists=" << statistics.mismatching_lists
               << ", sampled puzzles=" << statistics.sampled_puzzles
               << ", pin_tactical instances compared (detector+reference)="
@@ -634,12 +667,14 @@ int main(int argc, char* argv[]) {
             mismatch_file << "id\tply\tfen\tmoves\tdetector\treference\n";
             mismatch_output = &mismatch_file;
         }
-
         std::size_t mismatch_rows = 0;
         Statistics csv_statistics;
-        process_csv(options.csv_path, csv_statistics, mismatch_output, options.mismatch_limit,
-                    mismatch_rows);
-        print_statistics("CSV " + options.csv_path, csv_statistics);
+
+        const std::size_t csv_puzzles_compared =
+            process_csv(options.csv_path, csv_statistics, mismatch_output, options.mismatch_limit,
+                        mismatch_rows, options.stride);
+        print_statistics("CSV " + options.csv_path, csv_statistics,
+                         std::pair{options.stride, csv_puzzles_compared});
 
         Statistics fixture_statistics;
         if (options.fixtures_path.has_value()) {

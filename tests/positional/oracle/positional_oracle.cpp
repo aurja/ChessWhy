@@ -3,6 +3,8 @@
 #include <algorithm>
 #include <array>
 #include <cctype>
+#include <charconv>
+#include <cstddef>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -28,6 +30,36 @@ using chesswhy::PositionalFeature;
 using chesswhy::PositionalTag;
 using chesswhy::Side;
 using Fields = std::vector<std::string>;
+
+struct Options {
+    std::string csv_path;
+    std::string fixtures_path;
+    std::size_t stride = 1;
+};
+
+[[nodiscard]] Options parse_options(int argc, char** argv) {
+    if (argc < 3) {
+        throw std::invalid_argument("usage: positional_oracle <puzzle-csv> <positional-json> "
+                                    "[--stride N]");
+    }
+    Options options{.csv_path = argv[1], .fixtures_path = argv[2]};
+    bool stride_set = false;
+    for (int index = 3; index < argc; ++index) {
+        if (std::string_view(argv[index]) != "--stride" || stride_set || index + 1 >= argc) {
+            throw std::invalid_argument("usage: positional_oracle <puzzle-csv> <positional-json> "
+                                        "[--stride N]");
+        }
+        const std::string_view stride_text(argv[++index]);
+        const auto [end, error] = std::from_chars(
+            stride_text.data(), stride_text.data() + stride_text.size(), options.stride);
+        if (error != std::errc{} || end != stride_text.data() + stride_text.size() ||
+            options.stride == 0) {
+            throw std::invalid_argument("--stride requires a positive integer");
+        }
+        stride_set = true;
+    }
+    return options;
+}
 
 constexpr std::array<PositionalTag, 25> kTags{
     PositionalTag::IsolatedPawn,
@@ -443,7 +475,7 @@ void compare_line(const std::string& fen, std::span<const std::string_view> uci_
     compare_changes(root.getFen(), detector_changes, reference_changes, statistics);
 }
 
-void process_csv(const std::string& path, Statistics& statistics) {
+void process_csv(const std::string& path, Statistics& statistics, std::size_t stride) {
     std::ifstream input(path);
     if (!input) {
         throw std::runtime_error("cannot open puzzle CSV " + path);
@@ -460,7 +492,12 @@ void process_csv(const std::string& path, Statistics& statistics) {
         throw std::runtime_error("unexpected puzzle CSV header in " + path);
     }
     const std::size_t puzzle_total = chesswhy::test::count_csv_data_rows(path);
-    chesswhy::test::Progress progress("positional_oracle puzzle", puzzle_total);
+    const std::size_t compared_total =
+        (puzzle_total / stride) + static_cast<std::size_t>(puzzle_total % stride != 0);
+    const std::string progress_label = "positional_oracle puzzle (stride " +
+                                       std::to_string(stride) + ", compared " +
+                                       std::to_string(compared_total) + ")";
+    chesswhy::test::Progress progress(progress_label, compared_total);
     std::size_t puzzle_index = 0;
 
     std::size_t line_number = 1;
@@ -474,11 +511,13 @@ void process_csv(const std::string& path, Statistics& statistics) {
             if (fields.size() != 5 || fields[0].empty()) {
                 throw std::invalid_argument("expected five CSV fields and a non-empty PuzzleId");
             }
-            const std::vector<std::string_view> tokens = words(fields[2]);
-            compare_line(fields[1], tokens, statistics);
-            ++statistics.puzzles;
+            if (puzzle_index % stride == 0) {
+                const std::vector<std::string_view> tokens = words(fields[2]);
+                compare_line(fields[1], tokens, statistics);
+                ++statistics.puzzles;
+                progress.item_completed(statistics.puzzles, fields[0]);
+            }
             ++puzzle_index;
-            progress.item_completed(puzzle_index, fields[0]);
         } catch (const std::exception& error) {
             throw std::runtime_error("CSV row " + std::to_string(line_number) + ": " +
                                      error.what());
@@ -540,8 +579,9 @@ void process_positional_fixtures(const std::string& path, Statistics& statistics
     }
 }
 
-void print_statistics(const Statistics& statistics) {
-    std::cout << "puzzles=" << statistics.puzzles << ", boards=" << statistics.boards
+void print_statistics(const Statistics& statistics, std::size_t stride) {
+    std::cout << "stride=" << stride << ", CSV puzzles compared=" << statistics.puzzles
+              << ", puzzles=" << statistics.puzzles << ", boards=" << statistics.boards
               << ", feature lists=" << statistics.feature_lists
               << ", feature-list mismatches=" << statistics.mismatching_feature_lists
               << ", lines=" << statistics.lines
@@ -572,15 +612,12 @@ void print_statistics(const Statistics& statistics) {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc != 3) {
-        std::cerr << "usage: positional_oracle <puzzle-csv> <positional-json>\n";
-        return 2;
-    }
     try {
+        const Options options = parse_options(argc, argv);
         Statistics statistics;
-        process_csv(argv[1], statistics);
-        process_positional_fixtures(argv[2], statistics);
-        print_statistics(statistics);
+        process_csv(options.csv_path, statistics, options.stride);
+        process_positional_fixtures(options.fixtures_path, statistics);
+        print_statistics(statistics, options.stride);
         return statistics.mismatches.empty() ? 0 : 1;
     } catch (const std::exception& error) {
         std::cerr << "positional_oracle: " << error.what() << '\n';

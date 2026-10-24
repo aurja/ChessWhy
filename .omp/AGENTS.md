@@ -185,13 +185,17 @@ before that, keep it out of the default targets.
 
 |When|Gate|
 |---|---|
-|After each batch|Build affected targets; run affected CTests in Release; `python3 tools/check_dbc.py`. No `build/asan` build or run: sanitizers belong to the milestone-end gate, and worker briefs never ask for them|
-|Milestone end|All CTests in Release and Debug ASan/UBSan; clang-format and `clang-tidy --quiet -p build/release` on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; `python3 tools/check_dbc.py`; the milestone's smoke command once|
+|After each batch|Build affected targets; run affected CTests in Release (`-j8`; engine tests take two slots each); `python3 tools/check_dbc.py`. No `build/asan` build or run, no `corpus` or `timing` label: those belong to the milestone-end gate, and worker briefs never ask for them|
+|Milestone end|Release: labels `unit\|engine\|games\|corpus` (`-j8`), then `timing` with nothing else running. ASan/UBSan (Debug `-O1`): labels `unit\|sanitize`; sanitizers judge safety on the paths run, Release judges the facts. clang-format and `clang-tidy --quiet -p build/release` on changed C++ units; ShellCheck on changed scripts; Ruff and basedpyright on changed Python; `python3 tools/check_dbc.py`; the milestone's smoke command once|
 
-- CTest labels: `unit` (no engine, no model), `engine` (needs
-  `assets/engines/stockfish` and, from M3b, the game-count table), `games` (needs the
-  broadcast month files from `tools/fetch_assets.sh games`), `model` (needs a GGUF in
-  `assets/models/`, opt-in). Missing assets make tests fail loudly, never skip silently.
+- CTest labels: `unit` (no engine, no model; oracles on the oracle sample), `engine` (needs
+  `assets/engines/stockfish` and the game-count table), `games` (needs the broadcast month
+  files from `tools/fetch_assets.sh games`), `corpus` (oracles on the whole puzzle corpus),
+  `timing` (`cli_timing`, alone), `sanitize` (second label on the `sanitize` fixtures; a
+  fixture whose code path no other `sanitize` fixture reaches joins it), `model` (needs a
+  GGUF in `assets/models/`, opt-in). Missing assets make tests fail loudly, never skip silently.
+- One heavy job at a time: no build, clang-tidy or second CTest run while a gate runs;
+  quote durations from the tests' own progress lines.
 - Engine fixtures are pinned to the Stockfish 19 build in `assets/`; a new
   engine version means re-blessing fixtures as an explicit milestone task.
 - Report pass/fail summaries, not full logs. A skip is not a pass.
