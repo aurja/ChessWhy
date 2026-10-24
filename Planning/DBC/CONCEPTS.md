@@ -615,6 +615,7 @@ flowchart LR
     BookPassages["Book passages"]
     RestrictedMovement["Restricted-movement wording"]
     Conditions["Conditions"]
+    PlyWalk["Ply walk"]
     TemplateRendering["Template rendering"]
     FactSheet["Fact sheet"]
     LevelPrompt["Level prompt"]
@@ -625,6 +626,7 @@ flowchart LR
     ReportDocument -->|every fact, with --full-report| TemplateRendering
     RestrictedMovement -->|wording| TemplateRendering
     Conditions -->|premises and limits| TemplateRendering
+    PlyWalk -->|layout of the move report text| TemplateRendering
     FactSheet & LevelPrompt & BookPassages -->|prompt| LanguageModel
     LanguageModel -->|draft prose| FactCheck
     FactCheck -->|passes| ExplanationText
@@ -634,7 +636,7 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class MoveReport,ReportDocument,BookPassages external
-    class FactSheet,LevelPrompt,LanguageModel,FactCheck planned
+    class FactSheet,LevelPrompt,LanguageModel,FactCheck,PlyWalk planned
     class ExplanationText partial
 ```
 
@@ -645,6 +647,7 @@ flowchart LR
 | `BookPassages` | See Reference knowledge | — | external |
 | `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") is printed. The move report text prints a compact row naming every label of a merged motif ("relative pin; tactic: Ba7-f2 capture"); the full report text also prints the restricted and free moves (Captain, 2026-10-24; before, move report rows listed the moves too) | restricted movement, held to, restricted moves, free moves, motif repeats | implemented |
 | `Conditions` | What a fact depends on, printed beside it: a threat line assumes the opponent passes, a parry by check only defers the threat, why no created threat was searched, how far a line was read, which engine and budget, how many legal moves were not judged | conditions, `creates_threat_skipped`, `walked_plies`, `legal_moves` | implemented |
+| `PlyWalk` | Planned (Captain, 2026-10-24): the move report text is laid out per move as a walk through its line: the move-level rows, a start block (the starting position as a FEN with its facts), then one ply block per walked ply (the ply's move, the position it reaches as a FEN, that position's facts, tempo and initiative facts included); within a block facts follow the impact rating; engine, budget and opening rows come first, always | ply walk, start block, ply block, `line_fens` | planned |
 | `TemplateRendering` | Fixed sentences filled from report fields, adding no claim; the output never says "candidate". Without `--full-report`: one block per move report, with their conditions and `SEE` for a capture's value; today's output, later the fallback. With `--full-report`: the full report text, every computed fact, always template text (before 2026-10-23: filled from the whole report, the only text) | template rendering, full report text | implemented |
 | `FactSheet` | A compact text form of the report for the model; the core claims (verdict, refutation, conditions) at every level, tactic and blunder evidence first | fact sheet, fact selection | planned |
 | `LevelPrompt` | Instructions for a beginner, club or advanced reader | level | planned |
