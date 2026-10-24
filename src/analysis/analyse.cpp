@@ -326,7 +326,7 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
 
     chess::Board after_move = root;
     after_move.makeMove(move);
-    const auto moves = walked_moves(root, line.pv_uci);
+    auto moves = walked_moves(root, line.pv_uci);
 
     MoveAssessment result;
     result.san = chess::uci::moveToSan(root, move);
@@ -671,6 +671,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     }
     threats.null_move_reliable =
         in_check ? std::optional<bool>() : std::optional<bool>(!null_move_prone(board));
+    const std::optional<bool> null_move_reliable = threats.null_move_reliable;
     const bool root_tempo_dependent = tempo_dependent(report.position.tempo_value);
 
     report.candidates.reserve(a_result.lines.size());
@@ -692,7 +693,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         }
         positional::mark_use(candidate.positional, board, walked_line, root_tempo_dependent);
         complete_tempo_ledger(engine, budget, report.engine.nodes_searched, board, walked_line,
-                              candidate, threats.null_move_reliable);
+                              candidate, null_move_reliable);
         report.candidates.push_back(std::move(candidate));
     }
 
@@ -761,7 +762,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
                               opponent_rank, opponent_line);
         positional::mark_use(assessment.positional, board, walked_line, root_tempo_dependent);
         complete_tempo_ledger(engine, budget, report.engine.nodes_searched, board, walked_line,
-                              assessment, threats.null_move_reliable);
+                              assessment, null_move_reliable);
         report.asked_moves.push_back(std::move(assessment));
     }
 }

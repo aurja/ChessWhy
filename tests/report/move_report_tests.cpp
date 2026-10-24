@@ -2,6 +2,7 @@
 
 #include <array>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -409,9 +410,19 @@ TEST_CASE("move report tempo projections are null exactly when no ledger exists"
     CHECK_FALSE(document.moves[1].tempo_value.has_value());
     REQUIRE(document.moves[0].tempo_gained.has_value());
     REQUIRE(document.moves[0].initiative.has_value());
-    CHECK(document.moves[0].tempo_gained->size() == 1);
-    CHECK(document.moves[0].tempo_gained->front().ply == 1);
-    CHECK(document.moves[0].initiative->size() == 1);
+    const auto& tempo_gained_optional = document.moves[0].tempo_gained;
+    const auto& initiative_optional = document.moves[0].initiative;
+    if (!tempo_gained_optional.has_value()) {
+        throw std::logic_error("move report must include tempo gains");
+    }
+    if (!initiative_optional.has_value()) {
+        throw std::logic_error("move report must include initiative");
+    }
+    const auto& tempo_gained = *tempo_gained_optional;
+    const auto& initiative = *initiative_optional;
+    CHECK(tempo_gained.size() == 1);
+    CHECK(tempo_gained.front().ply == 1);
+    CHECK(initiative.size() == 1);
     CHECK_FALSE(document.moves[1].tempo_gained.has_value());
     CHECK_FALSE(document.moves[1].initiative.has_value());
     const auto json = to_json(document);

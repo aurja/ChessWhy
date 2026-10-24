@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <stdexcept>
 #include <string>
+#include <utility>
 
 #include <chesswhy/tactics.hpp>
 
@@ -241,8 +242,8 @@ int material_balance(const chess::Board& board, chess::Color side) {
     int balance = 0;
     for (std::size_t index = 0; index < kPieceTypes.size(); ++index) {
         const int value = kPieceValues[index];
-        balance += static_cast<int>(board.pieces(kPieceTypes[index], side).count()) * value;
-        balance -= static_cast<int>(board.pieces(kPieceTypes[index], ~side).count()) * value;
+        balance += board.pieces(kPieceTypes[index], side).count() * value;
+        balance -= board.pieces(kPieceTypes[index], ~side).count() * value;
     }
     return balance;
 }
@@ -288,39 +289,36 @@ std::vector<InitiativeRun> initiative_runs(std::span<const TempoPly> plies,
             ++tempi;
         }
         const std::size_t ending_index = last_gain + 2;
-        InitiativeEnding ending = InitiativeEnding::Unfinished;
-        std::size_t end = n - 1;
-        if (ending_index >= n) {
-            end = n - 1;
-        } else if (!plies[ending_index].threatening) {
-            ending = InitiativeEnding::Spent;
-            end = ending_index;
-        } else {
+        const auto [ending, end] = [&]() {
+            if (ending_index >= n) {
+                return std::pair{InitiativeEnding::Unfinished, n - 1};
+            }
+            if (!plies[ending_index].threatening) {
+                return std::pair{InitiativeEnding::Spent, ending_index};
+            }
+
             chess::Movelist legal_moves;
             chess::movegen::legalmoves(legal_moves, boards[ending_index + 1]);
             const bool checkmate = boards[ending_index + 1].inCheck() && legal_moves.empty();
             if (checkmate) {
-                ending = InitiativeEnding::Runs;
-                end = ending_index;
-            } else if (ending_index + 1 >= n) {
-                ending = InitiativeEnding::Unfinished;
-                end = ending_index;
-            } else {
-                const TempoPly& reply = plies[ending_index + 1];
-                if (!reply.stops_threat) {
-                    throw std::logic_error("initiative_runs requires labelled tempo plies");
-                }
-                if (reply.label == TempoPlyLabel::CounterThreat) {
-                    ending = InitiativeEnding::Contested;
-                    end = ending_index + 1;
-                } else if (!*reply.stops_threat) {
-                    ending = InitiativeEnding::Runs;
-                    end = ending_index + 1;
-                } else {
-                    throw std::logic_error("initiative_runs requires labelled tempo plies");
-                }
+                return std::pair{InitiativeEnding::Runs, ending_index};
             }
-        }
+            if (ending_index + 1 >= n) {
+                return std::pair{InitiativeEnding::Unfinished, ending_index};
+            }
+
+            const TempoPly& reply = plies[ending_index + 1];
+            if (!reply.stops_threat) {
+                throw std::logic_error("initiative_runs requires labelled tempo plies");
+            }
+            if (reply.label == TempoPlyLabel::CounterThreat) {
+                return std::pair{InitiativeEnding::Contested, ending_index + 1};
+            }
+            if (!*reply.stops_threat) {
+                return std::pair{InitiativeEnding::Runs, ending_index + 1};
+            }
+            throw std::logic_error("initiative_runs requires labelled tempo plies");
+        }();
 
         bool converted =
             material_balance(boards[n],

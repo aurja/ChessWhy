@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -656,6 +657,9 @@ inline void add_schema_refutation_judgements(Report& report) {
                                              .passes_units = 1100,
                                              .value_units = 0,
                                              .label = TempoLabel::NonTempo};
+    if (!report.threats.has_value()) {
+        throw std::logic_error("schema quiet example requires threat details");
+    }
     report.threats->black =
         threat(Side::Black, "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 0 1", {"e5"},
                consequence(ConsequenceClass::Positional, 0, 2));

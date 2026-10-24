@@ -23,7 +23,7 @@ namespace {
 
 using Json = nlohmann::json;
 constexpr std::array<std::string_view, 6> kFixtureIds{"F01", "F03", "F12", "F25", "F29", "F30"};
-constexpr std::size_t kRerunCount = kFixtureIds.size() * 4U + 2U;
+constexpr std::size_t kRerunCount = (kFixtureIds.size() * 4U) + 2U;
 
 [[nodiscard]] Json fixture_file() {
     const auto path = std::filesystem::path(CHESSWHY_SOURCE_DIR) / "tests/fixtures/positions.json";

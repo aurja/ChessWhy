@@ -97,7 +97,7 @@ private:
     std::size_t total_;
     Clock::time_point started_;
     Clock::time_point last_item_update_;
-    Clock::time_point step_started_{};
+    Clock::time_point step_started_;
 };
 
 } // namespace chesswhy::test

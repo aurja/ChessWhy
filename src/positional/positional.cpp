@@ -261,8 +261,12 @@ void add_pawn_features(const chess::Board& board, chess::Color side,
             continue;
         }
         SquareList run;
-        while (file < passed_by_file.size() && passed_by_file[file]) {
-            run.push_back(*passed_by_file[file]);
+        while (file < passed_by_file.size()) {
+            const auto& square = passed_by_file[file];
+            if (!square) {
+                break;
+            }
+            run.push_back(*square);
             ++file;
         }
         if (run.size() >= 2) {
@@ -656,7 +660,7 @@ void add_leads_and_material(const chess::Board& board, std::vector<PositionalFea
                                          std::span<const chess::Move> line, Side owner,
                                          int first_ply) {
     for (int ply = first_ply; ply <= static_cast<int>(line.size()); ++ply) {
-        const std::size_t index = static_cast<std::size_t>(ply - 1);
+        const auto index = static_cast<std::size_t>(ply - 1);
         const chess::Board& before = boards[index];
         const chess::Move move = line[index];
         if (before.sideToMove() != color_of(owner) && before.isCapture(move) &&
@@ -670,20 +674,17 @@ void add_leads_and_material(const chess::Board& board, std::vector<PositionalFea
 [[nodiscard]] bool has_attacked_feature_pawn(const PositionalFeature& feature,
                                              const chess::Board& board, Side owner) {
     const chess::Color color = color_of(owner);
-    for (const PieceOnSquare& piece : feature.pieces) {
+    return std::ranges::any_of(feature.pieces, [&board, color](const PieceOnSquare& piece) {
         const chess::Square square(piece.square);
-        if (board.at(square) == chess::Piece(chess::PieceType::PAWN, color) &&
-            chess::attacks::attackers(board, ~color, square).getBits() != 0) {
-            return true;
-        }
-    }
-    return false;
+        return board.at(square) == chess::Piece(chess::PieceType::PAWN, color) &&
+               chess::attacks::attackers(board, ~color, square).getBits() != 0;
+    });
 }
 
 [[nodiscard]] bool used_passer(const PositionalChange& change, std::span<const chess::Board> boards,
                                std::span<const chess::Move> line) {
     const int ply = change.ply;
-    const std::size_t index = static_cast<std::size_t>(ply - 1);
+    const auto index = static_cast<std::size_t>(ply - 1);
     const chess::Board& before = boards[index];
     const chess::Move move = line[index];
     if (is_change_appears(change)) {
@@ -976,7 +977,7 @@ void mark_use(std::vector<PositionalChange>& changes, const chess::Board& root,
 
         change.net_change = true;
         const int ply = change.ply;
-        const std::size_t ply_index = static_cast<std::size_t>(ply - 1);
+        const auto ply_index = static_cast<std::size_t>(ply - 1);
         const chess::Board& before = boards[ply_index];
         const chess::Move move = line[ply_index];
         const Side owner = change.feature.side;
@@ -999,19 +1000,24 @@ void mark_use(std::vector<PositionalChange>& changes, const chess::Board& root,
                 (!is_change_appears(change) && king_file_owner_moved);
 
             if (!superseded) {
-                if (tag == PositionalTag::MaterialAhead || tag == PositionalTag::ExchangeUp ||
-                    tag == PositionalTag::RookSeventh || tag == PositionalTag::Outpost ||
-                    tag == PositionalTag::BadBishop || tag == PositionalTag::BishopPair) {
-                    in_use = true;
-                } else if (tag == PositionalTag::PawnIslands || tag == PositionalTag::PawnChain) {
+                if (tag == PositionalTag::PawnIslands || tag == PositionalTag::PawnChain) {
                     in_use = false;
                 } else if (tag == PositionalTag::MobilityLead || tag == PositionalTag::SpaceLead ||
                            tag == PositionalTag::DevelopmentLead) {
                     in_use = tempo_dependent;
-                } else if (is_king_file_tag(tag) && has_castling_right(end, owner)) {
+                } else if ((is_king_file_tag(tag) && has_castling_right(end, owner)) ||
+                           (((is_shelter_tag(tag) || tag == PositionalTag::KingZoneAttacker) &&
+                             is_change_appears(change)) &&
+                            (ply > 2 || !is_shelter_tag(tag)))) {
+                    // §6.6 case 6, and case 10 (shelter tags at ply <= 2 already pass in case 7).
                     in_use = king_pressed(boards, line, owner, ply);
-                } else if (ply <= 2 && (is_weak_pawn_tag(tag) || is_passer_tag(tag) ||
-                                        is_shelter_tag(tag) || is_rook_file_tag(tag))) {
+                } else if (tag == PositionalTag::MaterialAhead ||
+                           tag == PositionalTag::ExchangeUp || tag == PositionalTag::RookSeventh ||
+                           tag == PositionalTag::Outpost || tag == PositionalTag::BadBishop ||
+                           tag == PositionalTag::BishopPair ||
+                           (ply <= 2 && (is_weak_pawn_tag(tag) || is_passer_tag(tag) ||
+                                         is_shelter_tag(tag) || is_rook_file_tag(tag)))) {
+                    // §6.6 cases 3 and 7 both pass.
                     in_use = true;
                 } else if (is_weak_pawn_tag(tag)) {
                     if (is_change_appears(change)) {
@@ -1024,9 +1030,6 @@ void mark_use(std::vector<PositionalChange>& changes, const chess::Board& root,
                     }
                 } else if (is_passer_tag(tag)) {
                     in_use = used_passer(change, boards, line);
-                } else if ((is_shelter_tag(tag) || tag == PositionalTag::KingZoneAttacker) &&
-                           is_change_appears(change)) {
-                    in_use = king_pressed(boards, line, owner, ply);
                 } else if (is_rook_file_tag(tag)) {
                     in_use = used_rook_file(change, line);
                 }

@@ -163,19 +163,19 @@ void write_initiative_runs(std::ostringstream& output, const std::vector<Initiat
 void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) {
     if (!move.tempo_ledger) {
         if (move.tempo_ledger_skipped) {
-            const char* reason = "";
+            output << "Tempo ledger: skipped (";
             switch (*move.tempo_ledger_skipped) {
             case TempoLedgerSkip::InCheck:
-                reason = "S in check";
+                output << "S in check";
                 break;
             case TempoLedgerSkip::NullMoveUnreliable:
-                reason = "null move unreliable";
+                output << "null move unreliable";
                 break;
             case TempoLedgerSkip::NotDetailed:
-                reason = "line not detailed";
+                output << "line not detailed";
                 break;
             }
-            output << "Tempo ledger: skipped (" << reason << ") [engine]\n";
+            output << ") [engine]\n";
         }
         return;
     }
