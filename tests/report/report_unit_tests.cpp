@@ -27,12 +27,6 @@ TEST_CASE("enum values use the schema spellings", "[unit]") {
 
     CHECK(to_string(Side::White) == "white");
     CHECK(to_string(Side::Black) == "black");
-    CHECK(to_string(Budget::Quick) == "quick");
-    CHECK(to_string(Budget::Standard) == "standard");
-    CHECK(to_string(Budget::Deep) == "deep");
-    CHECK(to_string(Level::Beginner) == "beginner");
-    CHECK(to_string(Level::Club) == "club");
-    CHECK(to_string(Level::Advanced) == "advanced");
     CHECK(to_string(InputSource::Fen) == "fen");
     CHECK(to_string(InputSource::Pgn) == "pgn");
     CHECK(to_string(Terminal::Checkmate) == "checkmate");
@@ -89,7 +83,7 @@ TEST_CASE("enum values use the schema spellings", "[unit]") {
     CHECK(to_string(HeldTo::Kind::Squares) == "squares");
 }
 
-TEST_CASE("JSON follows v9 report key order", "[unit]") {
+TEST_CASE("JSON follows v10 report key order", "[unit]") {
     using namespace chesswhy;
 
     const auto report = test_examples::normal_position();
@@ -98,17 +92,16 @@ TEST_CASE("JSON follows v9 report key order", "[unit]") {
     CHECK(keys(json) == std::vector<std::string>{
                             "schema_version", "document", "input", "engine", "position", "threats",
                             "candidates", "playable_truncated", "asked_moves", "opening", "games"});
-    CHECK(keys(json["input"]) == std::vector<std::string>{"source", "fen", "pgn_game", "pgn_ply",
-                                                          "moves", "selection", "level", "budget"});
+    CHECK(keys(json["input"]) == std::vector<std::string>{
+                                     "source", "fen", "pgn_game", "pgn_ply", "moves", "selection",
+                                     "search_budget", "explanation_budget"});
+    CHECK(json["input"]["search_budget"] == 18);
+    CHECK(json["input"]["explanation_budget"] == 14);
     CHECK(keys(json["input"]["selection"]) == std::vector<std::string>{"keywords", "top", "moves"});
     CHECK(json["input"]["selection"]["moves"][0] == "g8f6");
     CHECK(keys(json["engine"]) == std::vector<std::string>{"name", "threads", "hash_mb", "multipv",
-                                                           "reproducible", "nodes",
-                                                           "nodes_searched"});
-    CHECK(keys(json["engine"]["nodes"]) ==
-          std::vector<std::string>{"A", "B", "C", "D", "E", "L", "R"});
-    CHECK(json["engine"]["nodes"]["L"] == 1000);
-    CHECK(json["engine"]["nodes"]["R"] == 1000);
+                                                           "reproducible", "nodes_searched"});
+    CHECK(json["engine"]["nodes_searched"] == 5000);
     CHECK(keys(json["position"]) ==
           std::vector<std::string>{"fen", "side_to_move", "in_check", "legal_moves", "terminal",
                                    "eval_white", "tempo_value", "motifs", "positional"});
@@ -176,7 +169,7 @@ TEST_CASE("JSON follows v9 report key order", "[unit]") {
     CHECK(keys(json["candidates"][0]["positional"][0]) ==
           std::vector<std::string>{"source", "ply", "change", "holds_at_end", "net_change",
                                    "captured", "in_use", "tag", "side", "pieces", "file", "value"});
-    CHECK(json["schema_version"] == 9);
+    CHECK(json["schema_version"] == 10);
     CHECK(json["document"] == "full");
     CHECK(json["position"]["positional"][0]["source"] == "rule");
     CHECK(json["position"]["positional"][0]["tag"] == "bishop_pair");
@@ -197,7 +190,7 @@ TEST_CASE("JSON follows v9 report key order", "[unit]") {
     CHECK(keys(pgn["opening"]["last_named"]) == std::vector<std::string>{"eco", "name", "ply"});
 }
 
-TEST_CASE("v9 analysis fields and restriction serialize", "[unit]") {
+TEST_CASE("v10 analysis fields and restriction serialize", "[unit]") {
     const auto json = chesswhy::to_json(chesswhy::test_examples::schema_example());
     const auto& position = json["position"];
     const auto& candidate = json["candidates"][0];
@@ -221,11 +214,11 @@ TEST_CASE("v9 analysis fields and restriction serialize", "[unit]") {
     CHECK(pin["restriction"]["held_to"]["name"] == "e");
 }
 
-TEST_CASE("tempo fields serialize in v9", "[unit]") {
+TEST_CASE("tempo fields serialize in v10", "[unit]") {
     using namespace chesswhy;
 
     Report report = test_examples::normal_position();
-    report.engine.nodes.l = 40'000;
+    report.engine.nodes_searched = 40'000;
     report.position.tempo_value = TempoValue{.side = Side::Black,
                                              .moves_units = 1234,
                                              .passes_units = 606,
@@ -319,10 +312,10 @@ TEST_CASE("tempo fields serialize in v9", "[unit]") {
     CHECK(move["positional"][0]["in_use"] == true);
 }
 
-TEST_CASE("motif JSON uses the schema v9 shape", "[unit]") {
+TEST_CASE("motif JSON uses the schema v10 shape", "[unit]") {
     const auto json = chesswhy::to_json(chesswhy::test_examples::normal_position());
 
-    CHECK(json["schema_version"] == 9);
+    CHECK(json["schema_version"] == 10);
     CHECK(
         json["position"]["motifs"][0].dump() ==
         R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3,"threat":null,"restriction":null,"contribution":null})");
@@ -341,7 +334,7 @@ TEST_CASE("motif JSON uses the schema v9 shape", "[unit]") {
     CHECK(pin["threat"]["square"] == "f4");
 }
 
-TEST_CASE("opportunity judgements and tactic-line fields serialize in v9", "[unit]") {
+TEST_CASE("opportunity judgements and tactic-line fields serialize in v10", "[unit]") {
     using namespace chesswhy;
 
     const auto forced = to_json(test_examples::forced_opportunity());

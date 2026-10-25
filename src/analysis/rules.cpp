@@ -14,35 +14,6 @@
 
 namespace chesswhy::analysis {
 
-NodeBudget node_budget(Budget budget) {
-    switch (budget) {
-    case Budget::Quick:
-        return {.a = 250'000,
-                .b = 50'000,
-                .c = 50'000,
-                .d = 25'000,
-                .e = 25'000,
-                .l = 10'000,
-                .r = 25'000};
-    case Budget::Standard:
-        return {.a = 1'000'000,
-                .b = 200'000,
-                .c = 200'000,
-                .d = 100'000,
-                .e = 100'000,
-                .l = 30'000,
-                .r = 100'000};
-    case Budget::Deep:
-        return {.a = 4'000'000,
-                .b = 800'000,
-                .c = 800'000,
-                .d = 400'000,
-                .e = 400'000,
-                .l = 160'000,
-                .r = 400'000};
-    }
-    return {};
-}
 
 int es_units(const engine::Line& line) {
     return (2 * line.win) + line.draw;
@@ -72,16 +43,10 @@ bool is_detailed_line(int line_number, bool selected) {
     return line_number >= 1 && (line_number <= kDetailedLines || selected);
 }
 
-std::uint64_t search_a_nodes(Budget budget, int lines) {
-    if (lines <= 0) {
-        return 0;
-    }
-    return (node_budget(budget).a * static_cast<std::uint64_t>(lines)) / kMinMultiPv;
-}
 
-Verdict verdict(int loss_units, bool same_score_as_best, bool move_allows_tactic) {
+Verdict verdict(int loss_units, bool at_least_best_score, bool move_allows_tactic) {
     if (loss_units <= kPlayableUnits) {
-        return same_score_as_best ? Verdict::Best : Verdict::Okay;
+        return at_least_best_score ? Verdict::Best : Verdict::Okay;
     }
     if (loss_units <= kInaccuracyUnits) {
         return Verdict::Inaccuracy;
@@ -89,11 +54,23 @@ Verdict verdict(int loss_units, bool same_score_as_best, bool move_allows_tactic
     return move_allows_tactic ? Verdict::Blunder : Verdict::Mistake;
 }
 
-bool same_score(const Eval& a, const Eval& b) {
-    if (a.mate.has_value() || b.mate.has_value()) {
-        return a.mate.has_value() && b.mate.has_value() && a.mate == b.mate;
+bool at_least_score(const Eval& move, const Eval& best) {
+    if (move.mate && best.mate) {
+        if (*move.mate >= 0 && *best.mate >= 0) {
+            return *move.mate <= *best.mate;
+        }
+        if (*move.mate < 0 && *best.mate < 0) {
+            return *move.mate <= *best.mate;
+        }
+        return *move.mate >= 0;
     }
-    return a.cp.has_value() && b.cp.has_value() && a.cp == b.cp;
+    if (move.mate) {
+        return *move.mate >= 0;
+    }
+    if (best.mate) {
+        return *best.mate < 0;
+    }
+    return move.cp && best.cp && *move.cp >= *best.cp;
 }
 
 bool is_tactic(const Consequence& consequence) {

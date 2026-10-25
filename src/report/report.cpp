@@ -413,29 +413,6 @@ std::string to_string(Side side) {
     throw std::invalid_argument(invalid_enum("Side", side));
 }
 
-std::string to_string(Budget budget) {
-    switch (budget) {
-    case Budget::Quick:
-        return "quick";
-    case Budget::Standard:
-        return "standard";
-    case Budget::Deep:
-        return "deep";
-    }
-    throw std::invalid_argument(invalid_enum("Budget", budget));
-}
-
-std::string to_string(Level level) {
-    switch (level) {
-    case Level::Beginner:
-        return "beginner";
-    case Level::Club:
-        return "club";
-    case Level::Advanced:
-        return "advanced";
-    }
-    throw std::invalid_argument(invalid_enum("Level", level));
-}
 
 std::string to_string(InputSource source) {
     switch (source) {
@@ -825,8 +802,8 @@ nlohmann::ordered_json to_json(const Report& report) {
         report.input.selection.top ? Json(*report.input.selection.top) : Json(nullptr);
     selection["moves"] = report.input.selection.moves;
     input["selection"] = std::move(selection);
-    input["level"] = to_string(report.input.level);
-    input["budget"] = to_string(report.input.budget);
+    input["search_budget"] = report.input.search_budget;
+    input["explanation_budget"] = report.input.explanation_budget;
     value["input"] = std::move(input);
     Json engine = Json::object();
     engine["name"] = report.engine.name;
@@ -834,15 +811,6 @@ nlohmann::ordered_json to_json(const Report& report) {
     engine["hash_mb"] = report.engine.hash_mb;
     engine["multipv"] = report.engine.multipv;
     engine["reproducible"] = report.engine.reproducible;
-    Json nodes = Json::object();
-    nodes["A"] = report.engine.nodes.a;
-    nodes["B"] = report.engine.nodes.b;
-    nodes["C"] = report.engine.nodes.c;
-    nodes["D"] = report.engine.nodes.d;
-    nodes["E"] = report.engine.nodes.e;
-    nodes["L"] = report.engine.nodes.l;
-    nodes["R"] = report.engine.nodes.r;
-    engine["nodes"] = std::move(nodes);
     engine["nodes_searched"] = report.engine.nodes_searched;
     value["engine"] = std::move(engine);
 

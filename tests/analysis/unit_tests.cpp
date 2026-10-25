@@ -61,31 +61,10 @@ void make_unresolved_reply(chesswhy::TempoPly& ply) {
 }
 
 } // namespace
-TEST_CASE("analysis node budgets match the frozen search table", "[analysis][unit]") {
-    const auto quick = chesswhy::analysis::node_budget(chesswhy::Budget::Quick);
-    CHECK(quick.a == 250'000);
-    CHECK(quick.b == 50'000);
-    CHECK(quick.c == 50'000);
-    CHECK(quick.d == 25'000);
-    CHECK(quick.e == 25'000);
-    CHECK(quick.l == 10'000);
-    CHECK(quick.r == 25'000);
-    const auto standard = chesswhy::analysis::node_budget(chesswhy::Budget::Standard);
-    CHECK(standard.a == 1'000'000);
-    CHECK(standard.b == 200'000);
-    CHECK(standard.c == 200'000);
-    CHECK(standard.d == 100'000);
-    CHECK(standard.e == 100'000);
-    CHECK(standard.l == 30'000);
-    CHECK(standard.r == 100'000);
-    const auto deep = chesswhy::analysis::node_budget(chesswhy::Budget::Deep);
-    CHECK(deep.a == 4'000'000);
-    CHECK(deep.b == 800'000);
-    CHECK(deep.c == 800'000);
-    CHECK(deep.d == 400'000);
-    CHECK(deep.e == 400'000);
-    CHECK(deep.l == 160'000);
-    CHECK(deep.r == 400'000);
+TEST_CASE("analysis depth budgets expose the frozen defaults", "[analysis][unit]") {
+    CHECK(chesswhy::analysis::kDefaultSearchBudget == 18);
+    CHECK(chesswhy::analysis::kDefaultExplanationBudget == 14);
+    CHECK(chesswhy::analysis::kMaxBudget == 60);
 }
 
 TEST_CASE("expected score keeps WDL units exact", "[analysis][unit]") {
@@ -107,33 +86,48 @@ TEST_CASE("UCI move line retains a positive search depth", "[analysis][unit]") {
                     .has_value());
 }
 
-TEST_CASE("verdict boundaries use the playable and inaccuracy cutoffs", "[analysis][unit]") {
+TEST_CASE("verdict boundaries combine at-least score and playable loss", "[analysis][unit]") {
     using chesswhy::Verdict;
     using chesswhy::analysis::verdict;
 
     CHECK(verdict(0, true, false) == Verdict::Best);
     CHECK(verdict(100, true, false) == Verdict::Best);
     CHECK(verdict(100, false, false) == Verdict::Okay);
+    CHECK(verdict(101, true, false) == Verdict::Inaccuracy);
     CHECK(verdict(101, false, false) == Verdict::Inaccuracy);
     CHECK(verdict(200, false, false) == Verdict::Inaccuracy);
     CHECK(verdict(201, false, false) == Verdict::Mistake);
     CHECK(verdict(201, false, true) == Verdict::Blunder);
 }
 
-TEST_CASE("same score compares cp or mate, not expected score", "[analysis][unit]") {
+TEST_CASE("at-least score follows the side-to-move cp and mate order", "[analysis][unit]") {
     using chesswhy::Eval;
-    using chesswhy::analysis::same_score;
+    using chesswhy::analysis::at_least_score;
 
-    CHECK(same_score(Eval{.es_units = 1000, .cp = 12, .mate = std::nullopt},
-                     Eval{.es_units = 1200, .cp = 12, .mate = std::nullopt}));
-    CHECK_FALSE(same_score(Eval{.es_units = 1000, .cp = 12, .mate = std::nullopt},
-                           Eval{.es_units = 1000, .cp = 13, .mate = std::nullopt}));
-    CHECK(same_score(Eval{.es_units = 1000, .cp = std::nullopt, .mate = 2},
-                     Eval{.es_units = 900, .cp = std::nullopt, .mate = 2}));
-    CHECK_FALSE(same_score(Eval{.es_units = 1000, .cp = std::nullopt, .mate = 2},
-                           Eval{.es_units = 1000, .cp = 12, .mate = std::nullopt}));
-    CHECK_FALSE(same_score(Eval{.es_units = 1000, .cp = std::nullopt, .mate = 2},
-                           Eval{.es_units = 1000, .cp = std::nullopt, .mate = 3}));
+    const Eval cp_12{.es_units = 1000, .cp = 12, .mate = std::nullopt};
+    const Eval cp_13{.es_units = 900, .cp = 13, .mate = std::nullopt};
+    const Eval cp_11{.es_units = 1100, .cp = 11, .mate = std::nullopt};
+    CHECK(at_least_score(cp_13, cp_12));
+    CHECK(at_least_score(cp_12, cp_12));
+    CHECK_FALSE(at_least_score(cp_11, cp_12));
+
+    const Eval mate_for_3{.es_units = 1900, .cp = std::nullopt, .mate = 3};
+    const Eval mate_for_2{.es_units = 1900, .cp = std::nullopt, .mate = 2};
+    CHECK(at_least_score(mate_for_3, cp_13));
+    CHECK_FALSE(at_least_score(cp_13, mate_for_3));
+    CHECK(at_least_score(mate_for_2, mate_for_3));
+    CHECK_FALSE(at_least_score(mate_for_3, mate_for_2));
+    CHECK(at_least_score(mate_for_3, mate_for_3));
+
+    const Eval mate_against_2{.es_units = 100, .cp = std::nullopt, .mate = -2};
+    const Eval mate_against_5{.es_units = 100, .cp = std::nullopt, .mate = -5};
+    CHECK(at_least_score(cp_11, mate_against_2));
+    CHECK_FALSE(at_least_score(mate_against_2, cp_11));
+    CHECK(at_least_score(mate_against_5, mate_against_2));
+    CHECK_FALSE(at_least_score(mate_against_2, mate_against_5));
+    CHECK(at_least_score(mate_against_2, mate_against_2));
+    CHECK(at_least_score(mate_for_2, mate_against_2));
+    CHECK_FALSE(at_least_score(mate_against_2, mate_for_2));
 }
 
 TEST_CASE("tactic and allows-tactic use the move's line consequence", "[analysis][unit]") {
@@ -174,25 +168,21 @@ TEST_CASE("opportunity margin boundary is inclusive", "[analysis][unit]") {
     CHECK_FALSE(is_opportunity_margin(-1));
 }
 
-TEST_CASE("selection sets Search A width and nodes", "[analysis][unit]") {
+TEST_CASE("selection sets candidate-search width", "[analysis][unit]") {
     using chesswhy::Selection;
     using Keyword = Selection::Keyword;
     using chesswhy::analysis::judges_every_move;
     using chesswhy::analysis::multipv_lines;
-    using chesswhy::analysis::search_a_nodes;
 
     const Selection best{.keywords = {Keyword::Best}, .top = std::nullopt, .moves = {}};
     CHECK_FALSE(judges_every_move(best));
     CHECK(multipv_lines(best, 31) == 5);
     CHECK(multipv_lines(best, 3) == 3);
-    CHECK(search_a_nodes(chesswhy::Budget::Standard, multipv_lines(best, 31)) == 1'000'000);
 
     const Selection top_three{.keywords = {}, .top = 3, .moves = {}};
     CHECK(multipv_lines(top_three, 31) == 5);
-    CHECK(search_a_nodes(chesswhy::Budget::Standard, multipv_lines(top_three, 31)) == 1'000'000);
     const Selection top_seven{.keywords = {}, .top = 7, .moves = {}};
     CHECK(multipv_lines(top_seven, 31) == 7);
-    CHECK(search_a_nodes(chesswhy::Budget::Standard, multipv_lines(top_seven, 31)) == 1'400'000);
     CHECK(multipv_lines(top_seven, 4) == 4);
 
     constexpr std::array whole_board_keywords{Keyword::Playable,   Keyword::Inaccuracies,
@@ -202,8 +192,6 @@ TEST_CASE("selection sets Search A width and nodes", "[analysis][unit]") {
         const Selection selection{.keywords = {keyword}, .top = std::nullopt, .moves = {}};
         CHECK(judges_every_move(selection));
         CHECK(multipv_lines(selection, 31) == 31);
-        CHECK(search_a_nodes(chesswhy::Budget::Standard, multipv_lines(selection, 31)) ==
-              6'200'000);
         CHECK(multipv_lines(selection, 3) == 3);
     }
     CHECK(multipv_lines(best, 0) == 0);

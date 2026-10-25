@@ -8,6 +8,7 @@
 
 #include <charconv>
 #include <exception>
+#include <limits>
 #include <ostream>
 #include <string>
 #include <string_view>
@@ -30,7 +31,8 @@ namespace {
 
 [[nodiscard]] std::string usage() {
     return "Usage: chesswhy (--fen FEN | --pgn FILE [--game N] [--ply N]) [--moves LIST]\n"
-           "                [--level beginner|club|advanced] [--budget quick|standard|deep]\n"
+           "                [--search-budget N (1-60; default 18)]\n"
+           "                [--explanation-budget N (1-60; default 14)]\n"
            "                [--json] [--full-report] [--no-llm] [--threads N] [--engine PATH]\n"
            "                [--openings DIR] [--games FILE] [--help]\n"
            "--moves items (comma-separated, no spaces): SAN/UCI move, best, topN,\n"
@@ -52,11 +54,12 @@ namespace {
     return args[index];
 }
 
-[[nodiscard]] int parse_integer(std::string_view token, std::string_view flag, int minimum) {
+[[nodiscard]] int parse_integer(std::string_view token, std::string_view flag, int minimum,
+                                int maximum) {
     int value = 0;
     const auto result = std::from_chars(token.data(), token.data() + token.size(), value);
     if (token.empty() || result.ec != std::errc{} || result.ptr != token.data() + token.size() ||
-        value < minimum) {
+        value < minimum || value > maximum) {
         usage_error("invalid integer for " + std::string(flag) + ": " + std::string(token));
     }
     return value;
@@ -110,6 +113,8 @@ Options parse_args(std::span<const std::string_view> args) {
     bool seen_engine = false;
     bool seen_openings = false;
     bool seen_games = false;
+    bool seen_search_budget = false;
+    bool seen_explanation_budget = false;
 
     for (std::size_t index = 0; index < args.size(); ++index) {
         const std::string_view flag = args[index];
@@ -125,37 +130,25 @@ Options parse_args(std::span<const std::string_view> args) {
             options.pgn = std::filesystem::path(value_after(args, index, flag));
         } else if (flag == "--game") {
             reject_duplicate(seen_game, flag);
-            options.game = parse_integer(value_after(args, index, flag), flag, 1);
+            options.game = parse_integer(value_after(args, index, flag), flag, 1,
+                                         std::numeric_limits<int>::max());
         } else if (flag == "--ply") {
             if (options.ply) {
                 usage_error("duplicate flag --ply");
             }
-            options.ply = parse_integer(value_after(args, index, flag), flag, 0);
+            options.ply = parse_integer(value_after(args, index, flag), flag, 0,
+                                        std::numeric_limits<int>::max());
         } else if (flag == "--moves") {
             reject_duplicate(seen_moves, flag);
             options.moves = std::string(value_after(args, index, flag));
-        } else if (flag == "--level") {
-            const std::string_view value = value_after(args, index, flag);
-            if (value == "beginner") {
-                options.level = Level::Beginner;
-            } else if (value == "club") {
-                options.level = Level::Club;
-            } else if (value == "advanced") {
-                options.level = Level::Advanced;
-            } else {
-                usage_error("invalid value for --level: " + std::string(value));
-            }
-        } else if (flag == "--budget") {
-            const std::string_view value = value_after(args, index, flag);
-            if (value == "quick") {
-                options.budget = Budget::Quick;
-            } else if (value == "standard") {
-                options.budget = Budget::Standard;
-            } else if (value == "deep") {
-                options.budget = Budget::Deep;
-            } else {
-                usage_error("invalid value for --budget: " + std::string(value));
-            }
+        } else if (flag == "--search-budget") {
+            reject_duplicate(seen_search_budget, flag);
+            options.search_budget =
+                parse_integer(value_after(args, index, flag), flag, 1, analysis::kMaxBudget);
+        } else if (flag == "--explanation-budget") {
+            reject_duplicate(seen_explanation_budget, flag);
+            options.explanation_budget =
+                parse_integer(value_after(args, index, flag), flag, 1, analysis::kMaxBudget);
         } else if (flag == "--json") {
             reject_duplicate(seen_json, flag);
             options.json = true;
@@ -167,7 +160,8 @@ Options parse_args(std::span<const std::string_view> args) {
             options.no_llm = true;
         } else if (flag == "--threads") {
             reject_duplicate(seen_threads, flag);
-            options.threads = parse_integer(value_after(args, index, flag), flag, 1);
+            options.threads = parse_integer(value_after(args, index, flag), flag, 1,
+                                            std::numeric_limits<int>::max());
         } else if (flag == "--engine") {
             reject_duplicate(seen_engine, flag);
             options.engine = std::filesystem::path(value_after(args, index, flag));
@@ -224,8 +218,8 @@ Report build_report(const Options& options) {
     report.input.moves = options.moves;
 
     report.input.fen = board.getFen();
-    report.input.level = options.level;
-    report.input.budget = options.budget;
+    report.input.search_budget = options.search_budget;
+    report.input.explanation_budget = options.explanation_budget;
 
     const openings::Table opening_table = openings::Table::load(options.openings);
     const games::Table game_table = games::Table::load(options.games);
@@ -239,7 +233,8 @@ Report build_report(const Options& options) {
                       analysis::Request{.board = board,
                                         .selection = report.input.selection,
                                         .asked = std::move(resolved_moves.asked),
-                                        .budget = options.budget},
+                                        .search_budget = options.search_budget,
+                                        .explanation_budget = options.explanation_budget},
                       report);
     report.opening = openings::describe(opening_table, board, mainline);
     return report;

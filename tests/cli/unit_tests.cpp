@@ -162,8 +162,8 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     CHECK(defaults.game == 1);
     CHECK_FALSE(defaults.ply.has_value());
     CHECK_FALSE(defaults.moves.has_value());
-    CHECK(defaults.level == chesswhy::Level::Club);
-    CHECK(defaults.budget == chesswhy::Budget::Standard);
+    CHECK(defaults.search_budget == chesswhy::analysis::kDefaultSearchBudget);
+    CHECK(defaults.explanation_budget == chesswhy::analysis::kDefaultExplanationBudget);
     CHECK_FALSE(defaults.json);
     CHECK_FALSE(defaults.full_report);
     CHECK_FALSE(defaults.no_llm);
@@ -183,6 +183,16 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     CHECK(selected_moves.moves == moves);
     CHECK(selected_moves.json);
     CHECK(selected_moves.full_report);
+    const std::vector<std::string_view> minimum_budget_args{
+        "--fen", fen, "--search-budget", "1", "--explanation-budget", "1"};
+    const auto minimum_budgets = chesswhy::cli::parse_args(minimum_budget_args);
+    CHECK(minimum_budgets.search_budget == 1);
+    CHECK(minimum_budgets.explanation_budget == 1);
+    const std::vector<std::string_view> maximum_budget_args{
+        "--fen", fen, "--search-budget", "60", "--explanation-budget", "60"};
+    const auto maximum_budgets = chesswhy::cli::parse_args(maximum_budget_args);
+    CHECK(maximum_budgets.search_budget == 60);
+    CHECK(maximum_budgets.explanation_budget == 60);
 
     const std::vector<std::string_view> help_args{"--help"};
     const auto help = chesswhy::cli::parse_args(help_args);
@@ -198,6 +208,11 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     CHECK(help_out.str().find("topN") != std::string::npos);
     CHECK(help_out.str().find("every legal move") != std::string::npos);
     CHECK(help_out.str().find("several times the default time") != std::string::npos);
+    CHECK(help_out.str().find("--search-budget N (1-60; default 18)") != std::string::npos);
+    CHECK(help_out.str().find("--explanation-budget N (1-60; default 14)") !=
+          std::string::npos);
+    CHECK(help_out.str().find("--budget") == std::string::npos);
+    CHECK(help_out.str().find("--level") == std::string::npos);
 
     const auto expect_error = [](const std::vector<std::string_view>& args,
                                  std::string_view fragment) {
@@ -208,7 +223,34 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
             CHECK(std::string_view(error.what()).find(fragment) != std::string_view::npos);
         }
     };
-    expect_error({"--fen", fen, "--budget", "insane"}, "--budget");
+    const auto expect_exact_error = [](const std::vector<std::string_view>& args,
+                                       std::string_view exact_message) {
+        try {
+            (void)chesswhy::cli::parse_args(args);
+            FAIL("parse_args accepted invalid arguments");
+        } catch (const chesswhy::input::InputError& error) {
+            CHECK(std::string_view(error.what()) == exact_message);
+        }
+    };
+    expect_exact_error({"--fen", fen, "--budget", "quick"}, "unknown flag --budget");
+    expect_exact_error({"--fen", fen, "--level", "beginner"}, "unknown flag --level");
+    expect_exact_error({"--fen", fen, "--search-budget", "0"},
+                       "invalid integer for --search-budget: 0");
+    expect_exact_error({"--fen", fen, "--search-budget", "61"},
+                       "invalid integer for --search-budget: 61");
+    expect_exact_error({"--fen", fen, "--search-budget", "x"},
+                       "invalid integer for --search-budget: x");
+    expect_exact_error({"--fen", fen, "--search-budget", "12", "--search-budget", "13"},
+                       "duplicate flag --search-budget");
+    expect_exact_error({"--fen", fen, "--explanation-budget", "0"},
+                       "invalid integer for --explanation-budget: 0");
+    expect_exact_error({"--fen", fen, "--explanation-budget", "61"},
+                       "invalid integer for --explanation-budget: 61");
+    expect_exact_error({"--fen", fen, "--explanation-budget", "x"},
+                       "invalid integer for --explanation-budget: x");
+    expect_exact_error(
+        {"--fen", fen, "--explanation-budget", "12", "--explanation-budget", "13"},
+        "duplicate flag --explanation-budget");
     expect_error({"--fen", fen, "--game", "2"}, "--game");
     expect_error({"--fen", fen, "--game", "1"}, "--game");
     expect_error({"--fen", fen, "--threads", "0"}, "--threads");

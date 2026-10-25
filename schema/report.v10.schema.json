@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/report.v9.schema.json",
-  "title": "ChessWhy full report, schema version 9",
+  "$id": "https://chesswhy.local/schema/report.v10.schema.json",
+  "title": "ChessWhy full report, schema version 10",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,8 +19,8 @@
   ],
   "properties": {
     "schema_version": {
-      "description": "Schema version of the report; this schema accepts version 9 [rule].",
-      "const": 9
+      "description": "Schema version of the report; this schema accepts version 10 [rule].",
+      "const": 10
     },
     "document": {
       "description": "Kind of report document emitted by this schema [rule].",
@@ -37,8 +37,8 @@
         "pgn_ply",
         "moves",
         "selection",
-        "level",
-        "budget"
+        "search_budget",
+        "explanation_budget"
       ],
       "properties": {
         "source": {
@@ -123,21 +123,17 @@
             }
           }
         },
-        "level": {
-          "description": "Requested explanation level [rule].",
-          "enum": [
-            "beginner",
-            "club",
-            "advanced"
-          ]
+        "search_budget": {
+          "description": "Search-phase depth for A-best, A-rest, and C [rule].",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
         },
-        "budget": {
-          "description": "Requested analysis budget [rule].",
-          "enum": [
-            "quick",
-            "standard",
-            "deep"
-          ]
+        "explanation_budget": {
+          "description": "Explanation-phase depth for B, D, E, R, and L [rule].",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
         }
       }
     },
@@ -151,7 +147,6 @@
         "hash_mb",
         "multipv",
         "reproducible",
-        "nodes",
         "nodes_searched"
       ],
       "properties": {
@@ -170,64 +165,13 @@
           "minimum": 1
         },
         "multipv": {
-          "description": "MultiPV width K requested for candidate search [engine].",
+          "description": "K: A-best's line plus the K - 1 requested of A-rest (1 with one legal move) [engine].",
           "type": "integer",
           "minimum": 0
         },
         "reproducible": {
-          "description": "same configuration (budget, threads, hash, nodes) gives the same report",
+          "description": "same configuration (search budget, explanation budget, threads, hash) gives the same report",
           "type": "boolean"
-        },
-        "nodes": {
-          "description": "Configured node budget for each search kind [rule].",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "A",
-            "B",
-            "C",
-            "D",
-            "E",
-            "L",
-            "R"
-          ],
-          "properties": {
-            "A": {
-              "description": "Scaled node budget for MultiPV K from the current position [rule].",
-              "type": "integer",
-              "minimum": 0
-            },
-            "B": {
-              "description": "Node budget for the null-move search with the opponent to move [rule].",
-              "type": "integer",
-              "minimum": 1
-            },
-            "C": {
-              "description": "Node budget for the searchmoves m search for an asked move outside A [rule].",
-              "type": "integer",
-              "minimum": 1
-            },
-            "D": {
-              "description": "Node budget for the search after m restricted to the opponent's threat move [rule].",
-              "type": "integer",
-              "minimum": 1
-            },
-            "E": {
-              "description": "Node budget for the search after m with a null move [rule].",
-              "type": "integer",
-              "minimum": 1
-            },
-            "L": {
-              "description": "Node budget for each tempo-ledger threat and reply search [rule].",
-              "type": "integer",
-              "minimum": 1
-            },
-            "R": {
-              "description": "Node budget for the search after m excluding the refutation's first move [rule].",
-              "type": "integer",
-              "minimum": 1
-            }
-          }
         },
         "nodes_searched": {
           "description": "Sum of nodes reported by every engine search run [engine].",

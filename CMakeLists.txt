@@ -8,7 +8,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CHESSWHY_ASSETS_DIR "${PROJECT_SOURCE_DIR}/assets" CACHE PATH "Engine and data assets (tools/fetch_assets.sh)")
 set(CHESSWHY_PYTHON "${PROJECT_SOURCE_DIR}/.venv/bin/python" CACHE FILEPATH "Python with tools/requirements-dev.txt installed")
-option(CHESSWHY_CHECK_TIMING "Assert the standard-budget wall-time limit in engine tests" ON)
+option(CHESSWHY_CHECK_TIMING "Assert the default-depth wall-time limit in engine tests" ON)
 
 # ---- Third-party (pinned submodules, see third_party/DEPENDENCIES.md) ----
 add_library(chess_library INTERFACE)

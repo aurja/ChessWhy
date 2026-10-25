@@ -42,7 +42,7 @@ void check_wdl(const SearchResult& result) {
 
 } // namespace
 
-TEST_CASE("Stockfish searches are reproducible and honor request limits", "[engine]") {
+TEST_CASE("Stockfish fixed-depth searches are reproducible", "[engine]") {
     const std::filesystem::path binary =
         std::filesystem::path(CHESSWHY_ASSETS_DIR) / "engines" / "stockfish";
     REQUIRE(std::filesystem::exists(binary));
@@ -53,26 +53,38 @@ TEST_CASE("Stockfish searches are reproducible and honor request limits", "[engi
     CHECK(engine.name().starts_with("Stockfish"));
 
     constexpr auto start_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+    CHECK_THROWS_AS(engine.search(SearchRequest{.fen = start_fen,
+                                                .depth = 0,
+                                                .multipv = 1,
+                                                .searchmoves_uci = {}}),
+                    EngineError);
+    CHECK_THROWS_AS(engine.search(SearchRequest{.fen = start_fen,
+                                                .depth = 1,
+                                                .multipv = 0,
+                                                .searchmoves_uci = {}}),
+                    EngineError);
     const SearchRequest repeat_request{
-        .fen = start_fen, .nodes = 20000, .multipv = 1, .searchmoves_uci = {}};
+        .fen = start_fen, .depth = 5, .multipv = 1, .searchmoves_uci = {}};
     const auto first = engine.search(repeat_request);
     REQUIRE_FALSE(first.lines.empty());
+    CHECK(first.lines.front().depth >= repeat_request.depth);
     check_wdl(first);
 
     const SearchRequest unrelated_request{
         .fen = "rnbqkbnr/ppppp1pp/5p2/7Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2",
-        .nodes = 5000,
+        .depth = 4,
         .multipv = 1,
         .searchmoves_uci = {}};
     const auto unrelated = engine.search(unrelated_request);
     REQUIRE_FALSE(unrelated.lines.empty());
+    CHECK(unrelated.lines.front().depth >= unrelated_request.depth);
 
     const auto repeated = engine.search(repeat_request);
     CHECK(same_lines(first, repeated));
     check_wdl(repeated);
 
     const SearchRequest restricted_request{
-        .fen = start_fen, .nodes = 10000, .multipv = 1, .searchmoves_uci = {"e2e4"}};
+        .fen = start_fen, .depth = 4, .multipv = 1, .searchmoves_uci = {"e2e4"}};
     const auto restricted = engine.search(restricted_request);
     REQUIRE_FALSE(restricted.lines.empty());
     REQUIRE_FALSE(restricted.lines.front().pv_uci.empty());
@@ -81,11 +93,12 @@ TEST_CASE("Stockfish searches are reproducible and honor request limits", "[engi
 
     const SearchRequest one_legal_move{
         .fen = "rnbqkbnr/ppppp1pp/5p2/7Q/4P3/8/PPPP1PPP/RNB1KBNR b KQkq - 1 2",
-        .nodes = 10000,
+        .depth = 4,
         .multipv = 5,
         .searchmoves_uci = {}};
     const auto single_line = engine.search(one_legal_move);
     REQUIRE(single_line.lines.size() == 1);
+    CHECK(single_line.lines.front().depth >= one_legal_move.depth);
     CHECK(single_line.lines.front().multipv == 1);
     check_wdl(single_line);
 }

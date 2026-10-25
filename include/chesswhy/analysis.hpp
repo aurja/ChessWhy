@@ -50,8 +50,9 @@ void analyse(engine::Engine& engine, const Request& request, Report& report);
 [[nodiscard]] bool judges_every_move(const Selection& selection);
 [[nodiscard]] int multipv_lines(const Selection& selection, int legal_moves);
 [[nodiscard]] bool is_detailed_line(int line_number, bool selected);
-[[nodiscard]] Verdict verdict(int loss_units, bool at_least_best_score, bool allows_tactic);
+// N6: true iff `move` ranks at least as high as `best` for the side the scores belong to.
 [[nodiscard]] bool at_least_score(const Eval& move, const Eval& best);
+[[nodiscard]] Verdict verdict(int loss_units, bool at_least_best_score, bool allows_tactic);
 [[nodiscard]] bool is_tactic(const Consequence& consequence);
 [[nodiscard]] bool allows_tactic(const Consequence& line_consequence, const Eval& eval);
 [[nodiscard]] bool is_opportunity_margin(int margin_units);
