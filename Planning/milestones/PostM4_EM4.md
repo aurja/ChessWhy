@@ -1,9 +1,10 @@
-# PostM4_EM4 — contract (part 1: motif rows; part 1b/1c: position walk)
+# PostM4_EM4 — contract (the conceptual critique and the move report text)
 
-Branch `postm4-em4` (from `postm4-em3` at `92dd918`). The rest of EM4's scope (the pure reply
-definition "forced and gains nothing" and whatever the conceptual critique of all
-definitions and concepts finds) is frozen later, after the critique; this file then gains
-part 2.
+Branch `postm4-em4` (from `postm4-em3` at `92dd918`). Scope as closed (Captain, 2026-10-25,
+R4): part 1 (motif rows), part 1b/1c (position walk) and the conceptual critique of all
+definitions and concepts of 2026-10-24 (`Planning/critiques/2026-10-24/`, findings only).
+The pure reply definition "forced and gains nothing" and the fixes the critique calls for
+are PostM4_EM5 (`Planning/milestones/PostM4_EM5.md`); there is no part 2.
 
 ## 1. Captain's decision
 
@@ -12,6 +13,7 @@ part 2.
 | R1 | Motif rows in move reports (2026-10-24) | Option 3: merge repeated restricted-movement motifs in the move report, and print restricted-movement rows compactly in the move report text. Measured before the decision on the 53 F fixture runs' move reports: 132 motif rows, 125 after the merge (V2: 27 → 22); most of the length is inside each row (the restricted and free move lists) |
 | R2 | Move report text layout (2026-10-24) | The default output (no `--full-report`) is structured per move as a walk through the line: the engine and budget rows (always), the opening rows (always), then for each move its starting position as a FEN with that position's facts, then each ply's move, the resulting position as a FEN and that position's facts; tempo and initiative facts sit in the ply they belong to. Horizontal lines and blank lines separate the chunks. Superseded in layout by R3 |
 | R3 | Position walk (2026-10-25) | "It should be position-by-position, because the position comes first, and the move comes from it." Each block is one position: `Position: FEN`, then the engine evaluation, the move played from it and its side, the facts tagged as uses, the other facts. No separate start block. No tempo rows in the move report text for now ("the tempo model is a bit broken right now"). Evaluation of the positions after the move: the line's engine score, labelled as such (Captain's choice of option "line score" in the brief of 2026-10-25; the other options were a new search per position and an evaluation row only where measured) |
+| R4 | Milestone scope (2026-10-25) | Close PostM4_EM4 as the critique and move report text milestone: parts 1, 1b, 1c and the critique of 2026-10-24. The planned part 2 (pure reply and the critique's fixes) becomes the milestone PostM4_EM5 |
 
 ## 2. Rules
 
@@ -173,3 +175,4 @@ normalised through `chess.Board(fen).fen(en_passant="legal")`.
 | Date | Change | By |
 |---|---|---|
 | 2026-10-25 | Part 1c (R3): the ply walk becomes the position walk (§2.5 rewritten; before, a start block and ply blocks `Ply k: <move>` / `Position: <FEN>`, with tempo rows); WP M5, acceptance 6 | Captain |
+| 2026-10-25 | R4: part 2 moved to PostM4_EM5; EM4 closes with parts 1, 1b, 1c and the critique | Captain |
