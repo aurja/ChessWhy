@@ -572,7 +572,10 @@
             "properties": {
               "tag": {"description": "Additional restricted-movement motif tag [rule].", "enum": ["pin_absolute", "pin_relative", "overloaded_defender", "pin_tactical"]},
               "threat": {"description": "Threat associated with an additional tactical pin label, or null [rule].", "oneOf": [{"$ref": "#/$defs/motif_threat"}, {"type": "null"}]}
-            }
+            },
+            "if": {"properties": {"tag": {"const": "pin_tactical"}}},
+            "then": {"properties": {"threat": {"$ref": "#/$defs/motif_threat"}}},
+            "else": {"properties": {"threat": {"type": "null"}}}
           }
         }
       }

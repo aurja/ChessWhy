@@ -5,10 +5,10 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-25, PostM4_EM4 part 1c batch (Release `unit` 161/161): 214 CTests
-(161 `unit`, 48 `engine` of which 15 also `sanitize`, 2 `games`, 2 `corpus`, 1 `timing`, no
-`model` yet). Release runs all of them; ASan/UBSan runs `unit` and `sanitize` (176). The
-PostM4_EM3 milestone-end gate passed all 206 then.
+**Snapshot:** 2026-10-25, PostM4_EM4 milestone-end gate: 214 CTests (161 `unit`, 48
+`engine` of which 15 also `sanitize`, 2 `games`, 2 `corpus`, 1 `timing`, no `model` yet).
+Release runs all of them; ASan/UBSan runs `unit` and `sanitize` (176). Release
+`unit|engine|games|corpus` 213/213, `timing` pass, ASan/UBSan 176/176.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -308,4 +308,4 @@ Python `unittest` cases on hand-built JSON, one CTest.
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| `checker_unit` | unit | The semantic check rejects a best move with a different score, a blunder that allows no tactic, tactic flags that disagree with the consequence, details on a non-detailed line, labels off tactic lines, a wrong opportunity flag at the margin, a selection out of typed order and a wrong `playable_truncated`; it derives `creates_threat_skipped` from the board on detailed lines only (a non-detailed checking move keeps null); one mutant per tempo relation (tempo value and label at the unit boundaries, ledger labels and tempi, initiative runs and their outcome) and per use-test rule (tags, timing, king pressed, superseded changes) is rejected, net change and `in_use` are re-derived independently; the projection check's independent filter drops non-contributing motifs, merges motif repeats (an unmerged repeat, a dropped `also` label and `also` labels out of order are rejected), drops changes that are not net or fail the use test, orders the rest by impact order, and flags a move fact that differs from the full report; `line_fens` is replayed from the position and a wrong or missing FEN is rejected | `SemanticCheck`, `ProjectionCheck`, `MoveSelection`, `NetChange`, `UseTest`, `TempoValue`, `TempoLedger`, `InitiativeRun`, `ImpactRating`, `RelevanceFilter`, `PositionWalk` |
+| `checker_unit` | unit | The semantic check rejects a best move with a different score, a blunder that allows no tactic, tactic flags that disagree with the consequence, details on a non-detailed line, labels off tactic lines, a wrong opportunity flag at the margin, a selection out of typed order and a wrong `playable_truncated`; it derives `creates_threat_skipped` from the board on detailed lines only (a non-detailed checking move keeps null); one mutant per tempo relation (tempo value and label at the unit boundaries, ledger labels and tempi, initiative runs and their outcome) and per use-test rule (tags, timing, king pressed, superseded changes) is rejected, net change and `in_use` are re-derived independently; the projection check's independent filter drops non-contributing motifs, merges motif repeats (an unmerged repeat, a dropped `also` label and `also` labels out of order are rejected), drops changes that are not net or fail the use test, orders the rest by impact order, and flags a move fact that differs from the full report; `line_fens` is replayed from the position and a wrong or missing FEN is rejected; the move report schema rejects an `also` label `pin_tactical` without a threat and any other `also` label with one | `SemanticCheck`, `ProjectionCheck`, `MoveSelection`, `NetChange`, `UseTest`, `TempoValue`, `TempoLedger`, `InitiativeRun`, `ImpactRating`, `RelevanceFilter`, `PositionWalk` |

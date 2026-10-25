@@ -8,6 +8,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import chess
+from jsonschema import Draft202012Validator
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "tools"))
 
@@ -570,6 +571,31 @@ class CheckerRelationsTests(unittest.TestCase):
         self.assertTrue(
             any(path.startswith("/moves/0/motifs/0/also") for path, _ in order_failures)
         )
+
+    def test_moves_schema_ties_also_threat_to_tag(self) -> None:
+        schema_path = (
+            Path(__file__).resolve().parents[2] / "schema" / "moves.v8.schema.json"
+        )
+        schema = object_value(checker.read_json(schema_path))
+        defs = object_field(schema, "$defs")
+        items = object_field(
+            object_field(
+                object_field(object_field(defs, "motif"), "properties"), "also"
+            ),
+            "items",
+        )
+        validator = Draft202012Validator({**items, "$defs": defs})
+        threat: checker.JsonObject = {"kind": "capture", "square": "f2"}
+        cases: list[tuple[str, checker.JsonValue, bool]] = [
+            ("pin_tactical", threat, True),
+            ("pin_tactical", None, False),
+            ("pin_relative", None, True),
+            ("pin_relative", threat, False),
+        ]
+        for tag, label_threat, valid in cases:
+            with self.subTest(tag=tag, threat=label_threat):
+                label: checker.JsonObject = {"tag": tag, "threat": label_threat}
+                self.assertEqual(not checker.validation_errors(validator, label), valid)
 
     def test_projection_detects_move_fact_mismatch(self) -> None:
         assessment: checker.JsonObject = {
