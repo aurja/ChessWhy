@@ -179,7 +179,8 @@ move `e` after the run's last tempo, first match wins: `e > n` → `unfinished`,
 `e` is not threatening → `spent`, end `e`; `e` mates → `runs`, end `e`; `e + 1 > n` →
 `unfinished`, end `e`; ply `e+1` is `counter_threat` → `contested`; `gaining_reply` or
 `unforced_reply` → `answered`; `unresolved_reply` → `unresolved`; `stops_threat` false →
-`runs`; these four end at `e + 1`.
+`runs`; these four end at `e + 1`. Ply `e + 1` is never a `pure_reply`: by P7, ply `e` would
+then gain a tempo and the run would grow past it (noted 2026-10-25, WP1 question).
 
 **P9 Run outcome (R12).** `unfinished` → `unknown`. Otherwise, with `s` the run's start ply,
 `E` its end ply and `j = settle(E)`, the run is `converted` iff (a) the settle point is
@@ -287,7 +288,7 @@ struct Walk { int plies = 0; bool settled = true; std::optional<TerminalDraw> te
 | F40 (re-bless) | as today | `Qxd5` ply 3 `Qd8` `pure_reply` with `forced_test.forced` true; ply 2 `Nc3` tempo gained; run White 2–4 `spent`; one candidate ply pinned `unforced_reply` and, in F28 or another fixture, one `unresolved_reply` (WP5 picks from the built report) |
 | F07 (re-bless) | as today | `Kg1` line walked through the check sequence, material as the settled walk gives |
 | PU19 (new) | `6k1/8/8/8/1n6/8/4BP2/4K2R w K - 0 1`, line `f4 Nd3+ Bxd3 Kf7 Bc4+ Ke7` | White's f-file shelter change is not in use: `Nd3+` stands outside `Z` |
-| PU20 (new) | `q5k1/8/8/8/8/8/5PPP/6K1 w - - 0 1`, line `h3 Kh7 f4 Qa7+ Kh2` (WP2 may adjust the board so that the change appears at ply 3) | the f-file shelter change at ply 3 is in use: `Qa7+` checks through `f2` |
+| PU20 (new) | `q5k1/8/8/8/8/8/5PPP/3N2K1 w - - 0 1`, line `h3 Kh7 f4 Qa7+ Nf2` (set by WP2, 2026-10-25; drawn as `…/6K1`, line ending `Kh2`) | the f-file shelter change at ply 3 is in use: `Qa7+` checks through `f2` |
 | Unit | `6rk/p5p1/8/8/2B5/8/PB6/K3R3 w - - 0 1`, line `a3 a6 a4 a5 Bxg7+ Kxg7 Rg1+ Kh6 Rxg8` | `walk`: plies 9, settled, material +3 for White (`analysis_unit`) |
 
 Every other fixture whose pinned fact changes under P1–P11 is re-blessed by WP5 and listed
@@ -327,7 +328,7 @@ tempo [engine]` and `Initiative: White from ply 2, 1 tempo; spent at ply 4; evap
 | WP | Owns | Builds | Done when |
 |---|---|---|---|
 | WP1 analysis | `include/chesswhy/report.hpp`, `include/chesswhy/analysis.hpp`, `src/analysis/*`, `src/report/report.cpp`, `schema/report.v9.schema.json`, `tests/analysis/*`, `tests/report/report_unit_tests.cpp`, `tests/report/example_reports.hpp`; v9 version-only edits anywhere | P1–P9, report v9 JSON | headers of §3.5 committed first; unit tests for the walk line of §3.6, insufficient material cases, P4–P9 on hand-built ledgers; `analysis_unit`, `report_unit` pass |
-| WP2 positional | `include/chesswhy/positional.hpp`, `src/positional/*`, `tests/positional/*`, `tests/fixtures/positional.json` | P10, P11, PU19, PU20 | starts on WP1's header commit; PU05, PU08–PU10 still kept; positional tests pass |
+| WP2 positional | `include/chesswhy/positional.hpp`, `src/positional/*`, `tests/positional/*`, `tests/fixtures/positional.json` | P10, P11, PU19, PU20 | starts on WP1's header commit; PU05, PU08, PU09 still kept; PU10's `king_shield_gap` g becomes cut (§4, 2026-10-25); positional tests pass |
 | WP3 move report and text | `include/chesswhy/move_report.hpp`, `src/report/move_report.cpp`, `schema/moves.v9.schema.json`, `tests/report/move_report_tests.cpp`, `src/render/*`, `tests/render/*` and goldens | §3.7, §3.8, `refutation_skipped` in the move report | render and move report tests pass; goldens changed only where §3.7–§3.8 say |
 | WP4 checker | `tools/validate_report.py`, `tests/checker/*` | P1–P11 re-implemented independently, mutants for each | checker unit tests pass; every F fixture's report checks |
 | WP5 fixtures | `tests/fixtures/positions.json`, `tests/cli/*` | §3.6 | engine fixtures pass; the re-bless list for checkpoint 2 |
@@ -362,3 +363,5 @@ Batches: WP1 + WP2; then WP3 + WP4; then WP5; WP6 with the milestone-end gate.
 | Date | Change | By |
 |---|---|---|
 | 2026-10-25 | Checkpoint 1: diagrams, §3.8 sample and P6 option A (unresolved only when all searched lines are acceptable and stop the threat) approved; batch 1 spawned | Captain |
+| 2026-10-25 | P8: ply `e + 1` is never a `pure_reply` (follows from P7 and PostM4_EM3 §6.3; WP1 question) | Deputy |
+| 2026-10-25 | WP2 acceptance: PU10's `king_shield_gap` g (ply 5) becomes cut under P11, since at the end only `Ne1` attacks a g-file zone square; the freeze's "PU10 still kept" was not checked against rule (iii) | Deputy |

@@ -422,7 +422,7 @@ struct MoveAssessment {
     std::optional<TempoValue> tempo_value;
     std::optional<TempoLedger> tempo_ledger;
     std::optional<TempoLedgerSkip> tempo_ledger_skipped;
-    std::optional<Threat> refutation; // opponent reply line; set iff verdict is not playable
+    std::optional<Threat> refutation; // set iff verdict is not playable and refutation_skipped is null
     std::optional<RefutationSkip> refutation_skipped;
     std::vector<Motif> motifs;        // plies 1..walked_plies of `line_san`
     std::optional<OpportunityJudgement> opportunity; // A line 1

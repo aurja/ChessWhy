@@ -36,6 +36,27 @@ namespace {
     return result;
 }
 
+void make_pure_reply(chesswhy::TempoPly& ply) {
+    ply.reply_gain = chesswhy::ReplyGain{
+        .material = 0, .mates = false, .through_ply = ply.ply, .settled = true, .gains = false};
+    ply.forced_test = chesswhy::ForcedTest{.legal_moves = 2, .lines = {}, .forced = true};
+}
+
+void make_gaining_reply(chesswhy::TempoPly& ply) {
+    ply.reply_gain = chesswhy::ReplyGain{
+        .material = 1, .mates = false, .through_ply = ply.ply, .settled = true, .gains = true};
+}
+
+void make_unforced_reply(chesswhy::TempoPly& ply) {
+    make_pure_reply(ply);
+    ply.forced_test->forced = false;
+}
+
+void make_unresolved_reply(chesswhy::TempoPly& ply) {
+    ply.reply_gain = chesswhy::ReplyGain{
+        .material = 0, .mates = false, .through_ply = ply.ply, .settled = false, .gains = std::nullopt};
+}
+
 } // namespace
 TEST_CASE("analysis node budgets match the frozen search table", "[analysis][unit]") {
     const auto quick = chesswhy::analysis::node_budget(chesswhy::Budget::Quick);
@@ -214,13 +235,49 @@ TEST_CASE("walk follows the six-ply horizon and continuation extension", "[analy
                         std::string("g8h8"), std::string("a3a4"), std::string("h8g8"),
                         std::string("a4h4"), std::string("h5h4"), std::string("f3h4"),
                         std::string("g5h4"), std::string("e1h4")};
-    CHECK(chesswhy::analysis::walk(root, pv).plies == chesswhy::analysis::kLinePlies);
+    const auto unsettled = chesswhy::analysis::walk(root, pv);
+    CHECK(unsettled.plies == chesswhy::analysis::kLinePlies);
+    CHECK_FALSE(unsettled.settled);
 
     const std::array quiet_seventh{std::string("a2a3"), std::string("h8g8"), std::string("a1b1"),
                                    std::string("g8h8"), std::string("a3a4"), std::string("h8g8"),
                                    std::string("e1e2")};
-    CHECK(chesswhy::analysis::walk(root, quiet_seventh).plies ==
-          chesswhy::analysis::kHorizonPlies);
+    const auto stopped = chesswhy::analysis::walk(root, quiet_seventh);
+    CHECK(stopped.plies == chesswhy::analysis::kHorizonPlies);
+    CHECK(stopped.settled);
+}
+TEST_CASE("PostM4_EM5 walk follows the §3.6 line and reports the settled material",
+          "[analysis][unit]") {
+    const chess::Board root("6rk/p5p1/8/8/2B5/8/PB6/K3R3 w - - 0 1");
+    const std::array pv{std::string("a2a3"), std::string("a7a6"), std::string("a3a4"),
+                        std::string("a6a5"), std::string("b2g7"), std::string("h8g7"),
+                        std::string("e1g1"), std::string("g7h6"), std::string("g1g8")};
+    const auto walked = chesswhy::analysis::walk(root, pv);
+    CHECK(walked.plies == 9);
+    CHECK(walked.settled);
+    CHECK_FALSE(walked.terminal_draw.has_value());
+    const auto result = chesswhy::analysis::consequence(root, pv, chesswhy::engine::Line{});
+    CHECK(result.plies == 9);
+    CHECK(result.settled);
+    CHECK(result.material == 3);
+}
+
+TEST_CASE("insufficient material follows python-chess material cases", "[analysis][unit]") {
+    using chesswhy::analysis::insufficient_material;
+    CHECK(insufficient_material(chess::Board("4k3/8/8/8/8/8/8/4K3 w - - 0 1")));
+    CHECK(insufficient_material(chess::Board("4k3/8/8/8/8/8/8/1N2K3 w - - 0 1")));
+    CHECK(insufficient_material(chess::Board("4kb2/8/8/8/8/8/8/2B1K3 w - - 0 1")));
+    CHECK_FALSE(insufficient_material(chess::Board("k3b3/8/8/8/8/8/8/2B1K3 w - - 0 1")));
+}
+
+TEST_CASE("walk reports a stalemate draw at its terminal ply", "[analysis][unit]") {
+    const chess::Board root("8/8/8/8/6q1/6R1/5k2/7K b - - 0 1");
+    const std::array pv{std::string("g4g3")};
+    const auto walked = chesswhy::analysis::walk(root, pv);
+    REQUIRE(walked.terminal_draw.has_value());
+    CHECK(walked.plies == 1);
+    CHECK(walked.terminal_draw->kind == chesswhy::DrawKind::Stalemate);
+    CHECK(walked.terminal_draw->ply == 1);
 }
 
 TEST_CASE("walk stops at illegal moves and the end of a short PV", "[analysis][unit]") {
@@ -357,39 +414,57 @@ TEST_CASE("tempo-dependent positions require a labelled root value", "[analysis]
     CHECK_FALSE(tempo_dependent(root));
 }
 
-TEST_CASE("tempo ledger labels cover threat, reply, counter-threat and neither",
-          "[analysis][unit]") {
+TEST_CASE("tempo ledger labels cover all PostM4_EM5 replies and tempo gain", "[analysis][unit]") {
     using chesswhy::TempoPlyLabel;
     using chesswhy::analysis::label_ledger;
 
-    auto plies = tempo_plies(8);
+    auto plies = tempo_plies(13);
     plies[0].threatening = true;
     plies[1].stops_threat = true;
+    make_gaining_reply(plies[1]);
     plies[2].threatening = true;
-    plies[3].threatening = true;
     plies[3].stops_threat = true;
+    make_pure_reply(plies[3]);
     plies[4].threatening = true;
-    plies[4].stops_threat = false;
-    plies[5].stops_threat = false;
-    plies[6].stops_threat = true;
+    plies[5].stops_threat = true;
+    make_unforced_reply(plies[5]);
+    plies[6].threatening = true;
+    plies[7].stops_threat = true;
+    make_unresolved_reply(plies[7]);
+    plies[8].threatening = true;
+    plies[9].threatening = true;
+    plies[9].stops_threat = true;
+    plies[10].threatening = true;
+    plies[11].stops_threat = true;
+    make_pure_reply(plies[11]);
+    plies[11].forced_test->forced = std::nullopt;
 
     label_ledger(plies);
 
     CHECK(plies[0].label == TempoPlyLabel::Threatening);
-    CHECK(plies[1].label == TempoPlyLabel::PureReply);
+    CHECK(plies[1].label == TempoPlyLabel::GainingReply);
     CHECK(plies[2].label == TempoPlyLabel::Threatening);
-    CHECK(plies[3].label == TempoPlyLabel::CounterThreat);
+    CHECK(plies[3].label == TempoPlyLabel::PureReply);
     CHECK(plies[4].label == TempoPlyLabel::Threatening);
-    CHECK(plies[5].label == TempoPlyLabel::Neither);
-    CHECK(plies[6].label == TempoPlyLabel::Neither);
-    CHECK(plies[7].label == TempoPlyLabel::Neither);
-    CHECK(plies[0].tempo_gained);
-    CHECK_FALSE(plies[2].tempo_gained);
+    CHECK(plies[5].label == TempoPlyLabel::UnforcedReply);
+    CHECK(plies[6].label == TempoPlyLabel::Threatening);
+    CHECK(plies[7].label == TempoPlyLabel::UnresolvedReply);
+    CHECK(plies[10].label == TempoPlyLabel::Threatening);
+    CHECK(plies[11].label == TempoPlyLabel::UnresolvedReply);
+    CHECK(plies[12].label == TempoPlyLabel::Neither);
+    CHECK(plies[8].label == TempoPlyLabel::Threatening);
+    CHECK(plies[9].label == TempoPlyLabel::CounterThreat);
+    CHECK(plies[2].tempo_gained);
+    CHECK_FALSE(plies[0].tempo_gained);
+    CHECK_FALSE(plies[1].tempo_gained);
     CHECK_FALSE(plies[3].tempo_gained);
-    CHECK_FALSE(plies[4].tempo_gained);
-    CHECK_FALSE(plies[5].tempo_gained);
-    CHECK_FALSE(plies[6].tempo_gained);
-    CHECK_FALSE(plies[7].tempo_gained);
+}
+
+TEST_CASE("settle point advances only while the next move continues", "[analysis][unit]") {
+    const chess::Board root;
+    const auto line = parse_san_line(root, {"e4", "d5", "exd5"});
+    CHECK(chesswhy::analysis::settle_ply(root, line, 1) == 1);
+    CHECK(chesswhy::analysis::settle_ply(root, line, 2) == 3);
 }
 
 TEST_CASE("material balance uses pawn, minor, rook and queen values", "[analysis][unit]") {
@@ -401,6 +476,7 @@ TEST_CASE("material balance uses pawn, minor, rook and queen values", "[analysis
 
 TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     using chesswhy::InitiativeEnding;
+    using chesswhy::InitiativeOutcome;
     using chesswhy::analysis::initiative_runs;
 
     const chess::Board start;
@@ -408,6 +484,7 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     auto spent_plies = tempo_plies(3);
     spent_plies[0].threatening = true;
     spent_plies[1].stops_threat = true;
+    make_pure_reply(spent_plies[1]);
     chesswhy::analysis::label_ledger(spent_plies);
     auto spent = initiative_runs(spent_plies, start, std::span(line).first(3), {}, true);
     REQUIRE(spent.size() == 1);
@@ -419,16 +496,19 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     auto unfinished_before_ending = tempo_plies(2);
     unfinished_before_ending[0].threatening = true;
     unfinished_before_ending[1].stops_threat = true;
+    make_pure_reply(unfinished_before_ending[1]);
     chesswhy::analysis::label_ledger(unfinished_before_ending);
     const auto unfinished_short =
         initiative_runs(unfinished_before_ending, start, std::span(line).first(2), {}, true);
     REQUIRE(unfinished_short.size() == 1);
     CHECK(unfinished_short[0].ending == InitiativeEnding::Unfinished);
     CHECK(unfinished_short[0].end_ply == 2);
+    CHECK(unfinished_short[0].outcome == InitiativeOutcome::Unknown);
 
     auto unfinished_reply = tempo_plies(3);
     unfinished_reply[0].threatening = true;
     unfinished_reply[1].stops_threat = true;
+    make_pure_reply(unfinished_reply[1]);
     unfinished_reply[2].threatening = true;
     chesswhy::analysis::label_ledger(unfinished_reply);
     const auto unfinished_after_ending =
@@ -436,10 +516,12 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     REQUIRE(unfinished_after_ending.size() == 1);
     CHECK(unfinished_after_ending[0].ending == InitiativeEnding::Unfinished);
     CHECK(unfinished_after_ending[0].end_ply == 3);
+    CHECK(unfinished_after_ending[0].outcome == InitiativeOutcome::Unknown);
 
     auto contested_plies = tempo_plies(4);
     contested_plies[0].threatening = true;
     contested_plies[1].stops_threat = true;
+    make_pure_reply(contested_plies[1]);
     contested_plies[2].threatening = true;
     contested_plies[3].threatening = true;
     contested_plies[3].stops_threat = true;
@@ -452,6 +534,7 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     auto unstopped_plies = tempo_plies(4);
     unstopped_plies[0].threatening = true;
     unstopped_plies[1].stops_threat = true;
+    make_pure_reply(unstopped_plies[1]);
     unstopped_plies[2].threatening = true;
     unstopped_plies[3].stops_threat = false;
     chesswhy::analysis::label_ledger(unstopped_plies);
@@ -465,12 +548,60 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     auto mate_plies = tempo_plies(3);
     mate_plies[0].threatening = true;
     mate_plies[1].stops_threat = true;
+    make_pure_reply(mate_plies[1]);
     mate_plies[2].threatening = true;
     chesswhy::analysis::label_ledger(mate_plies);
     const auto mate_run = initiative_runs(mate_plies, mate_root, mate_line, {}, true);
     REQUIRE(mate_run.size() == 1);
     CHECK(mate_run[0].ending == InitiativeEnding::Runs);
     CHECK(mate_run[0].end_ply == 3);
+}
+TEST_CASE("initiative runs label answered and unresolved replies and unknown outcomes",
+          "[analysis][unit]") {
+    using chesswhy::InitiativeEnding;
+    using chesswhy::InitiativeOutcome;
+    using chesswhy::analysis::initiative_runs;
+
+    const chess::Board root;
+    const auto line = parse_san_line(root, {"e4", "e5", "Nf3", "Nc6"});
+
+    auto answered_plies = tempo_plies(4);
+    answered_plies[0].threatening = true;
+    answered_plies[1].stops_threat = true;
+    make_pure_reply(answered_plies[1]);
+    answered_plies[2].threatening = true;
+    answered_plies[3].stops_threat = true;
+    make_gaining_reply(answered_plies[3]);
+    chesswhy::analysis::label_ledger(answered_plies);
+    const auto answered = initiative_runs(answered_plies, root, line, {}, true);
+    REQUIRE(answered.size() == 1);
+    CHECK(answered[0].ending == InitiativeEnding::Answered);
+    CHECK(answered[0].end_ply == 4);
+    CHECK(answered[0].outcome == InitiativeOutcome::Evaporated);
+
+    auto unresolved_plies = tempo_plies(4);
+    unresolved_plies[0].threatening = true;
+    unresolved_plies[1].stops_threat = true;
+    make_pure_reply(unresolved_plies[1]);
+    unresolved_plies[2].threatening = true;
+    unresolved_plies[3].stops_threat = true;
+    make_unresolved_reply(unresolved_plies[3]);
+    chesswhy::analysis::label_ledger(unresolved_plies);
+    const auto unresolved = initiative_runs(unresolved_plies, root, line, {}, true);
+    REQUIRE(unresolved.size() == 1);
+    CHECK(unresolved[0].ending == InitiativeEnding::Unresolved);
+    CHECK(unresolved[0].end_ply == 4);
+
+    auto unsettled_plies = tempo_plies(3);
+    unsettled_plies[0].threatening = true;
+    unsettled_plies[1].stops_threat = true;
+    make_pure_reply(unsettled_plies[1]);
+    chesswhy::analysis::label_ledger(unsettled_plies);
+    const auto unknown = initiative_runs(unsettled_plies, root, std::span(line).first(3), {},
+                                         false);
+    REQUIRE(unknown.size() == 1);
+    CHECK(unknown[0].ending == InitiativeEnding::Spent);
+    CHECK(unknown[0].outcome == InitiativeOutcome::Unknown);
 }
 
 TEST_CASE("initiative runs reject invalid labelled ledgers", "[analysis][unit]") {
@@ -498,10 +629,12 @@ TEST_CASE("initiative scanning resumes at the previous run's ending ply", "[anal
     auto plies = tempo_plies(6);
     plies[0].threatening = true;
     plies[1].stops_threat = true;
+    make_pure_reply(plies[1]);
     plies[2].threatening = true;
     plies[3].threatening = true;
     plies[3].stops_threat = true;
     plies[4].stops_threat = true;
+    make_pure_reply(plies[4]);
     chesswhy::analysis::label_ledger(plies);
     const auto runs = initiative_runs(plies, start, line, {}, true);
     REQUIRE(runs.size() == 2);
@@ -528,6 +661,7 @@ TEST_CASE("initiative conversion checks material and used positional changes", "
     auto material_plies = tempo_plies(3);
     material_plies[0].threatening = true;
     material_plies[1].stops_threat = true;
+    make_pure_reply(material_plies[1]);
     chesswhy::analysis::label_ledger(material_plies);
     const auto material_runs = initiative_runs(material_plies, material_root, material_line, {}, true);
     REQUIRE(material_runs.size() == 1);
@@ -538,6 +672,7 @@ TEST_CASE("initiative conversion checks material and used positional changes", "
     auto positional_plies = tempo_plies(3);
     positional_plies[0].threatening = true;
     positional_plies[1].stops_threat = true;
+    make_pure_reply(positional_plies[1]);
     chesswhy::analysis::label_ledger(positional_plies);
     PositionalChange used_change;
     used_change.ply = 2;

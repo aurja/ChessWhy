@@ -2971,10 +2971,10 @@ def schema_error_message(error: ValidationError) -> str:
 def schema_for_document(base_schema: Path, document: JsonValue) -> Path:
     if document not in ("full", "moves"):
         return base_schema
-    if base_schema.name not in ("report.v8.schema.json", "moves.v8.schema.json"):
+    if base_schema.name not in ("report.v9.schema.json", "moves.v9.schema.json"):
         return base_schema
     schema_name = (
-        "report.v8.schema.json" if document == "full" else "moves.v8.schema.json"
+        "report.v9.schema.json" if document == "full" else "moves.v9.schema.json"
     )
     return base_schema.with_name(schema_name)
 

@@ -616,9 +616,89 @@ void add_leads_and_material(const chess::Board& board, std::vector<PositionalFea
     });
 }
 
+[[nodiscard]] chess::Square captured_square(chess::Move move) {
+    return move.typeOf() == chess::Move::ENPASSANT ? move.to().ep_square() : move.to();
+}
+
+[[nodiscard]] Bits file_mask(std::uint8_t file) {
+    return Bits{0x0101010101010101} << file;
+}
+
+[[nodiscard]] bool shelter_square_between(chess::Square from, chess::Square to, Bits zone) {
+    const int file_delta = static_cast<int>(to.file()) - static_cast<int>(from.file());
+    const int rank_delta = static_cast<int>(to.rank()) - static_cast<int>(from.rank());
+    const int abs_file_delta = file_delta < 0 ? -file_delta : file_delta;
+    const int abs_rank_delta = rank_delta < 0 ? -rank_delta : rank_delta;
+    if (file_delta != 0 && rank_delta != 0 && abs_file_delta != abs_rank_delta) {
+        return false;
+    }
+
+    const int file_step = (file_delta > 0) - (file_delta < 0);
+    const int rank_step = (rank_delta > 0) - (rank_delta < 0);
+    for (chess::Square square = offset(from, file_step, rank_step);
+         square != to && square != chess::Square::NO_SQ;
+         square = offset(square, file_step, rank_step)) {
+        if ((zone & square_bit(square)) != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
 [[nodiscard]] Bits king_zone(const chess::Board& board, Side side) {
     const chess::Square king = board.kingSq(color_of(side));
     return chess::attacks::king(king).getBits() | square_bit(king);
+}
+
+[[nodiscard]] bool king_file_pressed(std::span<const chess::Board> boards,
+                                     std::span<const chess::Move> line, Side owner,
+                                     int file, int first_ply) {
+    const chess::Color enemy = ~color_of(owner);
+    for (int ply = first_ply; ply <= static_cast<int>(line.size()); ++ply) {
+        const std::size_t index = static_cast<std::size_t>(ply - 1);
+        const chess::Board& before = boards[index];
+        const chess::Move move = line[index];
+        if (before.sideToMove() != enemy) {
+            continue;
+        }
+
+        const Bits zone = king_zone(before, owner) & file_mask(static_cast<std::uint8_t>(file));
+        if (before.givesCheck(move) != chess::CheckType::NO_CHECK) {
+            const chess::Board& after = boards[static_cast<std::size_t>(ply)];
+            const chess::Square king = after.kingSq(color_of(owner));
+            Bits checkers = chess::attacks::attackers(after, enemy, king).getBits();
+            while (checkers != 0) {
+                const int checker_index = std::countr_zero(checkers);
+                checkers &= checkers - 1;
+                const chess::Square checker(checker_index);
+                if ((zone & square_bit(checker)) != 0) {
+                    return true;
+                }
+                const chess::PieceType type = after.at(checker).type().internal();
+                if ((type == chess::PieceType::BISHOP || type == chess::PieceType::ROOK ||
+                     type == chess::PieceType::QUEEN) &&
+                    shelter_square_between(checker, king, zone)) {
+                    return true;
+                }
+            }
+        }
+
+        if (before.isCapture(move) && (zone & square_bit(captured_square(move))) != 0) {
+            return true;
+        }
+    }
+
+    const chess::Board& end = boards.back();
+    Bits attackers = 0;
+    Bits zone = king_zone(end, owner) & file_mask(static_cast<std::uint8_t>(file));
+    while (zone != 0) {
+        const int index = std::countr_zero(zone);
+        zone &= zone - 1;
+        attackers |= chess::attacks::attackers(end, enemy, chess::Square(index)).getBits();
+    }
+    attackers &= ~piece_bits(end, chess::PieceType::PAWN, enemy);
+    attackers &= ~piece_bits(end, chess::PieceType::KING, enemy);
+    return std::popcount(attackers) >= 2;
 }
 
 [[nodiscard]] bool king_pressed(std::span<const chess::Board> boards,
@@ -830,7 +910,10 @@ std::vector<PositionalChange> line_changes(const chess::Board& root,
     std::vector<PositionalFeature> previous = features(board);
     std::vector<PositionalChange> changes;
     for (std::size_t index = 0; index < line.size(); ++index) {
-        board.makeMove(line[index]);
+        const chess::Move move = line[index];
+        const bool is_capture = board.isCapture(move);
+        const chess::Square captured = is_capture ? captured_square(move) : chess::Square::NO_SQ;
+        board.makeMove(move);
         std::vector<PositionalFeature> current = features(board);
         const int ply = static_cast<int>(index) + 1;
         for (const PositionalFeature& feature : current) {
@@ -839,6 +922,7 @@ std::vector<PositionalChange> line_changes(const chess::Board& root,
                                                    .change = PositionalChangeKind::Appears,
                                                    .holds_at_end = false,
                                                    .net_change = false,
+                                                   .captured = false,
                                                    .in_use = std::nullopt,
                                                    .feature = feature});
             }
@@ -849,6 +933,8 @@ std::vector<PositionalChange> line_changes(const chess::Board& root,
                                                    .change = PositionalChangeKind::Disappears,
                                                    .holds_at_end = false,
                                                    .net_change = false,
+                                                   .captured =
+                                                       is_capture && contains_square(feature, captured),
                                                    .in_use = std::nullopt,
                                                    .feature = feature});
             }
@@ -934,6 +1020,9 @@ std::optional<Side> favours(const PositionalChange& change) {
         tag == PositionalTag::KingShieldGap || tag == PositionalTag::OpenFileNearKing ||
         tag == PositionalTag::HalfOpenFileNearKing || tag == PositionalTag::KingZoneAttacker ||
         tag == PositionalTag::BadBishop;
+    if (change.captured && weakness) {
+        return std::nullopt;
+    }
     const bool owner_favoured = is_change_appears(change) != weakness;
     if (owner_favoured) {
         return change.feature.side;
@@ -1009,8 +1098,11 @@ void mark_use(std::vector<PositionalChange>& changes, const chess::Board& root,
                            (((is_shelter_tag(tag) || tag == PositionalTag::KingZoneAttacker) &&
                              is_change_appears(change)) &&
                             (ply > 2 || !is_shelter_tag(tag)))) {
-                    // §6.6 case 6, and case 10 (shelter tags at ply <= 2 already pass in case 7).
-                    in_use = king_pressed(boards, line, owner, ply);
+                    // §6.6 cases 6 and 10; king-file tags use the P11 shelter witness.
+                    in_use = is_king_file_tag(tag)
+                                 ? king_file_pressed(boards, line, owner,
+                                                     static_cast<int>(*change.feature.file), ply)
+                                 : king_pressed(boards, line, owner, ply);
                 } else if (tag == PositionalTag::MaterialAhead ||
                            tag == PositionalTag::ExchangeUp || tag == PositionalTag::RookSeventh ||
                            tag == PositionalTag::Outpost || tag == PositionalTag::BadBishop ||

@@ -778,9 +778,13 @@ std::vector<PositionalChange> reference_line_changes(const chess::Board& root,
     std::vector<std::vector<PositionalFeature>> positions;
     positions.reserve(line.size() + 1);
     positions.push_back(reference_features(root));
+    std::vector<chess::Board> boards;
+    boards.reserve(line.size() + 1);
+    boards.push_back(root);
     chess::Board walked = root;
     for (const chess::Move move : line) {
         walked.makeMove(move);
+        boards.push_back(walked);
         positions.push_back(reference_features(walked));
     }
 
@@ -789,6 +793,13 @@ std::vector<PositionalChange> reference_line_changes(const chess::Board& root,
     for (std::size_t ply = 1; ply < positions.size(); ++ply) {
         const auto& previous = positions[ply - 1];
         const auto& current = positions[ply];
+        const chess::Board& before = boards[ply - 1];
+        const chess::Move move = line[ply - 1];
+        const bool is_capture = before.isCapture(move);
+        const chess::Square captured =
+            is_capture ? (move.typeOf() == chess::Move::ENPASSANT ? move.to().ep_square()
+                                                                  : move.to())
+                       : chess::Square::NO_SQ;
         for (const PositionalFeature& feature : current) {
             const bool was_present =
                 std::ranges::any_of(previous, [&feature](const PositionalFeature& old) {
@@ -805,6 +816,7 @@ std::vector<PositionalChange> reference_line_changes(const chess::Board& root,
                                .change = PositionalChangeKind::Appears,
                                .holds_at_end = holds_at_end,
                                .net_change = false,
+                               .captured = false,
                                .in_use = std::nullopt,
                                .feature = feature});
         }
@@ -824,6 +836,12 @@ std::vector<PositionalChange> reference_line_changes(const chess::Board& root,
                                .change = PositionalChangeKind::Disappears,
                                .holds_at_end = holds_at_end,
                                .net_change = false,
+                               .captured =
+                                   is_capture &&
+                                   std::ranges::any_of(
+                                       feature.pieces, [captured](const auto& piece) {
+                                           return chess::Square(piece.square) == captured;
+                                       }),
                                .in_use = std::nullopt,
                                .feature = feature});
         }

@@ -529,7 +529,7 @@ contract rules and the C++ use test agree.
 | PU07 | — | F05 root; line `Qe6 Re3 Na2 Rxc2 Rxc2 Qa8+` | **Kept:** `isolated_pawn` B d (ply 4, attacked at the end); `rook_open_file` B c (ply 4, used); `passed_pawn` B c disappears (ply 4); `rook_seventh` B (ply 5)<br>**Cut:** `rook_half_open_file` W c disappears (ply 4); `king_zone_attacker` B disappears (ply 2) | Oracle matches | |
 | PU08 | — | F01 root; line `Bxe6 Bxe6 Ng5 Bg8 f3 Rad8` | **Kept:** `bishop_pair` W disappears (ply 2); `king_zone_attacker` B (ply 3, king pressed)<br>**Cut:** `rook_half_open_file` B d (ply 6) | Oracle matches | |
 | PU09 | — | F06 root; line `Rxb7 Rxe6 dxe6 Rxd6 Re1 Rd2` | **Kept:** `half_open_file_near_king` B e (ply 3, king pressed); `isolated_pawn` W e (ply 3, attacked); `rook_open_file` B d (ply 3, used); `passed_pawn` W d disappears (ply 3); `exchange_up` W (ply 4)<br>**Cut:** `passed_pawn` W e (ply 3); `isolated_pawn` W d disappears (ply 3) | Oracle matches | |
-| PU10 | — | F04 root; line `g4 Nf3+ Kg2 Ne1+ Kg1 Rc1` | **Kept:** `king_shield_gap` W g (ply 5) and `king_zone_attacker` W (ply 4), king pressed | Oracle matches | |
+| PU10 | — | F04 root; line `g4 Nf3+ Kg2 Ne1+ Kg1 Rc1` | **Kept:** `king_zone_attacker` W (ply 4), king pressed<br>**Cut:** `king_shield_gap` W g (ply 5), no g-file shelter witness (kept before 2026-10-25: any check pressed the king) | Oracle matches | 2026-10-25 WP2: the g-file shield gap is cut under the P11 shelter witness: at the end only Ne1 attacks a g-file king-zone square; Ne4 attacks f2. |
 | PU11 | — | `7k/5K2/6Q1/8/8/8/8/8 w - - 0 1`; line `Qh5#`<br><sub>F19</sub> | **Cut:** both `king_zone_attacker` changes (the walk ends in mate) | Oracle matches | |
 | PU12 | — | F01 root; line `O-O-O Rae8 Qd2 Re7 Bg5 Ref7` | **Cut:** both castling rights (castled); `king_shield_gap` and `half_open_file_near_king` W e disappear (king moved) | Oracle matches | |
 | PU13 | — | F01 root; line `Kf1 Rae8 Bxe6 Bxe6 Ng5 Bg8` | **Kept:** both castling rights disappear (ply 1, own move) | Oracle matches | |
@@ -543,10 +543,10 @@ contract rules and the C++ use test agree.
 
 **Concepts:** `EngineFixtures`, `PositionalFixtures`, `WalkedPlies`, `TerminalDraw`, `Refutation`, `SettlePoint`, `ReplyGain`, `ForcedTest`, `PlyLabel`, `TempoGained`, `RunEnding`, `RunOutcome`, `FavouredSide`, `UseTest`, `UtWitness`, `PositionWalk`
 
-Contracted on 2026-10-25 (`Planning/milestones/PostM4_EM5.md` §3.6); none is built yet, so
-"Codebase today" gives what the PostM4_EM4 build reports. F45 and F46 will join
-`positions.json` (§1 rules); PU19 and PU20 the `uses` section of `positional.json` (§11
-rules). Boards are rendered once the fixtures are in the JSON files. Re-blessed under the same
+Contracted on 2026-10-25 (`Planning/milestones/PostM4_EM5.md` §3.6). PU19 and PU20 are in the
+`uses` section of `positional.json` (§11 rules) and pass; F45 and F46 will join
+`positions.json` (§1 rules), and until then their "Codebase today" gives what the PostM4_EM4
+build reports. Boards are rendered once the fixtures are in the JSON files. Re-blessed under the same
 contract, with old and new values listed at checkpoint 2: F21 (`Nxf6+` ends in insufficient
 material at ply 1), F40 (`Qd8` stays a pure reply, now with its forced test), F41 (`Nxc2`
 becomes a gaining reply: no tempo gained, no initiative run), F07 (`Kg1` walked through the
@@ -556,5 +556,5 @@ checks), and every other fixture whose pinned fact the settled walk or the new l
 |---|---|---|---|---|---|
 | F45 | — | `8/8/8/8/6q1/6R1/5k2/7K b - - 0 1`<br>`--moves Qxg3`<br><sub>constructed: the capture stalemates</sub> | Qxg3: walked plies 1, terminal draw stalemate at ply 1, material 5, a tactic; no refutation (`refutation_skipped` game over); no created threat (game over) | Not run as a fixture; the critique (THR2-1) shows material 5 and no terminal draw | |
 | F46 | — | `3r2k1/8/2n5/8/3P4/2N5/8/R5K1 b - - 0 1`<br>`--moves Rxd4`<br><sub>constructed (critique POS2-1, TMP-2)</sub> | Rxd4: White's `isolated_pawn` d disappears at ply 1, captured, favours nobody; Black's run outcome unknown when unfinished | Not run as a fixture; the critique shows the capture credited to White's opponent as a positional gain | |
-| PU19 | — | `6k1/8/8/8/1n6/8/4BP2/4K2R w K - 0 1`; line `f4 Nd3+ Bxd3 Kf7 Bc4+ Ke7`<br><sub>constructed (critique POS2-2)</sub> | **Cut:** White's f-file shelter change (ply 1): `Nd3+` checks from outside the f-file squares of the king zone | Kept today: any check presses the king | |
-| PU20 | — | `q5k1/8/8/8/8/8/5PPP/6K1 w - - 0 1`; line `h3 Kh7 f4 Qa7+ Kh2`<br><sub>constructed; WP2 may adjust the board</sub> | **Kept:** White's f-file shelter change (ply 3): `Qa7+` checks through f2 | Kept today (any check) | |
+| PU19 | — | `6k1/8/8/8/1n6/8/4BP2/4K2R w K - 0 1`; line `f4 Nd3+ Bxd3 Kf7 Bc4+ Ke7`<br><sub>constructed (critique POS2-2)</sub> | **Cut:** White's f-file shelter change (ply 1): `Nd3+` checks from outside the f-file squares of the king zone | Cut; C++ use test and oracle pass | |
+| PU20 | — | `q5k1/8/8/8/8/8/5PPP/3N2K1 w - - 0 1`; line `h3 Kh7 f4 Qa7+ Nf2`<br><sub>constructed; board and last move set by WP2 (drawn as `6K1`, `Kh2`)</sub> | **Kept:** White's f-file shelter change (ply 3): `Qa7+` checks through f2 | Kept; C++ use test and oracle pass | |

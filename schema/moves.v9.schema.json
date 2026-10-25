@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/moves.v8.schema.json",
-  "title": "ChessWhy move report, schema version 8",
+  "$id": "https://chesswhy.local/schema/moves.v9.schema.json",
+  "title": "ChessWhy move report, schema version 9",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,8 +17,8 @@
   ],
   "properties": {
     "schema_version": {
-      "description": "Schema version of the report; this schema accepts version 8 [rule].",
-      "const": 8
+      "description": "Schema version of the report; this schema accepts version 9 [rule].",
+      "const": 9
     },
     "document": {
       "description": "Kind of report document emitted by this schema [rule].",

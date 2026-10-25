@@ -759,15 +759,25 @@ inline void add_schema_refutation_judgements(Report& report) {
                                        .stops_threat = true,
                                        .label = TempoPlyLabel::PureReply,
                                        .tempo_gained = false,
-                                       .reply_gain = std::nullopt,
-                                       .forced_test = std::nullopt}},
+                                       .reply_gain = ReplyGain{.material = 0,
+                                                               .mates = false,
+                                                               .through_ply = 2,
+                                                               .settled = true,
+                                                               .gains = false},
+                                       .forced_test =
+                                           ForcedTest{.legal_moves = 1,
+                                                      .lines = {ReplyLine{.san = "e5",
+                                                                          .es_units = 1100,
+                                                                          .acceptable = true,
+                                                                          .stops_threat = true}},
+                                                      .forced = true}}},
                     .tempi = Tempi{.white = 1, .black = 0},
                     .runs = {InitiativeRun{.holder = Side::White,
                                            .start_ply = 1,
                                            .end_ply = 2,
                                            .tempi = 1,
                                            .ending = InitiativeEnding::Unfinished,
-                                           .outcome = InitiativeOutcome::Converted}}};
+                                           .outcome = InitiativeOutcome::Unknown}}};
     report.candidates.push_back(std::move(candidate));
     report.playable_truncated = false;
     add_schema_root_judgement(report);

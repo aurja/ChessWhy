@@ -1,7 +1,7 @@
 add_executable(report_unit_tests report_unit_tests.cpp)
 target_link_libraries(report_unit_tests PRIVATE chesswhy_report Catch2::Catch2WithMain
     chesswhy_warnings chesswhy_paths)
-catch_discover_tests(report_unit_tests TEST_PREFIX report_ PROPERTIES LABELS unit)
+catch_discover_tests(report_unit_tests TEST_PREFIX report_unit_ PROPERTIES LABELS unit)
 
 add_executable(move_report_unit_tests move_report_tests.cpp)
 target_link_libraries(move_report_unit_tests PRIVATE chesswhy_report Catch2::Catch2WithMain
@@ -19,7 +19,7 @@ set_tests_properties(report_schema_examples PROPERTIES
 
 add_test(NAME report_schema_unit
     COMMAND "${CHESSWHY_PYTHON}" "${PROJECT_SOURCE_DIR}/tools/validate_report.py"
-        "${PROJECT_SOURCE_DIR}/schema/report.v8.schema.json"
+        "${PROJECT_SOURCE_DIR}/schema/report.v9.schema.json"
         "${report_examples_dir}/terminal_checkmate.json"
         "${report_examples_dir}/side_in_check.json"
         "${report_examples_dir}/normal_position.json"
@@ -33,7 +33,7 @@ set_tests_properties(report_schema_unit PROPERTIES
 
 add_test(NAME move_report_schema_unit
     COMMAND "${CHESSWHY_PYTHON}" "${PROJECT_SOURCE_DIR}/tools/validate_report.py"
-        "${PROJECT_SOURCE_DIR}/schema/moves.v8.schema.json"
+        "${PROJECT_SOURCE_DIR}/schema/moves.v9.schema.json"
         "${report_examples_dir}/moves_terminal_checkmate.json"
         "${report_examples_dir}/moves_side_in_check.json"
         "${report_examples_dir}/moves_normal_position.json"

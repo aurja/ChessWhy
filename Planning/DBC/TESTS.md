@@ -87,20 +87,25 @@ Rules that turn engine numbers into report facts; no engine runs.
 | quiet consequence is positional and a knight capture is material | unit | Basic class assignment | `CqIsPositional`, `CqIsMaterial`, `CqMaterial` |
 | promotion counts piece change but remains promotion class below one pawn | unit | Promotion counted in material; class stays promotion under one pawn net | `CqPromotion`, `CqMaterial`, `CqIsPromotion` |
 | consequence nets captures made by both sides | unit | Material is the net of both sides' captures | `CqMaterial` |
-| consequence extends captures after six plies and stops at ten | unit | Capture extension past the six-ply horizon, capped at ten | `WalkedPlies`, `CqMaterial` |
-| walked plies follows the six-ply horizon and capture extension | unit | How many PV plies are walked | `WalkedPlies` |
-| walked plies stops at illegal moves and the end of a short PV | unit | Short or broken PVs end the walk | `WalkedPlies` |
+| consequence extends captures after six plies and stops at ten | unit | Continuation extension past the six-ply horizon, capped at ten | `WalkedPlies`, `CqMaterial` |
+| walk follows the six-ply horizon and continuation extension | unit | How many PV plies are walked: six, then on while the next move is a capture or the board is in check, at most ten; settled when the extension stops before ten | `WalkedPlies` |
+| PostM4_EM5 walk follows the §3.6 line and reports the settled material | unit | A nine-ply line extended by a capture and a check is settled and nets a piece | `WalkedPlies`, `Consequence`, `CqMaterial` |
+| walk stops at illegal moves and the end of a short PV | unit | Short or broken PVs end the walk | `WalkedPlies` |
+| insufficient material follows python-chess material cases | unit | Bare kings, king and knight, and same-colour bishops are insufficient; opposite-colour bishops are not | `TerminalDraw` |
+| walk reports a stalemate draw at its terminal ply | unit | F45's Qxg3 stalemate ends the walk at ply 1 with a stalemate terminal draw | `TerminalDraw`, `WalkedPlies` |
 | illegal PV suffix stops consequence walking defensively | unit | An illegal engine move ends the walk instead of crashing | `WalkedPlies`, `CqMaterial` |
 | null move reliability depends on side-to-move non-pawn material | unit | The null-move threat search is marked unreliable when the side to move has at most one piece besides king and pawns | `NullMoveReliable`, `SearchB` |
 | UCI move line retains a positive search depth | unit | The parsed `depth` of a PV line is kept for `depth` in the report | `CandidateMove` |
 | tempo labels use the frozen boundaries | unit | Tempo value −1 is zugzwang, 0 and 99 WDL units non-tempo, 100 and 200 no label, 201 tempo-dependent | `TempoLabel` |
 | tempo-dependent positions require a labelled root value | unit | A missing root tempo value or one without the tempo-dependent label is not a tempo-dependent position | `TempoLabel`, `TempoValue` |
-| tempo ledger labels cover threat, reply, counter-threat and neither | unit | Hand-built ply flags give threatening, pure reply, counter-threat and neither; only a threatening ply answered by a pure reply gains a tempo | `PlyLabel`, `TempoGained`, `PlFirst`, `PlStops`, `PlOwn`, `PlCounter`, `PlThreatening`, `PlNeither`, `PlCounterThreat`, `PlPure` |
+| tempo ledger labels cover all PostM4_EM5 replies and tempo gain | unit | Hand-built ply flags give threatening, gaining reply, pure reply, unforced reply, unresolved reply (gain unknown, and forced unknown), counter-threat and neither; only a threatening ply answered by a pure reply gains a tempo | `PlyLabel`, `TempoGained`, `PlFirst`, `PlStops`, `PlOwn`, `PlCounter`, `PlThreatening`, `PlNeither`, `PlCounterThreat`, `PlGains`, `PlForced`, `PlPure`, `PlGaining`, `PlUnforced`, `PlUnresolved` |
+| settle point advances only while the next move continues | unit | After 1.e4 the settle point of ply 1 is ply 1; after 1...d5 the recapture 2.exd5 carries ply 2's settle point to ply 3 | `SettlePoint` |
 | material balance uses pawn, minor, rook and queen values | unit | Material balance 1/3/5/9 from each side's view | `RunOutcome` |
 | initiative runs identify each ending | unit | Spent, unfinished (walk ends first, also right after a tempo gained), contested and runs (mate, or an answer that does not stop the threat) with their start and end plies and tempi | `InitiativeRun`, `RunEnding` |
 | initiative runs reject invalid labelled ledgers | unit | A ledger whose labels `label_ledger` cannot produce is a programming error (`std::logic_error`) | `InitiativeRun` |
 | initiative scanning resumes at the previous run's ending ply | unit | A contested run's counter-threat can start the other side's run at its ending ply | `InitiativeRun`, `RunEnding` |
 | initiative conversion checks material and used positional changes | unit | Converted by a material gain from the run's start to the end of the walk, or by a change in use inside the run that favours the holder; evaporated otherwise | `RunOutcome`, `FavouredSide` |
+| initiative runs label answered and unresolved replies and unknown outcomes | unit | A gaining reply ends a run as answered and an unresolved reply as unresolved; a spent run whose walk is not settled has an unknown outcome | `InitiativeRun`, `RunEnding`, `RunOutcome` |
 
 ## 5. Tactics — `tests/tactics/`
 
@@ -154,13 +159,13 @@ Program tests:
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| report_JSON follows v8 report key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
+| report_JSON follows v9 report key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
 | report_enum values use the schema spellings | unit | Nine report enums serialise to the schema's strings | `ReportSchema`, `JsonOutput` |
 | report_scores and optional values are serialized | unit | ES, cp, mate and nulls | `ExpectedScore`, `ReportSchema`, `JsonOutput` |
-| report_motif JSON uses the schema v8 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
-| report_opportunity judgements and tactic-line fields serialize in v8 | unit | Opportunity judgement, `is_tactic`, `allows_tactic`, tactic labels, root motifs and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLine`, `TacticLabel`, `Contribution` |
-| report_v8 analysis fields and restriction serialize | unit | `legal_moves`, `playable_truncated`, `depth`, `walked_plies`, `detailed`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
-| report_tempo fields serialize in v8 | unit | Root and per-move `tempo_value`, the tempo ledger with plies, tempi and initiative runs, `tempo_ledger_skipped`, and `net_change` / `in_use` on positional changes | `ReportSchema`, `TempoValue`, `TempoLedger`, `NetChange`, `UseTest` |
+| report_motif JSON uses the schema v9 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
+| report_opportunity judgements and tactic-line fields serialize in v9 | unit | Opportunity judgement, `is_tactic`, `allows_tactic`, tactic labels, root motifs and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLine`, `TacticLabel`, `Contribution` |
+| report_v9 analysis fields and restriction serialize | unit | `legal_moves`, `playable_truncated`, `depth`, `walked_plies`, `detailed`, `creates_threat_skipped`, `refutation_skipped`, the consequence's `settled` and `terminal_draw`, and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Refutation`, `TerminalDraw`, `Restriction` |
+| report_tempo fields serialize in v9 | unit | Root and per-move `tempo_value`, the tempo ledger with plies (the new labels, `reply_gain`, `forced_test`), tempi and initiative runs (`answered`, `unresolved`, outcome `unknown`), `tempo_ledger_skipped`, and `net_change` / `in_use` / `captured` on positional changes | `ReportSchema`, `TempoValue`, `TempoLedger`, `ReplyGain`, `ForcedTest`, `RunEnding`, `RunOutcome`, `NetChange`, `UseTest` |
 
 `move_report_tests.cpp` (`move_report_unit_tests`), on hand-built full reports:
 
@@ -184,8 +189,8 @@ Program tests:
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
 | `report_schema_examples` | `report_schema_examples` (`write_examples.cpp`) | unit | Writes eight example reports (terminal checkmate, side in check, normal, PGN opening, tactic with labels, forced, negative margin, refutation) and the move report document of each; they carry positional features and changes and a games source, found and not found | `ReportDocument`, `MoveReport`, `JsonOutput`, `ReportSchema`, `GameCounts` |
-| `report_schema_unit` | `tools/validate_report.py` | unit | The eight full reports validate against `schema/report.v8.schema.json` | `ReportSchema` |
-| `move_report_schema_unit` | `tools/validate_report.py` | unit | The eight move report documents validate against `schema/moves.v8.schema.json` | `ReportSchema`, `MoveReport` |
+| `report_schema_unit` | `tools/validate_report.py` | unit | The eight full reports validate against `schema/report.v9.schema.json` | `ReportSchema` |
+| `move_report_schema_unit` | `tools/validate_report.py` | unit | The eight move report documents validate against `schema/moves.v9.schema.json` | `ReportSchema`, `MoveReport` |
 
 ## 7. Render — `tests/render/render_unit_tests.cpp` (`render_unit_tests`)
 
@@ -253,6 +258,8 @@ Developer tool that lists PGN moves or games as TSV; compared with `tests/pgntoo
 | passed pawns, connected runs, backward pawns and chains follow their boundaries | unit | Passed, connected passed, backward and chain rules at their rank and file limits | `PawnStructure` |
 | castling, king-zone attackers and rook captures are tracked | unit | Castling rights, including a right lost when the rook is captured; king-zone attackers | `KingSafety` |
 | king files use both edges and relative shield ranks | unit | King files clipped at the board edge; shield gap only for a king on relative rank 1 or 2 | `KingSafety` |
+| king-file pressure requires an on-file shelter witness | unit | A king-file change is pressed only by a check, capture or end-of-walk attack on or through a changed-file square next to the king; a check from elsewhere does not count (PU19, PU20) | `UseTest`, `UtUsed`, `UtWitness`, `UtPressed` |
+| captured positional features record capture and favour semantics | unit | A weakness captured along the line has `captured` set and favours no side; an uncaptured one keeps its favoured side | `FavouredSide`, `PcCompare` |
 | piece features use their square, file, and colour rules | unit | Bishop pair, rooks on open, half-open and seventh-rank files, outposts, bad bishops | `PieceActivity` |
 | mobility, space, and development leads include thresholds but not one below | unit | Each lead at its threshold and one below | `SpaceDevelopment` |
 | positional identity follows each tag's identity column | unit | `same_identity` for every tag | `PcCompare`, `PcSame` |

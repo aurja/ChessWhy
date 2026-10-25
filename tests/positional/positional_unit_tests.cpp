@@ -240,6 +240,7 @@ void validate_partial_feature(const json& expected, bool is_change) {
     result["ply"] = change.ply;
     result["change"] = chesswhy::to_string(change.change);
     result["holds_at_end"] = change.holds_at_end;
+    result["captured"] = change.captured;
     return result;
 }
 
@@ -995,6 +996,53 @@ TEST_CASE("positional fixture matching handles locally constructed rows", "[unit
                               {"uses", json::array()}});
 }
 
+TEST_CASE("captured positional features record capture and favour semantics", "[unit]") {
+    const chess::Board isolated_root(
+        "3r2k1/8/2n5/8/3P4/2N5/8/R5K1 b - - 0 1");
+    chess::Board isolated_board = isolated_root;
+    const std::vector<chess::Move> isolated_line = parse_line(isolated_board, {"d8d4"});
+    const auto isolated_changes = chesswhy::positional::line_changes(isolated_root, isolated_line);
+    const auto isolated = std::ranges::find_if(
+        isolated_changes, [](const PositionalChange& change) {
+            return change.ply == 1 && change.change == PositionalChangeKind::Disappears &&
+                   change.feature.tag == PositionalTag::IsolatedPawn &&
+                   change.feature.side == Side::White && change.feature.file == 3;
+        });
+    REQUIRE(isolated != isolated_changes.end());
+    CHECK(isolated->captured);
+    CHECK_FALSE(chesswhy::positional::favours(*isolated).has_value());
+
+    const chess::Board passer_root("7k/8/8/3p4/8/8/8/3R2K1 w - - 0 1");
+    chess::Board passer_board = passer_root;
+    const std::vector<chess::Move> passer_line = parse_line(passer_board, {"d1d5"});
+    const auto passer_changes = chesswhy::positional::line_changes(passer_root, passer_line);
+    const auto captured_passer = std::ranges::find_if(
+        passer_changes, [](const PositionalChange& change) {
+            return change.ply == 1 && change.change == PositionalChangeKind::Disappears &&
+                   change.feature.tag == PositionalTag::PassedPawn &&
+                   change.feature.side == Side::Black && change.feature.file == 3;
+        });
+    REQUIRE(captured_passer != passer_changes.end());
+    CHECK(captured_passer->captured);
+    CHECK(chesswhy::positional::favours(*captured_passer) == Side::White);
+
+    const chess::Board en_passant_root("7k/8/8/3pP3/8/8/8/K7 w - d6 0 1");
+    chess::Board en_passant_board = en_passant_root;
+    const std::vector<chess::Move> en_passant_line =
+        parse_line(en_passant_board, {"e5d6"});
+    const auto en_passant_changes =
+        chesswhy::positional::line_changes(en_passant_root, en_passant_line);
+    const auto en_passant_passer = std::ranges::find_if(
+        en_passant_changes, [](const PositionalChange& change) {
+            return change.ply == 1 && change.change == PositionalChangeKind::Disappears &&
+                   change.feature.tag == PositionalTag::PassedPawn &&
+                   change.feature.side == Side::Black && change.feature.file == 3;
+        });
+    REQUIRE(en_passant_passer != en_passant_changes.end());
+    CHECK(en_passant_passer->captured);
+    CHECK(chesswhy::positional::favours(*en_passant_passer) == Side::White);
+}
+
 TEST_CASE("favoured side follows change direction and weakness polarity", "[unit]") {
     constexpr std::array weak_tags{
         PositionalTag::IsolatedPawn,
@@ -1026,6 +1074,8 @@ TEST_CASE("favoured side follows change direction and weakness polarity", "[unit
         CHECK(chesswhy::positional::favours(change) == Side::White);
         change.change = PositionalChangeKind::Disappears;
         CHECK(chesswhy::positional::favours(change) == Side::Black);
+        change.captured = true;
+        CHECK_FALSE(chesswhy::positional::favours(change).has_value());
     }
     for (const PositionalTag tag : other_tags) {
         PositionalChange change;
@@ -1169,27 +1219,36 @@ TEST_CASE("positional impact order uses both mode orders and preserves ties", "[
                                       PositionalTag::CastlingKingside, PositionalTag::MobilityLead,
                                       PositionalTag::DevelopmentLead}));
 }
-TEST_CASE("king pressure uses checks, zone captures, and distinct end attackers", "[unit]") {
+TEST_CASE("king-file pressure requires an on-file shelter witness", "[unit]") {
     const auto check_king_file = [](std::string_view fen,
-                                    std::initializer_list<std::string_view> uci_line) {
+                                    std::initializer_list<std::string_view> uci_line,
+                                    int change_ply, bool expected_use) {
         const chess::Board root(fen);
         chess::Board board = root;
         const std::vector<chess::Move> line = parse_line(board, uci_line);
         std::vector<PositionalChange> changes = chesswhy::positional::line_changes(root, line);
         chesswhy::positional::mark_use(changes, root, line, false);
-        const auto change = std::ranges::find_if(changes, [](const PositionalChange& candidate) {
-            return candidate.feature.tag == PositionalTag::KingShieldGap &&
-                   candidate.feature.side == Side::White && candidate.feature.file == 4 &&
-                   candidate.ply == 1 && candidate.change == PositionalChangeKind::Appears;
+        const auto change = std::ranges::find_if(changes, [change_ply](const PositionalChange& item) {
+            return item.feature.tag == PositionalTag::KingShieldGap &&
+                   item.feature.side == Side::White && item.feature.file == 4 &&
+                   item.ply == change_ply && item.change == PositionalChangeKind::Appears;
         });
         REQUIRE(change != changes.end());
         CHECK(change->net_change);
-        CHECK(change->in_use == true);
+        REQUIRE(change->in_use.has_value());
+        CHECK(*change->in_use == expected_use);
     };
 
-    check_king_file("k3r3/8/8/8/8/8/4P3/4K2R w K - 0 1", {"e2e4", "e8e4"});
-    check_king_file("k2r4/8/8/8/8/8/3NP3/4K2R w K - 0 1", {"e2e4", "d8d2"});
-    check_king_file("k7/8/8/8/8/2n3n1/4P3/4K2R w K - 0 1", {"e2e4", "a8b8"});
+    check_king_file("k3r3/8/8/8/8/8/4P3/4K2R w K - 0 1",
+                    {"e2e4", "e8e4"}, 1, true);
+    check_king_file("k2r4/8/8/8/8/8/3NP3/4K2R w K - 0 1",
+                    {"e2e4", "d8d2"}, 1, false);
+    check_king_file("k7/8/8/8/8/2n3n1/4P3/4K2R w K - 0 1",
+                    {"e2e4", "a8b8"}, 1, true);
+    check_king_file("k7/8/8/7q/8/4P3/P7/4K3 w - - 0 1",
+                    {"a2a3", "a8b8", "e3e4", "h5e2"}, 3, true);
+    check_king_file("k7/8/8/8/5n2/4P3/P3N3/4K3 w - - 0 1",
+                    {"a2a3", "a8b8", "e3e4", "f4e2"}, 3, true);
 }
 
 TEST_CASE("early passer and rook-file changes pass within two plies", "[unit]") {
