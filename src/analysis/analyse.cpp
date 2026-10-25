@@ -458,13 +458,9 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
 
     TempoLedger ledger;
     ledger.plies.reserve(walked_line.size());
-    std::vector<chess::Board> boards;
-    boards.reserve(walked_line.size() + 1);
-    chess::Board board = root;
-    boards.push_back(board);
+    const std::vector<chess::Board> boards = board_positions(root, walked_line);
     for (std::size_t index = 0; index < walked_line.size(); ++index) {
-        board.makeMove(walked_line[index]);
-        boards.push_back(board);
+        const chess::Board& board = boards[index + 1];
         const bool after_move_game_over = game_over(board);
         TempoPly ply;
         ply.ply = static_cast<int>(index + 1);
@@ -518,25 +514,8 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
             if (ply.stops_threat.value_or(false) && !ply.threatening) {
                 const int k = static_cast<int>(index + 1);
                 const int through_ply = settle_ply(root, walked_line, k);
-                const chess::Color replier_color = boards[index].sideToMove();
-                const chess::Board& settle_board = boards[static_cast<std::size_t>(through_ply)];
-                const bool mates =
-                    settle_board.inCheck() && !has_legal_moves(settle_board) &&
-                    settle_board.sideToMove() != replier_color;
-                const int material =
-                    material_balance(settle_board, replier_color) -
-                    material_balance(boards[static_cast<std::size_t>(k - 2)], replier_color);
-                const bool settled = static_cast<std::size_t>(through_ply) < walked_line.size() ||
-                                     result.consequence.settled;
-                ReplyGain reply_gain;
-                reply_gain.material = material;
-                reply_gain.mates = mates;
-                reply_gain.through_ply = through_ply;
-                reply_gain.settled = settled;
-                if (settled) {
-                    reply_gain.gains = material >= 1 || mates;
-                }
-                ply.reply_gain = std::move(reply_gain);
+                ply.reply_gain =
+                    reply_gain(boards, k, through_ply, result.consequence.settled);
                 if (ply.reply_gain->gains == false) {
                     const chess::Board& before_reply = boards[index];
                     const auto legal_moves = legal_move_count(before_reply);
@@ -550,20 +529,18 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                     request.multipv = multipv;
                     const auto searched = engine.search(request);
                     nodes_searched += searched.nodes;
-                    if (searched.lines.size() < static_cast<std::size_t>(multipv)) {
+                    if (searched.lines.empty()) {
                         throw engine::EngineError(
-                            "Stockfish forced test returned fewer than the requested MultiPV lines");
+                            "Stockfish forced test returned no principal variations");
                     }
 
                     const int best_es = es_units(searched.lines.front());
                     ForcedTest forced_test;
                     forced_test.legal_moves = static_cast<int>(legal_moves);
-                    forced_test.lines.reserve(static_cast<std::size_t>(multipv));
-                    bool all_acceptable = true;
-                    bool any_acceptable_unstopped = false;
-                    for (int line_index = 0; line_index < multipv; ++line_index) {
-                        const auto& alternative_line =
-                            searched.lines[static_cast<std::size_t>(line_index)];
+                    forced_test.lines.reserve(searched.lines.size());
+                    for (std::size_t line_index = 0; line_index < searched.lines.size();
+                         ++line_index) {
+                        const auto& alternative_line = searched.lines[line_index];
                         if (alternative_line.pv_uci.empty()) {
                             throw engine::EngineError(
                                 "Stockfish forced test returned an empty principal variation");
@@ -576,7 +553,6 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                         }
                         const int alternative_es = es_units(alternative_line);
                         const bool acceptable = alternative_es >= best_es - kPlayableUnits;
-                        all_acceptable = all_acceptable && acceptable;
                         std::optional<bool> stops_threat;
                         if (acceptable) {
                             if (alternative_move == walked_line[index]) {
@@ -604,8 +580,6 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                                 throw engine::EngineError(
                                     "forced test acceptable line has no threat result");
                             }
-                            any_acceptable_unstopped =
-                                any_acceptable_unstopped || !*stops_threat;
                         }
                         forced_test.lines.push_back(ReplyLine{
                             .san = chess::uci::moveToSan(before_reply, alternative_move),
@@ -614,13 +588,8 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                             .stops_threat = stops_threat,
                         });
                     }
-                    if (any_acceptable_unstopped) {
-                        forced_test.forced = false;
-                    } else if (all_acceptable && multipv < static_cast<int>(legal_moves)) {
-                        forced_test.forced = std::nullopt;
-                    } else {
-                        forced_test.forced = true;
-                    }
+                    forced_test.forced =
+                        forced_test_result(forced_test.lines, forced_test.legal_moves);
                     ply.forced_test = std::move(forced_test);
                 }
             }

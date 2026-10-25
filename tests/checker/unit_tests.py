@@ -40,6 +40,20 @@ def first_candidate(report: checker.JsonValue) -> checker.JsonObject:
 START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
 
 
+def forced_test_for_e5() -> checker.JsonObject:
+    return {
+        "legal_moves": 20,
+        "lines": [
+            {"san": "e5", "es": 0.5, "acceptable": True, "stops_threat": True},
+            {"san": "c5", "es": 0.49, "acceptable": True, "stops_threat": True},
+            {"san": "e6", "es": 0.48, "acceptable": True, "stops_threat": True},
+            {"san": "d5", "es": 0.47, "acceptable": True, "stops_threat": True},
+            {"san": "Nf6", "es": 0.44, "acceptable": False, "stops_threat": None},
+        ],
+        "forced": True,
+    }
+
+
 def tempo_semantic_report() -> checker.JsonObject:
     return {
         "position": {
@@ -67,6 +81,16 @@ def tempo_semantic_report() -> checker.JsonObject:
                 "detailed": True,
                 "line": ["e4", "e5"],
                 "walked_plies": 2,
+                "consequence": {
+                    "source": "rule",
+                    "class": "positional",
+                    "mate_in": None,
+                    "material": 0,
+                    "promotes": False,
+                    "plies": 1,
+                    "terminal_draw": None,
+                    "settled": True,
+                },
                 "creates_threat_skipped": None,
                 "creates_threat": {"consequence": {"class": "material", "material": 1}},
                 "tempo_value": {
@@ -90,6 +114,8 @@ def tempo_semantic_report() -> checker.JsonObject:
                             "stops_threat": None,
                             "label": "threatening",
                             "tempo_gained": True,
+                            "reply_gain": None,
+                            "forced_test": None,
                         },
                         {
                             "ply": 2,
@@ -101,6 +127,14 @@ def tempo_semantic_report() -> checker.JsonObject:
                             "stops_threat": True,
                             "label": "pure_reply",
                             "tempo_gained": False,
+                            "reply_gain": {
+                                "material": 0,
+                                "mates": False,
+                                "through_ply": 2,
+                                "settled": True,
+                                "gains": False,
+                            },
+                            "forced_test": forced_test_for_e5(),
                         },
                     ],
                     "tempi": {"white": 1, "black": 0},
@@ -111,7 +145,7 @@ def tempo_semantic_report() -> checker.JsonObject:
                             "end_ply": 2,
                             "tempi": 1,
                             "ending": "unfinished",
-                            "outcome": "evaporated",
+                            "outcome": "unknown",
                             "source": "rule",
                         }
                     ],
@@ -477,7 +511,7 @@ class CheckerRelationsTests(unittest.TestCase):
 
         def full_report(motifs: list[checker.JsonValue]) -> checker.JsonObject:
             return {
-                "schema_version": 8,
+                "schema_version": 9,
                 "document": "full",
                 "input": {"selection": {"keywords": ["all"], "top": None, "moves": []}},
                 "engine": {"multipv": 1},
@@ -574,7 +608,7 @@ class CheckerRelationsTests(unittest.TestCase):
 
     def test_moves_schema_ties_also_threat_to_tag(self) -> None:
         schema_path = (
-            Path(__file__).resolve().parents[2] / "schema" / "moves.v8.schema.json"
+            Path(__file__).resolve().parents[2] / "schema" / "moves.v9.schema.json"
         )
         schema = object_value(checker.read_json(schema_path))
         defs = object_field(schema, "$defs")
@@ -615,6 +649,8 @@ class CheckerRelationsTests(unittest.TestCase):
                 "material": 0,
                 "promotes": False,
                 "plies": 1,
+                "terminal_draw": None,
+                "settled": True,
             },
             "is_tactic": False,
             "allows_tactic": False,
@@ -629,6 +665,7 @@ class CheckerRelationsTests(unittest.TestCase):
                     "change": "appears",
                     "holds_at_end": True,
                     "net_change": True,
+                    "captured": False,
                     "in_use": True,
                     "tag": "bishop_pair",
                     "side": "white",
@@ -642,6 +679,7 @@ class CheckerRelationsTests(unittest.TestCase):
                     "change": "appears",
                     "holds_at_end": True,
                     "net_change": True,
+                    "captured": False,
                     "in_use": True,
                     "tag": "mobility_lead",
                     "side": "white",
@@ -665,9 +703,10 @@ class CheckerRelationsTests(unittest.TestCase):
             "parries_threat": None,
             "creates_threat": None,
             "refutation": None,
+            "refutation_skipped": None,
         }
         full: checker.JsonObject = {
-            "schema_version": 8,
+            "schema_version": 9,
             "document": "full",
             "input": {
                 "source": "fen",
@@ -757,6 +796,36 @@ class CheckerRelationsTests(unittest.TestCase):
                 lambda document: object_value(
                     array_field(array_field(document, "moves")[0], "initiative")[0]
                 ).update({"ending": "spent"}),
+            ),
+            (
+                "/moves/0/initiative",
+                lambda document: object_value(
+                    array_field(array_field(document, "moves")[0], "initiative")[0]
+                ).update({"outcome": "evaporated"}),
+            ),
+            (
+                "/moves/0/consequence/terminal_draw",
+                lambda document: object_field(
+                    array_field(document, "moves")[0], "consequence"
+                ).update({"terminal_draw": {"kind": "stalemate", "ply": 1}}),
+            ),
+            (
+                "/moves/0/consequence/settled",
+                lambda document: object_field(
+                    array_field(document, "moves")[0], "consequence"
+                ).update({"settled": False}),
+            ),
+            (
+                "/moves/0/refutation_skipped",
+                lambda document: array_field(document, "moves")[0].update(
+                    {"refutation_skipped": "game_over"}
+                ),
+            ),
+            (
+                "/moves/0/positional/0/captured",
+                lambda document: object_value(
+                    array_field(array_field(document, "moves")[0], "positional")[0]
+                ).update({"captured": True}),
             ),
             (
                 "/moves/0/impact_order",
@@ -996,6 +1065,284 @@ class CheckerRelationsTests(unittest.TestCase):
             with self.subTest(pointer=pointer):
                 self.assert_semantic_mutation_fails(mutate, pointer)
 
+    def assert_rule_failure(
+        self, failures: list[checker.Failure], rule: str, pointer: str
+    ) -> None:
+        self.assertTrue(
+            any(path.startswith(pointer) and rule in message for path, message in failures),
+            msg=f"{rule} mutant did not fail {pointer}: {failures}",
+        )
+
+    def test_post_em5_rule_mutants_are_rejected(self) -> None:
+        draw_root = chess.Board("7k/8/8/8/8/8/8/KB6 w - - 0 1")
+        draw_consequence: checker.JsonObject = {
+            "class": "positional",
+            "plies": 1,
+            "terminal_draw": {"kind": "insufficient_material", "ply": 1},
+            "settled": True,
+        }
+        failures: list[checker.Failure] = []
+        checker.check_line_consequence(
+            draw_root, ["Ba2"], draw_consequence, "/move", failures, 1
+        )
+        self.assertEqual(failures, [])
+        draw_mutant = deepcopy(draw_consequence)
+        draw_mutant["terminal_draw"] = None
+        failures.clear()
+        checker.check_line_consequence(
+            draw_root, ["Ba2"], draw_mutant, "/move", failures, 1
+        )
+        self.assert_rule_failure(failures, "P1", "/move/consequence/terminal_draw")
+
+        stalemate_root = chess.Board("8/8/8/8/6q1/6R1/5k2/7K b - - 0 1")
+        skipped_move: checker.JsonObject = {
+            "san": "Qxg3",
+            "verdict": "blunder",
+            "refutation": None,
+            "refutation_skipped": "game_over",
+        }
+        failures.clear()
+        checker.check_refutation_skip(skipped_move, "/move", stalemate_root, failures)
+        self.assertEqual(failures, [])
+        skipped_mutant = deepcopy(skipped_move)
+        skipped_mutant["refutation_skipped"] = None
+        failures.clear()
+        checker.check_refutation_skip(
+            skipped_mutant, "/move", stalemate_root, failures
+        )
+        self.assert_rule_failure(failures, "P2", "/move/refutation_skipped")
+
+        walk_root = chess.Board(START_FEN)
+        extended_line: list[checker.JsonValue] = [
+            "e4",
+            "e5",
+            "Nf3",
+            "Nc6",
+            "Bb5",
+            "a6",
+            "Bxc6",
+        ]
+        consequence: checker.JsonObject = {
+            "class": "positional",
+            "plies": 1,
+            "terminal_draw": None,
+            "settled": True,
+        }
+        failures.clear()
+        checker.check_line_consequence(
+            walk_root, extended_line, consequence, "/move", failures, 7
+        )
+        self.assertEqual(failures, [])
+        failures.clear()
+        checker.check_line_consequence(
+            walk_root, extended_line, consequence, "/move", failures, 6
+        )
+        self.assert_rule_failure(failures, "P3", "/move/walked_plies")
+
+        def check_tempo(value: checker.JsonObject) -> list[checker.Failure]:
+            result: list[checker.Failure] = []
+            checker.check_tempo_and_positional_semantics(
+                value, chess.Board(START_FEN), result
+            )
+            return result
+
+        def ledger_ply(value: checker.JsonObject, index: int) -> checker.JsonObject:
+            ledger = object_field(first_candidate(value), "tempo_ledger")
+            return object_value(array_field(ledger, "plies")[index])
+
+        mutations: list[tuple[str, str, Mutation]] = [
+            (
+                "P4",
+                "/candidates/0/tempo_ledger/plies/1/reply_gain/through_ply",
+                lambda value: object_field(
+                    ledger_ply(value, 1), "reply_gain"
+                ).update({"through_ply": 1}),
+            ),
+            (
+                "P5",
+                "/candidates/0/tempo_ledger/plies/1/reply_gain/gains",
+                lambda value: object_field(
+                    ledger_ply(value, 1), "reply_gain"
+                ).update({"gains": True}),
+            ),
+            (
+                "P6",
+                "/candidates/0/tempo_ledger/plies/1/forced_test/forced",
+                lambda value: object_field(
+                    ledger_ply(value, 1), "forced_test"
+                ).update({"forced": False}),
+            ),
+            (
+                "P7",
+                "/candidates/0/tempo_ledger/plies/1/label",
+                lambda value: ledger_ply(value, 1).update(
+                    {"label": "gaining_reply"}
+                ),
+            ),
+            (
+                "P8",
+                "/candidates/0/tempo_ledger/runs/0/ending",
+                lambda value: object_value(
+                    array_field(
+                        object_field(first_candidate(value), "tempo_ledger"),
+                        "runs",
+                    )[0]
+                ).update({"ending": "answered"}),
+            ),
+            (
+                "P9",
+                "/candidates/0/tempo_ledger/runs/0/outcome",
+                lambda value: object_value(
+                    array_field(
+                        object_field(first_candidate(value), "tempo_ledger"),
+                        "runs",
+                    )[0]
+                ).update({"outcome": "evaporated"}),
+            ),
+        ]
+        for rule, pointer, mutate in mutations:
+            with self.subTest(rule=rule):
+                mutant = deepcopy(tempo_semantic_report())
+                mutate(mutant)
+                self.assert_rule_failure(check_tempo(mutant), rule, pointer)
+
+        short_report = deepcopy(tempo_semantic_report())
+        short_ledger = object_field(first_candidate(short_report), "tempo_ledger")
+        short_ply_one = object_value(array_field(short_ledger, "plies")[0])
+        short_ply_two = object_value(array_field(short_ledger, "plies")[1])
+        short_forced = object_field(short_ply_two, "forced_test")
+        short_forced["lines"] = array_field(short_forced, "lines")[:4]
+        short_forced["forced"] = None
+        short_ply_one["tempo_gained"] = False
+        short_ply_two["label"] = "unresolved_reply"
+        object_field(short_ledger, "tempi")["white"] = 0
+        short_ledger["runs"] = []
+        self.assertEqual(check_tempo(short_report), [])
+        short_mutant = deepcopy(short_report)
+        object_field(
+            ledger_ply(short_mutant, 1), "forced_test"
+        )["forced"] = True
+        self.assert_rule_failure(
+            check_tempo(short_mutant),
+            "P6",
+            "/candidates/0/tempo_ledger/plies/1/forced_test/forced",
+        )
+
+        capture_root = chess.Board("7k/8/8/4p3/3P4/8/8/K7 w - - 0 1")
+        capture_line: list[checker.JsonValue] = ["Kb2", "Kg7", "Kc2", "exd4"]
+        capture_walk = checker.replay_walk(
+            capture_root, {"line": capture_line, "walked_plies": 4}
+        )
+        assert capture_walk is not None
+        capture_boards, capture_moves = capture_walk
+        weak_feature: checker.JsonObject = {
+            "tag": "isolated_pawn",
+            "side": "white",
+            "pieces": [{"square": "d4", "piece": "P"}],
+            "file": "d",
+            "value": None,
+        }
+        captured_weakness: checker.JsonObject = {
+            **weak_feature,
+            "ply": 4,
+            "change": "disappears",
+            "net_change": True,
+            "captured": True,
+            "in_use": True,
+        }
+        self.assertIsNone(checker.favoured_side(captured_weakness))
+        capture_report: checker.JsonObject = {
+            "position": {"positional": [weak_feature]}
+        }
+        capture_assessment: checker.JsonObject = {
+            "line": capture_line,
+            "walked_plies": 4,
+            "positional": [captured_weakness],
+        }
+        failures.clear()
+        checker.check_positional_relations(
+            capture_report,
+            capture_assessment,
+            "/move",
+            capture_boards,
+            capture_moves,
+            False,
+            failures,
+        )
+        self.assertEqual(failures, [])
+        captured_mutant = deepcopy(capture_assessment)
+        object_value(array_field(captured_mutant, "positional")[0])["captured"] = False
+        failures.clear()
+        checker.check_positional_relations(
+            capture_report,
+            captured_mutant,
+            "/move",
+            capture_boards,
+            capture_moves,
+            False,
+            failures,
+        )
+        self.assert_rule_failure(
+            failures, "P10", "/move/positional/0/captured"
+        )
+
+        shelter_root = chess.Board(
+            "7k/8/8/8/4r3/8/4P3/1N2K1N1 w - - 0 1"
+        )
+        shelter_line: list[checker.JsonValue] = [
+            "Nf3",
+            "Kh7",
+            "Nc3",
+            "Rxe2+",
+        ]
+        shelter_walk = checker.replay_walk(
+            shelter_root, {"line": shelter_line, "walked_plies": 4}
+        )
+        assert shelter_walk is not None
+        shelter_boards, shelter_moves = shelter_walk
+        shelter_change: checker.JsonObject = {
+            "tag": "open_file_near_king",
+            "side": "white",
+            "pieces": [],
+            "file": "e",
+            "value": None,
+            "ply": 3,
+            "change": "appears",
+            "net_change": True,
+            "captured": False,
+            "in_use": True,
+        }
+        shelter_report: checker.JsonObject = {"position": {"positional": []}}
+        shelter_assessment: checker.JsonObject = {
+            "line": shelter_line,
+            "walked_plies": 4,
+            "positional": [shelter_change],
+        }
+        failures.clear()
+        checker.check_positional_relations(
+            shelter_report,
+            shelter_assessment,
+            "/move",
+            shelter_boards,
+            shelter_moves,
+            False,
+            failures,
+        )
+        self.assertEqual(failures, [])
+        shelter_mutant = deepcopy(shelter_assessment)
+        object_value(array_field(shelter_mutant, "positional")[0])["in_use"] = False
+        failures.clear()
+        checker.check_positional_relations(
+            shelter_report,
+            shelter_mutant,
+            "/move",
+            shelter_boards,
+            shelter_moves,
+            False,
+            failures,
+        )
+        self.assert_rule_failure(failures, "P11", "/move/positional/0/in_use")
+
     def test_tempo_value_labels_follow_frozen_unit_boundaries(self) -> None:
         expected = {
             -1: "zugzwang",
@@ -1050,6 +1397,7 @@ class CheckerRelationsTests(unittest.TestCase):
             "ply": 1,
             "change": "appears",
             "net_change": False,
+            "captured": False,
             "in_use": None,
         }
         assessment["positional"] = [change]
@@ -1100,6 +1448,8 @@ class CheckerRelationsTests(unittest.TestCase):
                 "stops_threat": None,
                 "label": "threatening",
                 "tempo_gained": True,
+                "reply_gain": None,
+                "forced_test": None,
             },
             {
                 "ply": 2,
@@ -1111,6 +1461,14 @@ class CheckerRelationsTests(unittest.TestCase):
                 "stops_threat": True,
                 "label": "pure_reply",
                 "tempo_gained": False,
+                "reply_gain": {
+                    "material": -1,
+                    "mates": False,
+                    "through_ply": 3,
+                    "settled": True,
+                    "gains": False,
+                },
+                "forced_test": forced_test_for_e5(),
             },
             {
                 "ply": 3,
@@ -1122,6 +1480,8 @@ class CheckerRelationsTests(unittest.TestCase):
                 "stops_threat": None,
                 "label": "neither",
                 "tempo_gained": False,
+                "reply_gain": None,
+                "forced_test": None,
             },
         ]
         ledger["plies"] = plies
@@ -1152,13 +1512,14 @@ class CheckerRelationsTests(unittest.TestCase):
                 "ply": 1,
                 "change": "appears",
                 "net_change": True,
+                "captured": False,
                 "in_use": True,
             }
         ]
         candidate["positional"] = positional
         run["end_ply"] = 2
         run["ending"] = "unfinished"
-        run["outcome"] = "converted"
+        run["outcome"] = "unknown"
         line: list[checker.JsonValue] = ["e4", "e5"]
         candidate["line"] = line
         candidate["walked_plies"] = 2
@@ -1183,6 +1544,7 @@ class CheckerRelationsTests(unittest.TestCase):
             ply: int,
             squares: list[str] | None = None,
             tempo_dependent: bool = False,
+            file_name: str | None = None,
         ) -> bool:
             root = chess.Board(fen)
             walk_line: list[checker.JsonValue] = [move for move in line]
@@ -1202,6 +1564,7 @@ class CheckerRelationsTests(unittest.TestCase):
                 "change": change,
                 "ply": ply,
                 "pieces": pieces,
+                "file": file_name,
             }
             return checker.use_test(feature, boards, moves, tempo_dependent)
 
@@ -1311,7 +1674,7 @@ class CheckerRelationsTests(unittest.TestCase):
                 3,
             )
         )
-        self.assertTrue(
+        self.assertFalse(
             is_used(
                 START_FEN,
                 ["Nf3", "e6", "d4", "Bb4+"],
@@ -1319,6 +1682,7 @@ class CheckerRelationsTests(unittest.TestCase):
                 "white",
                 "appears",
                 3,
+                file_name="e",
             )
         )
         self.assertTrue(
@@ -1375,7 +1739,7 @@ class CheckerRelationsTests(unittest.TestCase):
                 ["f6"],
             )
         )
-        self.assertTrue(
+        self.assertFalse(
             is_used(
                 f06_root,
                 f06_line,
@@ -1384,6 +1748,18 @@ class CheckerRelationsTests(unittest.TestCase):
                 "appears",
                 3,
                 ["f6"],
+                file_name="f",
+            )
+        )
+        self.assertTrue(
+            is_used(
+                "7k/8/8/8/4r3/8/4P3/1N2K1N1 w - - 0 1",
+                ["Nf3", "Kh7", "Nc3", "Rxe2+"],
+                "open_file_near_king",
+                "white",
+                "appears",
+                3,
+                file_name="e",
             )
         )
         self.assertTrue(

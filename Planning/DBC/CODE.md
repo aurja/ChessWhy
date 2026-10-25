@@ -124,8 +124,8 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `ThreatTest` | `src/analysis/analyse.cpp` `complete_tempo_ledger` | |
 | `ReplyTest` | `src/analysis/analyse.cpp` `complete_tempo_ledger` | |
 | `SettlePoint` | `src/analysis/rules.cpp` `settle_ply` `continuation_move` | Settled when `j < n` or the walk is settled |
-| `ReplyGain` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `src/analysis/rules.cpp` `settle_ply` `material_balance`; `include/chesswhy/report.hpp` `ReplyGain` | |
-| `ForcedTest` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `include/chesswhy/report.hpp` `ForcedTest` `ReplyLine` | Acceptable: within 100 units of line 1 |
+| `ReplyGain` | `src/analysis/rules.cpp` `reply_gain` `board_positions` `settle_ply` `material_balance`; `src/analysis/analyse.cpp` `complete_tempo_ledger`; `include/chesswhy/report.hpp` `ReplyGain` | `board_positions` holds every walked board, since the settle point can lie past the ply being labelled |
+| `ForcedTest` | `src/analysis/rules.cpp` `forced_test_result`; `src/analysis/analyse.cpp` `complete_tempo_ledger`; `include/chesswhy/report.hpp` `ForcedTest` `ReplyLine` | Acceptable: within 100 units of line 1; `m` is the number of lines Stockfish returns |
 | `PlyLabel` | `src/analysis/rules.cpp` `label_ledger`; `include/chesswhy/report.hpp` `TempoPly` `TempoPlyLabel` | Reads `reply_gain` and `forced_test` |
 | `TempoGained` | `src/analysis/rules.cpp` `label_ledger` | |
 | `TempoLedger` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `include/chesswhy/report.hpp` `TempoLedger` `TempoLedgerSkip` `Tempi` | |
@@ -154,7 +154,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Reproducible` | `src/cli/cli.cpp` `build_report`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
 | `ReportSchema` | `schema/report.v9.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
-| `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` `check_tempo_and_positional_semantics` `check_tempo_value` `check_tempo_ledger` `use_test` `check_positional_relations` | Run by CTest `report_schema` on every F report; `use_test` re-implements the use test independently |
+| `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_refutation_skip` `check_restrictions_everywhere` `check_tactic_invariants` `check_all_consequence_semantics` `check_line_consequence` `rule_game_over` `replay_walk` `check_tempo_and_positional_semantics` `check_tempo_value` `check_tempo_ledger` `settle_point` `expected_reply_gain` `check_forced_test` `expected_initiative_runs` `favoured_side` `king_pressed` `use_test` `check_positional_relations` | Run by CTest `report_schema` on every F report; P1–P11 re-implemented independently on python-chess, one mutant per rule in `tests/checker/unit_tests.py` |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/output.cpp` `write_output`; `src/report/move_report.cpp` `to_json` | `--json` prints the move report document, `--json --full-report` the full report |
 | `MoveSelection` | `src/report/move_report.cpp` `move_reports` `selected_from_a` `selected_by_keyword`; `src/analysis/analyse.cpp` `selected_by_selection` | Engine order, asked moves outside A last, each move once |
@@ -168,8 +168,8 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | Node | Code | Notes |
 |---|---|---|
 | `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` `write_motif_inner_label` `write_compact_restricted_motif_label` `write_restriction` `write_held_to` | Compact rows in the move report text: `write_motifs(…, compact_restricted = true)` |
-| `Conditions` | `src/render/render.cpp` `write_engine_line_count` `write_selection_count` `write_walk` `creates_threat_skip_reason` | |
-| `PositionWalk` | `src/render/render.cpp` `write_move_report` `write_position_block` `write_no_move_block` `write_root_evaluation` `write_line_evaluation` `write_white_evaluation` `write_position_move` `write_move_report_group` `write_move_motifs` `write_move_tactic_labels` `write_move_positional_group`; `src/report/move_report.cpp` `replay_line_fens`; `tools/validate_report.py` (line_fens replay in the projection check) | `walked_plies` + 1 position blocks per move; facts placed by their position; no tempo rows |
+| `Conditions` | `src/render/render.cpp` `write_engine_line_count` `write_selection_count` `write_walk` `write_walk_settlement` `write_move_refutation` `creates_threat_skip_reason` | Walk suffixes ` (stalemate)`, ` (insufficient material)`, ` (not settled)`; `Refuted by: none, the move ends the game` |
+| `PositionWalk` | `src/render/render.cpp` `write_move_report` `write_position_block` `write_no_move_block` `write_root_evaluation` `write_line_evaluation` `write_white_evaluation` `write_position_move` `write_move_report_group` `write_move_motifs` `write_move_tactic_labels` `write_move_positional_group` `write_tempo_value` `write_initiative_run`; `src/report/move_report.cpp` `replay_line_fens`; `tools/validate_report.py` (line_fens replay in the projection check) | `walked_plies` + 1 position blocks per move; facts placed by their position; tempo rows in the `ImpactGroup::Tempo` case of `write_move_report_group` (from 2026-10-25) |
 | `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` `write_tempo_value` `write_tempo_ledger` `write_initiative_runs` | Two overloads of `text`: move report text and full report text |
 | `ExplanationText` | `src/cli/output.cpp` `write_output` | Prints the rendered text |
 

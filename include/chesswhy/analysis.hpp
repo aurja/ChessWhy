@@ -68,6 +68,9 @@ struct Walk {
 [[nodiscard]] Walk walk(const chess::Board& root, std::span<const std::string> pv_uci); // P1, P3
 [[nodiscard]] int settle_ply(const chess::Board& root, std::span<const chess::Move> line,
                              int k); // P4; line = the walked moves
+// Position at ply 0 followed by the position after each move.
+[[nodiscard]] std::vector<chess::Board>
+board_positions(const chess::Board& root, std::span<const chess::Move> line);
 
 // Consequence of `pv_uci` played from `root` for root's side to move, over the first
 // `walk(root, pv_uci).plies` plies. `root_line` is the engine line the pv came from.
@@ -81,7 +84,13 @@ struct Walk {
 [[nodiscard]] bool tempo_dependent(const std::optional<TempoValue>& root);
 // Sets label and tempo_gained from threatening and stops_threat (§6.2).
 void label_ledger(std::vector<TempoPly>& plies);
+// P6 option A: classify the returned acceptable alternatives.
+[[nodiscard]] std::optional<bool> forced_test_result(std::span<const ReplyLine> lines,
+                                                     int legal_moves);
 [[nodiscard]] int material_balance(const chess::Board& board, chess::Color side); // §6.3
+// P5 reply material, mate and settled result from the P4 settlement position.
+[[nodiscard]] ReplyGain reply_gain(std::span<const chess::Board> positions, int k,
+                                   int through_ply, bool walk_settled);
 // §6.3/P8/P9; line has one move per ledger ply and plies are labelled by label_ledger.
 [[nodiscard]] std::vector<InitiativeRun> initiative_runs(std::span<const TempoPly> plies,
                                                          const chess::Board& root,

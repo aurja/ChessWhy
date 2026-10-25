@@ -765,11 +765,28 @@ inline void add_schema_refutation_judgements(Report& report) {
                                                                .settled = true,
                                                                .gains = false},
                                        .forced_test =
-                                           ForcedTest{.legal_moves = 1,
-                                                      .lines = {ReplyLine{.san = "e5",
-                                                                          .es_units = 1100,
-                                                                          .acceptable = true,
-                                                                          .stops_threat = true}},
+                                           ForcedTest{.legal_moves = 20,
+                                                      .lines = {
+                                                          ReplyLine{.san = "e5",
+                                                                    .es_units = 1100,
+                                                                    .acceptable = true,
+                                                                    .stops_threat = true},
+                                                          ReplyLine{.san = "c5",
+                                                                    .es_units = 1090,
+                                                                    .acceptable = true,
+                                                                    .stops_threat = true},
+                                                          ReplyLine{.san = "e6",
+                                                                    .es_units = 1080,
+                                                                    .acceptable = true,
+                                                                    .stops_threat = true},
+                                                          ReplyLine{.san = "c6",
+                                                                    .es_units = 1070,
+                                                                    .acceptable = true,
+                                                                    .stops_threat = true},
+                                                          ReplyLine{.san = "d5",
+                                                                    .es_units = 800,
+                                                                    .acceptable = false,
+                                                                    .stops_threat = std::nullopt}},
                                                       .forced = true}}},
                     .tempi = Tempi{.white = 1, .black = 0},
                     .runs = {InitiativeRun{.holder = Side::White,
@@ -788,6 +805,9 @@ inline void add_schema_refutation_judgements(Report& report) {
     constexpr const char* fen = "k7/8/2K5/1Q6/8/8/8/8 w - - 0 1";
     Report report = schema_base_report(fen, Side::White, 1000);
     MoveAssessment candidate = schema_move("Qb6", "b5b6", 1000, 8, {"Qb6"}, 1);
+    candidate.consequence.plies = 1;
+    candidate.consequence.terminal_draw =
+        TerminalDraw{.kind = DrawKind::Stalemate, .ply = 1};
     candidate.tempo_ledger_skipped = TempoLedgerSkip::NullMoveUnreliable;
     report.candidates.push_back(std::move(candidate));
     report.playable_truncated = false;

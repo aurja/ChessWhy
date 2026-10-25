@@ -351,7 +351,7 @@
     "move": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rank", "san", "uci", "eval", "depth", "loss", "verdict", "gives_check", "line", "walked_plies", "line_fens", "consequence", "is_tactic", "allows_tactic", "opportunity", "motifs", "root_motifs", "tactic_labels", "positional", "tempo_value", "tempo_gained", "initiative", "impact_order", "parried_threat", "created_threat", "refutation", "games"],
+      "required": ["rank", "san", "uci", "eval", "depth", "loss", "verdict", "gives_check", "line", "walked_plies", "line_fens", "consequence", "is_tactic", "allows_tactic", "opportunity", "motifs", "root_motifs", "tactic_labels", "positional", "tempo_value", "tempo_gained", "initiative", "impact_order", "parried_threat", "created_threat", "refutation", "refutation_skipped", "games"],
       "properties": {
         "rank": {"description": "1-based MultiPV rank, or null for a move assessed by Search C [engine].", "type": ["integer", "null"], "minimum": 1},
         "san": {"description": "Standard algebraic notation for the move [engine].", "type": "string"},
@@ -430,7 +430,7 @@
           ]
         },
         "refutation": {
-          "description": "Opponent's refutation when the move is not playable, with relevant motifs only [engine/rule].",
+          "description": "Opponent's refutation when the move is not playable and refutation_skipped is null, with relevant motifs only [engine/rule].",
           "oneOf": [
             {
               "allOf": [
@@ -440,6 +440,11 @@
             },
             {"type": "null"}
           ]
+        },
+        "refutation_skipped": {
+          "description": "Game-over reason refutation was skipped; game_over iff refutation is null for a non-playable verdict [rule].",
+          "type": ["string", "null"],
+          "enum": ["game_over", null]
         },
         "games": {
           "description": "Number of source games that played this move [games].",
@@ -461,6 +466,19 @@
             "required": ["initiative"]
           },
           "then": {"properties": {"tempo_gained": {"type": "null"}}}
+        },
+        {
+          "if": {
+            "properties": {"verdict": {"enum": ["best", "okay"]}},
+            "required": ["verdict"]
+          },
+          "then": {"properties": {"refutation": {"type": "null"}, "refutation_skipped": {"type": "null"}}},
+          "else": {
+            "anyOf": [
+              {"properties": {"refutation": {"type": "object"}, "refutation_skipped": {"type": "null"}}},
+              {"properties": {"refutation": {"type": "null"}, "refutation_skipped": {"const": "game_over"}}}
+            ]
+          }
         }
       ]
     },
@@ -500,20 +518,33 @@
         "mate": {"description": "Mate distance in moves, or null when the evaluation is not a mate score [engine].", "type": ["integer", "null"]}
       }
     },
+    "terminal_draw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ply"],
+      "properties": {
+        "kind": {"description": "Kind of terminal draw encountered on the walked line [rule].", "enum": ["stalemate", "insufficient_material"]},
+        "ply": {"description": "Ply at which the terminal draw was reached; equals consequence.plies [rule].", "type": "integer", "minimum": 1}
+      }
+    },
     "consequence": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "class", "mate_in", "material", "promotes", "plies"],
+      "required": ["source", "class", "mate_in", "material", "promotes", "plies", "terminal_draw", "settled"],
       "properties": {
         "source": {"description": "Provenance of the consequence classification [rule].", "const": "rule"},
         "class": {"description": "Classification of the threat's consequence [rule].", "enum": ["mate", "material", "promotion", "positional"]},
         "mate_in": {"description": "Mate distance in plies, set iff class is mate [rule].", "type": ["integer", "null"], "minimum": 1},
         "material": {"description": "Net material gain in pawn units for the threatening side over plies [rule].", "type": "integer"},
         "promotes": {"description": "Whether the threatening side promotes within the consequence line [rule].", "type": "boolean"},
-        "plies": {"description": "Number of threat-line plies consumed by the consequence rule [rule].", "type": "integer", "minimum": 0}
+        "plies": {"description": "Number of threat-line plies consumed by the consequence rule [rule].", "type": "integer", "minimum": 0},
+        "terminal_draw": {"description": "Stalemate or insufficient-material draw reached at consequence.plies, or null [rule].", "oneOf": [{"$ref": "#/$defs/terminal_draw"}, {"type": "null"}]},
+        "settled": {"description": "Whether the walked consequence is settled; true whenever plies is less than 10 [rule].", "type": "boolean"}
       },
       "allOf": [
-        {"if": {"properties": {"class": {"const": "mate"}}}, "then": {"properties": {"mate_in": {"type": "integer"}}}, "else": {"properties": {"mate_in": {"type": "null"}}}}
+        {"if": {"properties": {"class": {"const": "mate"}}}, "then": {"properties": {"mate_in": {"type": "integer"}}}, "else": {"properties": {"mate_in": {"type": "null"}}}},
+        {"if": {"properties": {"plies": {"maximum": 9}}, "required": ["plies"]}, "then": {"properties": {"settled": {"const": true}}}},
+        {"if": {"properties": {"settled": {"const": false}}, "required": ["settled"]}, "then": {"properties": {"plies": {"const": 10}}}}
       ]
     },
     "opportunity": {
@@ -646,10 +677,14 @@
         "start_ply": {"description": "First tempo-gaining ply of the run [rule].", "type": "integer", "minimum": 1},
         "end_ply": {"description": "Last ply included in the run [rule].", "type": "integer", "minimum": 1},
         "tempi": {"description": "Number of tempi gained by the holder during the run [rule].", "type": "integer", "minimum": 1},
-        "ending": {"description": "Rule-derived ending of the initiative run [rule].", "enum": ["spent", "contested", "runs", "unfinished"]},
-        "outcome": {"description": "Whether a run's gain is converted or evaporated [rule].", "enum": ["converted", "evaporated"]},
+        "ending": {"description": "Rule-derived ending of the initiative run [rule].", "enum": ["spent", "contested", "runs", "unfinished", "answered", "unresolved"]},
+        "outcome": {"description": "Whether the run's gain is converted, evaporated, or unknown [rule].", "enum": ["converted", "evaporated", "unknown"]},
         "source": {"description": "Provenance of the initiative run [rule].", "const": "rule"}
-      }
+      },
+      "allOf": [
+        {"if": {"properties": {"ending": {"const": "unfinished"}}, "required": ["ending"]}, "then": {"properties": {"outcome": {"const": "unknown"}}}},
+        {"if": {"properties": {"outcome": {"enum": ["converted", "evaporated"]}}, "required": ["outcome"]}, "then": {"properties": {"ending": {"not": {"const": "unfinished"}}}}}
+      ]
     },
     "impact_group": {
       "description": "Move-report group name, in §6.7 base order and rank sorting [rule].",
@@ -666,15 +701,24 @@
           },
           "then": {"properties": {"in_use": {"type": "boolean"}}},
           "else": {"properties": {"in_use": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"change": {"const": "appears"}}, "required": ["change"]},
+          "then": {"properties": {"captured": {"const": false}}}
+        },
+        {
+          "if": {"properties": {"captured": {"const": true}}, "required": ["captured"]},
+          "then": {"properties": {"change": {"const": "disappears"}}}
         }
       ],
-      "required": ["source", "ply", "change", "holds_at_end", "net_change", "in_use", "tag", "side", "pieces", "file", "value"],
+      "required": ["source", "ply", "change", "holds_at_end", "net_change", "captured", "in_use", "tag", "side", "pieces", "file", "value"],
       "properties": {
         "source": {"description": "Positional-change provenance [rule].", "const": "rule"},
         "ply": {"description": "Ply at which the feature appeared or disappeared [rule].", "type": "integer", "minimum": 1},
         "change": {"description": "Whether the feature appeared or disappeared [rule].", "enum": ["appears", "disappears"]},
         "holds_at_end": {"description": "Whether the change's feature identity has this final state at the end of the analyzed line [rule].", "type": "boolean"},
         "net_change": {"description": "Whether this is the last change of a feature that differs from the root [rule].", "type": "boolean"},
+        "captured": {"description": "Whether this disappearance was caused by capture of a piece in the feature [rule].", "type": "boolean"},
         "in_use": {"description": "Whether a net positional change passes the use test, or null when it is not net [rule].", "type": ["boolean", "null"]},
         "tag": {"description": "Positional feature tag [rule].", "enum": ["isolated_pawn", "doubled_pawns", "tripled_pawns", "backward_pawn", "passed_pawn", "connected_passed_pawns", "pawn_islands", "pawn_chain", "castling_kingside", "castling_queenside", "king_shield_gap", "open_file_near_king", "half_open_file_near_king", "king_zone_attacker", "bishop_pair", "rook_open_file", "rook_half_open_file", "rook_seventh", "outpost", "bad_bishop", "mobility_lead", "space_lead", "development_lead", "material_ahead", "exchange_up"]},
         "side": {"description": "Side that owns or benefits from the positional feature [rule].", "$ref": "#/$defs/side"},

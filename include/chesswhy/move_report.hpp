@@ -1,4 +1,4 @@
-// Move report document declarations for report v8. Implemented in batch 2.
+// Move report document declarations for report v9.
 #pragma once
 
 #include "chesswhy/report.hpp"
@@ -53,7 +53,8 @@ struct MoveReport {
     std::vector<ImpactGroup> impact_order;
     std::optional<ParriedThreat> parried_threat;
     std::optional<Threat> created_threat; // mate, material or promotion; no motifs
-    std::optional<Threat> refutation;     // motifs filtered (§4.6)
+    std::optional<Threat> refutation; // motifs filtered (§4.6)
+    std::optional<RefutationSkip> refutation_skipped;
     std::optional<int> games;
 };
 

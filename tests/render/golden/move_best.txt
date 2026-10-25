@@ -14,11 +14,15 @@ Played in 5421 of 10260 games (platform: over the board; source: Lichess broadca
 Position: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
   Evaluation: 51.1% for White (cp 15) [engine]
   Move: g6 (Black)
+  Tempo value: 31.4% for Black (tempo-dependent position) [engine]
   Uses: back_rank_weakness: k e8 (indirect) [rule]
 
 Position: r1bqkbnr/pppp1p1p/2n3p1/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 4
   Evaluation: 51.1% for White (line score) [engine]
   Move: d3 (White)
+  Tempo value: 39.4% for White (tempo-dependent position) [engine]
+  Tempo: White gains a tempo [engine]
+  Initiative: White from ply 2, 1 tempo; spent at ply 4; converted [rule]
   Parries White's threat: Qxf7# (White mates in 1) [engine]
   Threatens (if White passes): Nxe4 (Black wins 1 pawn net by ply 6) [engine]
 

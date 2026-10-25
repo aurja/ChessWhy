@@ -220,7 +220,7 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
         GameMoveCount{.san = "c3", .uci = "c2c3", .games = 3});
 
     const auto document = move_reports(report);
-    CHECK(document.schema_version == 8);
+    CHECK(document.schema_version == 9);
     CHECK(document.input.moves == "all");
     CHECK(document.engine.multipv == 6);
     CHECK(document.position.fen == report.position.fen);
@@ -452,7 +452,7 @@ TEST_CASE("move report tempo projections are null exactly when no ledger exists"
                                            .end_ply = 1,
                                            .tempi = 1,
                                            .ending = InitiativeEnding::Unfinished,
-                                           .outcome = InitiativeOutcome::Converted}}};
+                                           .outcome = InitiativeOutcome::Unknown}}};
 
     const auto document = move_reports(report);
     REQUIRE(document.position.tempo_value.has_value());
@@ -479,6 +479,8 @@ TEST_CASE("move report tempo projections are null exactly when no ledger exists"
     CHECK(json["position"]["tempo_value"]["source"] == "engine");
     CHECK(json["moves"][0]["tempo_gained"][0]["source"] == "engine");
     CHECK(json["moves"][0]["initiative"][0]["source"] == "rule");
+    CHECK(json["moves"][0]["initiative"][0]["ending"] == "unfinished");
+    CHECK(json["moves"][0]["initiative"][0]["outcome"] == "unknown");
     CHECK(json["moves"][1]["tempo_gained"].is_null());
     CHECK(json["moves"][1]["initiative"].is_null());
     CHECK(json["moves"][1]["tempo_value"].is_null());
@@ -592,12 +594,17 @@ TEST_CASE("move report leaves restricted motifs unmerged when restriction or con
     }
 }
 
-TEST_CASE("move report JSON uses the v8 moves shape and stable key order", "[unit]") {
+TEST_CASE("move report JSON uses the v9 moves shape and stable key order", "[unit]") {
     auto report = base_report();
+    report.input.selection.keywords = {Selection::Keyword::All};
     report.candidates[0].parries_threat = ParryInfo{.parries = true};
+    report.candidates[0].consequence.terminal_draw =
+        TerminalDraw{.kind = DrawKind::Stalemate, .ply = 2};
+    report.candidates[0].positional.push_back(
+        positional_change(PositionalTag::MobilityLead, Side::White, 12, 1, true));
+    report.candidates[5].refutation_skipped = RefutationSkip::GameOver;
     report.threats.emplace();
     report.threats->black = threat(ConsequenceClass::Material);
-    report.candidates[0].refutation.reset();
     const auto json = to_json(move_reports(report));
     const auto keys = [](const nlohmann::ordered_json& value) {
         std::vector<std::string> result;
@@ -622,8 +629,12 @@ TEST_CASE("move report JSON uses the v8 moves shape and stable key order", "[uni
               "line_fens",    "consequence", "is_tactic",     "allows_tactic",  "opportunity",
               "motifs",       "root_motifs", "tactic_labels", "positional",     "tempo_value",
               "tempo_gained", "initiative",  "impact_order",  "parried_threat", "created_threat",
-              "refutation",   "games"});
+              "refutation",   "refutation_skipped", "games"});
     CHECK(keys(json["moves"][0]["parried_threat"]) == std::vector<std::string>{"threat", "test"});
-    CHECK(json["schema_version"] == 8);
+    CHECK(json["moves"][0]["consequence"]["terminal_draw"]["kind"] == "stalemate");
+    CHECK(json["moves"][0]["consequence"]["settled"] == true);
+    CHECK(json["moves"][0]["positional"][0]["captured"] == false);
+    CHECK(json["moves"][5]["refutation_skipped"] == "game_over");
+    CHECK(json["schema_version"] == 9);
     CHECK(json["document"] == "moves");
 }

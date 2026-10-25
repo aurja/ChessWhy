@@ -213,6 +213,19 @@ int settle_ply(const chess::Board& root, std::span<const chess::Move> line, int 
     return j;
 }
 
+std::vector<chess::Board> board_positions(const chess::Board& root,
+                                          std::span<const chess::Move> line) {
+    std::vector<chess::Board> positions;
+    positions.reserve(line.size() + 1);
+    chess::Board board = root;
+    positions.push_back(board);
+    for (const chess::Move move : line) {
+        board.makeMove(move);
+        positions.push_back(board);
+    }
+    return positions;
+}
+
 Consequence consequence(const chess::Board& root, std::span<const std::string> pv_uci,
                         const engine::Line& root_line) {
     Consequence result;
@@ -323,6 +336,26 @@ void label_ledger(std::vector<TempoPly>& plies) {
     }
 }
 
+std::optional<bool> forced_test_result(std::span<const ReplyLine> lines, int legal_moves) {
+    if (lines.empty() || legal_moves < 1) {
+        throw std::invalid_argument("forced_test_result requires returned lines and legal moves");
+    }
+    bool all_acceptable = true;
+    for (const ReplyLine& line : lines) {
+        if (!line.acceptable) {
+            all_acceptable = false;
+        } else if (!line.stops_threat) {
+            throw std::invalid_argument("acceptable forced-test line requires a threat result");
+        } else if (!*line.stops_threat) {
+            return false;
+        }
+    }
+    if (all_acceptable && lines.size() < static_cast<std::size_t>(legal_moves)) {
+        return std::nullopt;
+    }
+    return true;
+}
+
 int material_balance(const chess::Board& board, chess::Color side) {
     constexpr std::array kPieceValues{1, 3, 3, 5, 9};
     constexpr std::array kPieceTypes{chess::PieceType::PAWN, chess::PieceType::KNIGHT,
@@ -335,6 +368,36 @@ int material_balance(const chess::Board& board, chess::Color side) {
         balance -= board.pieces(kPieceTypes[index], ~side).count() * value;
     }
     return balance;
+}
+
+ReplyGain reply_gain(std::span<const chess::Board> positions, int k, int through_ply,
+                     bool walk_settled) {
+    if (k < 2 || static_cast<std::size_t>(k) >= positions.size() || through_ply < k ||
+        static_cast<std::size_t>(through_ply) >= positions.size()) {
+        throw std::invalid_argument("reply_gain requires a reply and settlement position in line");
+    }
+    const chess::Color replier_color = positions[static_cast<std::size_t>(k - 1)].sideToMove();
+    const chess::Board& settle_board = positions[static_cast<std::size_t>(through_ply)];
+    const int material = material_balance(settle_board, replier_color) -
+                         material_balance(positions[static_cast<std::size_t>(k - 2)],
+                                          replier_color);
+    bool mates = false;
+    if (settle_board.inCheck()) {
+        chess::Movelist legal_moves;
+        chess::movegen::legalmoves(legal_moves, settle_board);
+        mates = legal_moves.empty() && settle_board.sideToMove() != replier_color;
+    }
+    const bool settled =
+        static_cast<std::size_t>(through_ply) < positions.size() - 1 || walk_settled;
+    ReplyGain result{.material = material,
+                     .mates = mates,
+                     .through_ply = through_ply,
+                     .settled = settled,
+                     .gains = std::nullopt};
+    if (settled) {
+        result.gains = material >= 1 || mates;
+    }
+    return result;
 }
 
 std::vector<InitiativeRun> initiative_runs(std::span<const TempoPly> plies,
@@ -353,14 +416,7 @@ std::vector<InitiativeRun> initiative_runs(std::span<const TempoPly> plies,
         return runs;
     }
 
-    std::vector<chess::Board> boards;
-    boards.reserve(n + 1);
-    chess::Board board = root;
-    boards.push_back(board);
-    for (std::size_t index = 0; index < n; ++index) {
-        board.makeMove(line[index]);
-        boards.push_back(board);
-    }
+    const std::vector<chess::Board> boards = board_positions(root, line);
 
     runs.reserve(n);
     std::size_t scan = 0;

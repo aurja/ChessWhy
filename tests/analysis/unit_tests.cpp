@@ -467,6 +467,44 @@ TEST_CASE("settle point advances only while the next move continues", "[analysis
     CHECK(chesswhy::analysis::settle_ply(root, line, 2) == 3);
 }
 
+TEST_CASE("P5 material uses the full P4 settlement line", "[analysis][unit]") {
+    const chess::Board root("8/pp2R2p/3BNkb1/3P1p2/7p/8/PP1rr2P/5R1K w - - 1 32");
+    const auto line = parse_san_line(root, {"h3", "Bf7", "Rxf7+", "Kxf7", "Rxf5+", "Kg6"});
+    const auto boards = chesswhy::analysis::board_positions(root, line);
+
+    const int through_ply = chesswhy::analysis::settle_ply(root, line, 4);
+    const auto gain = chesswhy::analysis::reply_gain(boards, 4, through_ply, true);
+
+    REQUIRE(through_ply == 6);
+    REQUIRE(boards.size() == 7);
+    CHECK(gain.material == 1);
+    CHECK_FALSE(gain.mates);
+    CHECK(gain.through_ply == 6);
+    CHECK(gain.settled);
+    CHECK(gain.gains == true);
+}
+
+TEST_CASE("P6 classifies the returned MultiPV alternatives", "[analysis][unit]") {
+    using chesswhy::ReplyLine;
+    using chesswhy::analysis::forced_test_result;
+    std::vector<ReplyLine> lines = {
+        {.san = "a2", .es_units = 1000, .acceptable = true, .stops_threat = true},
+        {.san = "b2", .es_units = 990, .acceptable = true, .stops_threat = true},
+        {.san = "c2", .es_units = 980, .acceptable = true, .stops_threat = true},
+    };
+
+    CHECK(forced_test_result(lines, 27) == std::nullopt);
+    lines[1].stops_threat = false;
+    CHECK(forced_test_result(lines, 27) == false);
+    lines[1].stops_threat = true;
+    lines[2].acceptable = false;
+    lines[2].stops_threat = std::nullopt;
+    CHECK(forced_test_result(lines, 27) == true);
+    lines[2].acceptable = true;
+    lines[2].stops_threat = true;
+    CHECK(forced_test_result(lines, 3) == true);
+}
+
 TEST_CASE("material balance uses pawn, minor, rook and queen values", "[analysis][unit]") {
     const chess::Board board("4k3/3q4/2r1b3/3p4/4P3/3BN3/3R4/4K3 w - - 0 1");
 

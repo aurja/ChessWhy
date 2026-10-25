@@ -165,7 +165,10 @@ null if all `m` lines are acceptable and `m < legal`; else true. Clarification c
 the Captain at checkpoint 1 (2026-10-25, option A): "unresolved" is narrower than D3's
 wording; a reply is unforced as soon as one acceptable alternative fails to stop the threat,
 even when all five lines are acceptable. The played reply need not be among the lines (it is
-in 71 of 75 of the probe's tested plies).
+in 71 of 75 of the probe's tested plies). When Stockfish returns fewer distinct lines than
+requested (its last iteration was cut at the node limit), `m` is the number of lines
+returned; the rule is otherwise unchanged, so a short result is never `true` unless it holds
+a line that is not acceptable (2026-10-25, §4).
 
 **P7 Ply labels and tempo gained (R9).** For ply `k` answering a threatening ply `k−1` with
 `stops_threat = true`: `counter_threat` if it is a threatening move; else `gaining_reply` if
@@ -319,7 +322,7 @@ position blocks, after the `Move:` row and before the `Uses:` rows:
 Expected V2 (F41) `Bxa4` after part 1: block 0 adds `Tempo value: 29.6% for Black
 (tempo-dependent position) [engine]`, block 1 adds `Tempo value: 24.8% for White
 (tempo-dependent position) [engine]`; no tempo or initiative row. F40 `Qxd5`: block 1 adds
-`Tempo value: 17.3% for White (tempo-dependent position) [engine]`, `Tempo: White gains a
+`Tempo value: 17.2% for White (tempo-dependent position) [engine]`, `Tempo: White gains a
 tempo [engine]` and `Initiative: White from ply 2, 1 tempo; spent at ply 4; evaporated
 [rule]`.
 
@@ -365,3 +368,5 @@ Batches: WP1 + WP2; then WP3 + WP4; then WP5; WP6 with the milestone-end gate.
 | 2026-10-25 | Checkpoint 1: diagrams, §3.8 sample and P6 option A (unresolved only when all searched lines are acceptable and stop the threat) approved; batch 1 spawned | Captain |
 | 2026-10-25 | P8: ply `e + 1` is never a `pure_reply` (follows from P7 and PostM4_EM3 §6.3; WP1 question) | Deputy |
 | 2026-10-25 | WP2 acceptance: PU10's `king_shield_gap` g (ply 5) becomes cut under P11, since at the end only `Ne1` attacks a g-file zone square; the freeze's "PU10 still kept" was not checked against rule (iii) | Deputy |
+| 2026-10-25 | P6: `m` is the number of distinct lines Stockfish returns when that is fewer than `min(5, legal)` (F32 `--moves all`, ply after `…f6 d4`: 4 of 5 lines, the 5th was a lowerbound at the node limit); never makes a short result `true` without an unacceptable line. The engine wrapper's line collection is unchanged | Deputy |
+| 2026-10-25 | §3.8 sample: F40 block 1 reads `17.2%`, not `17.3%`. The EM3 formatter prints the double 0.1725 as 17.2 (and 0.2965 as 29.6, as the sample already had); the formatter is unchanged (WP3) | Deputy |
