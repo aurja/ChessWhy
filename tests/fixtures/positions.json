@@ -271,7 +271,7 @@
       "id": "F12",
       "title": "blunder against a material threat",
       "source": "Kasparov, Gary - Karpov, Anatoly, Wch33-KK3 1986, before 26.Ng4",
-      "reason": "Ng4 loses 0.172 and allows a tactic, so the new scale calls it a blunder rather than a mistake.",
+      "reason": "Ng4 loses 0.21 and allows a tactic, so the new scale calls it a blunder rather than a mistake.",
       "args": ["--fen", "1r3bk1/5pp1/b4q1p/2nPN3/2p5/N2nR2P/1P3PP1/1BBQ2K1 w - - 1 26", "--moves", "Ng4"],
       "equals": {
         "/position/side_to_move": "white",
