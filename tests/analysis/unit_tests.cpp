@@ -49,7 +49,7 @@ void make_gaining_reply(chesswhy::TempoPly& ply) {
 
 void make_unforced_reply(chesswhy::TempoPly& ply) {
     make_pure_reply(ply);
-    ply.forced_test->forced = false;
+    ply.forced_test = chesswhy::ForcedTest{.legal_moves = 2, .lines = {}, .forced = false};
 }
 
 void make_unresolved_reply(chesswhy::TempoPly& ply) {
@@ -267,8 +267,10 @@ TEST_CASE("walk reports a stalemate draw at its terminal ply", "[analysis][unit]
     const auto walked = chesswhy::analysis::walk(root, pv);
     REQUIRE(walked.terminal_draw.has_value());
     CHECK(walked.plies == 1);
-    CHECK(walked.terminal_draw->kind == chesswhy::DrawKind::Stalemate);
-    CHECK(walked.terminal_draw->ply == 1);
+    if (walked.terminal_draw.has_value()) {
+        CHECK(walked.terminal_draw->kind == chesswhy::DrawKind::Stalemate);
+        CHECK(walked.terminal_draw->ply == 1);
+    }
 }
 
 TEST_CASE("walk stops at illegal moves and the end of a short PV", "[analysis][unit]") {
@@ -422,7 +424,8 @@ TEST_CASE("tempo ledger labels cover all PostM4_EM5 replies and tempo gain", "[a
     plies[10].threatening = true;
     plies[11].stops_threat = true;
     make_pure_reply(plies[11]);
-    plies[11].forced_test->forced = std::nullopt;
+    plies[11].forced_test =
+        chesswhy::ForcedTest{.legal_moves = 2, .lines = {}, .forced = std::nullopt};
 
     label_ledger(plies);
 

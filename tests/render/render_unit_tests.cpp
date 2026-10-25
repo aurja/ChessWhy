@@ -154,7 +154,7 @@ tempo_ply(int ply, std::string san, chesswhy::Side side, chesswhy::TempoPlyLabel
         .stops_threat = stops_threat ? std::optional<bool>{true} : std::nullopt,
         .label = label,
         .tempo_gained = tempo_gained,
-        .reply_gain = std::move(reply_gain),
+        .reply_gain = reply_gain,
         .forced_test = std::move(forced_test),
     };
 }
