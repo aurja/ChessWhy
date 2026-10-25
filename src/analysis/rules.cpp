@@ -14,7 +14,6 @@
 
 namespace chesswhy::analysis {
 
-
 int es_units(const engine::Line& line) {
     return (2 * line.win) + line.draw;
 }
@@ -42,7 +41,6 @@ int multipv_lines(const Selection& selection, int legal_moves) {
 bool is_detailed_line(int line_number, bool selected) {
     return line_number >= 1 && (line_number <= kDetailedLines || selected);
 }
-
 
 Verdict verdict(int loss_units, bool at_least_best_score, bool move_allows_tactic) {
     if (loss_units <= kPlayableUnits) {

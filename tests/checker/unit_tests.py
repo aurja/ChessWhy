@@ -436,7 +436,9 @@ class CheckerRelationsTests(unittest.TestCase):
             "asked_moves": [],
         }
         negative_failures: list[checker.Failure] = []
-        checker.check_tactic_invariants(report, chess.Board(START_FEN), negative_failures)
+        checker.check_tactic_invariants(
+            report, chess.Board(START_FEN), negative_failures
+        )
         self.assertNotIn(
             "/candidates/0/opportunity/margin",
             [path for path, _ in negative_failures],
@@ -444,7 +446,9 @@ class CheckerRelationsTests(unittest.TestCase):
 
         negative_margin["margin"] = 0.0
         negative_failures.clear()
-        checker.check_tactic_invariants(report, chess.Board(START_FEN), negative_failures)
+        checker.check_tactic_invariants(
+            report, chess.Board(START_FEN), negative_failures
+        )
         self.assertIn(
             "/candidates/0/opportunity/margin",
             [path for path, _ in negative_failures],

@@ -118,10 +118,9 @@ void annotate_threat_line(const chess::Board& root, std::span<const chess::Move>
     threat.tactic_labels = tactics::tactic_labels(root, moves);
 }
 
-void judge_refutation(engine::Engine& engine, int explanation_depth,
-                      std::uint64_t& nodes_searched, const chess::Board& root,
-                      std::span<const std::string> pv_uci, const Eval& refuted_move_eval,
-                      Threat& refutation) {
+void judge_refutation(engine::Engine& engine, int explanation_depth, std::uint64_t& nodes_searched,
+                      const chess::Board& root, std::span<const std::string> pv_uci,
+                      const Eval& refuted_move_eval, Threat& refutation) {
     if (game_over(root)) {
         return;
     }
@@ -799,8 +798,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         const Eval line_eval = eval_for(line, side_to_move, side_to_move);
         std::vector<chess::Move> walked_line;
         auto candidate = assess_move(
-            board, line, best_line, line.pv_uci.front(), true,
-            at_least_score(line_eval, best_eval),
+            board, line, best_line, line.pv_uci.front(), true, at_least_score(line_eval, best_eval),
             index == 0 ? root_opportunity : std::nullopt, report.position.motifs, walked_line);
         const bool selected = selected_by_selection(request.selection, candidate, index);
         if (is_detailed_line(static_cast<int>(index + 1), selected)) {

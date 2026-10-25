@@ -28,7 +28,7 @@ struct Options {
 
 struct SearchRequest {
     std::string fen;
-    int depth = 0;                            // go depth; >= 1
+    int depth = 0; // go depth; >= 1
     int multipv = 1;
     std::vector<std::string> searchmoves_uci; // empty: all legal moves
 };

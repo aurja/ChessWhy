@@ -209,8 +209,7 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
     CHECK(help_out.str().find("every legal move") != std::string::npos);
     CHECK(help_out.str().find("several times the default time") != std::string::npos);
     CHECK(help_out.str().find("--search-budget N (1-60; default 18)") != std::string::npos);
-    CHECK(help_out.str().find("--explanation-budget N (1-60; default 14)") !=
-          std::string::npos);
+    CHECK(help_out.str().find("--explanation-budget N (1-60; default 14)") != std::string::npos);
     CHECK(help_out.str().find("--budget") == std::string::npos);
     CHECK(help_out.str().find("--level") == std::string::npos);
 
@@ -248,9 +247,8 @@ TEST_CASE("CLI argument parsing applies defaults and validates usage", "[cli][un
                        "invalid integer for --explanation-budget: 61");
     expect_exact_error({"--fen", fen, "--explanation-budget", "x"},
                        "invalid integer for --explanation-budget: x");
-    expect_exact_error(
-        {"--fen", fen, "--explanation-budget", "12", "--explanation-budget", "13"},
-        "duplicate flag --explanation-budget");
+    expect_exact_error({"--fen", fen, "--explanation-budget", "12", "--explanation-budget", "13"},
+                       "duplicate flag --explanation-budget");
     expect_error({"--fen", fen, "--game", "2"}, "--game");
     expect_error({"--fen", fen, "--game", "1"}, "--game");
     expect_error({"--fen", fen, "--threads", "0"}, "--threads");

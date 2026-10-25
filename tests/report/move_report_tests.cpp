@@ -624,12 +624,11 @@ TEST_CASE("move report JSON uses the v10 moves shape and stable key order", "[un
     CHECK(keys(json) == std::vector<std::string>{"schema_version", "document", "input", "engine",
                                                  "position", "selection", "opening", "games",
                                                  "moves"});
-    CHECK(keys(json["input"]) ==
-          std::vector<std::string>{"source", "fen", "pgn_game", "pgn_ply", "moves", "selection",
-                                   "search_budget", "explanation_budget"});
-    CHECK(keys(json["engine"]) ==
-          std::vector<std::string>{"name", "threads", "hash_mb", "multipv", "reproducible",
-                                   "nodes_searched"});
+    CHECK(keys(json["input"]) == std::vector<std::string>{"source", "fen", "pgn_game", "pgn_ply",
+                                                          "moves", "selection", "search_budget",
+                                                          "explanation_budget"});
+    CHECK(keys(json["engine"]) == std::vector<std::string>{"name", "threads", "hash_mb", "multipv",
+                                                           "reproducible", "nodes_searched"});
     CHECK(json["input"]["search_budget"] == 18);
     CHECK(json["input"]["explanation_budget"] == 14);
     CHECK(keys(json["selection"]) == std::vector<std::string>{"keywords", "top", "moves",

@@ -150,9 +150,7 @@ def at_least_score(move: JsonValue, best: JsonValue) -> bool:
 
     move_order, best_order = score_order(move), score_order(best)
     return (
-        move_order is not None
-        and best_order is not None
-        and move_order >= best_order
+        move_order is not None and best_order is not None and move_order >= best_order
     )
 
 
@@ -171,7 +169,8 @@ def check_v10_fields(report: JsonObject, failures: list[Failure]) -> None:
         failures,
         "/schema_version",
         "schema_version must be 10",
-        type(report.get("schema_version")) is int and report.get("schema_version") == 10,
+        type(report.get("schema_version")) is int
+        and report.get("schema_version") == 10,
     )
     input_metadata = as_object(report.get("input"))
     if input_metadata is not None:
@@ -517,9 +516,7 @@ def check_selection_relations(
         legal_moves = root.legal_moves.count()
         if legal_moves:
             whole_board = bool(requested_keywords & WHOLE_BOARD_KEYWORDS)
-            requested_width = (
-                legal_moves if whole_board else max(5, requested_top or 0)
-            )
+            requested_width = legal_moves if whole_board else max(5, requested_top or 0)
             engine = as_object(report.get("engine"))
             if engine is not None:
                 fail(

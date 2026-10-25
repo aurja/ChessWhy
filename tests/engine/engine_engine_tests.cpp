@@ -53,15 +53,11 @@ TEST_CASE("Stockfish fixed-depth searches are reproducible", "[engine]") {
     CHECK(engine.name().starts_with("Stockfish"));
 
     constexpr auto start_fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
-    CHECK_THROWS_AS(engine.search(SearchRequest{.fen = start_fen,
-                                                .depth = 0,
-                                                .multipv = 1,
-                                                .searchmoves_uci = {}}),
+    CHECK_THROWS_AS(engine.search(SearchRequest{
+                        .fen = start_fen, .depth = 0, .multipv = 1, .searchmoves_uci = {}}),
                     EngineError);
-    CHECK_THROWS_AS(engine.search(SearchRequest{.fen = start_fen,
-                                                .depth = 1,
-                                                .multipv = 0,
-                                                .searchmoves_uci = {}}),
+    CHECK_THROWS_AS(engine.search(SearchRequest{
+                        .fen = start_fen, .depth = 1, .multipv = 0, .searchmoves_uci = {}}),
                     EngineError);
     const SearchRequest repeat_request{
         .fen = start_fen, .depth = 5, .multipv = 1, .searchmoves_uci = {}};

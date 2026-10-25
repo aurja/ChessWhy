@@ -92,9 +92,9 @@ TEST_CASE("JSON follows v10 report key order", "[unit]") {
     CHECK(keys(json) == std::vector<std::string>{
                             "schema_version", "document", "input", "engine", "position", "threats",
                             "candidates", "playable_truncated", "asked_moves", "opening", "games"});
-    CHECK(keys(json["input"]) == std::vector<std::string>{
-                                     "source", "fen", "pgn_game", "pgn_ply", "moves", "selection",
-                                     "search_budget", "explanation_budget"});
+    CHECK(keys(json["input"]) == std::vector<std::string>{"source", "fen", "pgn_game", "pgn_ply",
+                                                          "moves", "selection", "search_budget",
+                                                          "explanation_budget"});
     CHECK(json["input"]["search_budget"] == 18);
     CHECK(json["input"]["explanation_budget"] == 14);
     CHECK(keys(json["input"]["selection"]) == std::vector<std::string>{"keywords", "top", "moves"});

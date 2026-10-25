@@ -413,7 +413,6 @@ std::string to_string(Side side) {
     throw std::invalid_argument(invalid_enum("Side", side));
 }
 
-
 std::string to_string(InputSource source) {
     switch (source) {
     case InputSource::Fen:

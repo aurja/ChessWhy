@@ -350,8 +350,7 @@ int run_timing() {
             std::cerr << failure << '\n';
         }
         std::cout << "cli_timing total wall time: "
-                  << std::chrono::duration<double>(Clock::now() - total_start).count()
-                  << " s\n";
+                  << std::chrono::duration<double>(Clock::now() - total_start).count() << " s\n";
         return failures.empty() ? 0 : 1;
     } catch (const std::exception& error) {
         std::cerr << "cli_timing failed: " << error.what() << '\n';
