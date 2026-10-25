@@ -1,5 +1,5 @@
 // Searches A–E and R and the rules that turn them into threats, urgency, verdicts and
-// opportunities, tempo and initiative. Frozen by Planning/milestones/PostM4_EM3.md.
+// opportunities, tempo and initiative. Frozen by Planning/milestones/PostM4_EM5.md.
 #pragma once
 
 #include "chesswhy/engine.hpp"
@@ -21,7 +21,6 @@ inline constexpr int kPlayableUnits = 100;
 inline constexpr int kInaccuracyUnits = 200;
 inline constexpr int kOpportunityMarginUnits = 260;
 inline constexpr int kHorizonPlies = 6;          // H
-inline constexpr int kCaptureExtension = 4;      // extra plies while the line keeps capturing
 inline constexpr int kLinePlies = 10;            // plies kept in report lines
 inline constexpr int kTempoDependentUnits = 200; // label tempo_dependent above this
 inline constexpr int kNonTempoUnits = 100;       // label non_tempo from 0 below this
@@ -58,14 +57,21 @@ void analyse(engine::Engine& engine, const Request& request, Report& report);
 // Side to move has at most one piece other than king and pawns.
 [[nodiscard]] bool null_move_prone(const chess::Board& board);
 
-// Plies of `pv_uci` the consequence rule walks from `root` (M1 §4.3, M2 §5): the first
-// kHorizonPlies plies, then further plies while each one is a capture, at most kLinePlies;
-// stops early at the first illegal or missing move. Motif lists cover exactly these plies.
-[[nodiscard]] int walked_plies(const chess::Board& root, std::span<const std::string> pv_uci);
+struct Walk {
+    int plies = 0;
+    bool settled = true;
+    std::optional<TerminalDraw> terminal_draw;
+};
+[[nodiscard]] bool insufficient_material(const chess::Board& board); // P1
+[[nodiscard]] bool game_over(const chess::Board& board); // §3.1
+[[nodiscard]] bool continuation_move(const chess::Board& before, chess::Move move); // §3.1
+[[nodiscard]] Walk walk(const chess::Board& root, std::span<const std::string> pv_uci); // P1, P3
+[[nodiscard]] int settle_ply(const chess::Board& root, std::span<const chess::Move> line,
+                             int k); // P4; line = the walked moves
 
 // Consequence of `pv_uci` played from `root` for root's side to move, over the first
-// walked_plies(root, pv_uci) plies (`plies` equals it). `root_line` is the engine line the
-// pv came from (mate score, root side's point of view).
+// `walk(root, pv_uci).plies` plies. `root_line` is the engine line the pv came from.
+
 [[nodiscard]] Consequence consequence(const chess::Board& root, std::span<const std::string> pv_uci,
                                       const engine::Line& root_line);
 
@@ -76,10 +82,11 @@ void analyse(engine::Engine& engine, const Request& request, Report& report);
 // Sets label and tempo_gained from threatening and stops_threat (§6.2).
 void label_ledger(std::vector<TempoPly>& plies);
 [[nodiscard]] int material_balance(const chess::Board& board, chess::Color side); // §6.3
-// §6.3; `line` has one move per ledger ply and `plies` are the output of label_ledger.
+// §6.3/P8/P9; line has one move per ledger ply and plies are labelled by label_ledger.
 [[nodiscard]] std::vector<InitiativeRun> initiative_runs(std::span<const TempoPly> plies,
                                                          const chess::Board& root,
                                                          std::span<const chess::Move> line,
-                                                         std::span<const PositionalChange> changes);
+                                                         std::span<const PositionalChange> changes,
+                                                         bool walk_settled);
 
 } // namespace chesswhy::analysis

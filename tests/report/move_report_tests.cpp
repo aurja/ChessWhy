@@ -29,7 +29,9 @@ using namespace chesswhy;
                                     .mate_in = std::nullopt,
                                     .material = 1,
                                     .promotes = false,
-                                    .plies = 2};
+                                    .plies = 2,
+                                    .terminal_draw = std::nullopt,
+                                    .settled = true};
     value.is_tactic = true;
     value.allows_tactic = verdict == Verdict::Blunder;
     return value;
@@ -117,6 +119,7 @@ using namespace chesswhy;
         .change = PositionalChangeKind::Appears,
         .holds_at_end = holds,
         .net_change = net_change,
+        .captured = false,
         .in_use = in_use,
         .feature =
             PositionalFeature{
@@ -440,7 +443,9 @@ TEST_CASE("move report tempo projections are null exactly when no ledger exists"
                                        .threat_rank = 2,
                                        .stops_threat = std::nullopt,
                                        .label = TempoPlyLabel::Threatening,
-                                       .tempo_gained = true}},
+                                       .tempo_gained = true,
+                                       .reply_gain = std::nullopt,
+                                       .forced_test = std::nullopt}},
                     .tempi = Tempi{.white = 1, .black = 0},
                     .runs = {InitiativeRun{.holder = Side::White,
                                            .start_ply = 1,
@@ -485,7 +490,8 @@ TEST_CASE("impact order sorts ranked groups stably around both positional base o
     move.created_threat = threat(ConsequenceClass::Material);
     move.motifs.push_back(motif_with(MotifContribution::Direct));
     move.consequence = Consequence{
-        .cls = ConsequenceClass::Mate, .mate_in = 1, .material = 0, .promotes = false, .plies = 1};
+        .cls = ConsequenceClass::Mate, .mate_in = 1, .material = 0, .promotes = false, .plies = 1,
+        .terminal_draw = std::nullopt, .settled = true};
     move.tempo_value = TempoValue{.side = Side::White,
                                   .moves_units = 1200,
                                   .passes_units = 1000,

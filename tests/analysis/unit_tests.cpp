@@ -119,49 +119,26 @@ TEST_CASE("tactic and allows-tactic use the move's line consequence", "[analysis
     using chesswhy::analysis::allows_tactic;
     using chesswhy::analysis::is_tactic;
 
-    CHECK(is_tactic(Consequence{.cls = ConsequenceClass::Mate,
-                                .mate_in = std::nullopt,
-                                .material = 0,
-                                .promotes = false,
-                                .plies = 0}));
-    CHECK(is_tactic(Consequence{.cls = ConsequenceClass::Material,
-                                .mate_in = std::nullopt,
-                                .material = 0,
-                                .promotes = false,
-                                .plies = 0}));
-    CHECK_FALSE(is_tactic(Consequence{.cls = ConsequenceClass::Promotion,
-                                      .mate_in = std::nullopt,
-                                      .material = 0,
-                                      .promotes = false,
-                                      .plies = 0}));
-    CHECK_FALSE(is_tactic(Consequence{.cls = ConsequenceClass::Positional,
-                                      .mate_in = std::nullopt,
-                                      .material = 0,
-                                      .promotes = false,
-                                      .plies = 0}));
-    CHECK(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
-                                    .mate_in = std::nullopt,
-                                    .material = -1,
-                                    .promotes = false,
-                                    .plies = 0},
+    const auto consequence = [](ConsequenceClass cls, int material, bool promotes) {
+        return Consequence{.cls = cls,
+                           .mate_in = std::nullopt,
+                           .material = material,
+                           .promotes = promotes,
+                           .plies = 0,
+                           .terminal_draw = std::nullopt,
+                           .settled = true};
+    };
+    CHECK(is_tactic(consequence(ConsequenceClass::Mate, 0, false)));
+    CHECK(is_tactic(consequence(ConsequenceClass::Material, 0, false)));
+    CHECK_FALSE(is_tactic(consequence(ConsequenceClass::Promotion, 0, false)));
+    CHECK_FALSE(is_tactic(consequence(ConsequenceClass::Positional, 0, false)));
+    CHECK(allows_tactic(consequence(ConsequenceClass::Positional, -1, false),
                         Eval{.es_units = 1000, .cp = std::nullopt, .mate = std::nullopt}));
-    CHECK_FALSE(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
-                                          .mate_in = std::nullopt,
-                                          .material = 0,
-                                          .promotes = false,
-                                          .plies = 0},
+    CHECK_FALSE(allows_tactic(consequence(ConsequenceClass::Positional, 0, false),
                               Eval{.es_units = 1000, .cp = std::nullopt, .mate = std::nullopt}));
-    CHECK(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
-                                    .mate_in = std::nullopt,
-                                    .material = 0,
-                                    .promotes = false,
-                                    .plies = 0},
+    CHECK(allows_tactic(consequence(ConsequenceClass::Positional, 0, false),
                         Eval{.es_units = 1000, .cp = std::nullopt, .mate = -1}));
-    CHECK_FALSE(allows_tactic(Consequence{.cls = ConsequenceClass::Positional,
-                                          .mate_in = std::nullopt,
-                                          .material = 0,
-                                          .promotes = false,
-                                          .plies = 0},
+    CHECK_FALSE(allows_tactic(consequence(ConsequenceClass::Positional, 0, false),
                               Eval{.es_units = 1000, .cp = std::nullopt, .mate = 1}));
 }
 
@@ -231,31 +208,32 @@ TEST_CASE("null move reliability depends on side-to-move non-pawn material", "[a
     CHECK(chesswhy::analysis::null_move_prone(black_side));
 }
 
-TEST_CASE("walked plies follows the six-ply horizon and capture extension", "[analysis][unit]") {
+TEST_CASE("walk follows the six-ply horizon and continuation extension", "[analysis][unit]") {
     const chess::Board root("7k/8/8/6br/7p/5N2/R7/K3Q3 w - - 0 1");
     const std::array pv{std::string("a2a3"), std::string("h8g8"), std::string("a1b1"),
                         std::string("g8h8"), std::string("a3a4"), std::string("h8g8"),
                         std::string("a4h4"), std::string("h5h4"), std::string("f3h4"),
                         std::string("g5h4"), std::string("e1h4")};
-    CHECK(chesswhy::analysis::walked_plies(root, pv) == chesswhy::analysis::kLinePlies);
+    CHECK(chesswhy::analysis::walk(root, pv).plies == chesswhy::analysis::kLinePlies);
 
     const std::array quiet_seventh{std::string("a2a3"), std::string("h8g8"), std::string("a1b1"),
                                    std::string("g8h8"), std::string("a3a4"), std::string("h8g8"),
                                    std::string("e1e2")};
-    CHECK(chesswhy::analysis::walked_plies(root, quiet_seventh) ==
+    CHECK(chesswhy::analysis::walk(root, quiet_seventh).plies ==
           chesswhy::analysis::kHorizonPlies);
 }
 
-TEST_CASE("walked plies stops at illegal moves and the end of a short PV", "[analysis][unit]") {
+TEST_CASE("walk stops at illegal moves and the end of a short PV", "[analysis][unit]") {
     const chess::Board root("k7/8/8/8/8/8/4R3/4K3 w - - 0 1");
     const std::array illegal_pv{std::string("e2e3"), std::string("a8a7"), std::string("a1a8")};
     const std::array<std::string, 0> empty_pv{};
-    CHECK(chesswhy::analysis::walked_plies(root, empty_pv) == 0);
-    CHECK(chesswhy::analysis::walked_plies(root, illegal_pv) == 2);
+    CHECK(chesswhy::analysis::walk(root, empty_pv).plies == 0);
+    CHECK(chesswhy::analysis::walk(root, illegal_pv).plies == 2);
 
     const std::array short_pv{std::string("e2e3")};
-    CHECK(chesswhy::analysis::walked_plies(root, short_pv) == 1);
+    CHECK(chesswhy::analysis::walk(root, short_pv).plies == 1);
 }
+
 
 TEST_CASE("quiet consequence is positional and a knight capture is material", "[analysis][unit]") {
     const chesswhy::engine::Line line;
@@ -333,16 +311,22 @@ TEST_CASE("consequence rank follows the frozen class table", "[analysis][unit]")
     using chesswhy::ConsequenceClass;
     using chesswhy::analysis::consequence_rank;
 
-    CHECK(consequence_rank(Consequence{ConsequenceClass::Mate, 1, 0, false, 1}) == 4);
-    CHECK(consequence_rank(Consequence{ConsequenceClass::Material, std::nullopt, 3, false, 1}) ==
+    CHECK(consequence_rank(
+              Consequence{ConsequenceClass::Mate, 1, 0, false, 1, std::nullopt, true}) == 4);
+    CHECK(consequence_rank(
+              Consequence{ConsequenceClass::Material, std::nullopt, 3, false, 1, std::nullopt, true}) ==
           3);
-    CHECK(consequence_rank(Consequence{ConsequenceClass::Material, std::nullopt, 1, false, 1}) ==
+    CHECK(consequence_rank(
+              Consequence{ConsequenceClass::Material, std::nullopt, 1, false, 1, std::nullopt, true}) ==
           2);
-    CHECK(consequence_rank(Consequence{ConsequenceClass::Material, std::nullopt, 0, false, 1}) ==
+    CHECK(consequence_rank(
+              Consequence{ConsequenceClass::Material, std::nullopt, 0, false, 1, std::nullopt, true}) ==
           0);
-    CHECK(consequence_rank(Consequence{ConsequenceClass::Promotion, std::nullopt, 0, true, 1}) ==
+    CHECK(consequence_rank(
+              Consequence{ConsequenceClass::Promotion, std::nullopt, 0, true, 1, std::nullopt, true}) ==
           1);
-    CHECK(consequence_rank(Consequence{ConsequenceClass::Positional, std::nullopt, 0, false, 1}) ==
+    CHECK(consequence_rank(
+              Consequence{ConsequenceClass::Positional, std::nullopt, 0, false, 1, std::nullopt, true}) ==
           0);
 }
 
@@ -425,7 +409,7 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     spent_plies[0].threatening = true;
     spent_plies[1].stops_threat = true;
     chesswhy::analysis::label_ledger(spent_plies);
-    auto spent = initiative_runs(spent_plies, start, std::span(line).first(3), {});
+    auto spent = initiative_runs(spent_plies, start, std::span(line).first(3), {}, true);
     REQUIRE(spent.size() == 1);
     CHECK(spent[0].ending == InitiativeEnding::Spent);
     CHECK(spent[0].start_ply == 1);
@@ -437,7 +421,7 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     unfinished_before_ending[1].stops_threat = true;
     chesswhy::analysis::label_ledger(unfinished_before_ending);
     const auto unfinished_short =
-        initiative_runs(unfinished_before_ending, start, std::span(line).first(2), {});
+        initiative_runs(unfinished_before_ending, start, std::span(line).first(2), {}, true);
     REQUIRE(unfinished_short.size() == 1);
     CHECK(unfinished_short[0].ending == InitiativeEnding::Unfinished);
     CHECK(unfinished_short[0].end_ply == 2);
@@ -448,7 +432,7 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     unfinished_reply[2].threatening = true;
     chesswhy::analysis::label_ledger(unfinished_reply);
     const auto unfinished_after_ending =
-        initiative_runs(unfinished_reply, start, std::span(line).first(3), {});
+        initiative_runs(unfinished_reply, start, std::span(line).first(3), {}, true);
     REQUIRE(unfinished_after_ending.size() == 1);
     CHECK(unfinished_after_ending[0].ending == InitiativeEnding::Unfinished);
     CHECK(unfinished_after_ending[0].end_ply == 3);
@@ -460,7 +444,7 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     contested_plies[3].threatening = true;
     contested_plies[3].stops_threat = true;
     chesswhy::analysis::label_ledger(contested_plies);
-    const auto contested = initiative_runs(contested_plies, start, line, {});
+    const auto contested = initiative_runs(contested_plies, start, line, {}, true);
     REQUIRE(contested.size() == 1);
     CHECK(contested[0].ending == InitiativeEnding::Contested);
     CHECK(contested[0].end_ply == 4);
@@ -471,7 +455,7 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     unstopped_plies[2].threatening = true;
     unstopped_plies[3].stops_threat = false;
     chesswhy::analysis::label_ledger(unstopped_plies);
-    const auto runs = initiative_runs(unstopped_plies, start, line, {});
+    const auto runs = initiative_runs(unstopped_plies, start, line, {}, true);
     REQUIRE(runs.size() == 1);
     CHECK(runs[0].ending == InitiativeEnding::Runs);
     CHECK(runs[0].end_ply == 4);
@@ -483,7 +467,7 @@ TEST_CASE("initiative runs identify each ending", "[analysis][unit]") {
     mate_plies[1].stops_threat = true;
     mate_plies[2].threatening = true;
     chesswhy::analysis::label_ledger(mate_plies);
-    const auto mate_run = initiative_runs(mate_plies, mate_root, mate_line, {});
+    const auto mate_run = initiative_runs(mate_plies, mate_root, mate_line, {}, true);
     REQUIRE(mate_run.size() == 1);
     CHECK(mate_run[0].ending == InitiativeEnding::Runs);
     CHECK(mate_run[0].end_ply == 3);
@@ -501,7 +485,7 @@ TEST_CASE("initiative runs reject invalid labelled ledgers", "[analysis][unit]")
     plies[3].stops_threat = true;
     plies[3].label = TempoPlyLabel::PureReply;
 
-    CHECK_THROWS_AS(initiative_runs(plies, root, line, {}), std::logic_error);
+    CHECK_THROWS_AS(initiative_runs(plies, root, line, {}, true), std::logic_error);
 }
 
 TEST_CASE("initiative scanning resumes at the previous run's ending ply", "[analysis][unit]") {
@@ -519,7 +503,7 @@ TEST_CASE("initiative scanning resumes at the previous run's ending ply", "[anal
     plies[3].stops_threat = true;
     plies[4].stops_threat = true;
     chesswhy::analysis::label_ledger(plies);
-    const auto runs = initiative_runs(plies, start, line, {});
+    const auto runs = initiative_runs(plies, start, line, {}, true);
     REQUIRE(runs.size() == 2);
     CHECK(runs[0].start_ply == 1);
     CHECK(runs[0].end_ply == 4);
@@ -545,7 +529,7 @@ TEST_CASE("initiative conversion checks material and used positional changes", "
     material_plies[0].threatening = true;
     material_plies[1].stops_threat = true;
     chesswhy::analysis::label_ledger(material_plies);
-    const auto material_runs = initiative_runs(material_plies, material_root, material_line, {});
+    const auto material_runs = initiative_runs(material_plies, material_root, material_line, {}, true);
     REQUIRE(material_runs.size() == 1);
     CHECK(material_runs[0].outcome == InitiativeOutcome::Converted);
 
@@ -564,11 +548,11 @@ TEST_CASE("initiative conversion checks material and used positional changes", "
     used_change.feature.side = Side::White;
     const std::array changes{used_change};
     const auto positional_runs =
-        initiative_runs(positional_plies, positional_root, positional_line, changes);
+        initiative_runs(positional_plies, positional_root, positional_line, changes, true);
     REQUIRE(positional_runs.size() == 1);
     CHECK(positional_runs[0].outcome == InitiativeOutcome::Converted);
 
-    const auto evaporated = initiative_runs(positional_plies, positional_root, positional_line, {});
+    const auto evaporated = initiative_runs(positional_plies, positional_root, positional_line, {}, true);
     REQUIRE(evaporated.size() == 1);
     CHECK(evaporated[0].outcome == InitiativeOutcome::Evaporated);
 }

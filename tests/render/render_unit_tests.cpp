@@ -119,6 +119,8 @@ report_move(std::optional<int> rank, std::string san, std::string uci, chesswhy:
         .material = 0,
         .promotes = false,
         .plies = walked,
+        .terminal_draw = std::nullopt,
+        .settled = true,
     };
     return move;
 }
@@ -149,6 +151,8 @@ report_move(std::optional<int> rank, std::string san, std::string uci, chesswhy:
             label == chesswhy::TempoPlyLabel::PureReply ? std::optional<bool>{true} : std::nullopt,
         .label = label,
         .tempo_gained = tempo_gained,
+        .reply_gain = std::nullopt,
+        .forced_test = std::nullopt,
     };
 }
 
@@ -171,6 +175,7 @@ positional_change(chesswhy::PositionalTag tag, chesswhy::Side side, std::optiona
         .change = PositionalChangeKind::Appears,
         .holds_at_end = true,
         .net_change = net_change,
+        .captured = false,
         .in_use = in_use,
         .feature = std::move(feature),
     };
@@ -266,6 +271,7 @@ move_report_examples() {
         .change = PositionalChangeKind::Appears,
         .holds_at_end = true,
         .net_change = false,
+        .captured = false,
         .in_use = std::nullopt,
         .feature =
             PositionalFeature{
@@ -622,7 +628,9 @@ TEST_CASE("move report facts render in their position-walk blocks", "[unit]") {
                                    .mate_in = std::nullopt,
                                    .material = 1,
                                    .promotes = false,
-                                   .plies = 3};
+                                   .plies = 3,
+                                   .terminal_draw = std::nullopt,
+                                   .settled = true};
     move.tactic_labels.push_back(TacticLabel{
         .tag = TacticLabelTag::RemovalOfDefender,
         .side = Side::Black,

@@ -147,6 +147,12 @@ void write_tempo_value(std::ostringstream& output, const std::optional<TempoValu
         return "counter threat";
     case TempoPlyLabel::Neither:
         return "neither";
+    case TempoPlyLabel::GainingReply:
+        return "gaining reply";
+    case TempoPlyLabel::UnforcedReply:
+        return "unforced reply";
+    case TempoPlyLabel::UnresolvedReply:
+        return "unresolved reply";
     }
     return "";
 }

@@ -665,6 +665,12 @@ std::string to_string(TempoPlyLabel label) {
         return "counter_threat";
     case TempoPlyLabel::Neither:
         return "neither";
+    case TempoPlyLabel::GainingReply:
+        return "gaining_reply";
+    case TempoPlyLabel::UnforcedReply:
+        return "unforced_reply";
+    case TempoPlyLabel::UnresolvedReply:
+        return "unresolved_reply";
     }
     throw std::invalid_argument(invalid_enum("TempoPlyLabel", label));
 }
@@ -679,6 +685,10 @@ std::string to_string(InitiativeEnding ending) {
         return "runs";
     case InitiativeEnding::Unfinished:
         return "unfinished";
+    case InitiativeEnding::Answered:
+        return "answered";
+    case InitiativeEnding::Unresolved:
+        return "unresolved";
     }
     throw std::invalid_argument(invalid_enum("InitiativeEnding", ending));
 }
@@ -689,6 +699,8 @@ std::string to_string(InitiativeOutcome outcome) {
         return "converted";
     case InitiativeOutcome::Evaporated:
         return "evaporated";
+    case InitiativeOutcome::Unknown:
+        return "unknown";
     }
     throw std::invalid_argument(invalid_enum("InitiativeOutcome", outcome));
 }

@@ -1,5 +1,5 @@
-// Report data model, schema version 8. Frozen by Planning/milestones/PostM4_EM4.md.
-// JSON shape: schema/report.v8.schema.json. Every chess fact in the report is a field here.
+// Report data model, schema version 9. Frozen by Planning/milestones/PostM4_EM5.md.
+// JSON shape: schema/report.v9.schema.json. Every chess fact in the report is a field here.
 // The renderers may only verbalise these fields.
 #pragma once
 
@@ -12,7 +12,7 @@
 
 namespace chesswhy {
 
-inline constexpr int kSchemaVersion = 8;
+inline constexpr int kSchemaVersion = 9;
 
 enum class Side : std::uint8_t { White, Black };
 enum class Budget : std::uint8_t { Quick, Standard, Deep };
@@ -97,6 +97,9 @@ enum class PositionalTag : std::uint8_t {
 
 // M3a §5: a feature that appears or disappears along a line.
 enum class PositionalChangeKind : std::uint8_t { Appears, Disappears };
+enum class DrawKind : std::uint8_t { Stalemate, InsufficientMaterial };
+struct TerminalDraw { DrawKind kind = DrawKind::Stalemate; int ply = 1; };
+enum class RefutationSkip : std::uint8_t { GameOver };
 
 enum class TempoLabel : std::uint8_t { TempoDependent, NonTempo, Zugzwang };
 struct TempoValue {
@@ -106,7 +109,27 @@ struct TempoValue {
     int value_units = 0;
     std::optional<TempoLabel> label;
 };
-enum class TempoPlyLabel : std::uint8_t { Threatening, PureReply, CounterThreat, Neither };
+enum class TempoPlyLabel : std::uint8_t {
+    Threatening, PureReply, CounterThreat, Neither, GainingReply, UnforcedReply, UnresolvedReply
+};
+struct ReplyGain {
+    int material = 0;
+    bool mates = false;
+    int through_ply = 1;
+    bool settled = true;
+    std::optional<bool> gains;
+};
+struct ReplyLine {
+    std::string san;
+    int es_units = 0;
+    bool acceptable = false;
+    std::optional<bool> stops_threat;
+};
+struct ForcedTest {
+    int legal_moves = 0;
+    std::vector<ReplyLine> lines;
+    std::optional<bool> forced;
+};
 struct TempoPly {
     int ply = 1;
     std::string san;
@@ -117,9 +140,13 @@ struct TempoPly {
     std::optional<bool> stops_threat;
     TempoPlyLabel label = TempoPlyLabel::Neither;
     bool tempo_gained = false;
+    std::optional<ReplyGain> reply_gain;
+    std::optional<ForcedTest> forced_test;
 };
-enum class InitiativeEnding : std::uint8_t { Spent, Contested, Runs, Unfinished };
-enum class InitiativeOutcome : std::uint8_t { Converted, Evaporated };
+enum class InitiativeEnding : std::uint8_t {
+    Spent, Contested, Runs, Unfinished, Answered, Unresolved
+};
+enum class InitiativeOutcome : std::uint8_t { Converted, Evaporated, Unknown };
 struct InitiativeRun {
     Side holder = Side::White;
     int start_ply = 1;
@@ -139,6 +166,8 @@ struct TempoLedger {
 };
 enum class TempoLedgerSkip : std::uint8_t { InCheck, NullMoveUnreliable, NotDetailed };
 
+[[nodiscard]] std::string to_string(DrawKind kind);
+[[nodiscard]] std::string to_string(RefutationSkip skip);
 [[nodiscard]] std::string to_string(TempoLabel label);
 [[nodiscard]] std::string to_string(TempoPlyLabel label);
 [[nodiscard]] std::string to_string(InitiativeEnding ending);
@@ -324,6 +353,7 @@ struct PositionalChange {
     PositionalChangeKind change = PositionalChangeKind::Appears;
     bool holds_at_end = false;
     bool net_change = false;
+    bool captured = false;
     std::optional<bool> in_use;
     PositionalFeature feature;
 };
@@ -347,6 +377,8 @@ struct Consequence {
     int material = 0;           // net gain in pawn units for the threatening side over `plies`
     bool promotes = false;      // threatening side promotes within `plies`
     int plies = 0;              // plies of `line` the rule consumed
+    std::optional<TerminalDraw> terminal_draw;
+    bool settled = true;
 };
 
 // A line played by `side` from `root_fen` (whose side to move is `side`), with its
@@ -391,6 +423,7 @@ struct MoveAssessment {
     std::optional<TempoLedger> tempo_ledger;
     std::optional<TempoLedgerSkip> tempo_ledger_skipped;
     std::optional<Threat> refutation; // opponent reply line; set iff verdict is not playable
+    std::optional<RefutationSkip> refutation_skipped;
     std::vector<Motif> motifs;        // plies 1..walked_plies of `line_san`
     std::optional<OpportunityJudgement> opportunity; // A line 1
     std::vector<TacticLabel> tactic_labels;
