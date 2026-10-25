@@ -23,7 +23,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `PgnInput` | `src/input/pgn.cpp` `load_pgn` `read_games` `PgnReader`; `include/chesswhy/input.hpp` `PgnPosition` `PgnGame` `PgnReader` `PgnReadOptions`; `src/pgntool/pgntool.cpp` `run` | `chesswhy-pgn` lists the games and plies of a file; `PgnReader` streams games one at a time and stops parsing at `max_plies` |
 | `AskedMove` | `src/input/move.cpp` `parse_move`; `src/cli/selection.cpp` `resolve_moves` | SAN or UCI; several moves, deduplicated by UCI, in typed order |
 | `MoveRequest` | `src/cli/selection.cpp` `resolve_moves` `parse_top`; `src/cli/selection.hpp` `ResolvedMoves`; `include/chesswhy/report.hpp` `Selection`; `src/cli/cli.cpp` `parse_args` `usage` | `--moves` grammar; the help warns that whole-board keywords are slow |
-| `Settings` | `include/chesswhy/report.hpp` `Budget` `Level`; `src/cli/cli.cpp` `parse_args` | |
+| `Settings` | `include/chesswhy/cli.hpp` `Options`; `src/cli/cli.cpp` `parse_args` `parse_integer` | `--search-budget`, `--explanation-budget`, 1 to `kMaxBudget` |
 | `AnalysedPosition` | `include/chesswhy/analysis.hpp` `Request`; `include/chesswhy/report.hpp` `PositionInfo` | |
 | `GameMainline` | `include/chesswhy/input.hpp` `PgnPosition` | Mainline boards up to the chosen ply |
 | `InputError` | `include/chesswhy/input.hpp` `InputError`; `include/chesswhy/cli.hpp` `kExitInput` | |
@@ -32,16 +32,17 @@ Rules, checked by `python3 tools/check_dbc.py`:
 
 | Node | Code | Notes |
 |---|---|---|
-| `NodeBudget` | `src/analysis/rules.cpp` `node_budget`; `include/chesswhy/report.hpp` `NodeBudget` `EngineInfo` | Nodes per search kind and budget |
-| `SearchA` | `src/analysis/analyse.cpp` `analyse`; `src/analysis/rules.cpp` `multipv_lines` `judges_every_move` `search_a_nodes`; `include/chesswhy/analysis.hpp` `kMinMultiPv` | K from the selection; each line keeps its share of A's nodes |
+| `SearchBudget` | `include/chesswhy/analysis.hpp` `kDefaultSearchBudget` `kMaxBudget` `Request`; `include/chesswhy/report.hpp` `InputInfo`; `include/chesswhy/engine.hpp` `SearchRequest`; `src/analysis/analyse.cpp` `analyse` | Depth of A-best, A-rest and C; every search is `go depth` |
+| `ExplanationBudget` | `include/chesswhy/analysis.hpp` `kDefaultExplanationBudget` `kMaxBudget` `Request`; `include/chesswhy/report.hpp` `InputInfo`; `src/analysis/analyse.cpp` `analyse` `complete_move_details` `complete_tempo_ledger` `judge_refutation` `search_parry` | Depth of B, D, E, R and every L search, passed as `explanation_depth` |
+| `SearchA` | `src/analysis/analyse.cpp` `analyse`; `src/analysis/rules.cpp` `multipv_lines` `judges_every_move`; `include/chesswhy/analysis.hpp` `kMinMultiPv` | K from the selection; A-best (MultiPV 1), then A-rest (MultiPV K − 1, `searchmoves` without A-best's move) |
 | `SearchB` | `src/analysis/analyse.cpp` `analyse` | Null move on a copy of the board |
 | `SearchC` | `src/analysis/analyse.cpp` `analyse` | Once per asked move not among A's lines, in typed order |
 | `SearchD` | `src/analysis/analyse.cpp` `search_parry`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
 | `SearchE` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
 | `SearchR` | `src/analysis/analyse.cpp` `judge_refutation`; `src/analysis/rules.cpp` `is_detailed_line` | Detailed lines only |
-| `ThreatSearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `src/analysis/rules.cpp` `node_budget` | Budget `L`; ply 1 reads E's result |
-| `ReplySearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger`; `src/analysis/rules.cpp` `node_budget` | Budget `L`; after a threatening ply and after each acceptable alternative of the forced test |
-| `ForcedSearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger` `legal_move_count`; `include/chesswhy/report.hpp` `ForcedTest` `ReplyLine` | MultiPV `min(5, legal)` at `L`, only on a ply whose reply gain is false |
+| `ThreatSearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger` | Explanation budget; ply 1 reads E's result |
+| `ReplySearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger` | Explanation budget; after a threatening ply and after each acceptable alternative of the forced test |
+| `ForcedSearch` | `src/analysis/analyse.cpp` `complete_tempo_ledger` `legal_move_count`; `include/chesswhy/report.hpp` `ForcedTest` `ReplyLine` | MultiPV `min(5, legal)` at the explanation budget, only on a ply whose reply gain is false |
 | `StockfishProcess` | `src/engine/engine.cpp` `Engine` `search`; `include/chesswhy/engine.hpp` `SearchRequest` `SearchResult` `Line` `MultiPvCollector` `EngineError`; `src/engine/info_line.cpp` `parse_info_line` | Talks UCI; never linked |
 | `ExpectedScore` | `src/analysis/rules.cpp` `es_units`; `src/analysis/analyse.cpp` `eval_for`; `include/chesswhy/report.hpp` `Eval` | |
 
@@ -65,7 +66,7 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `CandidateMove` | `src/analysis/analyse.cpp` `assess_move`; `src/analysis/rules.cpp` `walk` `is_detailed_line`; `include/chesswhy/report.hpp` `MoveAssessment` | `depth`, `walked_plies`, `detailed` |
 | `Loss` | `src/analysis/analyse.cpp` `assess_move` | |
 | `AllowsTactic` | `src/analysis/rules.cpp` `allows_tactic` `consequence`; `src/analysis/analyse.cpp` `assess_move` | `allows_tactic`, read along the move's own line from the analysed position |
-| `Verdict` | `src/analysis/rules.cpp` `verdict` `same_score`; `include/chesswhy/analysis.hpp` `kPlayableUnits` `kInaccuracyUnits`; `include/chesswhy/report.hpp` `Verdict` | |
+| `Verdict` | `src/analysis/rules.cpp` `verdict` `at_least_score`; `include/chesswhy/analysis.hpp` `kPlayableUnits` `kInaccuracyUnits`; `include/chesswhy/report.hpp` `Verdict` | |
 | `PlayableSet` | `src/analysis/analyse.cpp` `analyse` `legal_move_count`; `include/chesswhy/report.hpp` `Report` `PositionInfo` | `playable_truncated`, `legal_moves` |
 | `ParryTest` | `src/analysis/analyse.cpp` `search_parry` `pseudo_legal_uci`; `include/chesswhy/report.hpp` `ParryInfo` `ParryTest` `parry_source` | |
 | `CreatedThreat` | `src/analysis/analyse.cpp` `assess_move` `has_legal_moves`; `include/chesswhy/report.hpp` `CreatesThreatSkip` | `creates_threat_skipped` |
@@ -153,14 +154,14 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Provenance` | `src/report/report.cpp` `to_json`; `include/chesswhy/report.hpp` `parry_source` | Written as a `source` field beside each fact |
 | `Reproducible` | `src/cli/cli.cpp` `build_report`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
-| `ReportSchema` | `schema/report.v9.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
+| `ReportSchema` | `schema/report.v10.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
 | `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_refutation_skip` `check_restrictions_everywhere` `check_tactic_invariants` `check_all_consequence_semantics` `check_line_consequence` `rule_game_over` `replay_walk` `check_tempo_and_positional_semantics` `check_tempo_value` `check_tempo_ledger` `settle_point` `expected_reply_gain` `check_forced_test` `expected_initiative_runs` `favoured_side` `king_pressed` `use_test` `check_positional_relations` | Run by CTest `report_schema` on every F report; P1–P11 re-implemented independently on python-chess, one mutant per rule in `tests/checker/unit_tests.py` |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/output.cpp` `write_output`; `src/report/move_report.cpp` `to_json` | `--json` prints the move report document, `--json --full-report` the full report |
 | `MoveSelection` | `src/report/move_report.cpp` `move_reports` `selected_from_a` `selected_by_keyword`; `src/analysis/analyse.cpp` `selected_by_selection` | Engine order, asked moves outside A last, each move once |
 | `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence`; `include/chesswhy/report.hpp` `MotifLabel` `Motif::also` | Positional changes: `net_change && in_use`, ordered by `positional::impact_order`. Motif repeats merge inside `relevant_motifs` |
 | `ImpactRating` | `src/report/move_report.cpp` `impact_order`; `src/positional/positional.cpp` `impact_order`; `include/chesswhy/move_report.hpp` `ImpactGroup`; `src/render/render.cpp` `write_move_report` | Groups for the move report; positional facts ordered within their group |
-| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v9.schema.json` | |
+| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v10.schema.json` | |
 | `ProjectionCheck` | `tools/validate_report.py` `projected_move_document` `project_assessment` `net_positional_changes` `positional_identity` `projected_tempo_gained` `check_projection` | Second, independent filter; `--projection FULL MOVES` |
 
 ## Explanation

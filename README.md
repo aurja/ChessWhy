@@ -12,7 +12,7 @@ Every judged move gets a verdict from its loss in expected score (ES) against th
 
 | Verdict | Rule |
 |---|---|
-| `best` | the engine's top line, or another line with exactly the same score (e.g. two mates in 1) |
+| `best` | the engine's top line, or another playable line scoring at least as high as A-best in the engine's score order |
 | `okay` | any other move losing at most 0.05 ES |
 | `inaccuracy` | loses more than 0.05 and at most 0.10 ES |
 | `mistake` | loses more than 0.10 ES and allows no tactic |
@@ -25,9 +25,11 @@ alternative is clearly worse: its margin over the next-best move is at least 0.1
 A line can be either, both or neither; a position with one legal move is marked forced
 (`rule`). On a tactic or opportunity line every motif gets a contribution (`direct`,
 `indirect` or `none`), and the rule label `removal_of_defender` marks a capture that takes away a
-piece's only defender. Engine scores depend on the search: asking for more moves widens the
-search, so the same move can get a different verdict in a different request; each request is
-reproducible. The current release renders reports without a language model; verbalisation is
+piece's only defender. Search depth affects engine scores, and deeper searches can change close
+verdicts. The A-best request depends on the position and `--search-budget`, not `--moves` width,
+so the best move is unchanged across move selections at the same budgets. With one thread, a
+request is reproducible with the same settings; above one thread, the report is marked
+non-reproducible. The current release renders reports without a language model; verbalisation is
 planned for M5.
 
 A line's `walked_plies` counts its settled walk: it reads six plies when available, then extends
@@ -37,20 +39,21 @@ when the walk reaches ply 10 and the engine line's next move is a continuation m
 `terminal_draw` records `stalemate` or `insufficient_material` and its ply, without changing the
 consequence's class or rank.
 
-In report v9 (`schema/report.v9.schema.json` and `schema/moves.v9.schema.json`),
-`pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a `restriction`
-object. Its `piece` is the held piece (the first target for either pin or a tactical
-pin, the actor for an overloaded defender); `restricted` and `free` are sorted UCI move lists.
-`restricted` contains moves the motif denies or makes costly: an absolute pin includes pseudo-legal
-moves off the pinner-to-king segment; a relative pin or overloaded defender includes moves that
-expose the rear or guarded target to a win; a tactical pin includes moves that still allow its
-named threat. `free` contains legal moves in the held piece's move set that are not restricted.
-`held_to.kind` is `square` when there is no free move; otherwise it is `file`, `rank` or `diagonal`
-when all free destinations lie on that line through the held piece, and `squares` otherwise. The
-existence condition is that `restricted` is non-empty. Moves are judged with the held side to move.
-A held pawn's move set also includes a hypothetical capture onto every on-board diagonal-front
-square, whatever stands there (including an empty square), judged after the pawn moves there and
-the previous occupant is removed.
+In report v10 (`schema/report.v10.schema.json` and `schema/moves.v10.schema.json`), the input
+records `input.search_budget` and `input.explanation_budget`; `input.level`, `input.budget` and
+per-search `engine.nodes` are absent. `pin_absolute`, `pin_relative`, `overloaded_defender` and
+`pin_tactical` have a `restriction` object. Its `piece` is the held piece (the first target for
+either pin or a tactical pin, the actor for an overloaded defender); `restricted` and `free` are
+sorted UCI move lists. `restricted` contains moves the motif denies or makes costly: an absolute
+pin includes pseudo-legal moves off the pinner-to-king segment; a relative pin or overloaded
+defender includes moves that expose the rear or guarded target to a win; a tactical pin includes
+moves that still allow its named threat. `free` contains legal moves in the held piece's move set
+that are not restricted. `held_to.kind` is `square` when there is no free move; otherwise it is
+`file`, `rank` or `diagonal` when all free destinations lie on that line through the held piece,
+and `squares` otherwise. The existence condition is that `restricted` is non-empty. Moves are
+judged with the held side to move. A held pawn's move set also includes a hypothetical capture
+onto every on-board diagonal-front square, whatever stands there (including an empty square),
+judged after the pawn moves there and the previous occupant is removed.
 Move report text prints restricted-movement rows without the restricted/free move lists and
 names every label of merged motif repeats.
 
@@ -73,7 +76,7 @@ for the opponent. Above 0.10 the position is **tempo-dependent**; at least 0 and
 detailed line gets a **tempo ledger**: every walked ply is labelled
 `threatening`, `neither`, `counter_threat`, `pure_reply`, `gaining_reply`, `unforced_reply` or
 `unresolved_reply`, from a null-move threat search (a threat is mate or at least one pawn of
-material) and, after a threatening ply, a reply search (budget `L`). If an answer stops the threat
+material) and, after a threatening ply, a reply search (at the explanation budget). If an answer stops the threat
 and is not itself threatening, `reply_gain` records the replying side's material change from
 before the threat through the settle point (`through_ply`), whether it checkmates (`mates`), and
 whether that point is settled (`settled`). `gains` is true for a material gain of at least one
@@ -147,8 +150,10 @@ writes `<build-dir>/test_progress.json` (override with `--status-file PATH`); OM
 `.omp/extensions/test-progress.ts` at startup and shows active runs and recent results in the TUI.
 Engine fixture tests build each report once and check all four outputs from it; each takes two
 CTest slots (`PROCESSORS 2`: our process plus one Stockfish).
-With `CHESSWHY_CHECK_TIMING` on (the `release` preset), `cli_timing` (label `timing`) runs alone and
-fails if a standard-budget F fixture takes more than 15 s.
+With `CHESSWHY_CHECK_TIMING` on (the `release` preset), `cli_timing` (label `timing`) runs alone,
+prints each F fixture's default-run wall time and the total, and sets no time limit; it fails
+only when a run fails. Typical default reports take from about 1 s to about 50 s on the
+development laptop (i7-8565U).
 The `asan` preset builds at `-O1` with AddressSanitizer and UndefinedBehaviorSanitizer, and its test
 preset runs the labels `unit` and `sanitize` (F fixtures chosen to cover code paths; Release checks
 the facts):
@@ -175,9 +180,9 @@ All flags of `chesswhy`:
 | `--game N` | 1 | With `--pgn`: the game, counted from 1 |
 | `--ply N` | 0 | With `--pgn`: half-moves played from the game's start (0 = start position) |
 | `--moves LIST` | `best` | The moves to explain: moves and keywords, see below |
-| `--budget quick\|standard\|deep` | `standard` | Engine effort as fixed node counts. The best-move search gets 250 k, 1 M or 4 M nodes for 5 lines (more lines get proportionally more); every other search scales the same way. Deeper budgets can change close verdicts and, in a near-tie, the best move |
-| `--threads N` | 1 | Stockfish threads. Same node counts, so faster but no deeper; above 1 the report is marked non-reproducible |
-| `--level beginner\|club\|advanced` | `club` | Recorded in the report; no effect on the analysis or the text yet |
+| `--search-budget N` | 18 | Stockfish depth (1–60) for the searches that find and rank moves: A-best, A-rest and C |
+| `--explanation-budget N` | 14 | Stockfish depth (1–60) for explanation searches B, D, E, R and the line searches |
+| `--threads N` | 1 | Stockfish threads; the depth settings are unchanged, but above 1 the report is marked non-reproducible |
 | `--json` | off | JSON output instead of text (see the output table below) |
 | `--full-report` | off | Every computed fact instead of the move report (see the output table below) |
 | `--no-llm` | off | Accepted; no effect yet, since the text always comes from templates |
@@ -185,6 +190,12 @@ All flags of `chesswhy`:
 | `--openings DIR` | `assets/data/openings` | The opening-name tables |
 | `--games FILE` | `assets/data/games/lichess_broadcast_2200.tsv` | The broadcast game-count table |
 | `--help` | — | Print the usage and exit |
+
+Both depth values must be integers from 1 to 60. A non-integer or out-of-range value exits 2
+with `invalid integer for --search-budget: X` or `invalid integer for --explanation-budget: X`.
+Searches use Stockfish `go depth`; there is no overall search deadline, and the hang guard
+triggers only after Stockfish prints nothing for 120 s. At the default settings, the text header
+reads `Budgets: search depth 18, explanation depth 14 [rule]`; configured values appear there.
 
 `--moves` takes a comma-separated list without spaces; the result is the union of its items:
 
@@ -204,9 +215,9 @@ time. `--json` chooses the format and `--full-report` the content, independently
 | Flags | Output |
 |---|---|
 | none | move report text: one section per selected move |
-| `--json` | move report document (`schema/moves.v9.schema.json`) |
+| `--json` | move report document (`schema/moves.v10.schema.json`) |
 | `--full-report` | full report text: every computed fact |
-| `--json --full-report` | full report JSON (`schema/report.v9.schema.json`) |
+| `--json --full-report` | full report JSON (`schema/report.v10.schema.json`) |
 
 Full report text marks the walk row `facts read to ply N of M` with ` (stalemate)`,
 ` (insufficient material)` or ` (not settled)` as applicable. For a terminal draw, consequence
@@ -259,7 +270,7 @@ the engine returned all K lines, K is less than the number of legal moves, and e
 playable.
 
 ```sh
-build/release/chesswhy --pgn tests/fixtures/two_games.pgn --game 1 --ply 2 --json --full-report --budget quick
+build/release/chesswhy --pgn tests/fixtures/two_games.pgn --game 1 --ply 2 --json --full-report --search-budget 12 --explanation-budget 10
 ```
 
 Save the full report JSON as `full.json` and the move report document of the same command (without
@@ -267,8 +278,8 @@ Save the full report JSON as `full.json` and the move report document of the sam
 from its `document` field (add more paths to validate several files):
 
 ```sh
-.venv/bin/python tools/validate_report.py schema/report.v9.schema.json full.json moves.json
-.venv/bin/python tools/validate_report.py schema/report.v9.schema.json --projection full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v10.schema.json full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v10.schema.json --projection full.json moves.json
 ```
 
 The checker validates the schema first, then checks report relations it cannot express: loss and

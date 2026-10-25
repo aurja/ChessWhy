@@ -28,7 +28,7 @@ struct Options {
 
 struct SearchRequest {
     std::string fen;
-    std::uint64_t nodes = 0;
+    int depth = 0; // go depth; >= 1
     int multipv = 1;
     std::vector<std::string> searchmoves_uci; // empty: all legal moves
 };
@@ -93,7 +93,7 @@ public:
 
     [[nodiscard]] const std::string& name() const; // "id name" value
 
-    // ucinewgame, setoption MultiPV, isready/readyok, position fen, go nodes [searchmoves],
+    // ucinewgame, setoption MultiPV, isready/readyok, position fen, go depth [searchmoves],
     // read until bestmove. Lines are selected by MultiPvCollector.
     [[nodiscard]] SearchResult search(const SearchRequest& request);
 

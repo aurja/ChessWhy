@@ -1,5 +1,5 @@
 {
-  "comment": "Frozen M1 fixtures. Semantics: Planning/milestones/M1.md section Fixtures. Engine expectations are pinned to Stockfish 19 from assets/ at budget standard.",
+  "comment": "Frozen engine fixtures at PostM4_EM6 default budgets (search depth 18, explanation depth 14). Semantics: Planning/milestones/PostM4_EM6.md §3.6.",
   "engine_fixtures": [
     {
       "id": "F01",
@@ -69,7 +69,7 @@
         "Kd1": {"/verdict": "mistake"},
         "Bd2": {"/verdict": "blunder"}
       },
-      "text_contains": "Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]\nBudget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, L=30000, R=100000 [rule]"
+      "text_contains": "Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]\nBudgets: search depth 18, explanation depth 14 [rule]"
     },
     {
       "id": "F04",
@@ -105,7 +105,7 @@
       "id": "F05",
       "title": "own material threat against the opponent's mate threat",
       "source": "Anand, Viswanathan - Karpov, Anatoly, FIDE-Wch k.o. final 1998, before 34...h6",
-      "reason": "The move report renders only h6, so the unrelated Ne2+ deferred-threat note is retained only in the full report.",
+      "reason": "h6 remains an asked C move, while Kh8 replaces it at candidate 5 in the A-rest ordering; the requested h6 is still a blunder and does not parry the mate threat.",
       "args": ["--fen", "2r3k1/Q5pp/1Bq5/P2pb3/8/2n2R1P/2p2PP1/2R3K1 b - - 3 34", "--moves", "h6"],
       "equals": {
         "/position/side_to_move": "black",
@@ -116,9 +116,13 @@
         "/threats/white/consequence/class": "mate",
         "/threats/white/consequence/mate_in": 3,
         "/threats/black/consequence/class": "material",
-        "/candidates/4/san": "h6",
-        "/candidates/4/verdict": "blunder",
-        "/candidates/4/parries_threat/value": false
+        "/candidates/4/san": "Kh8",
+        "/candidates/4/verdict": "mistake",
+        "/candidates/4/parries_threat/value": true,
+        "/asked_moves/0/san": "h6",
+        "/asked_moves/0/verdict": "blunder",
+        "/asked_moves/0/parries_threat/value": false,
+        "/asked_moves/0/in_multipv": false
       },
       "playable_includes": ["Ne2+"],
       "candidate": {
@@ -171,8 +175,7 @@
       },
       "playable_includes": ["cxd3"],
       "candidate": {
-        "cxd3": {"/parries_threat/value": true, "/parries_threat/test": "threat_move_illegal", "/parries_threat/source": "rule"},
-        "Kg1": {"/walked_plies": 8, "/consequence/material": -6}
+        "cxd3": {"/parries_threat/value": true, "/parries_threat/test": "threat_move_illegal", "/parries_threat/source": "rule"}
       }
     },
     {
@@ -268,7 +271,7 @@
       "id": "F12",
       "title": "blunder against a material threat",
       "source": "Kasparov, Gary - Karpov, Anatoly, Wch33-KK3 1986, before 26.Ng4",
-      "reason": "Ng4 loses 0.172 and allows a tactic, so the new scale calls it a blunder rather than a mistake.",
+      "reason": "Ng4 loses 0.21 and allows a tactic, so the new scale calls it a blunder rather than a mistake.",
       "args": ["--fen", "1r3bk1/5pp1/b4q1p/2nPN3/2p5/N2nR2P/1P3PP1/1BBQ2K1 w - - 1 26", "--moves", "Ng4"],
       "equals": {
         "/position/side_to_move": "white",
@@ -277,9 +280,9 @@
         "/threats/urgency/more_urgent": "black",
         "/threats/urgency/rule": "consequence_class",
         "/threats/black/consequence/class": "material",
-        "/candidates/3/san": "Ng4",
-        "/candidates/3/verdict": "blunder",
-        "/candidates/3/in_multipv": true
+        "/candidates/4/san": "Ng4",
+        "/candidates/4/verdict": "blunder",
+        "/candidates/4/in_multipv": true
       },
       "playable_includes": ["Qc2"]
     },
@@ -293,7 +296,6 @@
         "/position/eval_white": null,
         "/threats": null,
         "/candidates": [],
-        "/engine/nodes_searched": 0,
         "/opening/current": {"eco": "A00", "name": "Barnes Opening: Fool's Mate"}
       }
     },
@@ -305,8 +307,7 @@
         "/position/in_check": false,
         "/position/terminal": "stalemate",
         "/threats": null,
-        "/candidates": [],
-        "/engine/nodes_searched": 0
+        "/candidates": []
       }
     },
     {
@@ -314,6 +315,8 @@
       "title": "PGN input: second game, ply 4",
       "args": ["--pgn", "two_games.pgn", "--game", "2", "--ply", "4"],
       "equals": {
+        "/candidates/0/san": "Nc3",
+        "/candidates/0/verdict": "best",
         "/input/source": "pgn",
         "/input/pgn_game": 2,
         "/input/pgn_ply": 4,
@@ -455,7 +458,7 @@
         "/moves/0/is_tactic": true
       },
       "text_contains": "Uses: hanging_piece: q f6, SEE 9",
-      "full_text_contains": "hanging_piece: N d5, SEE 3 (ply 2) [rule]"
+      "full_text_contains": "hanging_piece: q f6, SEE 9 (ply 0) [rule]"
     },
     {
       "id": "F22",
@@ -478,7 +481,7 @@
           }
         ]
       },
-      "text_contains": "Line: c3 Nf3+ Kf2 Nxd4 cxd4 Kb8 Ke3 Kc7 d5 Kc8; facts read to ply 6 of 10 [engine]"
+      "text_contains": "Line: c3 Nf3+ Ke2 Nxd4+ Kd3 Nf5 Kc4 Kb7 Kc5 Kc7; facts read to ply 6 of 10 [engine]"
     },
     {
       "id": "F23",
@@ -505,13 +508,68 @@
       },
       "line_prefix": {
         "/candidates/0/line": ["Qg7#"],
-        "/candidates/1/line": ["Qf8#"]
+        "/candidates/1/line": ["Qh7#"]
       }
     },
-    {"id":"F25","title":"Exchange Ruy Lopez bishop and c-pawn changes","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6","args":["--fen","r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4","--moves","Bxc6"],"positional_include":{"/position/positional":[{"tag":"bishop_pair","side":"white"},{"tag":"bishop_pair","side":"black"}],"/candidates/1/positional":[{"ply":2,"change":"appears","holds_at_end":true,"tag":"doubled_pawns","side":"black","file":"c"},{"ply":2,"change":"disappears","holds_at_end":true,"tag":"bishop_pair","side":"white"}]},"moves_equals":{"/moves/0/positional":[{"source":"rule","ply":2,"change":"disappears","holds_at_end":true,"net_change":true,"captured":true,"in_use":true,"tag":"bishop_pair","side":"white","pieces":[{"square":"c1","piece":"B"},{"square":"c6","piece":"B"}],"file":null,"value":null},{"source":"rule","ply":2,"change":"appears","holds_at_end":true,"net_change":true,"captured":false,"in_use":true,"tag":"doubled_pawns","side":"black","pieces":[{"square":"c6","piece":"p"},{"square":"c7","piece":"p"}],"file":"c","value":null}]},"reason":"Bxc6's move report keeps the net bishop-pair and doubled-pawn changes and omits the passing material_ahead change."},
+    {
+      "id": "F25",
+      "title": "Exchange Ruy Lopez bishop and c-pawn changes",
+      "source": "constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6",
+      "args": ["--fen", "r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4", "--moves", "Bxc6"],
+      "positional_include": {
+        "/position/positional": [
+          {"tag": "bishop_pair", "side": "white"},
+          {"tag": "bishop_pair", "side": "black"}
+        ],
+        "/candidates/2/positional": [
+          {"ply": 2, "change": "appears", "holds_at_end": true, "tag": "doubled_pawns", "side": "black", "file": "c"},
+          {"ply": 2, "change": "disappears", "holds_at_end": true, "tag": "bishop_pair", "side": "white"},
+          {"ply": 2, "change": "appears", "holds_at_end": true, "tag": "mobility_lead", "side": "black", "value": 11}
+        ]
+      },
+      "moves_equals": {
+        "/moves/0/positional": [
+          {"source": "rule", "ply": 2, "change": "appears", "holds_at_end": true, "net_change": true, "captured": false, "in_use": true, "tag": "mobility_lead", "side": "black", "pieces": [], "file": null, "value": 11},
+          {"source": "rule", "ply": 2, "change": "disappears", "holds_at_end": true, "net_change": true, "captured": true, "in_use": true, "tag": "bishop_pair", "side": "white", "pieces": [{"square": "c1", "piece": "B"}, {"square": "c6", "piece": "B"}], "file": null, "value": null},
+          {"source": "rule", "ply": 2, "change": "appears", "holds_at_end": true, "net_change": true, "captured": false, "in_use": true, "tag": "doubled_pawns", "side": "black", "pieces": [{"square": "c6", "piece": "p"}, {"square": "c7", "piece": "p"}], "file": "c", "value": null}
+        ]
+      },
+      "reason": "Bxc6's move report retains the bishop-pair and doubled-pawn changes, adds the used black mobility lead at ply 2, and omits passing material_ahead."
+    },
     {"id":"F26","title":"Passed pawns in the rook ending","source":"Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (F10 position)","args":["--fen","6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58","--moves","a7"],"positional_include":{"/position/positional":[{"tag":"passed_pawn","side":"white","file":"a","pieces":[{"square":"a6","piece":"P"}]},{"tag":"passed_pawn","side":"black","file":"g","pieces":[{"square":"g3","piece":"p"}]},{"tag":"material_ahead","side":"white","value":4}]},"reason":"The a6 and g3 pawns have no enemy pawn in front on their or adjacent files; White has material 6 to Black's 2."},
     {"id":"F27","title":"Kingside castling loses its right","source":"constructed","args":["--fen","k7/8/8/8/8/8/8/4K2R w K - 0 1","--moves","O-O"],"positional_include":{"/asked_moves/0/positional":[{"ply":1,"change":"disappears","holds_at_end":true,"tag":"castling_kingside","side":"white"}]},"reason":"O-O consumes White's remaining kingside castling right."},
-    {"id":"F28","title":"The Exchange Ruy Lopez doubled c-pawns","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6","args":["--fen","r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],"positional_include":{"/position/positional":[{"tag":"doubled_pawns","side":"black","file":"c"},{"tag":"bishop_pair","side":"black"}]},"candidate":{"d3":{"/tempo_ledger/plies/1/ply":2,"/tempo_ledger/plies/1/san":"f6","/tempo_ledger/plies/1/label":"unresolved_reply"}},"reason":"Black's c6 and c7 pawns share a file, and its c8 and f8 bishops occupy opposite colours; d3 pins the line's unresolved reply at ply 2.","runs":[{"name":"ledger_d3","args":["--fen","r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5","--moves","d3"],"full_text_contains":"2. f6 unresolved reply (acceptable, stops the threat: f6, Bd6, Qd6, Bg4, Qf6; 5 of 36 replies searched)"}]}
+    {
+      "id": "F28",
+      "title": "The Exchange Ruy Lopez doubled c-pawns",
+      "source": "constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6",
+      "args": ["--fen", "r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],
+      "equals": {
+        "/candidates/0/san": "O-O",
+        "/candidates/0/uci": "e1g1",
+        "/candidates/0/verdict": "best"
+      },
+      "positional_include": {
+        "/position/positional": [
+          {"tag": "doubled_pawns", "side": "black", "file": "c"},
+          {"tag": "bishop_pair", "side": "black"}
+        ]
+      },
+      "candidate": {
+        "d3": {
+          "/tempo_ledger/plies/1/ply": 2,
+          "/tempo_ledger/plies/1/san": "f6",
+          "/tempo_ledger/plies/1/label": "unresolved_reply"
+        }
+      },
+      "reason": "At search depth 18 O-O is A-best; Black's c6 and c7 pawns are doubled, and d3 retains its unresolved reply in the ledger.",
+      "runs": [
+        {
+          "name": "ledger_d3",
+          "args": ["--fen", "r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5", "--moves", "d3"],
+          "full_text_contains": "2. f6 unresolved reply (acceptable, stops the threat: Qd6, Qf6, f6, Bd6, Bc5; 5 of 36 replies searched)"
+        }
+      ]
+    }
     ,
     {
       "id": "F29",
@@ -520,8 +578,10 @@
       "args": [
         "--fen",
         "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-        "--budget",
-        "quick"
+        "--search-budget",
+        "12",
+        "--explanation-budget",
+        "10"
       ],
       "equals": {
         "/games/source": "games",
@@ -550,8 +610,10 @@
       "args": [
         "--fen",
         "6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58",
-        "--budget",
-        "quick"
+        "--search-budget",
+        "12",
+        "--explanation-budget",
+        "10"
       ],
       "equals": {
         "/games/by_source/0/found": false,
@@ -568,9 +630,12 @@
       "title": "T46 restriction is explicit in the text report",
       "source": "constructed: T46 tactical-pin position",
       "args": ["--fen", "8/8/6k1/3N2p1/8/8/4q3/K7 b - - 0 1"],
-      "text_contains": "Tactic: mate in 8 [engine]",
+      "equals": {
+        "/candidates/0/san": "Qd1+"
+      },
+      "text_contains": "Tactic: wins 3 pawns net by ply 6 [rule]",
       "full_text_contains": "at square g5; restricted: g5-f4, g5-g4, g5-h4; free: none",
-      "reason": "The g5 pawn has restricted g5-f4, g5-g4, and g5-h4 moves; this root fact remains in full text but is irrelevant to the selected move."
+      "reason": "The g5 pawn's restriction remains in full text; at search depth 18, Qd1+ is the selected tactic and wins material along its line."
     },
     {
       "id": "F32",
@@ -586,6 +651,15 @@
       "text_contains": "Showing the best move; 4 playable moves among the engine's top 5 [rule]",
       "runs": [
         {
+          "name": "best",
+          "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "best"],
+          "equals": {
+            "/candidates/0/uci": "g8f6"
+          },
+          "moves_count": 1,
+          "moves_san": ["Nf6"]
+        },
+        {
           "name": "top2",
           "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "top2"],
           "moves_count": 2,
@@ -594,18 +668,24 @@
         {
           "name": "top6",
           "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "top6"],
+          "equals": {
+            "/candidates/0/uci": "g8f6"
+          },
           "moves_count": 6,
-          "moves_san": ["Bc5", "Nf6", "d6", "Be7", "h6", "a5"],
+          "moves_san": ["Nf6", "Bc5", "Be7", "d6", "h6", "a6"],
           "moves_equals": {
             "/moves/4/verdict": "inaccuracy",
-            "/moves/5/verdict": "inaccuracy"
+            "/moves/5/verdict": "mistake"
           }
         },
         {
           "name": "playable",
           "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "playable"],
+          "equals": {
+            "/candidates/0/uci": "g8f6"
+          },
           "moves_count": 4,
-          "moves_san": ["Bc5", "Nf6", "Be7", "d6"],
+          "moves_san": ["Nf6", "Bc5", "d6", "Be7"],
           "moves_equals": {
             "/selection/playable_count": 4,
             "/selection/lines_searched": 31
@@ -616,12 +696,12 @@
           "name": "all",
           "args": ["--fen", "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3", "--moves", "all"],
           "moves_count": 31,
-          "moves_san": ["Bc5", "Nf6", "Be7", "d6", "g6", "a6", "h6", "a5", "Bd6", "Na5", "Nge7", "Rb8", "Qe7", "h5", "f5", "Nh6", "Qf6", "Nd4", "Bb4", "d5", "b6", "f6", "Nb4", "g5", "b5", "Ke7", "Nce7", "Nb8", "Ba3", "Qg5", "Qh4"],
+          "moves_san": ["Nf6", "Bc5", "d6", "Be7", "g6", "a5", "h6", "Na5", "Bd6", "a6", "Nge7", "Rb8", "h5", "Nh6", "Qe7", "Qf6", "Nd4", "f5", "d5", "Bb4", "b6", "f6", "Nb4", "b5", "g5", "Ke7", "Nce7", "Nb8", "Ba3", "Qh4", "Qg5"],
           "moves_equals": {
             "/selection/lines_searched": 31,
             "/selection/playable_count": 4,
-            "/moves/0/san": "Bc5",
-            "/moves/30/san": "Qh4"
+            "/moves/0/san": "Nf6",
+            "/moves/30/san": "Qg5"
           },
           "candidates_count": 31,
           "candidates_detailed": true
@@ -634,7 +714,7 @@
           "moves_equals": {
             "/moves/0/rank": 1,
             "/moves/1/rank": 5,
-            "/moves/1/verdict": "mistake"
+            "/moves/1/verdict": "inaccuracy"
           }
         }
       ]
@@ -806,18 +886,18 @@
           "/tempo_ledger/plies/1/label": "threatening",
           "/tempo_ledger/plies/1/tempo_gained": true,
           "/tempo_ledger/plies/2/ply": 3,
-          "/tempo_ledger/plies/2/san": "Qd8",
+          "/tempo_ledger/plies/2/san": "Qa5",
           "/tempo_ledger/plies/2/label": "pure_reply",
           "/tempo_ledger/plies/2/forced_test/forced": true
         },
         "Bf5": {
           "/tempo_ledger/plies/1/ply": 2,
-          "/tempo_ledger/plies/1/san": "Nc3",
-          "/tempo_ledger/plies/1/label": "unforced_reply"
+          "/tempo_ledger/plies/1/san": "Bb5+",
+          "/tempo_ledger/plies/1/label": "counter_threat"
         }
       },
       "text_contains": "Initiative: White from ply 2, 1 tempo; spent at ply 4; evaporated [rule]",
-      "reason": "Qxd5 marks Nc3 as tempo-gaining and Qd8 as a forced pure reply; Bf5 records an unforced Nc3 reply, and the move report's initiative run is spent."
+      "reason": "Qxd5 marks Nc3 as tempo-gaining and Qa5 as the forced pure reply; Bf5 records Bb5+ as a counter-threat, reflecting the depth-18 ledger."
     },
     {
       "id": "F41",
@@ -825,7 +905,7 @@
       "source": "Romanko - Shulakova, Moscow Open 2012 (V2)",
       "args": ["--fen", "1br3k1/5pp1/p3p2p/1bBn4/N7/1P3PP1/5R1P/2R3K1 b - - 0 1", "--moves", "Bxa4,Ba7"],
       "equals": {
-        "/position/tempo_value/value": 0.2965,
+        "/position/tempo_value/value": 0.3115,
         "/position/tempo_value/label": "tempo_dependent"
       },
       "candidate": {
@@ -866,10 +946,10 @@
         }
       },
       "moves_equals": {
-        "/moves/0/tempo_gained": [],
-        "/moves/0/initiative": []
+        "/moves/0/tempo_gained": [{"ply": 5, "san": "Qc3", "side": "black", "source": "engine"}],
+        "/moves/0/initiative": [{"holder": "black", "start_ply": 5, "end_ply": 6, "tempi": 1, "ending": "unfinished", "outcome": "unknown", "source": "rule"}]
       },
-      "reason": "dxc5 is unforced because the acceptable Qxc5 alternative does not stop the threat; P7 therefore removes bxc5's tempo gain and the initiative run.",
+      "reason": "After Qc4, dxc5 remains an unforced reply; the depth-18 ledger later finds Black's tempo gain with Qc3 and an unfinished initiative run.",
       "full_text_contains": "3. dxc5 unforced reply (acceptable, leaves the threat: Qxc5; 5 of 34 replies searched)"
     },
     {
@@ -893,7 +973,10 @@
       "source": "constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6",
       "args": ["--fen", "r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],
       "equals": {
-        "/position/tempo_value/label": "non_tempo"
+        "/position/tempo_value/label": "non_tempo",
+        "/candidates/0/san": "O-O",
+        "/candidates/0/uci": "e1g1",
+        "/candidates/0/verdict": "best"
       },
       "moves_equals": {
         "/moves/0/impact_order": ["created_threat", "tempo"]
@@ -933,6 +1016,11 @@
       "title": "Rook captures an isolated pawn",
       "source": "constructed",
       "args": ["--fen", "3r2k1/8/2n5/8/3P4/2N5/8/R5K1 b - - 0 1", "--moves", "Rxd4"],
+      "equals": {
+        "/candidates/0/uci": "c6d4",
+        "/candidates/0/verdict": "best",
+        "/candidates/0/loss": 0.0
+      },
       "candidate": {
         "Rxd4": {
           "/walked_plies": 6,
@@ -943,8 +1031,9 @@
           "/positional/1/side": "white",
           "/positional/1/file": "d",
           "/positional/1/captured": true,
-          "/tempo_ledger/runs/0/ending": "unfinished",
-          "/tempo_ledger/runs/0/outcome": "unknown"
+          "/verdict": "best",
+          "/loss": 0.0,
+          "/eval/cp": 1
         }
       },
       "moves_equals": {
@@ -954,12 +1043,30 @@
         "/moves/0/positional/1/side": "white",
         "/moves/0/positional/1/file": "d",
         "/moves/0/positional/1/captured": true,
-        "/moves/0/initiative": [
-          {"holder": "black", "start_ply": 3, "end_ply": 6, "tempi": 2, "ending": "unfinished", "outcome": "unknown", "source": "rule"}
-        ]
+        "/moves/0/initiative": []
       },
-      "text_contains": "Initiative: Black from ply 3, 2 tempi; unfinished at ply 6; outcome unknown [rule]",
-      "reason": "Rxd4 captures White's isolated d-pawn at ply 1; its retained Black run is unfinished and has unknown outcome."
+      "text_contains": "Tactic: wins 1 pawn net by ply 6 [rule]",
+      "reason": "Depth 18 ranks Nxd4 first; requested Rxd4 remains best with zero loss (CP 1) and captures White's isolated d-pawn, with no initiative run."
+    },
+    {
+      "id": "F47",
+      "title": "Captain's position gives A-best and A-rest candidates best verdicts",
+      "source": "the Captain's position (2026-10-25)",
+      "args": ["--fen", "2brr3/1p4k1/2p1P3/p4P2/P4pN1/2P4B/5K2/6R1 b - - 0 1", "--moves", "best,Rd3"],
+      "equals": {
+        "/candidates/0/uci": "e8h8",
+        "/candidates/0/verdict": "best",
+        "/candidates/0/loss": 0.0,
+        "/candidates/0/eval/cp": -15
+      },
+      "candidate": {
+        "Rd3": {
+          "/verdict": "best",
+          "/loss": 0.0,
+          "/eval/cp": -3
+        }
+      },
+      "reason": "At the default budgets, A-best Rh8 (e8h8) is best with loss 0 and cp -15; requested Rd3 (d8d3) is also best with loss 0 and cp -3."
     }
   ],
   "unit_fixtures": [
@@ -1047,7 +1154,7 @@
     {"id": "E11", "args": ["--pgn", "does_not_exist.pgn"], "exit": 2, "contains": ["does_not_exist.pgn"]},
     {"id": "E12", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--pgn", "two_games.pgn"], "exit": 2, "contains": ["exactly one of --fen or --pgn"]},
     {"id": "E13", "args": [], "exit": 2, "contains": ["exactly one of --fen or --pgn"]},
-    {"id": "E14", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--level", "expert"], "exit": 2, "contains": ["--level"]},
+    {"id": "E14", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--level", "expert"], "exit": 2, "contains": ["unknown flag --level"], "message": "chesswhy: error: unknown flag --level"},
     {"id": "E15", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--engine", "/nonexistent/stockfish"], "exit": 3, "contains": ["engine", "/nonexistent/stockfish"]},
     {"id": "E16", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--openings", "/nonexistent/openings"], "exit": 3, "contains": ["openings", "/nonexistent/openings"]},
     {"id": "E17", "args": ["--fen", "7k/5Q2/6K1/8/8/8/8/8 b - - 0 10000"], "exit": 2, "contains": ["invalid FEN", "counter"]},
@@ -1055,6 +1162,10 @@
     {"id": "E19", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--moves", "Nf3,,e4"], "exit": 2, "contains": ["chesswhy: error: empty item in --moves"], "message": "chesswhy: error: empty item in --moves"},
     {"id": "E20", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--moves", "top0"], "exit": 2, "contains": ["chesswhy: error: invalid value for --moves: top0"], "message": "chesswhy: error: invalid value for --moves: top0"},
     {"id": "E21", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--moves", "foo"], "exit": 2, "contains": ["chesswhy: error: cannot parse move foo"], "message": "chesswhy: error: cannot parse move foo"},
-    {"id": "E22", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--move", "Nf6"], "exit": 2, "contains": ["chesswhy: error: unknown flag --move"], "message": "chesswhy: error: unknown flag --move"}
+    {"id": "E22", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--move", "Nf6"], "exit": 2, "contains": ["chesswhy: error: unknown flag --move"], "message": "chesswhy: error: unknown flag --move"},
+    {"id": "E23", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--budget", "quick"], "exit": 2, "contains": ["chesswhy: error: unknown flag --budget"], "message": "chesswhy: error: unknown flag --budget"},
+    {"id": "E24", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--search-budget", "0"], "exit": 2, "contains": ["chesswhy: error: invalid integer for --search-budget: 0"], "message": "chesswhy: error: invalid integer for --search-budget: 0"},
+    {"id": "E25", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--explanation-budget", "61"], "exit": 2, "contains": ["chesswhy: error: invalid integer for --explanation-budget: 61"], "message": "chesswhy: error: invalid integer for --explanation-budget: 61"},
+    {"id": "E26", "args": ["--fen", "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "--search-budget", "x"], "exit": 2, "contains": ["chesswhy: error: invalid integer for --search-budget: x"], "message": "chesswhy: error: invalid integer for --search-budget: x"}
   ]
 }

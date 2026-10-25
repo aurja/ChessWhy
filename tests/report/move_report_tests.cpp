@@ -211,6 +211,8 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
     using Keyword = chesswhy::Selection::Keyword;
     auto report = base_report();
     report.input.moves = "all";
+    report.input.search_budget = 22;
+    report.input.explanation_budget = 16;
     report.input.selection =
         Selection{.keywords = {Keyword::All}, .top = std::nullopt, .moves = {}};
     report.position.motifs.push_back(motif_with(MotifContribution::Direct));
@@ -220,8 +222,10 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
         GameMoveCount{.san = "c3", .uci = "c2c3", .games = 3});
 
     const auto document = move_reports(report);
-    CHECK(document.schema_version == 9);
+    CHECK(document.schema_version == 10);
     CHECK(document.input.moves == "all");
+    CHECK(document.input.search_budget == 22);
+    CHECK(document.input.explanation_budget == 16);
     CHECK(document.engine.multipv == 6);
     CHECK(document.position.fen == report.position.fen);
     REQUIRE(document.position.eval_white.has_value());
@@ -598,7 +602,7 @@ TEST_CASE("move report leaves restricted motifs unmerged when restriction or con
     }
 }
 
-TEST_CASE("move report JSON uses the v9 moves shape and stable key order", "[unit]") {
+TEST_CASE("move report JSON uses the v10 moves shape and stable key order", "[unit]") {
     auto report = base_report();
     report.input.selection.keywords = {Selection::Keyword::All};
     report.candidates[0].parries_threat = ParryInfo{.parries = true};
@@ -620,6 +624,13 @@ TEST_CASE("move report JSON uses the v9 moves shape and stable key order", "[uni
     CHECK(keys(json) == std::vector<std::string>{"schema_version", "document", "input", "engine",
                                                  "position", "selection", "opening", "games",
                                                  "moves"});
+    CHECK(keys(json["input"]) == std::vector<std::string>{"source", "fen", "pgn_game", "pgn_ply",
+                                                          "moves", "selection", "search_budget",
+                                                          "explanation_budget"});
+    CHECK(keys(json["engine"]) == std::vector<std::string>{"name", "threads", "hash_mb", "multipv",
+                                                           "reproducible", "nodes_searched"});
+    CHECK(json["input"]["search_budget"] == 18);
+    CHECK(json["input"]["explanation_budget"] == 14);
     CHECK(keys(json["selection"]) == std::vector<std::string>{"keywords", "top", "moves",
                                                               "lines_searched", "playable_count",
                                                               "playable_truncated"});
@@ -642,6 +653,6 @@ TEST_CASE("move report JSON uses the v9 moves shape and stable key order", "[uni
     CHECK(json["moves"][0]["consequence"]["settled"] == true);
     CHECK(json["moves"][0]["positional"][0]["captured"] == false);
     CHECK(json["moves"][5]["refutation_skipped"] == "game_over");
-    CHECK(json["schema_version"] == 9);
+    CHECK(json["schema_version"] == 10);
     CHECK(json["document"] == "moves");
 }

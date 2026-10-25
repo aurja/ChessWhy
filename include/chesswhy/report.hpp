@@ -1,5 +1,5 @@
-// Report data model, schema version 9. Frozen by Planning/milestones/PostM4_EM5.md.
-// JSON shape: schema/report.v9.schema.json. Every chess fact in the report is a field here.
+// Report data model, schema version 10. Frozen by Planning/milestones/PostM4_EM6.md.
+// JSON shape: schema/report.v10.schema.json. Every chess fact in the report is a field here.
 // The renderers may only verbalise these fields.
 #pragma once
 
@@ -12,11 +12,9 @@
 
 namespace chesswhy {
 
-inline constexpr int kSchemaVersion = 9;
+inline constexpr int kSchemaVersion = 10;
 
 enum class Side : std::uint8_t { White, Black };
-enum class Budget : std::uint8_t { Quick, Standard, Deep };
-enum class Level : std::uint8_t { Beginner, Club, Advanced };
 enum class InputSource : std::uint8_t { Fen, Pgn };
 enum class Terminal : std::uint8_t { Checkmate, Stalemate };
 enum class ConsequenceClass : std::uint8_t { Mate, Material, Promotion, Positional };
@@ -187,10 +185,8 @@ enum class TempoLedgerSkip : std::uint8_t { InCheck, NullMoveUnreliable, NotDeta
 [[nodiscard]] std::string to_string(InitiativeEnding ending);
 [[nodiscard]] std::string to_string(InitiativeOutcome outcome);
 [[nodiscard]] std::string to_string(TempoLedgerSkip skip);
-// Lower-case JSON spellings: "white", "standard", "consequence_class", ...
+// Lower-case JSON spellings: "white", "consequence_class", ...
 [[nodiscard]] std::string to_string(Side side);
-[[nodiscard]] std::string to_string(Budget budget);
-[[nodiscard]] std::string to_string(Level level);
 [[nodiscard]] std::string to_string(InputSource source);
 [[nodiscard]] std::string to_string(Terminal terminal);
 [[nodiscard]] std::string to_string(ConsequenceClass cls);
@@ -230,27 +226,16 @@ struct InputInfo {
     std::optional<int> pgn_ply;       // half-moves played from the game's start position, iff Pgn
     std::optional<std::string> moves; // --moves exactly as typed
     Selection selection;
-    Level level = Level::Club;
-    Budget budget = Budget::Standard;
-};
-
-struct NodeBudget {
-    std::uint64_t a = 0; // MultiPV K from the current position
-    std::uint64_t b = 0; // null move, opponent to move
-    std::uint64_t c = 0; // searchmoves m, for an asked move outside A
-    std::uint64_t d = 0; // after m, searchmoves t (opponent's threat move)
-    std::uint64_t e = 0; // after m, null move
-    std::uint64_t l = 0; // tempo ledger: threat and reply searches
-    std::uint64_t r = 0; // after m, searchmoves all but the refutation's first move
+    int search_budget = 18;      // depth of A-best, A-rest, C
+    int explanation_budget = 14; // depth of B, D, E, R, L
 };
 
 struct EngineInfo {
     std::string name; // from UCI "id name", e.g. "Stockfish 19"
     int threads = 1;
     int hash_mb = 64;
-    int multipv = 5;
+    int multipv = 5;                  // K
     bool reproducible = true;         // false iff threads != 1
-    NodeBudget nodes;                 // budget per search kind
     std::uint64_t nodes_searched = 0; // sum of "nodes" reported by every search run
 };
 

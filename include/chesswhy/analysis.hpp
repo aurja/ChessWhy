@@ -1,5 +1,5 @@
 // Searches A–E and R and the rules that turn them into threats, urgency, verdicts and
-// opportunities, tempo and initiative. Frozen by Planning/milestones/PostM4_EM5.md.
+// opportunities, tempo and initiative. Frozen by Planning/milestones/PostM4_EM6.md.
 #pragma once
 
 #include "chesswhy/engine.hpp"
@@ -25,13 +25,16 @@ inline constexpr int kLinePlies = 10;            // plies kept in report lines
 inline constexpr int kTempoDependentUnits = 200; // label tempo_dependent above this
 inline constexpr int kNonTempoUnits = 100;       // label non_tempo from 0 below this
 
-[[nodiscard]] NodeBudget node_budget(Budget budget);
+inline constexpr int kDefaultSearchBudget = 18;
+inline constexpr int kDefaultExplanationBudget = 14;
+inline constexpr int kMaxBudget = 60;
 
 struct Request {
     chess::Board board;
     Selection selection;
     std::vector<chess::Move> asked;
-    Budget budget = Budget::Standard;
+    int search_budget = kDefaultSearchBudget;
+    int explanation_budget = kDefaultExplanationBudget;
 };
 
 // Fills report.engine (except name/threads/hash, set by the caller from the engine),
@@ -47,9 +50,9 @@ void analyse(engine::Engine& engine, const Request& request, Report& report);
 [[nodiscard]] bool judges_every_move(const Selection& selection);
 [[nodiscard]] int multipv_lines(const Selection& selection, int legal_moves);
 [[nodiscard]] bool is_detailed_line(int line_number, bool selected);
-[[nodiscard]] std::uint64_t search_a_nodes(Budget budget, int lines);
-[[nodiscard]] Verdict verdict(int loss_units, bool same_score_as_best, bool allows_tactic);
-[[nodiscard]] bool same_score(const Eval& a, const Eval& b);
+// N6: true iff `move` ranks at least as high as `best` for the side the scores belong to.
+[[nodiscard]] bool at_least_score(const Eval& move, const Eval& best);
+[[nodiscard]] Verdict verdict(int loss_units, bool at_least_best_score, bool allows_tactic);
 [[nodiscard]] bool is_tactic(const Consequence& consequence);
 [[nodiscard]] bool allows_tactic(const Consequence& line_consequence, const Eval& eval);
 [[nodiscard]] bool is_opportunity_margin(int margin_units);

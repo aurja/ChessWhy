@@ -1,5 +1,5 @@
 Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]
-Budget: standard, nodes A=1000, B=1000, C=1000, D=1000, E=1000, L=1000, R=1000 [rule]
+Budgets: search depth 18, explanation depth 14 [rule]
 Position side to move: black [rule]
 Position in check: true [rule]
 Position terminal: null [rule]

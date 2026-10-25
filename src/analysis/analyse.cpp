@@ -118,10 +118,9 @@ void annotate_threat_line(const chess::Board& root, std::span<const chess::Move>
     threat.tactic_labels = tactics::tactic_labels(root, moves);
 }
 
-void judge_refutation(engine::Engine& engine, const NodeBudget& budget,
-                      std::uint64_t& nodes_searched, const chess::Board& root,
-                      std::span<const std::string> pv_uci, const Eval& refuted_move_eval,
-                      Threat& refutation) {
+void judge_refutation(engine::Engine& engine, int explanation_depth, std::uint64_t& nodes_searched,
+                      const chess::Board& root, std::span<const std::string> pv_uci,
+                      const Eval& refuted_move_eval, Threat& refutation) {
     if (game_over(root)) {
         return;
     }
@@ -145,7 +144,7 @@ void judge_refutation(engine::Engine& engine, const NodeBudget& budget,
     const auto refutation_first = line_moves.front();
     engine::SearchRequest request;
     request.fen = root.getFen();
-    request.nodes = budget.r;
+    request.depth = explanation_depth;
     request.multipv = 1;
     request.searchmoves_uci.reserve(legal_moves.size() - 1);
     for (const auto move : legal_moves) {
@@ -286,7 +285,7 @@ void judge_refutation(engine::Engine& engine, const NodeBudget& budget,
 }
 
 [[nodiscard]] std::optional<ParryInfo>
-search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& nodes_searched,
+search_parry(engine::Engine& engine, int explanation_depth, std::uint64_t& nodes_searched,
              const chess::Board& after_move, bool gives_check, bool mates,
              std::string_view threat_move, const engine::Line& baseline) {
     const auto move = detail::legal_move(after_move, threat_move);
@@ -299,7 +298,7 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
 
     engine::SearchRequest request;
     request.fen = after_move.getFen();
-    request.nodes = budget.d;
+    request.depth = explanation_depth;
     request.multipv = 1;
     request.searchmoves_uci.emplace_back(threat_move);
     const auto searched = engine.search(request);
@@ -311,7 +310,7 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
 
 [[nodiscard]] MoveAssessment assess_move(const chess::Board& root, const engine::Line& line,
                                          const engine::Line& best_line, std::string_view uci,
-                                         bool in_multipv, bool same_score_as_best,
+                                         bool in_multipv, bool at_least_best_score,
                                          std::optional<OpportunityJudgement> opportunity,
                                          const std::vector<Motif>& root_motifs,
                                          std::vector<chess::Move>& walked_line) {
@@ -336,7 +335,7 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     result.consequence = consequence(root, line.pv_uci, line);
     result.is_tactic = is_tactic(result.consequence);
     result.allows_tactic = allows_tactic(result.consequence, result.eval);
-    result.verdict = verdict(result.loss_units, same_score_as_best, result.allows_tactic);
+    result.verdict = verdict(result.loss_units, at_least_best_score, result.allows_tactic);
     result.in_multipv = in_multipv;
     result.gives_check = after_move.inCheck();
     result.line_san = san_line(root, line.pv_uci);
@@ -382,7 +381,7 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     return result;
 }
 
-void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
+void complete_move_details(engine::Engine& engine, int explanation_depth,
                            std::uint64_t& nodes_searched, const chess::Board& root,
                            const engine::Line& line, MoveAssessment& result,
                            int opponent_threat_rank,
@@ -401,8 +400,8 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
     if (!root.inCheck() && opponent_threat_rank >= 2 && opponent_line.has_value() &&
         !opponent_line->pv_uci.empty()) {
         result.parries_threat =
-            search_parry(engine, budget, nodes_searched, after_move, result.gives_check, mates,
-                         opponent_line->pv_uci.front(), *opponent_line);
+            search_parry(engine, explanation_depth, nodes_searched, after_move, result.gives_check,
+                         mates, opponent_line->pv_uci.front(), *opponent_line);
     }
 
     if (after_move_game_over) {
@@ -417,7 +416,7 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
         } else {
             engine::SearchRequest request;
             request.fen = null_after_move.getFen();
-            request.nodes = budget.e;
+            request.depth = explanation_depth;
             request.multipv = 1;
             const auto searched = engine.search(request);
             nodes_searched += searched.nodes;
@@ -433,12 +432,12 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
     if (result.refutation.has_value()) {
         const auto pv = std::span<const std::string>(line.pv_uci);
         const auto reply = pv.size() > 1 ? pv.subspan(1) : std::span<const std::string>();
-        judge_refutation(engine, budget, nodes_searched, after_move, reply, result.eval,
+        judge_refutation(engine, explanation_depth, nodes_searched, after_move, reply, result.eval,
                          *result.refutation);
     }
 }
 
-void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
+void complete_tempo_ledger(engine::Engine& engine, int explanation_depth,
                            std::uint64_t& nodes_searched, const chess::Board& root,
                            std::span<const chess::Move> walked_line, MoveAssessment& result,
                            std::optional<bool> null_move_reliable) {
@@ -482,7 +481,7 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
             if (has_legal_moves(null_board)) {
                 engine::SearchRequest request;
                 request.fen = null_board.getFen();
-                request.nodes = budget.l;
+                request.depth = explanation_depth;
                 request.multipv = 1;
                 const auto searched = engine.search(request);
                 nodes_searched += searched.nodes;
@@ -501,7 +500,7 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
             } else {
                 engine::SearchRequest request;
                 request.fen = board.getFen();
-                request.nodes = budget.l;
+                request.depth = explanation_depth;
                 request.multipv = 1;
                 const auto searched = engine.search(request);
                 nodes_searched += searched.nodes;
@@ -524,7 +523,7 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                     const int multipv = std::min(kMinMultiPv, static_cast<int>(legal_moves));
                     engine::SearchRequest request;
                     request.fen = before_reply.getFen();
-                    request.nodes = budget.l;
+                    request.depth = explanation_depth;
                     request.multipv = multipv;
                     const auto searched = engine.search(request);
                     nodes_searched += searched.nodes;
@@ -562,7 +561,7 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                                 } else {
                                     engine::SearchRequest reply_request;
                                     reply_request.fen = after_alternative.getFen();
-                                    reply_request.nodes = budget.l;
+                                    reply_request.depth = explanation_depth;
                                     reply_request.multipv = 1;
                                     const auto reply_search = engine.search(reply_request);
                                     nodes_searched += reply_search.nodes;
@@ -655,7 +654,8 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     const bool in_check = board.inCheck();
 
     report.input.selection = request.selection;
-    report.engine.nodes = node_budget(request.budget);
+    report.input.search_budget = request.search_budget;
+    report.input.explanation_budget = request.explanation_budget;
     report.engine.nodes_searched = 0;
     report.position.fen = board.getFen();
     report.position.side_to_move = report_side(side_to_move);
@@ -674,7 +674,6 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     report.position.legal_moves = static_cast<int>(root_legal_moves);
     const int lines = multipv_lines(request.selection, report.position.legal_moves);
     report.engine.multipv = lines;
-    report.engine.nodes.a = search_a_nodes(request.budget, lines);
     if (root_legal_moves == 0) {
         report.position.terminal = in_check ? Terminal::Checkmate : Terminal::Stalemate;
         return;
@@ -682,30 +681,54 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
 
     report.position.motifs = tactics::position_motifs(board);
 
-    const auto& budget = report.engine.nodes;
-    engine::SearchRequest a_request;
-    a_request.fen = board.getFen();
-    a_request.nodes = budget.a;
-    a_request.multipv = lines;
-    const auto a_result = engine.search(a_request);
-    report.engine.nodes_searched += a_result.nodes;
-    if (a_result.lines.empty()) {
-        throw engine::EngineError("Stockfish search A returned no complete principal variation");
+    engine::SearchRequest a_best_request;
+    a_best_request.fen = board.getFen();
+    a_best_request.depth = request.search_budget;
+    a_best_request.multipv = 1;
+    const auto a_best_result = engine.search(a_best_request);
+    report.engine.nodes_searched += a_best_result.nodes;
+    if (a_best_result.lines.empty()) {
+        throw engine::EngineError("Stockfish search A-best returned no principal variation");
     }
-    if (root_legal_moves >= 2 && a_result.lines.size() < 2) {
-        throw engine::EngineError(
-            "Stockfish search A returned fewer than two principal variations");
+    const auto& best_line = a_best_result.lines.front();
+    if (best_line.pv_uci.empty()) {
+        throw engine::EngineError("Stockfish search A-best returned no principal variation");
     }
-    const auto& best_line = a_result.lines.front();
+    const auto best_move = detail::legal_move(board, best_line.pv_uci.front());
+    if (best_move == chess::Move::NO_MOVE) {
+        throw engine::EngineError("Stockfish returned an illegal principal variation move");
+    }
     const Eval best_eval = eval_for(best_line, side_to_move, side_to_move);
     report.position.eval_white = eval_for(best_line, side_to_move, chess::Color::WHITE);
+
+    engine::SearchResult a_rest_result;
+    if (root_legal_moves >= 2) {
+        engine::SearchRequest a_rest_request;
+        a_rest_request.fen = board.getFen();
+        a_rest_request.depth = request.search_budget;
+        a_rest_request.multipv = lines - 1;
+        a_rest_request.searchmoves_uci.reserve(root_legal_moves - 1);
+        chess::Movelist legal_moves;
+        chess::movegen::legalmoves(legal_moves, board);
+        for (const auto move : legal_moves) {
+            if (move != best_move) {
+                a_rest_request.searchmoves_uci.emplace_back(
+                    chess::uci::moveToUci(move, board.chess960()));
+            }
+        }
+        a_rest_result = engine.search(a_rest_request);
+        report.engine.nodes_searched += a_rest_result.nodes;
+        if (a_rest_result.lines.empty()) {
+            throw engine::EngineError("Stockfish search A-rest returned no principal variation");
+        }
+    }
 
     std::optional<OpportunityJudgement> root_opportunity;
     OpportunityJudgement root_judgement;
     if (root_legal_moves == 1) {
         root_judgement.forced = true;
     } else {
-        const auto& alternative_line = a_result.lines[1];
+        const auto& alternative_line = a_rest_result.lines.front();
         if (alternative_line.pv_uci.empty()) {
             throw engine::EngineError("Stockfish MultiPV line has an empty principal variation");
         }
@@ -723,6 +746,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         root_judgement.is_opportunity = is_opportunity_margin(margin_units);
     }
     root_opportunity = std::move(root_judgement);
+    const int explanation_depth = request.explanation_budget;
 
     std::optional<engine::Line> opponent_line;
     std::optional<Threat> opponent_threat;
@@ -732,7 +756,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         if (has_legal_moves(null_board)) {
             engine::SearchRequest b_request;
             b_request.fen = null_board.getFen();
-            b_request.nodes = budget.b;
+            b_request.depth = explanation_depth;
             b_request.multipv = 1;
             auto b_result = engine.search(b_request);
             report.engine.nodes_searched += b_result.nodes;
@@ -764,31 +788,31 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
     const std::optional<bool> null_move_reliable = threats.null_move_reliable;
     const bool root_tempo_dependent = tempo_dependent(report.position.tempo_value);
 
-    report.candidates.reserve(a_result.lines.size());
-    for (std::size_t index = 0; index < a_result.lines.size(); ++index) {
-        const auto& line = a_result.lines[index];
+    const std::size_t candidate_count = a_rest_result.lines.size() + 1;
+    report.candidates.reserve(candidate_count);
+    for (std::size_t index = 0; index < candidate_count; ++index) {
+        const auto& line = index == 0 ? best_line : a_rest_result.lines[index - 1];
         if (line.pv_uci.empty()) {
             throw engine::EngineError("Stockfish MultiPV line has an empty principal variation");
         }
         const Eval line_eval = eval_for(line, side_to_move, side_to_move);
-        const bool same_score_as_best = index == 0 || same_score(line_eval, best_eval);
         std::vector<chess::Move> walked_line;
         auto candidate = assess_move(
-            board, line, best_line, line.pv_uci.front(), true, same_score_as_best,
+            board, line, best_line, line.pv_uci.front(), true, at_least_score(line_eval, best_eval),
             index == 0 ? root_opportunity : std::nullopt, report.position.motifs, walked_line);
         const bool selected = selected_by_selection(request.selection, candidate, index);
         if (is_detailed_line(static_cast<int>(index + 1), selected)) {
-            complete_move_details(engine, budget, report.engine.nodes_searched, board, line,
-                                  candidate, opponent_rank, opponent_line);
+            complete_move_details(engine, explanation_depth, report.engine.nodes_searched, board,
+                                  line, candidate, opponent_rank, opponent_line);
         }
         positional::mark_use(candidate.positional, board, walked_line, root_tempo_dependent);
-        complete_tempo_ledger(engine, budget, report.engine.nodes_searched, board, walked_line,
-                              candidate, null_move_reliable);
+        complete_tempo_ledger(engine, explanation_depth, report.engine.nodes_searched, board,
+                              walked_line, candidate, null_move_reliable);
         report.candidates.push_back(std::move(candidate));
     }
 
     report.playable_truncated =
-        a_result.lines.size() == static_cast<std::size_t>(lines) &&
+        a_rest_result.lines.size() == static_cast<std::size_t>(lines - 1) &&
         lines < report.position.legal_moves &&
         std::ranges::all_of(
             report.candidates,
@@ -836,7 +860,7 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
 
         engine::SearchRequest c_request;
         c_request.fen = board.getFen();
-        c_request.nodes = budget.c;
+        c_request.depth = request.search_budget;
         c_request.multipv = 1;
         c_request.searchmoves_uci.push_back(asked_uci);
         const auto c_result = engine.search(c_request);
@@ -848,11 +872,11 @@ void analyse(engine::Engine& engine, const Request& request, Report& report) {
         std::vector<chess::Move> walked_line;
         auto assessment = assess_move(board, line, best_line, asked_uci, false, false, std::nullopt,
                                       report.position.motifs, walked_line);
-        complete_move_details(engine, budget, report.engine.nodes_searched, board, line, assessment,
-                              opponent_rank, opponent_line);
+        complete_move_details(engine, explanation_depth, report.engine.nodes_searched, board, line,
+                              assessment, opponent_rank, opponent_line);
         positional::mark_use(assessment.positional, board, walked_line, root_tempo_dependent);
-        complete_tempo_ledger(engine, budget, report.engine.nodes_searched, board, walked_line,
-                              assessment, null_move_reliable);
+        complete_tempo_ledger(engine, explanation_depth, report.engine.nodes_searched, board,
+                              walked_line, assessment, null_move_reliable);
         report.asked_moves.push_back(std::move(assessment));
     }
 }

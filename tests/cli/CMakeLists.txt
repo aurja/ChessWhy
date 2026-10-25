@@ -78,7 +78,7 @@ file(WRITE "${CLI_REPORT_CHECK_SCRIPT}" "set(PYTHON [==[${CHESSWHY_PYTHON}]==])\
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}"
     "set(VALIDATOR [==[${PROJECT_SOURCE_DIR}/tools/validate_report.py]==])\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}"
-    "set(SCHEMA [==[${PROJECT_SOURCE_DIR}/schema/report.v9.schema.json]==])\n")
+    "set(SCHEMA [==[${PROJECT_SOURCE_DIR}/schema/report.v10.schema.json]==])\n")
 file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "set(FULL_REPORTS\n")
 foreach(report IN LISTS CLI_FULL_REPORT_FILES)
     file(APPEND "${CLI_REPORT_CHECK_SCRIPT}" "  [==[${report}]==]\n")

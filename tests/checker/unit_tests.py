@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import sys
 import unittest
-import unittest.mock
 from collections.abc import Callable
 from copy import deepcopy
 from pathlib import Path
@@ -159,7 +158,7 @@ def tempo_semantic_report() -> checker.JsonObject:
 
 
 class CheckerRelationsTests(unittest.TestCase):
-    def test_best_requires_search_line_and_equal_cp_or_mate_score(self) -> None:
+    def test_best_uses_n6_at_least_score(self) -> None:
         report: checker.JsonObject = {
             "candidates": [
                 {
@@ -170,18 +169,25 @@ class CheckerRelationsTests(unittest.TestCase):
                     "allows_tactic": False,
                 },
                 {
-                    "eval": {"es": 0.5, "cp": 49, "mate": None},
+                    "eval": {"es": 0.51, "cp": 51, "mate": None},
                     "loss": 0.0,
                     "verdict": "best",
+                    "in_multipv": True,
+                    "allows_tactic": False,
+                },
+                {
+                    "eval": {"es": 0.49, "cp": 49, "mate": None},
+                    "loss": 0.01,
+                    "verdict": "okay",
                     "in_multipv": True,
                     "allows_tactic": False,
                 },
             ],
             "asked_moves": [
                 {
-                    "eval": {"es": 0.5, "cp": 50, "mate": None},
+                    "eval": {"es": 0.5, "cp": 60, "mate": None},
                     "loss": 0.0,
-                    "verdict": "best",
+                    "verdict": "okay",
                     "in_multipv": False,
                     "allows_tactic": False,
                 }
@@ -191,17 +197,60 @@ class CheckerRelationsTests(unittest.TestCase):
 
         checker.check_score_relations(report, failures)
 
-        self.assertIn(("/candidates/1/verdict", unittest.mock.ANY), failures)
-        self.assertIn(("/asked_moves/0/verdict", unittest.mock.ANY), failures)
-        self.assertTrue(
-            checker.same_engine_score(
-                {"cp": None, "mate": -3}, {"cp": None, "mate": -3}
-            )
-        )
-        self.assertFalse(
-            checker.same_engine_score(
-                {"cp": None, "mate": -3}, {"cp": None, "mate": -2}
-            )
+        self.assertEqual(failures, [])
+
+    def test_at_least_score_uses_n6_mate_and_centipawn_order(self) -> None:
+        cp_50: checker.JsonObject = {"cp": 50, "mate": None}
+        cp_51: checker.JsonObject = {"cp": 51, "mate": None}
+        mate_in_2: checker.JsonObject = {"cp": None, "mate": 2}
+        mate_in_3: checker.JsonObject = {"cp": None, "mate": 3}
+        mated_in_2: checker.JsonObject = {"cp": None, "mate": -2}
+        mated_in_3: checker.JsonObject = {"cp": None, "mate": -3}
+
+        self.assertTrue(checker.at_least_score(cp_51, cp_50))
+        self.assertTrue(checker.at_least_score(cp_50, cp_50))
+        self.assertTrue(checker.at_least_score(mate_in_2, cp_51))
+        self.assertTrue(checker.at_least_score(mate_in_2, mate_in_3))
+        self.assertFalse(checker.at_least_score(mate_in_3, mate_in_2))
+        self.assertTrue(checker.at_least_score(mate_in_2, mate_in_2))
+        self.assertTrue(checker.at_least_score(mated_in_2, mated_in_2))
+        self.assertTrue(checker.at_least_score(cp_50, mated_in_2))
+        self.assertTrue(checker.at_least_score(mated_in_3, mated_in_2))
+        self.assertFalse(checker.at_least_score(mated_in_2, mated_in_3))
+
+    def test_v10_fields_and_removed_metadata(self) -> None:
+        valid: checker.JsonObject = {
+            "schema_version": 10,
+            "input": {"search_budget": 1, "explanation_budget": 60},
+            "engine": {"multipv": 5},
+        }
+        failures: list[checker.Failure] = []
+
+        checker.check_v10_fields(valid, failures)
+
+        self.assertEqual(failures, [])
+        invalid: checker.JsonObject = {
+            "schema_version": 9,
+            "input": {
+                "search_budget": True,
+                "explanation_budget": 61,
+                "level": "club",
+                "budget": "standard",
+            },
+            "engine": {"multipv": 5, "nodes": {}},
+        }
+        checker.check_v10_fields(invalid, failures)
+
+        self.assertEqual(
+            {path for path, _ in failures},
+            {
+                "/schema_version",
+                "/input/search_budget",
+                "/input/explanation_budget",
+                "/input/level",
+                "/input/budget",
+                "/engine/nodes",
+            },
         )
 
     def test_blunder_requires_allows_tactic(self) -> None:
@@ -346,6 +395,64 @@ class CheckerRelationsTests(unittest.TestCase):
         )
 
         self.assertIn("/opportunity/is_opportunity", [path for path, _ in failures])
+        negative_margin: checker.JsonObject = {
+            "source": "engine",
+            "forced": False,
+            "alternative": {
+                "san": "d4",
+                "uci": "d2d4",
+                "eval": {"es": 0.55, "cp": 55, "mate": None},
+            },
+            "margin": -0.05,
+            "is_opportunity": False,
+        }
+        candidate: checker.JsonObject = {
+            "san": "e4",
+            "uci": "e2e4",
+            "eval": {"es": 0.5, "cp": 50, "mate": None},
+            "consequence": {"class": "positional", "material": 0},
+            "is_tactic": False,
+            "allows_tactic": False,
+            "detailed": False,
+            "opportunity": negative_margin,
+            "parries_threat": None,
+            "creates_threat": None,
+            "creates_threat_skipped": None,
+            "refutation": None,
+            "motifs": [],
+            "root_motifs": [],
+            "tactic_labels": [],
+        }
+        alternative: checker.JsonObject = {
+            **candidate,
+            "san": "d4",
+            "uci": "d2d4",
+            "eval": {"es": 0.55, "cp": 55, "mate": None},
+            "opportunity": None,
+        }
+        report: checker.JsonObject = {
+            "position": {"fen": START_FEN, "terminal": None, "motifs": []},
+            "candidates": [candidate, alternative],
+            "asked_moves": [],
+        }
+        negative_failures: list[checker.Failure] = []
+        checker.check_tactic_invariants(
+            report, chess.Board(START_FEN), negative_failures
+        )
+        self.assertNotIn(
+            "/candidates/0/opportunity/margin",
+            [path for path, _ in negative_failures],
+        )
+
+        negative_margin["margin"] = 0.0
+        negative_failures.clear()
+        checker.check_tactic_invariants(
+            report, chess.Board(START_FEN), negative_failures
+        )
+        self.assertIn(
+            "/candidates/0/opportunity/margin",
+            [path for path, _ in negative_failures],
+        )
         forced_failures: list[checker.Failure] = []
         forced: checker.JsonObject = {
             "source": "rule",
@@ -387,8 +494,40 @@ class CheckerRelationsTests(unittest.TestCase):
         checker.check_selection_relations(report, root, failures)
         self.assertTrue(any(path == "/input/selection/moves" for path, _ in failures))
 
+    def test_engine_multipv_matches_selection_width(self) -> None:
+        report: checker.JsonObject = {
+            "input": {
+                "moves": "top6",
+                "selection": {"keywords": [], "top": 6, "moves": []},
+            },
+            "engine": {"multipv": 6},
+            "candidates": [],
+            "asked_moves": [],
+        }
+        root = chess.Board(START_FEN)
+        failures: list[checker.Failure] = []
+
+        checker.check_selection_relations(report, root, failures)
+
+        self.assertEqual(failures, [])
+        engine = object_field(report, "engine")
+        engine["multipv"] = 5
+        checker.check_selection_relations(report, root, failures)
+        self.assertIn("/engine/multipv", [path for path, _ in failures])
+
+        input_metadata = object_field(report, "input")
+        input_metadata["moves"] = "all"
+        selection = object_field(input_metadata, "selection")
+        selection["keywords"] = ["all"]
+        selection["top"] = None
+        engine["multipv"] = 20
+        failures.clear()
+        checker.check_selection_relations(report, root, failures)
+        self.assertEqual(failures, [])
+
     def test_playable_truncated_requires_all_returned_lines_playable(self) -> None:
         report: checker.JsonObject = {
+            "input": {"selection": {"keywords": []}},
             "engine": {"multipv": 2},
             "position": {"legal_moves": 20},
             "candidates": [{"loss": 0.0}, {"loss": 0.05}],
@@ -399,14 +538,31 @@ class CheckerRelationsTests(unittest.TestCase):
         checker.check_playable_truncated(report, failures)
 
         self.assertEqual(failures, [])
-        candidates = report["candidates"]
-        assert isinstance(candidates, list)
-        second = candidates[1]
-        assert isinstance(second, dict)
-        second["loss"] = 0.051
+        candidates = array_field(report, "candidates")
+        object_value(candidates[1])["loss"] = 0.051
         failures.clear()
         checker.check_playable_truncated(report, failures)
         self.assertEqual([path for path, _ in failures], ["/playable_truncated"])
+
+        _ = candidates.pop()
+        report["playable_truncated"] = False
+        failures.clear()
+        checker.check_playable_truncated(report, failures)
+        self.assertEqual(failures, [])
+
+        candidates.append({"loss": 0.05})
+        object_field(report, "engine")["multipv"] = 20
+        object_value(object_field(report, "position"))["legal_moves"] = 20
+        failures.clear()
+        checker.check_playable_truncated(report, failures)
+        self.assertEqual(failures, [])
+
+        object_field(report, "engine")["multipv"] = 2
+        object_field(report, "position")["legal_moves"] = 20
+        object_field(report, "input")["selection"] = {"keywords": ["playable"]}
+        failures.clear()
+        checker.check_playable_truncated(report, failures)
+        self.assertEqual(failures, [])
 
     def test_projection_filters_motifs_and_orders_kept_net_changes(self) -> None:
         motifs: list[checker.JsonValue] = [
@@ -511,7 +667,7 @@ class CheckerRelationsTests(unittest.TestCase):
 
         def full_report(motifs: list[checker.JsonValue]) -> checker.JsonObject:
             return {
-                "schema_version": 9,
+                "schema_version": 10,
                 "document": "full",
                 "input": {"selection": {"keywords": ["all"], "top": None, "moves": []}},
                 "engine": {"multipv": 1},
@@ -608,7 +764,15 @@ class CheckerRelationsTests(unittest.TestCase):
 
     def test_moves_schema_ties_also_threat_to_tag(self) -> None:
         schema_path = (
-            Path(__file__).resolve().parents[2] / "schema" / "moves.v9.schema.json"
+            Path(__file__).resolve().parents[2] / "schema" / "moves.v10.schema.json"
+        )
+        self.assertEqual(
+            checker.schema_for_document(schema_path, "full").name,
+            "report.v10.schema.json",
+        )
+        self.assertEqual(
+            checker.schema_for_document(schema_path, "moves").name,
+            "moves.v10.schema.json",
         )
         schema = object_value(checker.read_json(schema_path))
         defs = object_field(schema, "$defs")
@@ -706,7 +870,7 @@ class CheckerRelationsTests(unittest.TestCase):
             "refutation_skipped": None,
         }
         full: checker.JsonObject = {
-            "schema_version": 9,
+            "schema_version": 10,
             "document": "full",
             "input": {
                 "source": "fen",
@@ -715,8 +879,8 @@ class CheckerRelationsTests(unittest.TestCase):
                 "pgn_ply": None,
                 "moves": None,
                 "selection": {"keywords": ["best"], "top": None, "moves": []},
-                "level": "club",
-                "budget": "standard",
+                "search_budget": 18,
+                "explanation_budget": 14,
             },
             "engine": {"multipv": 1},
             "position": {

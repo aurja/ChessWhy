@@ -422,17 +422,17 @@ struct Engine::Impl {
     }
 
     SearchResult search(const SearchRequest& request) {
-        if (request.nodes == 0 || request.multipv < 1) {
-            throw EngineError("engine search requires positive nodes and multipv");
+        if (request.depth < 1 || request.multipv < 1) {
+            throw EngineError("engine search requires positive depth and multipv");
         }
-        const auto deadline = Clock::now() + std::chrono::seconds(120);
-        write_command("ucinewgame", deadline, "engine search");
-        write_command("setoption name MultiPV value " + std::to_string(request.multipv), deadline,
-                      "engine search");
-        ready(deadline, "engine search");
-        write_command("position fen " + request.fen, deadline, "engine search");
+        const auto setup_deadline = Clock::now() + std::chrono::seconds(120);
+        write_command("ucinewgame", setup_deadline, "engine search");
+        write_command("setoption name MultiPV value " + std::to_string(request.multipv),
+                      setup_deadline, "engine search");
+        ready(setup_deadline, "engine search");
+        write_command("position fen " + request.fen, setup_deadline, "engine search");
 
-        std::string go = "go nodes " + std::to_string(request.nodes);
+        std::string go = "go depth " + std::to_string(request.depth);
         if (!request.searchmoves_uci.empty()) {
             go += " searchmoves";
             for (const auto& move : request.searchmoves_uci) {
@@ -440,13 +440,15 @@ struct Engine::Impl {
                 go += move;
             }
         }
-        write_command(go, deadline, "engine search");
+        write_command(go, setup_deadline, "engine search");
 
         SearchResult result;
         MultiPvCollector collector;
         bool got_bestmove = false;
+        auto idle_deadline = Clock::now() + std::chrono::seconds(120);
         while (!got_bestmove) {
-            const auto text = read_line(deadline, "engine search");
+            const auto text = read_line(idle_deadline, "engine search");
+            idle_deadline = Clock::now() + std::chrono::seconds(120);
             std::size_t offset = 0;
             const auto first = next_token(text, offset);
             if (first == "info") {

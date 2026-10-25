@@ -36,6 +36,9 @@ SELECTION_KEYWORDS = (
     "unplayable",
     "all",
 )
+WHOLE_BOARD_KEYWORDS = frozenset(
+    {"playable", "inaccuracies", "mistakes", "blunders", "unplayable", "all"}
+)
 
 
 class Arguments(argparse.Namespace):
@@ -133,28 +136,69 @@ def number_units(value: JsonValue) -> int | None:
     return round(float(value) * 2000)
 
 
-def same_engine_score(left: JsonValue, right: JsonValue) -> bool:
-    left_eval = as_object(left)
-    right_eval = as_object(right)
-    if left_eval is None or right_eval is None:
-        return False
-    left_cp, right_cp = left_eval.get("cp"), right_eval.get("cp")
-    left_mate, right_mate = left_eval.get("mate"), right_eval.get("mate")
-    if isinstance(left_cp, int) and not isinstance(left_cp, bool):
-        return left_cp == right_cp and left_mate is None and right_mate is None
-    if isinstance(left_mate, int) and not isinstance(left_mate, bool):
-        return left_mate == right_mate and left_cp is None and right_cp is None
-    return False
+def at_least_score(move: JsonValue, best: JsonValue) -> bool:
+    def score_order(value: JsonValue) -> tuple[int, int] | None:
+        eval_object = as_object(value)
+        if eval_object is None:
+            return None
+        cp, mate = eval_object.get("cp"), eval_object.get("mate")
+        if isinstance(cp, int) and not isinstance(cp, bool) and mate is None:
+            return (1, cp)
+        if isinstance(mate, int) and not isinstance(mate, bool) and cp is None:
+            return (2, -mate) if mate > 0 else (0, -mate)
+        return None
+
+    move_order, best_order = score_order(move), score_order(best)
+    return (
+        move_order is not None and best_order is not None and move_order >= best_order
+    )
 
 
 def expected_verdict(
-    loss_units: int, is_candidate: bool, same_best_score: bool, allows_tactic: bool
+    loss_units: int, is_candidate: bool, at_least_best_score: bool, allows_tactic: bool
 ) -> str:
     if loss_units <= PLAYABLE_UNITS:
-        return "best" if is_candidate and same_best_score else "okay"
+        return "best" if is_candidate and at_least_best_score else "okay"
     if loss_units <= INACCURACY_UNITS:
         return "inaccuracy"
     return "blunder" if allows_tactic else "mistake"
+
+
+def check_v10_fields(report: JsonObject, failures: list[Failure]) -> None:
+    fail(
+        failures,
+        "/schema_version",
+        "schema_version must be 10",
+        type(report.get("schema_version")) is int
+        and report.get("schema_version") == 10,
+    )
+    input_metadata = as_object(report.get("input"))
+    if input_metadata is not None:
+        for field in ("search_budget", "explanation_budget"):
+            budget = input_metadata.get(field)
+            fail(
+                failures,
+                f"/input/{field}",
+                f"{field} must be an integer from 1 through 60",
+                isinstance(budget, int)
+                and not isinstance(budget, bool)
+                and 1 <= budget <= 60,
+            )
+        for field in ("level", "budget"):
+            fail(
+                failures,
+                f"/input/{field}",
+                f"v10 input must omit {field}",
+                field not in input_metadata,
+            )
+    engine = as_object(report.get("engine"))
+    if engine is not None:
+        fail(
+            failures,
+            "/engine/nodes",
+            "v10 engine must omit nodes",
+            "nodes" not in engine,
+        )
 
 
 def side_name(color: chess.Color) -> str:
@@ -394,7 +438,7 @@ def check_score_relations(report: JsonObject, failures: list[Failure]) -> None:
         expected = expected_verdict(
             expected_loss,
             is_candidate and move_object.get("in_multipv") is True,
-            same_engine_score(move_object.get("eval"), best_eval),
+            at_least_score(move_object.get("eval"), best_eval),
             move_object.get("allows_tactic") is True,
         )
         fail(
@@ -468,6 +512,19 @@ def check_selection_relations(
         "asked move UCIs must be deduplicated in typed order",
         actual_moves == requested_moves,
     )
+    if root is not None:
+        legal_moves = root.legal_moves.count()
+        if legal_moves:
+            whole_board = bool(requested_keywords & WHOLE_BOARD_KEYWORDS)
+            requested_width = legal_moves if whole_board else max(5, requested_top or 0)
+            engine = as_object(report.get("engine"))
+            if engine is not None:
+                fail(
+                    failures,
+                    "/engine/multipv",
+                    f"engine.multipv must equal selection width K = {min(requested_width, legal_moves)}",
+                    engine.get("multipv") == min(requested_width, legal_moves),
+                )
 
     candidates = as_array(report.get("candidates")) or []
     candidate_ucis: list[str] = []
@@ -516,6 +573,17 @@ def check_playable_truncated(report: JsonObject, failures: list[Failure]) -> Non
     width = engine.get("multipv")
     legal_moves = position.get("legal_moves")
     candidates = as_array(report.get("candidates")) or []
+    input_metadata = as_object(report.get("input"))
+    selection = (
+        None if input_metadata is None else as_object(input_metadata.get("selection"))
+    )
+    raw_moves = None if input_metadata is None else input_metadata.get("moves")
+    requested_items = raw_moves.split(",") if isinstance(raw_moves, str) else []
+    keywords = [] if selection is None else as_array(selection.get("keywords")) or []
+    whole_board = any(
+        isinstance(keyword, str) and keyword in WHOLE_BOARD_KEYWORDS
+        for keyword in (*requested_items, *keywords)
+    )
     all_playable = True
     for value in candidates:
         candidate = as_object(value)
@@ -531,11 +599,12 @@ def check_playable_truncated(report: JsonObject, failures: list[Failure]) -> Non
         and len(candidates) == width
         and width < legal_moves
         and all_playable
+        and not whole_board
     )
     fail(
         failures,
         "/playable_truncated",
-        "playable_truncated must hold exactly when Search A returned all K playable lines and K is below the legal-move count",
+        "playable_truncated must hold exactly when A-rest returned all K-1 lines, K is below the legal-move count, every candidate is playable, and no whole-board keyword was selected",
         report.get("playable_truncated") is expected,
     )
 
@@ -2840,6 +2909,7 @@ def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> Non
         if position is None
         else board_from_fen(position.get("fen"), "/position/fen", failures)
     )
+    check_v10_fields(report, failures)
     check_score_relations(report, failures)
     check_selection_relations(report, root, failures)
     check_playable_truncated(report, failures)
@@ -3467,10 +3537,10 @@ def schema_error_message(error: ValidationError) -> str:
 def schema_for_document(base_schema: Path, document: JsonValue) -> Path:
     if document not in ("full", "moves"):
         return base_schema
-    if base_schema.name not in ("report.v9.schema.json", "moves.v9.schema.json"):
+    if base_schema.name not in ("report.v10.schema.json", "moves.v10.schema.json"):
         return base_schema
     schema_name = (
-        "report.v9.schema.json" if document == "full" else "moves.v9.schema.json"
+        "report.v10.schema.json" if document == "full" else "moves.v10.schema.json"
     )
     return base_schema.with_name(schema_name)
 
@@ -3521,7 +3591,7 @@ def validate_document_file(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="validate ChessWhy full and moves documents against their v9 schemas"
+        description="validate ChessWhy full and moves documents against their v10 schemas"
     )
     _ = parser.add_argument("schema", type=Path)
     _ = parser.add_argument("reports", type=Path, nargs="*")

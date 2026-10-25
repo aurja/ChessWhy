@@ -28,8 +28,9 @@ small, local, targeted tool, not a chess GUI, trainer or game reviewer.
    engine judgements read through frozen thresholds (§5.4): the scores are the engine's,
    the cut-offs are ChessWhy's.
 3. **Reproducible.** Default analysis uses Stockfish with `Threads=1`, a fixed hash size
-   and fixed node budgets, so the same input gives the same report. Tests depend on it.
-   "Reproducible" means the same configuration (budget, threads, hash, nodes); the report
+   and fixed search depths (the search budget and the explanation budget, PostM4_EM6), so
+   the same input gives the same report. Tests depend on it.
+   "Reproducible" means the same configuration (budgets, threads, hash); the report
    does not identify the engine binary or the ChessWhy revision. Data files are
    identified by the digest of the loaded bytes (PostM3_EM2).
 4. **Small.** Prefer the simplest design that meets a milestone's frozen acceptance
@@ -46,7 +47,7 @@ chesswhy --fen "<FEN>" --moves Nf3           # why / why not Nf3 (SAN or UCI: g1
 chesswhy --fen "<FEN>" --moves best,Nf3      # my move next to the best one
 chesswhy --fen "<FEN>" --moves playable      # every playable move (slow)
 chesswhy --pgn game.pgn [--game 2] [--ply 31] [--moves ITEM[,ITEM...]]
-         [--level beginner|club|advanced] [--budget quick|standard|deep]
+         [--search-budget N] [--explanation-budget N]
          [--json] [--full-report] [--no-llm] [--threads N]
 ```
 
@@ -70,11 +71,15 @@ chesswhy --pgn game.pgn [--game 2] [--ply 31] [--moves ITEM[,ITEM...]]
   content (the full report, every computed fact, instead of the move reports). Text is
   model prose from M5 for move reports and the deterministic template rendering
   (§7.3) with `--no-llm` or until then; the full report text is always the template.
-- `standard` budget: about 10 s of engine time on the development laptop
-  (i7-8565U, CPU only), expressed as fixed node counts calibrated in M1. Measured in
-  M0: Stockfish 19 searches ~0.32 M nodes/s single-threaded (MultiPV 5), so `standard`
-  is roughly 3 M nodes shared by all searches of §5.1. `--threads N` trades
-  reproducibility for speed and marks the report non-reproducible.
+- Two budgets, each a Stockfish depth the user may set (Captain, 2026-10-25;
+  PostM4_EM6): `--search-budget N` (default 18) for the searches that find and rank the
+  moves (A-best, A-rest, C) and `--explanation-budget N` (default 14) for the searches that
+  explain them (B, D, E, R, L); both accept 1–60. Run longer, a search's line 1 can
+  change. Speed has no limit for now (Captain, 2026-10-25: correct first, fast later);
+  `cli_timing` measures the default reports on the development laptop (i7-8565U, CPU
+  only; slowest F fixture 47.2 s at the defaults). `--threads N` trades reproducibility for speed and marks
+  the report non-reproducible. Audience levels (`--level`, removed in PostM4_EM6) are an
+  open question for M5.
 
 ## 4. Pipeline
 
@@ -90,7 +95,7 @@ flowchart LR
   STR --> REP
   OPN --> REP
   REP --> RET[BM25 book retrieval<br/>by concept tags]
-  REP --> LLM[libllama prose<br/>level-specific prompt]
+  REP --> LLM[libllama prose]
   RET --> LLM
   LLM --> FC{Fact check}
   FC -- pass --> OUT[Explanation]
@@ -107,18 +112,19 @@ are reported for display only; all thresholds use `ES`.
 
 | ID | Position | Search | Purpose |
 |---|---|---|---|
-| A | current, `S` to move | MultiPV `K`: 5, or N for `topN` > 5, or every legal move for `playable`, `inaccuracies`, `mistakes`, `blunders`, `unplayable`, `all`; 1/5 of A's budget per line | best moves, `S`'s threat (A's PV), playable moves |
+| A-best | current, `S` to move | single PV at the search budget | the best move, `S`'s threat (A-best's PV) |
+| A-rest | current, `S` to move | MultiPV `K − 1` at the search budget, `searchmoves` every legal move but A-best's; `K` is 5, or N for `topN` > 5, or every legal move for `playable`, `inaccuracies`, `mistakes`, `blunders`, `unplayable`, `all` | the other reported moves, playable moves |
 | B | null move: same placement, `O` to move, en-passant square cleared | single PV | `O`'s threat (what `O` does if `S` passes) |
-| C(m) | after move `m` | `go searchmoves m` from the current position, or the A entry if `m` is in the MultiPV | verdict and refutation line for `m` |
+| C(m) | after move `m` | `go searchmoves m` from the current position at the search budget, or the A entry if `m` is one of A's lines | verdict and refutation line for `m` |
 | D(m, t) | after `m`, `O` to move | `searchmoves t`, where `t` is `O`'s threat move from B | does `m` parry the threat? |
 | E(m) | after `m`, null move (`S` to move again) | single PV | threat that `m` creates |
 
 B is skipped when `S` is in check (the check *is* the problem) and flagged unreliable
 when the position is zugzwang-prone (few non-pawn pieces); the flag is in the report.
-Node budgets per search are split from the `--budget` total; exact numbers are frozen
-in M1 after calibration. A's lines keep A's MultiPV order (not re-sorted by score); each
-reports the depth its line reached, and the text names the engine and the budget, since a
-different budget can change a close verdict.
+A is A-best's line followed by A-rest's lines in A-rest's order (not re-sorted by score); a line of A-rest
+that scores at least A-best's is `best` (§5.4). B, D, E and every explanation search run at
+the explanation budget (PostM4_EM6). Each line reports the depth it reached, and the text
+names the engine and both budgets, since a different budget can change a close verdict.
 
 ### 5.2 Threats (vision items 4a, 4b)
 
@@ -154,8 +160,8 @@ moves first, had a forcing line):
 
 - `loss(m) = ES_S(best) − ES_S(m)`. Scale decided by the Captain on 2026-10-23 (M4),
   replacing M1's fine ≤ 0.03 < inaccuracy < 0.13 ≤ mistake < 0.27 ≤ blunder:
-  *playable* moves (loss ≤ 0.05) are **best** (A's top line and every A line with
-  exactly the same engine score) or **okay**; worse moves are **inaccuracy**
+  *playable* moves (loss ≤ 0.05) are **best** (A-best's line and every A-rest line whose engine
+  score is at least A-best's, PostM4_EM6; "exactly the same" before) or **okay**; worse moves are **inaccuracy**
   (≤ 0.10), **blunder** (> 0.10 and the move allows a tactic: along its own line `S`
   loses at least 1 pawn net or is mated) or **mistake** (> 0.10 otherwise).
 - Reasons attached to each verdict: parries or ignores `O`'s threat (D: "parries" means
@@ -300,13 +306,13 @@ Greedy or low-temperature sampling with a fixed seed; bounded output length.
 
 ### 7.2 Prompt and fact selection
 
-Level-specific system prompt (`beginner`, `club`, `advanced`) plus a compact fact sheet
+System prompt (whether it depends on an audience level is open, §11 M5) plus a compact fact sheet
 serialised from the report (not raw JSON, to save tokens on a CPU-only machine), plus
 retrieved book passages (M6).
 
 Fact selection (PostM3_EM2, decided 2026-10-22):
 
-- The core claims are mandatory at every level: verdict, refutation, and the conditions
+- The core claims are mandatory in every prompt: verdict, refutation, and the conditions
   they depend on (threat premise, deferred parry, walked plies).
 - Tactic and blunder evidence comes first; root positional features are mentioned only
   when they are linked to a line or a verdict.
@@ -401,7 +407,7 @@ own plan with frozen acceptance criteria; the bullets below are the intent.
 | M3b | Opening statistics table and builder (Lichess broadcasts, both players 2200+); built in parallel with M3a | move counts for fixture positions match counts computed directly from the pinned PGN files; table rebuild is byte-identical — complete, merged into `main` 2026-10-22 (receipt `Planning/receipts/M3b.md`) |
 | PostM3_EM2 | Fixes from the 2026-10-22 conceptual audit (`Planning/milestones/PostM3_EM2.md`): restricted and free moves for restricted movement; contribution `none` means the tactic works without the motif; `removal_of_defender` continuity; conditions printed in the template (threat premise, deferred parry, skipped threat, walked plies, engine and budget, candidate count); report v5 with a semantic checker; data digests | every fixed finding has a fixture, test or doc row that fails on the old behaviour; all reports pass the semantic checks |
 | M4 | Playable moves and move reports (`Planning/milestones/M4.md`): one `--moves` flag (asked moves, `best`, `topN`, verdict keywords, `all`), verdict scale best/okay/inaccuracy/mistake/blunder, tactic (mate or material) and opportunity (only-move margin), one move report per reported move with a relevance filter, JSON and template text from the same move reports | every rule has a fixture or test that fails on the old behaviour; every move report fact is a full-report field (projection check); the output never says "candidate" |
-| M5 | libllama prose, three levels, fact check, benchmark harness | Captain picks the default model from benchmark results; prose is limited to claim units built from move report fields; the fact check rejects every case of a seeded relational test set (wrong move, square or piece, and wrong relations: who threatens whom, which ply, which condition) |
+| M5 | libllama prose, fact check, benchmark harness; audience levels are an open question (Captain, 2026-10-25: `--level` removed in PostM4_EM6) | Captain picks the default model from benchmark results; prose is limited to claim units built from move report fields; the fact check rejects every case of a seeded relational test set (wrong move, square or piece, and wrong relations: who threatens whom, which ply, which condition) |
 | M6 | Book text extraction, OCR, BM25 index, cited excerpts | retrieval returns relevant pages for a fixed tag set; citations resolve; each shown excerpt is on topic for the report's tags, applicable to the position's type, and its stance (advice vs. warning) is not inverted in the prose |
 | M7 | Native apps (Linux, Windows; possibly Android) | to be set with the Captain |
 
@@ -420,8 +426,8 @@ tablebases; our own evaluation function.
 | LLM runtime | llama.cpp linked as `libllama` |
 | Model | deferred; benchmark harness in M5, Captain decides |
 | Fact depth | engine facts + tactical motifs + positional facts |
-| Budget | `standard` ≈ 10 s, fixed nodes, `Threads=1` by default |
-| Audience | selectable level: beginner / club / advanced |
+| Budget | two depths the user may set: search budget 18 and explanation budget 14 by default, `Threads=1` (PostM4_EM6, 2026-10-25; `standard` ≈ 10 s of fixed nodes before) |
+| Audience | open for M5; the `--level` flag was removed in PostM4_EM6 (2026-10-25) |
 | Books | method reference and BM25 retrieval corpus |
 | Retrieval | BM25 keyed on concept tags, no embedding model |
 | Scanned books | OCR them |

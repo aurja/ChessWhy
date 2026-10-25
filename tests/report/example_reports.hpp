@@ -90,16 +90,12 @@ inline constexpr const char* kAfterE4E5 =
 [[nodiscard]] inline Report base_report(const std::string& fen, Side side) {
     Report report;
     report.input.fen = fen;
-    report.input.level = Level::Club;
-    report.input.budget = Budget::Standard;
     report.input.selection.keywords = {Selection::Keyword::Best};
     report.engine.name = "Stockfish 19";
     report.engine.threads = 1;
     report.engine.hash_mb = 64;
     report.engine.multipv = 5;
     report.engine.reproducible = true;
-    report.engine.nodes = {
-        .a = 1000, .b = 1000, .c = 1000, .d = 1000, .e = 1000, .l = 1000, .r = 1000};
     report.engine.nodes_searched = 5000;
     report.position.fen = fen;
     report.position.side_to_move = side;
@@ -128,7 +124,6 @@ inline constexpr const char* kAfterE4E5 =
     report.position.terminal = Terminal::Checkmate;
     report.position.eval_white.reset();
     report.engine.multipv = 0;
-    report.engine.nodes.a = 0;
     report.engine.nodes_searched = 0;
     return report;
 }
@@ -496,17 +491,6 @@ inline constexpr const char* kAfterE4E5 =
     Report report = base_report(fen, side);
     report.position.eval_white = Eval{.es_units = white_es_units, .cp = 0, .mate = std::nullopt};
     report.engine.multipv = std::min(5, report.position.legal_moves);
-    report.engine.nodes = {.a = 1'000'000,
-                           .b = 200'000,
-                           .c = 200'000,
-                           .d = 100'000,
-                           .e = 100'000,
-                           .l = 30'000,
-                           .r = 100'000};
-    report.engine.nodes_searched = report.engine.nodes.a + report.engine.nodes.b +
-                                   report.engine.nodes.c + report.engine.nodes.d +
-                                   report.engine.nodes.e + report.engine.nodes.l +
-                                   report.engine.nodes.r;
     const chess::Board board(fen);
     Threats threats;
     if (board.inCheck()) {
