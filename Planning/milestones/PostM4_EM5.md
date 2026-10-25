@@ -161,11 +161,11 @@ move `a`: `stops_threat` is the ply's own when `a = M_k`; true when the board af
 over; otherwise one reply search (MultiPV 1, `L`, the threatening side to move) and true iff
 its consequence rank is `< 2`. Lines that are not acceptable get no reply search
 (`stops_threat` null). `forced` is false if an acceptable line does not stop the threat; else
-null if all `m` lines are acceptable and `m < legal`; else true. Clarification at freeze (to
-be confirmed at checkpoint 1): "unresolved" is narrower than D3's wording; a reply is
-unforced as soon as one acceptable alternative fails to stop the threat, even when all five
-lines are acceptable. The played reply need not be among the lines (it is in 71 of 75 of the
-probe's tested plies).
+null if all `m` lines are acceptable and `m < legal`; else true. Clarification confirmed by
+the Captain at checkpoint 1 (2026-10-25, option A): "unresolved" is narrower than D3's
+wording; a reply is unforced as soon as one acceptable alternative fails to stop the threat,
+even when all five lines are acceptable. The played reply need not be among the lines (it is
+in 71 of 75 of the probe's tested plies).
 
 **P7 Ply labels and tempo gained (R9).** For ply `k` answering a threatening ply `k−1` with
 `stops_threat = true`: `counter_threat` if it is a threatening move; else `gaining_reply` if
@@ -361,3 +361,4 @@ Batches: WP1 + WP2; then WP3 + WP4; then WP5; WP6 with the milestone-end gate.
 
 | Date | Change | By |
 |---|---|---|
+| 2026-10-25 | Checkpoint 1: diagrams, §3.8 sample and P6 option A (unresolved only when all searched lines are acceptable and stop the threat) approved; batch 1 spawned | Captain |
