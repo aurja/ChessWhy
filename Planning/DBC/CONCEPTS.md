@@ -61,21 +61,21 @@ flowchart LR
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class Question,Positional,Reference,Explanation,Proof partial
+    class Question,Searches,Verdicts,Positional,Reference,Report,Explanation,Proof partial
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
-| `Question` | What the user asks: a position and which moves to report (asked moves, the best move, the top N, or every move of a kind), with a budget and an audience level | FEN, asked move, `--moves`, budget, level | partial |
-| `Searches` | Stockfish searches with fixed node budgets; the only source of evaluations and lines | A, null move, ES | implemented |
+| `Question` | What the user asks: a position and which moves to report (asked moves, the best move, the top N, or every move of a kind), with a search budget and an explanation budget (planned 2026-10-25; a budget and an audience level before) | FEN, asked move, `--moves`, search budget, explanation budget | partial |
+| `Searches` | Stockfish searches to fixed depths: the search phase finds and ranks the moves, the explanation phase explains them (planned 2026-10-25; fixed node budgets before); the only source of evaluations and lines | A-best, A-rest, null move, ES, search phase, explanation phase | partial |
 | `Threats` | What each side would do if it were its move, what that achieves, and which threat matters more | threat, consequence, urgency | implemented |
-| `Verdicts` | How much each move loses against the best, which moves are playable, and why: parry, new threat, refutation, an allowed tactic | verdict, loss, playable move | implemented |
+| `Verdicts` | How much each move loses against the best, which moves are playable, and why: parry, new threat, refutation, an allowed tactic | verdict, loss, playable move | partial |
 | `Motifs` | Patterns on the board, found by rules, on the position and along engine lines; they claim no gain | motif | implemented |
 | `Tactics` | Whether a line wins material or mates (tactic), whether it beats the best alternative by the only-move margin (opportunity), and which motifs and labels make it work | tactic, opportunity, contribution judgement, tactic label | implemented |
 | `Positional` | Pawn structure, king safety, piece activity and other lasting features, reported as changes along lines | positional fact | partial |
 | `Tempo` | Whether having the move matters in the position, which moves of a line gain a tempo, and who holds the initiative and what becomes of it | tempo value, tempo ledger, initiative | implemented |
 | `Reference` | Knowledge from outside the engine: opening names, game counts, book passages | provenance, opening name, game counts, book passage | partial |
-| `Report` | The full report holds every fact, each with its provenance; one move report per selected move holds only the facts that bear on it, in impact order; nothing is claimed outside them | report, full report, move report, provenance, facts first, impact rating | implemented |
+| `Report` | The full report holds every fact, each with its provenance; one move report per selected move holds only the facts that bear on it, in impact order; nothing is claimed outside them | report, full report, move report, provenance, facts first, impact rating | partial |
 | `Explanation` | The words a reader gets: template text today, language-model prose checked against the report later | explanation, template rendering | partial |
 | `Proof` | Fixtures and measurements that show the facts are right | fixture, recall | partial |
 
@@ -90,7 +90,7 @@ flowchart LR
     FenInput["FEN"]
     PgnInput["PGN game and ply"]
     AskedMove["Asked moves"]
-    Settings["Budget and level"]
+    Settings["Search and explanation budgets"]
     AnalysedPosition["Analysed position"]
     GameMainline["Game mainline"]
     InputError["Input error"]
@@ -108,6 +108,7 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class NativeApps planned
+    class Settings partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -118,7 +119,7 @@ flowchart LR
 | `PgnInput` | A game from a PGN file, mainline only, and the ply to stop at | PGN, ply | implemented |
 | `AskedMove` | The moves the user asks about, each in SAN or UCI and legal in the position; several may be asked at once, each reported once (one move only before 2026-10-23) | asked move, SAN | implemented |
 | `MoveRequest` | Which moves to report, as one list: asked moves and keywords for the best move, the top N moves, every playable move, every move of one or all not-playable verdicts, or every legal move; nothing given means the best move. Keywords that judge every legal move are slow and say so in the help (called `PlayableRequest`, "how many playable moves", before the 2026-10-23 revision; never built) | `--moves`, whole-board keyword, selection | implemented |
-| `Settings` | Search budget (quick, standard, deep) and audience level; the level does not change the analysis | budget, level | implemented |
+| `Settings` | Two depths the user may set: the search budget (default 18) and the explanation budget (default 14), planned 2026-10-25. Built today: "Budget and level", a search budget quick, standard or deep and an audience level that does not change the analysis; both flags go | search budget, explanation budget, budget, level | partial |
 | `AnalysedPosition` | The board every fact is about, with side to move `S` and opponent `O`; position-only: the moves that led to it are not an input to the analysis | analysed position, S | implemented |
 | `GameMainline` | The positions of a PGN game from its start to the analysed one, used to name the last opening reached | game mainline | implemented |
 | `InputError` | Input that cannot be used stops with one clear message, an input-error exit code and no report | input error | implemented |
@@ -130,6 +131,8 @@ flowchart LR
     AnalysedPosition["Analysed position"]
     AskedMove["Asked move"]
     NodeBudget["Fixed node budget"]
+    SearchBudget["Search budget: depth"]
+    ExplanationBudget["Explanation budget: depth"]
     subgraph Runs["Stockfish searches"]
         SearchA["A: best lines"]
         SearchB["B: null move"]
@@ -154,20 +157,26 @@ flowchart LR
     ReplySearch -->|answer stops the threat and gains nothing| ForcedSearch
     ForcedSearch -->|each acceptable alternative| ReplySearch
     NodeBudget -.->|limits| Runs
-    Runs -->|position, node limit, moves to search| StockfishProcess
+    SearchBudget -.->|depth| SearchA & SearchC
+    ExplanationBudget -.->|depth| SearchB & SearchD & SearchE & SearchR & ThreatSearch & ReplySearch & ForcedSearch
+    Runs -->|position, limit, moves to search| StockfishProcess
     StockfishProcess -->|lines with win, draw, loss| ExpectedScore
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class AnalysedPosition,AskedMove external
+    class SearchBudget,ExplanationBudget planned
+    class NodeBudget,SearchA partial
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
 | `AnalysedPosition` | See Question | — | external |
 | `AskedMove` | See Question | — | external |
-| `NodeBudget` | Every search stops after a fixed number of nodes, one thread, fixed hash: the same input gives the same report | budget, nodes, reproducible | implemented |
-| `SearchA` | The best moves from the position, each with its line; the first line is `S`'s threat. Five lines, N for a top-N request above five, every legal move when the request needs every move judged | A, MultiPV K, PV, whole-board keyword | implemented |
+| `NodeBudget` | Every search stops after a fixed number of nodes, one thread, fixed hash: the same input gives the same report. To be retired (planned 2026-10-25): `SearchBudget` and `ExplanationBudget` replace it | budget, nodes, reproducible | partial |
+| `SearchBudget` | Planned (2026-10-25): the depth of the search phase, A-best, A-rest and C; set by the user, 18 by default | search budget, search phase | planned |
+| `ExplanationBudget` | Planned (2026-10-25): the depth of the explanation phase, B, D, E, R and every L search; set by the user, 14 by default | explanation budget, explanation phase | planned |
+| `SearchA` | The best moves from the position, each with its line; the first line is `S`'s threat. Five lines, N for a top-N request above five, every legal move when the request needs every move judged. Planned (2026-10-25): two searches, A-best for the best line and A-rest for the others (one MultiPV search before) | A, A-best, A-rest, MultiPV K, PV, whole-board keyword | partial |
 | `SearchB` | `S` passes; what `O` would play is `O`'s threat. Skipped when `S` is in check | B, null move | implemented |
 | `SearchC` | Search restricted to one asked move when it is not among A's lines; once per such move | C | implemented |
 | `SearchD` | After a move, `O` must play its threat move: does the threat still work? Only for detailed lines | D, detailed line | implemented |
@@ -255,6 +264,7 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class SearchA,SearchC,SearchD,SearchE,OpponentThreat external
+    class Verdict partial
 ```
 
 | Node | Meaning | Terms | Status |
@@ -267,7 +277,7 @@ flowchart LR
 | `CandidateMove` | A move being judged: one of A's lines in engine order (five, more for a top-N request, every legal move when every move must be judged), or an asked move outside them, with the depth its line reached and how many plies its facts were read from; only detailed lines get the parry test, created threat and the refutation's opportunity judgement | candidates, asked move, line depth, `walked_plies`, detailed line | implemented |
 | `Loss` | How much expected score the move gives up against the best move | loss | implemented |
 | `AllowsTactic` | Does the move let the opponent win at least a pawn or mate? Read along the move's own line from the analysed position, so an even trade allows nothing | allows a tactic | implemented |
-| `Verdict` | best or okay (playable), inaccuracy, mistake or blunder, from the loss, the same-score test against the top line and whether the move allows a tactic (called fine, inaccuracy, mistake or blunder from the loss alone before 2026-10-23) | verdict, playable move | implemented |
+| `Verdict` | best or okay (playable), inaccuracy, mistake or blunder, from the loss, the at-least-score test against A-best's line (planned 2026-10-25; the same-score test against the top line before) and whether the move allows a tactic (called fine, inaccuracy, mistake or blunder from the loss alone before 2026-10-23) | verdict, playable move, at-least-score test | partial |
 | `PlayableSet` | The playable moves among A's lines, in engine order; the engine's lines only, so unlisted moves are not judged and may also be playable; the number of legal moves stands beside it. Called `FineSet`, "the fine moves among the candidates", before 2026-10-23 | playable move, `playable_truncated`, `legal_moves` | implemented |
 | `ParryTest` | Does the move stop `O`'s threat? "Stop" means the threat no longer wins against the pass baseline, not that it was prevented | parry test, `parries_threat` | implemented |
 | `CreatedThreat` | The threat `S` would have after the move if `O` passed, from E; none when the move gives check, ends the game or leaves `O` no legal move, and the report names which | `creates_threat`, `creates_threat_skipped` | implemented |
@@ -605,13 +615,14 @@ flowchart LR
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
     class Explanation,MoveRequest,AskedMove,TempoLabel,StaticScale external
+    class Reproducible partial
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
 | `Fact` | One claim about the position, computed before any words are written | fact | implemented |
 | `Provenance` | Where a fact comes from: engine search, board rule, reference material or game counts | provenance | implemented |
-| `Reproducible` | The settings that make a report repeat exactly, recorded in the report: budget, threads, hash and nodes. The engine binary and the ChessWhy revision are not identified (named 2026-10-22) | reproducible | implemented |
+| `Reproducible` | The settings that make a report repeat exactly, recorded in the report: budget, threads, hash and nodes; planned (2026-10-25): the search budget, the explanation budget, threads and hash. The engine binary and the ChessWhy revision are not identified (named 2026-10-22) | reproducible, search budget, explanation budget | partial |
 | `ReportDocument` | The full report: the JSON document of one question with every computed fact; the only place chess claims live; what fixtures and checks read. Called "report document" before 2026-10-23 | report, full report, facts first | implemented |
 | `ReportSchema` | The versioned JSON Schema every report must satisfy, with a description on every field and if/then rules for local relations | report schema | implemented |
 | `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves; tempo values and labels, ledger labels and tempi, initiative runs and outcomes, net changes and the use test; from 2026-10-25 also the settled walk and terminal draws, skipped refutations, reply gains, forced tests, the new labels, endings and outcomes, captured weaknesses and the shelter witness | semantic check | implemented |
@@ -672,7 +683,7 @@ flowchart LR
 | `PositionWalk` | From 2026-10-25 (Captain): the move report text is laid out per move as a walk through the positions of its line: the move-level rows, then one position block per position (the position as a FEN, its evaluation, the root evaluation first and the line score after, the move played from it and its side, its tempo facts, the motifs present there as uses, then its other facts in impact order). Tempo facts: the root's and the move's tempo value in the first two blocks, a tempo gained in the block its move is played from, an initiative run in the block of its first ply (from 2026-10-25, R13; before: no tempo facts). Engine, budget and opening rows come first, always. Called `PlyWalk` from 2026-10-24 to 2026-10-25: a start block, then per walked ply the move followed by the position it reaches, tempo and initiative facts included (before that: the position facts in the header and each move's facts in one list) | position walk, position block, line score, `line_fens`, tempo value, tempo gained, initiative run | implemented |
 | `TemplateRendering` | Fixed sentences filled from report fields, adding no claim; the output never says "candidate". Without `--full-report`: one block per move report, with their conditions and `SEE` for a capture's value; today's output, later the fallback. With `--full-report`: the full report text, every computed fact, always template text (before 2026-10-23: filled from the whole report, the only text) | template rendering, full report text | implemented |
 | `FactSheet` | A compact text form of the report for the model; the core claims (verdict, refutation, conditions) at every level, tactic and blunder evidence first | fact sheet, fact selection | planned |
-| `LevelPrompt` | Instructions for a beginner, club or advanced reader | level | planned |
+| `LevelPrompt` | Open question (Captain, 2026-10-25): whether the prompt depends on an audience level. Instructions for a beginner, club or advanced reader before; the `--level` flag goes (planned 2026-10-25) | level | planned |
 | `LanguageModel` | A local model that turns the fact sheet into prose and decides no chess content | language model | planned |
 | `FactCheck` | The prose split into claim units, each checked against report fields with its relations, not only its moves, squares and pieces (before 2026-10-22: names only); opening names and game counts must match exactly | fact check, claim unit | planned |
 | `ExplanationText` | What the reader sees | explanation | partial |
@@ -741,6 +752,30 @@ flowchart LR
 | `GamesOracle` | A second, independent counter that rebuilds the game-count table from the same games; both tables must be identical | `games_oracle` | implemented |
 
 ## Level 3
+
+### L3 · Search A (`SearchA`)
+
+```mermaid
+flowchart TD
+    SaWidth["K lines asked for"]
+    SaBest["A-best: the best line alone, at the search budget"]
+    SaOthers["A-rest: K − 1 more lines without A-best's move, same depth"]
+    SaOrder["A's lines: A-best's, then A-rest's in A-rest's order"]
+    SaWidth -->|K − 1| SaOthers
+    SaBest -->|its first move left out| SaOthers
+    SaBest & SaOthers --> SaOrder
+    classDef planned stroke-dasharray:6 4,color:#888
+    classDef partial stroke-dasharray:2 2
+    classDef external stroke-dasharray:1 3,color:#999
+    class SaBest,SaOthers,SaOrder planned
+```
+
+| Node | Meaning | Terms | Status |
+|---|---|---|---|
+| `SaWidth` | Five lines, N for a top-N request above five, every legal move when the request needs every move judged | MultiPV K, whole-board keyword | implemented |
+| `SaBest` | Planned (2026-10-25): one line from the position over every legal move; it gives the best move, the evaluation and `S`'s threat, and does not depend on how many lines were asked for | A-best, search budget | planned |
+| `SaOthers` | Planned (2026-10-25): the next K − 1 lines, every legal move but A-best's; none with one legal move; the root opportunity's alternative is its first line | A-rest, search budget | planned |
+| `SaOrder` | Planned (2026-10-25): A-best's line is line 1, A-rest's lines follow unsorted; an A-rest line can outscore line 1 and is then also best | A, at-least-score test | planned |
 
 ### L3 · Consequence class (`Consequence`)
 
@@ -859,7 +894,7 @@ flowchart TD
 ```mermaid
 flowchart TD
     VdPlayable{"Loss at most 0.05?"}
-    VdSameScore{"One of A's lines with exactly the top line's score?"}
+    VdSameScore{"An A line scoring at least A-best's line?"}
     VdBest["best"]
     VdOkay["okay"]
     VdSmall{"Loss at most 0.10?"}
@@ -878,13 +913,14 @@ flowchart TD
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
+    class VdSameScore,VdBest partial
 ```
 
 | Node | Meaning | Terms | Status |
 |---|---|---|---|
 | `VdPlayable` | Playable moves lose at most 0.05 expected score against the best | playable move, loss | implemented |
-| `VdSameScore` | Same centipawns or same mate distance as the top line; the top line itself always passes; an asked move outside A never does | verdict | implemented |
-| `VdBest` | The engine's best move, or tied with it exactly | verdict | implemented |
+| `VdSameScore` | Planned (2026-10-25): at least A-best's engine score in the score order (a mate for `S` above every cp score, a shorter one higher; a mate against `S` below every cp score, a longer one higher); A-best's line always passes; an asked move outside A never does. Built today: "One of A's lines with exactly the top line's score?", same centipawns or same mate distance | verdict, at-least-score test, score order | partial |
+| `VdBest` | The engine's best move, or an A line scoring at least as high (planned 2026-10-25; tied with it exactly before) | verdict | partial |
 | `VdOkay` | Playable but scored below the best | verdict | implemented |
 | `VdSmall` | Inaccuracies lose more than 0.05 and at most 0.10 (more than 0.03 and less than 0.13 before 2026-10-23) | verdict, loss | implemented |
 | `VdInaccuracy` | Not playable, a small loss | verdict | implemented |

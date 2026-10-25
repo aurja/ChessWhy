@@ -558,3 +558,24 @@ F42 (`dxc5` becomes an unforced reply: no tempo gained, no initiative run).
 | F46 | <img src="boards/F46.svg" width="200" alt="F46"> | `3r2k1/8/2n5/8/3P4/2N5/8/R5K1 b - - 0 1`<br>`--moves Rxd4`<br><sub>constructed (critique POS2-1, TMP-2)</sub> | Rxd4: White's `isolated_pawn` d disappears at ply 1, captured, favours nobody; Black's run outcome unknown when unfinished | Best **Rxd4**, a tactic: line Rxd4 Nb5 Rg4+ Kf1 Rf4+ Kg1, facts read to ply 6 of 10, settled, material 1.<br>− `isolated_pawn` White d (ply 1, captured), in use; also − `passed_pawn` White d (captured).<br>Ledger: 2. Nb5 threatening; 3. Rg4+ counter-threat, tempo gained; 4. Kf1 pure reply; 5. Rf4+ threatening, tempo gained; 6. Kg1 pure reply; Black 2 tempi. Initiative: Black from ply 3, 2 tempi; unfinished at ply 6; outcome unknown.<br>Test passes. | |
 | PU19 | — | `6k1/8/8/8/1n6/8/4BP2/4K2R w K - 0 1`; line `f4 Nd3+ Bxd3 Kf7 Bc4+ Ke7`<br><sub>constructed (critique POS2-2)</sub> | **Cut:** White's f-file shelter change (ply 1): `Nd3+` checks from outside the f-file squares of the king zone | Cut; C++ use test and oracle pass | |
 | PU20 | — | `q5k1/8/8/8/8/8/5PPP/3N2K1 w - - 0 1`; line `h3 Kh7 f4 Qa7+ Nf2`<br><sub>constructed; board and last move set by WP2 (drawn as `6K1`, `Kh2`)</sub> | **Kept:** White's f-file shelter change (ply 3): `Qa7+` checks through f2 | Kept; C++ use test and oracle pass | |
+
+## 13. PostM4_EM6 fixtures — search phase and explanation phase (planned)
+
+**Concepts:** `EngineFixtures`, `InputFixtures`, `SearchA`, `SaBest`, `SaOthers`, `SaOrder`, `SearchBudget`, `ExplanationBudget`, `Settings`, `CommandLine`, `InputError`, `Verdict`, `VdSameScore`, `VdBest`
+
+Contracted on 2026-10-25 (`Planning/milestones/PostM4_EM6.md` §3.6); none is built yet. F47 goes
+into `positions.json` (§1 rules), E23–E26 into `error_fixtures` (§3 rules). Planned changes to
+existing fixtures: every F fixture is re-blessed at the default budgets (search budget 18,
+explanation budget 14), with best-move changes expected on F28, F31, F32, F44 and F46; F29 and
+F30 replace `--budget quick` by `--search-budget 12 --explanation-budget 10`; F32 also claims the
+same best move under `--moves best`, `top6` and `playable`; E14 expects “unknown flag --level”.
+The Board, Fixture claims and Codebase today cells of the changed rows are rewritten when the
+re-bless is approved.
+
+| ID | Board | Position | Fixture claims | Codebase today | Comments |
+|---|---|---|---|---|---|
+| F47 | — | `2brr3/1p4k1/2p1P3/p4P2/P4pN1/2P4B/5K2/6R1 b - - 0 1`<br>`--moves playable`<br><sub>the Captain's position (2026-10-25)</sub> | A-best's line is `Rh8` (`e8h8`), line 1; `Rd3` (`d8d3`) is an A-rest line with verdict `best` and loss 0 by the at-least-score test | Not built. Today `Rd3` is line 1 at every budget (one MultiPV search); Stockfish's single line at depth 18–22 says `Rh8` | |
+| E23 | `--fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 --budget quick` | — | Exit 2; message “chesswhy: error: unknown flag --budget” | Not built (today accepted) | |
+| E24 | `--fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 --search-budget 0` | — | Exit 2; message “chesswhy: error: invalid integer for --search-budget: 0” | Not built | |
+| E25 | `--fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 --explanation-budget 61` | — | Exit 2; message “chesswhy: error: invalid integer for --explanation-budget: 61” | Not built | |
+| E26 | `--fen rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1 --search-budget x` | — | Exit 2; message “chesswhy: error: invalid integer for --search-budget: x” | Not built | |
