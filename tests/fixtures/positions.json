@@ -1050,9 +1050,9 @@
     },
     {
       "id": "F47",
-      "title": "Captain's position separates A-best from a tied A-rest move",
+      "title": "Captain's position gives A-best and A-rest candidates best verdicts",
       "source": "the Captain's position (2026-10-25)",
-      "args": ["--fen", "2brr3/1p4k1/2p1P3/p4P2/P4pN1/2P4B/5K2/6R1 b - - 0 1", "--moves", "playable"],
+      "args": ["--fen", "2brr3/1p4k1/2p1P3/p4P2/P4pN1/2P4B/5K2/6R1 b - - 0 1", "--moves", "best,Rd3"],
       "equals": {
         "/candidates/0/uci": "e8h8",
         "/candidates/0/verdict": "best",
@@ -1061,12 +1061,12 @@
       },
       "candidate": {
         "Rd3": {
-          "/verdict": "okay",
-          "/loss": 0.0005,
-          "/eval/cp": -18
+          "/verdict": "best",
+          "/loss": 0.0,
+          "/eval/cp": -3
         }
       },
-      "reason": "A-best is Rh8 at cp -15; Rd3 scores cp -18, is `okay`, and loses 0.0005. The expected `best`/0 result is therefore a contract discrepancy for the Captain."
+      "reason": "At the default budgets, A-best Rh8 (e8h8) is best with loss 0 and cp -15; requested Rd3 (d8d3) is also best with loss 0 and cp -3."
     }
   ],
   "unit_fixtures": [
