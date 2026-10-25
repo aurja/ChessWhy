@@ -53,8 +53,11 @@ void make_unforced_reply(chesswhy::TempoPly& ply) {
 }
 
 void make_unresolved_reply(chesswhy::TempoPly& ply) {
-    ply.reply_gain = chesswhy::ReplyGain{
-        .material = 0, .mates = false, .through_ply = ply.ply, .settled = false, .gains = std::nullopt};
+    ply.reply_gain = chesswhy::ReplyGain{.material = 0,
+                                         .mates = false,
+                                         .through_ply = ply.ply,
+                                         .settled = false,
+                                         .gains = std::nullopt};
 }
 
 } // namespace
@@ -291,7 +294,6 @@ TEST_CASE("walk stops at illegal moves and the end of a short PV", "[analysis][u
     CHECK(chesswhy::analysis::walk(root, short_pv).plies == 1);
 }
 
-
 TEST_CASE("quiet consequence is positional and a knight capture is material", "[analysis][unit]") {
     const chesswhy::engine::Line line;
     const chess::Board quiet_root("k7/8/8/8/8/8/4R3/4K3 w - - 0 1");
@@ -370,21 +372,16 @@ TEST_CASE("consequence rank follows the frozen class table", "[analysis][unit]")
 
     CHECK(consequence_rank(
               Consequence{ConsequenceClass::Mate, 1, 0, false, 1, std::nullopt, true}) == 4);
-    CHECK(consequence_rank(
-              Consequence{ConsequenceClass::Material, std::nullopt, 3, false, 1, std::nullopt, true}) ==
-          3);
-    CHECK(consequence_rank(
-              Consequence{ConsequenceClass::Material, std::nullopt, 1, false, 1, std::nullopt, true}) ==
-          2);
-    CHECK(consequence_rank(
-              Consequence{ConsequenceClass::Material, std::nullopt, 0, false, 1, std::nullopt, true}) ==
-          0);
-    CHECK(consequence_rank(
-              Consequence{ConsequenceClass::Promotion, std::nullopt, 0, true, 1, std::nullopt, true}) ==
-          1);
-    CHECK(consequence_rank(
-              Consequence{ConsequenceClass::Positional, std::nullopt, 0, false, 1, std::nullopt, true}) ==
-          0);
+    CHECK(consequence_rank(Consequence{ConsequenceClass::Material, std::nullopt, 3, false, 1,
+                                       std::nullopt, true}) == 3);
+    CHECK(consequence_rank(Consequence{ConsequenceClass::Material, std::nullopt, 1, false, 1,
+                                       std::nullopt, true}) == 2);
+    CHECK(consequence_rank(Consequence{ConsequenceClass::Material, std::nullopt, 0, false, 1,
+                                       std::nullopt, true}) == 0);
+    CHECK(consequence_rank(Consequence{ConsequenceClass::Promotion, std::nullopt, 0, true, 1,
+                                       std::nullopt, true}) == 1);
+    CHECK(consequence_rank(Consequence{ConsequenceClass::Positional, std::nullopt, 0, false, 1,
+                                       std::nullopt, true}) == 0);
 }
 
 TEST_CASE("tempo labels use the frozen boundaries", "[analysis][unit]") {
@@ -635,8 +632,8 @@ TEST_CASE("initiative runs label answered and unresolved replies and unknown out
     unsettled_plies[1].stops_threat = true;
     make_pure_reply(unsettled_plies[1]);
     chesswhy::analysis::label_ledger(unsettled_plies);
-    const auto unknown = initiative_runs(unsettled_plies, root, std::span(line).first(3), {},
-                                         false);
+    const auto unknown =
+        initiative_runs(unsettled_plies, root, std::span(line).first(3), {}, false);
     REQUIRE(unknown.size() == 1);
     CHECK(unknown[0].ending == InitiativeEnding::Spent);
     CHECK(unknown[0].outcome == InitiativeOutcome::Unknown);
@@ -701,7 +698,8 @@ TEST_CASE("initiative conversion checks material and used positional changes", "
     material_plies[1].stops_threat = true;
     make_pure_reply(material_plies[1]);
     chesswhy::analysis::label_ledger(material_plies);
-    const auto material_runs = initiative_runs(material_plies, material_root, material_line, {}, true);
+    const auto material_runs =
+        initiative_runs(material_plies, material_root, material_line, {}, true);
     REQUIRE(material_runs.size() == 1);
     CHECK(material_runs[0].outcome == InitiativeOutcome::Converted);
 
@@ -725,7 +723,8 @@ TEST_CASE("initiative conversion checks material and used positional changes", "
     REQUIRE(positional_runs.size() == 1);
     CHECK(positional_runs[0].outcome == InitiativeOutcome::Converted);
 
-    const auto evaporated = initiative_runs(positional_plies, positional_root, positional_line, {}, true);
+    const auto evaporated =
+        initiative_runs(positional_plies, positional_root, positional_line, {}, true);
     REQUIRE(evaporated.size() == 1);
     CHECK(evaporated[0].outcome == InitiativeOutcome::Evaporated);
 }

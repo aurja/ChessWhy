@@ -514,8 +514,7 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
             if (ply.stops_threat.value_or(false) && !ply.threatening) {
                 const int k = static_cast<int>(index + 1);
                 const int through_ply = settle_ply(root, walked_line, k);
-                ply.reply_gain =
-                    reply_gain(boards, k, through_ply, result.consequence.settled);
+                ply.reply_gain = reply_gain(boards, k, through_ply, result.consequence.settled);
                 if (ply.reply_gain->gains == false) {
                     const chess::Board& before_reply = boards[index];
                     const auto legal_moves = legal_move_count(before_reply);
@@ -538,9 +537,7 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                     ForcedTest forced_test;
                     forced_test.legal_moves = static_cast<int>(legal_moves);
                     forced_test.lines.reserve(searched.lines.size());
-                    for (std::size_t line_index = 0; line_index < searched.lines.size();
-                         ++line_index) {
-                        const auto& alternative_line = searched.lines[line_index];
+                    for (const auto& alternative_line : searched.lines) {
                         if (alternative_line.pv_uci.empty()) {
                             throw engine::EngineError(
                                 "Stockfish forced test returned an empty principal variation");
@@ -570,9 +567,9 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                                     const auto reply_search = engine.search(reply_request);
                                     nodes_searched += reply_search.nodes;
                                     const auto& alternative_reply = first_line(reply_search);
-                                    const int rank = consequence_rank(consequence(
-                                        after_alternative, alternative_reply.pv_uci,
-                                        alternative_reply));
+                                    const int rank = consequence_rank(
+                                        consequence(after_alternative, alternative_reply.pv_uci,
+                                                    alternative_reply));
                                     stops_threat = rank < 2;
                                 }
                             }

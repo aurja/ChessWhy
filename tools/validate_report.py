@@ -275,6 +275,7 @@ def check_threat_legality(
         )
     return board, moves
 
+
 def check_refutation_skip(
     move: JsonObject,
     pointer: str,
@@ -291,9 +292,7 @@ def check_refutation_skip(
     verdict = move.get("verdict")
     non_playable = verdict not in ("best", "okay")
     expected_skip = (
-        "game_over"
-        if game_over and refutation is None and non_playable
-        else None
+        "game_over" if game_over and refutation is None and non_playable else None
     )
     if game_over:
         fail(
@@ -320,7 +319,6 @@ def check_refutation_skip(
             "a refutation must not be searched from a game-over board",
             refutation_root is not None and not rule_game_over(refutation_root),
         )
-
 
 
 def check_move_legality(
@@ -1578,9 +1576,7 @@ TEMPO_STATIC_GROUPS = {
 
 def rule_game_over(board: chess.Board) -> bool:
     return (
-        board.is_checkmate()
-        or board.is_stalemate()
-        or board.is_insufficient_material()
+        board.is_checkmate() or board.is_stalemate() or board.is_insufficient_material()
     )
 
 
@@ -1836,6 +1832,7 @@ def check_all_consequence_semantics(
                 threats.get(color), f"/threats/{color}", failures
             )
 
+
 def replay_walk(
     root: chess.Board,
     assessment: JsonObject,
@@ -1923,6 +1920,7 @@ def change_squares(change: JsonObject) -> set[chess.Square]:
             except ValueError:
                 pass
     return squares
+
 
 def captured_square(board: chess.Board, move: chess.Move) -> chess.Square:
     if board.is_en_passant(move):
@@ -2179,9 +2177,7 @@ def expected_initiative_runs(
         if ending == "unfinished":
             outcome = "unknown"
         else:
-            point, point_settled = settle_point(
-                end, boards, line_moves, walk_settled
-            )
+            point, point_settled = settle_point(end, boards, line_moves, walk_settled)
             holder_color = holder == "white"
             converted = (
                 holder in ("white", "black")
@@ -2191,7 +2187,12 @@ def expected_initiative_runs(
                 >= 1
             )
 
-            def change_converts(change_value: JsonValue) -> bool:
+            def change_converts(
+                change_value: JsonValue,
+                start_ply: int = start,
+                end_ply: int = end,
+                run_holder: JsonValue = holder,
+            ) -> bool:
                 change = as_object(change_value)
                 if change is None:
                     return False
@@ -2202,8 +2203,8 @@ def expected_initiative_runs(
                     and change.get("in_use") is True
                     and isinstance(ply, int)
                     and not isinstance(ply, bool)
-                    and start <= ply <= end
-                    and favoured_side(change) == holder
+                    and start_ply <= ply <= end_ply
+                    and favoured_side(change) == run_holder
                 )
 
             converted = converted or any(
@@ -2232,6 +2233,7 @@ def expected_initiative_runs(
         scan = max(start + 1, end)
     return runs
 
+
 def expected_reply_gain(
     ply: int,
     boards: list[chess.Board],
@@ -2243,10 +2245,7 @@ def expected_reply_gain(
     material = material_balance(boards[point], side) - material_balance(
         boards[ply - 2], side
     )
-    mates = (
-        boards[point].is_checkmate()
-        and boards[point].turn != side
-    )
+    mates = boards[point].is_checkmate() and boards[point].turn != side
     return {
         "material": material,
         "mates": mates,
@@ -2315,9 +2314,7 @@ def check_forced_test(
             seen.add(san)
         score = number_units(line.get("es"))
         acceptable = (
-            best_units is not None
-            and score is not None
-            and score >= best_units - 100
+            best_units is not None and score is not None and score >= best_units - 100
         )
         fail(
             failures,
@@ -2362,7 +2359,11 @@ def check_forced_test(
         stops.append(line_stops)
     if any(ok and stop is False for ok, stop in zip(accepted, stops)):
         expected_forced: bool | None = False
-    elif all(accepted) and all(stop is True for stop in stops) and len(lines) < legal_moves:
+    elif (
+        all(accepted)
+        and all(stop is True for stop in stops)
+        and len(lines) < legal_moves
+    ):
         expected_forced = None
     else:
         expected_forced = True
@@ -2506,16 +2507,12 @@ def check_tempo_ledger(
             )
 
         eligible_reply = (
-            previous_threatening
-            and stops is True
-            and not expected_threatening
+            previous_threatening and stops is True and not expected_threatening
         )
         expected_gain: JsonObject | None = None
         forced: bool | None = None
         if eligible_reply:
-            expected_gain = expected_reply_gain(
-                index + 1, boards, moves, walk_settled
-            )
+            expected_gain = expected_reply_gain(index + 1, boards, moves, walk_settled)
             actual_gain = as_object(ply.get("reply_gain"))
             fail(
                 failures,
@@ -2562,9 +2559,7 @@ def check_tempo_ledger(
                 ply.get("forced_test") is None,
             )
 
-        if not previous_threatening:
-            label = "threatening" if expected_threatening else "neither"
-        elif stops is not True:
+        if not previous_threatening or stops is not True:
             label = "threatening" if expected_threatening else "neither"
         elif expected_threatening:
             label = "counter_threat"
@@ -2710,7 +2705,9 @@ def check_positional_relations(
             before = boards[ply - 1]
             move = moves[ply - 1]
             if before.is_capture(move):
-                expected_captured = captured_square(before, move) in change_squares(change)
+                expected_captured = captured_square(before, move) in change_squares(
+                    change
+                )
         fail(
             failures,
             f"{change_pointer}/captured",

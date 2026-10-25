@@ -30,8 +30,16 @@ search, so the same move can get a different verdict in a different request; eac
 reproducible. The current release renders reports without a language model; verbalisation is
 planned for M5.
 
-In report v8, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
-`restriction` object. Its `piece` is the held piece (the first target for either pin or a tactical
+A line's `walked_plies` counts its settled walk: it reads six plies when available, then extends
+while the next move is a continuation move (capture, check or answer to check), up to ten,
+stopping at the first board that is game over. Each consequence has `settled`; it is false only
+when the walk reaches ply 10 and the engine line's next move is a continuation move. A
+`terminal_draw` records `stalemate` or `insufficient_material` and its ply, without changing the
+consequence's class or rank.
+
+In report v9 (`schema/report.v9.schema.json` and `schema/moves.v9.schema.json`),
+`pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a `restriction`
+object. Its `piece` is the held piece (the first target for either pin or a tactical
 pin, the actor for an overloaded defender); `restricted` and `free` are sorted UCI move lists.
 `restricted` contains moves the motif denies or makes costly: an absolute pin includes pseudo-legal
 moves off the pinner-to-king segment; a relative pin or overloaded defender includes moves that
@@ -53,17 +61,39 @@ text shows `games: 262026 games ... [games]` under the position, and each move s
 `Played in N of M games (platform: ...; source: ...) [games]`. Reports credit the source as `Lichess broadcast database,
 database.lichess.org` under CC BY-SA 4.0.
 
+For a positional change, `captured` marks a disappearance when the move captured one of that
+feature's pieces; an en passant capture includes the removed pawn. It is false on appearances. A
+captured weakness has no favoured side because the material change records the capture; a captured
+passed pawn still favours its capturer.
+
 The **tempo value** (`engine`) is how much a side's expected score drops if it passes instead of
 moving: at the root for the side to move (`position.tempo_value`), and after each detailed move
-for the opponent. Above 0.10 the position is **tempo-dependent**, below 0.05 **non-tempo**, and
-below 0 **zugzwang**. Each detailed line gets a **tempo ledger**: every walked ply is labelled
-`threatening`, `neither`, `counter_threat` or `pure_reply`, from a null-move threat search (a
-threat is mate or at least one pawn of material) and, after a threatening ply, a reply search
-(budget `L`). A threatening ply answered by a pure reply **gains a tempo**; an even trade
-threatens nothing by itself. An **initiative run** (`rule`) is a series of one side's tempo gains;
-it ends `spent`, `contested`, `runs` (the line turns into a tactic) or `unfinished`, and is
-`converted` when its holder wins material or a positional change in use during the run, otherwise
-`evaporated`. The tempo ledger is skipped in check and where a null move is unreliable.
+for the opponent. Above 0.10 the position is **tempo-dependent**; at least 0 and below 0.05 it is
+**non-tempo**, below 0 it is **zugzwang**, and from 0.05 through 0.10 it has no label. Each
+detailed line gets a **tempo ledger**: every walked ply is labelled
+`threatening`, `neither`, `counter_threat`, `pure_reply`, `gaining_reply`, `unforced_reply` or
+`unresolved_reply`, from a null-move threat search (a threat is mate or at least one pawn of
+material) and, after a threatening ply, a reply search (budget `L`). If an answer stops the threat
+and is not itself threatening, `reply_gain` records the replying side's material change from
+before the threat through the settle point (`through_ply`), whether it checkmates (`mates`), and
+whether that point is settled (`settled`). `gains` is true for a material gain of at least one
+pawn (promotions count at the promoted value) or mate, false otherwise, and null when the settle
+point is unsettled. When `gains` is false, `forced_test` records the legal-move count and searched
+replies' acceptability and whether they stop the threat. Its `forced` is false if an acceptable
+reply leaves the threat, true if acceptable replies all stop it and some searched line is not
+acceptable (or every legal reply was searched), and otherwise null. A `gaining_reply` keeps that
+gain. An `unforced_reply` has `reply_gain.gains` false and `forced_test.forced` false; an
+`unresolved_reply` has an unknown reply gain or forced test. A `pure_reply` is the forced,
+no-gain case. The gaining, unforced and unresolved replies gain no tempo for the threatening side.
+A threatening ply answered by a `pure_reply` **gains a tempo**; an even trade threatens nothing
+by itself. An **initiative run** (`rule`) is a series of one side's tempo gains; it ends `spent`,
+`contested`, `runs`, `answered`, `unresolved` or `unfinished`; `answered` follows a gaining or
+unforced reply and `unresolved` an unresolved reply. It is `converted` when its holder's material
+grows by at least a pawn from before the run to its settled point, a static positional change in
+use made during the run favours the holder, or the run ends in the holder's checkmate. Absent that
+evidence, its outcome is `unknown` if unfinished or the settle point is unsettled, otherwise
+`evaporated`. The
+tempo ledger is skipped in check and where a null move is unreliable.
 
 Loaded data digests use the in-tree SHA-256 implementation. When the loaded bytes match their
 pins, `games.table` reports `lichess_broadcast_2200@e0cb7fab3212` and `opening.dataset` reports
@@ -154,15 +184,31 @@ time. `--json` chooses the format and `--full-report` the content, independently
 | Flags | Output |
 |---|---|
 | none | move report text: one section per selected move |
-| `--json` | move report document (`schema/moves.v8.schema.json`) |
+| `--json` | move report document (`schema/moves.v9.schema.json`) |
 | `--full-report` | full report text: every computed fact |
-| `--json --full-report` | full report JSON (`schema/report.v8.schema.json`) |
+| `--json --full-report` | full report JSON (`schema/report.v9.schema.json`) |
+
+Full report text marks the walk row `facts read to ply N of M` with ` (stalemate)`,
+` (insufficient material)` or ` (not settled)` as applicable. For a terminal draw, consequence
+summaries append `; stalemate at ply k` or `; insufficient material at ply k`; a skipped
+refutation prints `Refuted by: none, the move ends the game [rule]`. The ledger prints the reply
+labels as words; a gaining reply adds ` (+N)` with its material. An unforced reply adds
+` (acceptable, leaves the threat: X, Y; m of L replies searched)`, naming every searched line
+that is acceptable and leaves the threat in engine order. An unresolved reply adds
+` (acceptable, stops the threat: X, Y, Z; m of L replies searched)`, naming every searched line.
+A pure reply has no suffix. Initiative rows use `answered` and `unresolved`; an unknown outcome
+prints `outcome unknown`.
 
 The default move report lays out each selected move as a position walk: after the move's verdict
 rows, each position on its line gets a block with its FEN, its evaluation for White, the move
 played from it (except after the last walked ply), and the motifs, tactic labels, threat rows and
-positional changes assigned to that ply. Tempo facts appear only in the JSON and the full report
-text.
+positional changes assigned to that ply. Tempo facts appear in JSON and in full-report and
+move-report text.
+
+In move-report text, tempo rows appear in position blocks after `Move:` and before `Uses:`: block
+0 has the root's `Tempo value: …` row, and block 1 has the selected move's `Tempo value: …` row.
+A tempo gain at ply `j` prints `Tempo: <Side> gains a tempo [engine]` in block `j − 1`; an
+initiative run starting at ply `s` prints its `Initiative:` row in block `s − 1`.
 
 A move report keeps the move's verdict, line, consequence, tactic and opportunity judgements and
 refutation, and only the threats, motifs and positional changes that bear on that move; every
@@ -175,6 +221,12 @@ bishop). The full report marks each change's `net_change` and `in_use`. After th
 the move report's groups follow its `impact_order`: the group with the highest consequence rank
 first (parried threat, created threat, motifs); ties keep tempo and dynamic positional facts
 first in a tempo-dependent position, static positional facts first otherwise.
+
+For these fields, a board is game over when the side to move has no legal move (checkmate or
+stalemate) or the material is insufficient. Repetition and the fifty-move rule are not included;
+a root position is terminal only at checkmate or stalemate. A non-playable move ending the game
+has a null `refutation` and `refutation_skipped: game_over`; `creates_threat_skipped` is
+`game_over` when the move ends the game and no created threat is searched.
 
 Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves from the game's start, with 0 denoting the initial position. Before White's move N, use ply `2(N−1)`; before Black's move N, use ply `2N−1`. Budgets are `quick`, `standard` (default), or `deep`.
 `--games FILE` selects the broadcast-count table (default
@@ -196,8 +248,8 @@ Save the full report JSON as `full.json` and the move report document of the sam
 from its `document` field (add more paths to validate several files):
 
 ```sh
-.venv/bin/python tools/validate_report.py schema/report.v8.schema.json full.json moves.json
-.venv/bin/python tools/validate_report.py schema/report.v8.schema.json --projection full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v9.schema.json full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v9.schema.json --projection full.json moves.json
 ```
 
 The checker validates the schema first, then checks report relations it cannot express: loss and

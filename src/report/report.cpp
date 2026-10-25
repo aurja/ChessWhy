@@ -238,8 +238,9 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["material"] = consequence.material;
     value["promotes"] = consequence.promotes;
     value["plies"] = consequence.plies;
-    value["terminal_draw"] =
-        consequence.terminal_draw ? serialize_terminal_draw(*consequence.terminal_draw) : Json(nullptr);
+    value["terminal_draw"] = consequence.terminal_draw
+                                 ? serialize_terminal_draw(*consequence.terminal_draw)
+                                 : Json(nullptr);
     value["settled"] = consequence.settled;
     return value;
 }
@@ -295,7 +296,8 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["label"] = to_string(ply.label);
     value["tempo_gained"] = ply.tempo_gained;
     value["reply_gain"] = ply.reply_gain ? serialize_reply_gain(*ply.reply_gain) : Json(nullptr);
-    value["forced_test"] = ply.forced_test ? serialize_forced_test(*ply.forced_test) : Json(nullptr);
+    value["forced_test"] =
+        ply.forced_test ? serialize_forced_test(*ply.forced_test) : Json(nullptr);
     return value;
 }
 

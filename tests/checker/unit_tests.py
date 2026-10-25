@@ -817,7 +817,7 @@ class CheckerRelationsTests(unittest.TestCase):
             ),
             (
                 "/moves/0/refutation_skipped",
-                lambda document: array_field(document, "moves")[0].update(
+                lambda document: object_value(array_field(document, "moves")[0]).update(
                     {"refutation_skipped": "game_over"}
                 ),
             ),
@@ -1069,7 +1069,10 @@ class CheckerRelationsTests(unittest.TestCase):
         self, failures: list[checker.Failure], rule: str, pointer: str
     ) -> None:
         self.assertTrue(
-            any(path.startswith(pointer) and rule in message for path, message in failures),
+            any(
+                path.startswith(pointer) and rule in message
+                for path, message in failures
+            ),
             msg=f"{rule} mutant did not fail {pointer}: {failures}",
         )
 
@@ -1082,14 +1085,14 @@ class CheckerRelationsTests(unittest.TestCase):
             "settled": True,
         }
         failures: list[checker.Failure] = []
-        checker.check_line_consequence(
+        _ = checker.check_line_consequence(
             draw_root, ["Ba2"], draw_consequence, "/move", failures, 1
         )
         self.assertEqual(failures, [])
         draw_mutant = deepcopy(draw_consequence)
         draw_mutant["terminal_draw"] = None
         failures.clear()
-        checker.check_line_consequence(
+        _ = checker.check_line_consequence(
             draw_root, ["Ba2"], draw_mutant, "/move", failures, 1
         )
         self.assert_rule_failure(failures, "P1", "/move/consequence/terminal_draw")
@@ -1107,9 +1110,7 @@ class CheckerRelationsTests(unittest.TestCase):
         skipped_mutant = deepcopy(skipped_move)
         skipped_mutant["refutation_skipped"] = None
         failures.clear()
-        checker.check_refutation_skip(
-            skipped_mutant, "/move", stalemate_root, failures
-        )
+        checker.check_refutation_skip(skipped_mutant, "/move", stalemate_root, failures)
         self.assert_rule_failure(failures, "P2", "/move/refutation_skipped")
 
         walk_root = chess.Board(START_FEN)
@@ -1129,12 +1130,12 @@ class CheckerRelationsTests(unittest.TestCase):
             "settled": True,
         }
         failures.clear()
-        checker.check_line_consequence(
+        _ = checker.check_line_consequence(
             walk_root, extended_line, consequence, "/move", failures, 7
         )
         self.assertEqual(failures, [])
         failures.clear()
-        checker.check_line_consequence(
+        _ = checker.check_line_consequence(
             walk_root, extended_line, consequence, "/move", failures, 6
         )
         self.assert_rule_failure(failures, "P3", "/move/walked_plies")
@@ -1154,30 +1155,28 @@ class CheckerRelationsTests(unittest.TestCase):
             (
                 "P4",
                 "/candidates/0/tempo_ledger/plies/1/reply_gain/through_ply",
-                lambda value: object_field(
-                    ledger_ply(value, 1), "reply_gain"
-                ).update({"through_ply": 1}),
+                lambda value: object_field(ledger_ply(value, 1), "reply_gain").update(
+                    {"through_ply": 1}
+                ),
             ),
             (
                 "P5",
                 "/candidates/0/tempo_ledger/plies/1/reply_gain/gains",
-                lambda value: object_field(
-                    ledger_ply(value, 1), "reply_gain"
-                ).update({"gains": True}),
+                lambda value: object_field(ledger_ply(value, 1), "reply_gain").update(
+                    {"gains": True}
+                ),
             ),
             (
                 "P6",
                 "/candidates/0/tempo_ledger/plies/1/forced_test/forced",
-                lambda value: object_field(
-                    ledger_ply(value, 1), "forced_test"
-                ).update({"forced": False}),
+                lambda value: object_field(ledger_ply(value, 1), "forced_test").update(
+                    {"forced": False}
+                ),
             ),
             (
                 "P7",
                 "/candidates/0/tempo_ledger/plies/1/label",
-                lambda value: ledger_ply(value, 1).update(
-                    {"label": "gaining_reply"}
-                ),
+                lambda value: ledger_ply(value, 1).update({"label": "gaining_reply"}),
             ),
             (
                 "P8",
@@ -1219,9 +1218,7 @@ class CheckerRelationsTests(unittest.TestCase):
         short_ledger["runs"] = []
         self.assertEqual(check_tempo(short_report), [])
         short_mutant = deepcopy(short_report)
-        object_field(
-            ledger_ply(short_mutant, 1), "forced_test"
-        )["forced"] = True
+        object_field(ledger_ply(short_mutant, 1), "forced_test")["forced"] = True
         self.assert_rule_failure(
             check_tempo(short_mutant),
             "P6",
@@ -1282,13 +1279,9 @@ class CheckerRelationsTests(unittest.TestCase):
             False,
             failures,
         )
-        self.assert_rule_failure(
-            failures, "P10", "/move/positional/0/captured"
-        )
+        self.assert_rule_failure(failures, "P10", "/move/positional/0/captured")
 
-        shelter_root = chess.Board(
-            "7k/8/8/8/4r3/8/4P3/1N2K1N1 w - - 0 1"
-        )
+        shelter_root = chess.Board("7k/8/8/8/4r3/8/4P3/1N2K1N1 w - - 0 1")
         shelter_line: list[checker.JsonValue] = [
             "Nf3",
             "Kh7",

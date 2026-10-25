@@ -163,8 +163,7 @@ Walk walk(const chess::Board& root, std::span<const std::string> pv_uci) {
     for (std::size_t index = 0; index < limit; ++index) {
         const auto move = detail::legal_move(board, pv_uci[index]);
         if (move == chess::Move::NO_MOVE ||
-            (index >= static_cast<std::size_t>(kHorizonPlies) &&
-             !continuation_move(board, move))) {
+            (index >= static_cast<std::size_t>(kHorizonPlies) && !continuation_move(board, move))) {
             break;
         }
         board.makeMove(move);
@@ -176,14 +175,14 @@ Walk walk(const chess::Board& root, std::span<const std::string> pv_uci) {
             chess::movegen::legalmoves(legal_moves, board);
             if (legal_moves.empty()) {
                 if (!board.inCheck()) {
-                    result.terminal_draw = TerminalDraw{.kind = DrawKind::Stalemate,
-                                                        .ply = result.plies};
+                    result.terminal_draw =
+                        TerminalDraw{.kind = DrawKind::Stalemate, .ply = result.plies};
                 }
                 break;
             }
             if (insufficient_material(board)) {
-                result.terminal_draw = TerminalDraw{.kind = DrawKind::InsufficientMaterial,
-                                                    .ply = result.plies};
+                result.terminal_draw =
+                    TerminalDraw{.kind = DrawKind::InsufficientMaterial, .ply = result.plies};
             }
             break;
         }
@@ -272,7 +271,6 @@ Consequence consequence(const chess::Board& root, std::span<const std::string> p
     return result;
 }
 
-
 int consequence_rank(const Consequence& consequence) {
     switch (consequence.cls) {
     case ConsequenceClass::Mate:
@@ -316,11 +314,10 @@ void label_ledger(std::vector<TempoPly>& plies) {
         if (index > 0 && plies[index - 1].threatening && ply.stops_threat.value_or(false)) {
             if (ply.threatening) {
                 ply.label = TempoPlyLabel::CounterThreat;
-            } else if (!ply.reply_gain || !ply.reply_gain->gains) {
-                ply.label = TempoPlyLabel::UnresolvedReply;
-            } else if (*ply.reply_gain->gains) {
+            } else if (ply.reply_gain && ply.reply_gain->gains && *ply.reply_gain->gains) {
                 ply.label = TempoPlyLabel::GainingReply;
-            } else if (!ply.forced_test || !ply.forced_test->forced) {
+            } else if (!ply.reply_gain || !ply.reply_gain->gains || !ply.forced_test ||
+                       !ply.forced_test->forced) {
                 ply.label = TempoPlyLabel::UnresolvedReply;
             } else {
                 ply.label = *ply.forced_test->forced ? TempoPlyLabel::PureReply
@@ -378,9 +375,9 @@ ReplyGain reply_gain(std::span<const chess::Board> positions, int k, int through
     }
     const chess::Color replier_color = positions[static_cast<std::size_t>(k - 1)].sideToMove();
     const chess::Board& settle_board = positions[static_cast<std::size_t>(through_ply)];
-    const int material = material_balance(settle_board, replier_color) -
-                         material_balance(positions[static_cast<std::size_t>(k - 2)],
-                                          replier_color);
+    const int material =
+        material_balance(settle_board, replier_color) -
+        material_balance(positions[static_cast<std::size_t>(k - 2)], replier_color);
     bool mates = false;
     if (settle_board.inCheck()) {
         chess::Movelist legal_moves;
@@ -488,15 +485,15 @@ std::vector<InitiativeRun> initiative_runs(std::span<const TempoPly> plies,
 
             chess::Movelist final_legal_moves;
             chess::movegen::legalmoves(final_legal_moves, boards[end + 1]);
-            const bool holder_mated =
-                boards[end + 1].inCheck() && final_legal_moves.empty() &&
-                boards[end + 1].sideToMove() != holder_color;
+            const bool holder_mated = boards[end + 1].inCheck() && final_legal_moves.empty() &&
+                                      boards[end + 1].sideToMove() != holder_color;
             converted = holder_mated;
 
             if (!converted && settle_is_settled) {
-                converted = material_balance(boards[static_cast<std::size_t>(settle)], holder_color) -
-                                material_balance(boards[start], holder_color) >=
-                            1;
+                converted =
+                    material_balance(boards[static_cast<std::size_t>(settle)], holder_color) -
+                        material_balance(boards[start], holder_color) >=
+                    1;
             }
             if (!converted) {
                 for (const PositionalChange& change : changes) {
@@ -513,9 +510,13 @@ std::vector<InitiativeRun> initiative_runs(std::span<const TempoPly> plies,
                     }
                 }
             }
-            outcome = converted ? InitiativeOutcome::Converted
-                                : settle_is_settled ? InitiativeOutcome::Evaporated
-                                                    : InitiativeOutcome::Unknown;
+            if (converted) {
+                outcome = InitiativeOutcome::Converted;
+            } else if (settle_is_settled) {
+                outcome = InitiativeOutcome::Evaporated;
+            } else {
+                outcome = InitiativeOutcome::Unknown;
+            }
         }
         runs.push_back(InitiativeRun{
             .holder = holder,

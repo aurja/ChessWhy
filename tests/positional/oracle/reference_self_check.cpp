@@ -265,12 +265,11 @@ void check_line_changes_and_identity() {
     const chess::Move rook_takes_pawn = legal_move(isolated_capture, "d8d4");
     const std::array isolated_line{rook_takes_pawn};
     const auto isolated_changes = reference_line_changes(isolated_capture, isolated_line);
-    const auto captured_isolani = std::ranges::find_if(
-        isolated_changes, [](const auto& change) {
-            return change.feature.tag == PositionalTag::IsolatedPawn &&
-                   change.feature.side == Side::White &&
-                   change.change == PositionalChangeKind::Disappears;
-        });
+    const auto captured_isolani = std::ranges::find_if(isolated_changes, [](const auto& change) {
+        return change.feature.tag == PositionalTag::IsolatedPawn &&
+               change.feature.side == Side::White &&
+               change.change == PositionalChangeKind::Disappears;
+    });
     require(captured_isolani != isolated_changes.end() && captured_isolani->captured,
             "an isolated-pawn disappearance records its capture");
 
@@ -278,12 +277,11 @@ void check_line_changes_and_identity() {
     const chess::Move ep_capture = legal_move(en_passant, "e5d6");
     const std::array ep_line{ep_capture};
     const auto ep_changes = reference_line_changes(en_passant, ep_line);
-    const auto captured_passer = std::ranges::find_if(
-        ep_changes, [](const auto& change) {
-            return change.feature.tag == PositionalTag::PassedPawn &&
-                   change.feature.side == Side::Black &&
-                   change.change == PositionalChangeKind::Disappears;
-        });
+    const auto captured_passer = std::ranges::find_if(ep_changes, [](const auto& change) {
+        return change.feature.tag == PositionalTag::PassedPawn &&
+               change.feature.side == Side::Black &&
+               change.change == PositionalChangeKind::Disappears;
+    });
     require(captured_passer != ep_changes.end() && captured_passer->captured,
             "en passant records the removed passed pawn as captured");
 

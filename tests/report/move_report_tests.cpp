@@ -491,9 +491,13 @@ TEST_CASE("impact order sorts ranked groups stably around both positional base o
     move.parried_threat = ParriedThreat{.threat = threat(ConsequenceClass::Material)};
     move.created_threat = threat(ConsequenceClass::Material);
     move.motifs.push_back(motif_with(MotifContribution::Direct));
-    move.consequence = Consequence{
-        .cls = ConsequenceClass::Mate, .mate_in = 1, .material = 0, .promotes = false, .plies = 1,
-        .terminal_draw = std::nullopt, .settled = true};
+    move.consequence = Consequence{.cls = ConsequenceClass::Mate,
+                                   .mate_in = 1,
+                                   .material = 0,
+                                   .promotes = false,
+                                   .plies = 1,
+                                   .terminal_draw = std::nullopt,
+                                   .settled = true};
     move.tempo_value = TempoValue{.side = Side::White,
                                   .moves_units = 1200,
                                   .passes_units = 1000,
@@ -623,13 +627,16 @@ TEST_CASE("move report JSON uses the v9 moves shape and stable key order", "[uni
                                                              "legal_moves", "terminal",
                                                              "eval_white", "tempo_value"});
     CHECK(keys(json["moves"][0]) ==
-          std::vector<std::string>{
-              "rank",         "san",         "uci",           "eval",           "depth",
-              "loss",         "verdict",     "gives_check",   "line",           "walked_plies",
-              "line_fens",    "consequence", "is_tactic",     "allows_tactic",  "opportunity",
-              "motifs",       "root_motifs", "tactic_labels", "positional",     "tempo_value",
-              "tempo_gained", "initiative",  "impact_order",  "parried_threat", "created_threat",
-              "refutation",   "refutation_skipped", "games"});
+          std::vector<std::string>{"rank",           "san",           "uci",
+                                   "eval",           "depth",         "loss",
+                                   "verdict",        "gives_check",   "line",
+                                   "walked_plies",   "line_fens",     "consequence",
+                                   "is_tactic",      "allows_tactic", "opportunity",
+                                   "motifs",         "root_motifs",   "tactic_labels",
+                                   "positional",     "tempo_value",   "tempo_gained",
+                                   "initiative",     "impact_order",  "parried_threat",
+                                   "created_threat", "refutation",    "refutation_skipped",
+                                   "games"});
     CHECK(keys(json["moves"][0]["parried_threat"]) == std::vector<std::string>{"threat", "test"});
     CHECK(json["moves"][0]["consequence"]["terminal_draw"]["kind"] == "stalemate");
     CHECK(json["moves"][0]["consequence"]["settled"] == true);

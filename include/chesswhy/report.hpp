@@ -98,7 +98,10 @@ enum class PositionalTag : std::uint8_t {
 // M3a §5: a feature that appears or disappears along a line.
 enum class PositionalChangeKind : std::uint8_t { Appears, Disappears };
 enum class DrawKind : std::uint8_t { Stalemate, InsufficientMaterial };
-struct TerminalDraw { DrawKind kind = DrawKind::Stalemate; int ply = 1; };
+struct TerminalDraw {
+    DrawKind kind = DrawKind::Stalemate;
+    int ply = 1;
+};
 enum class RefutationSkip : std::uint8_t { GameOver };
 
 enum class TempoLabel : std::uint8_t { TempoDependent, NonTempo, Zugzwang };
@@ -110,7 +113,13 @@ struct TempoValue {
     std::optional<TempoLabel> label;
 };
 enum class TempoPlyLabel : std::uint8_t {
-    Threatening, PureReply, CounterThreat, Neither, GainingReply, UnforcedReply, UnresolvedReply
+    Threatening,
+    PureReply,
+    CounterThreat,
+    Neither,
+    GainingReply,
+    UnforcedReply,
+    UnresolvedReply
 };
 struct ReplyGain {
     int material = 0;
@@ -144,7 +153,12 @@ struct TempoPly {
     std::optional<ForcedTest> forced_test;
 };
 enum class InitiativeEnding : std::uint8_t {
-    Spent, Contested, Runs, Unfinished, Answered, Unresolved
+    Spent,
+    Contested,
+    Runs,
+    Unfinished,
+    Answered,
+    Unresolved
 };
 enum class InitiativeOutcome : std::uint8_t { Converted, Evaporated, Unknown };
 struct InitiativeRun {
@@ -422,7 +436,8 @@ struct MoveAssessment {
     std::optional<TempoValue> tempo_value;
     std::optional<TempoLedger> tempo_ledger;
     std::optional<TempoLedgerSkip> tempo_ledger_skipped;
-    std::optional<Threat> refutation; // set iff verdict is not playable and refutation_skipped is null
+    std::optional<Threat>
+        refutation; // set iff verdict is not playable and refutation_skipped is null
     std::optional<RefutationSkip> refutation_skipped;
     std::vector<Motif> motifs;        // plies 1..walked_plies of `line_san`
     std::optional<OpportunityJudgement> opportunity; // A line 1

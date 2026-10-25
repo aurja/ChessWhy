@@ -633,8 +633,8 @@ void add_leads_and_material(const chess::Board& board, std::vector<PositionalFea
         return false;
     }
 
-    const int file_step = (file_delta > 0) - (file_delta < 0);
-    const int rank_step = (rank_delta > 0) - (rank_delta < 0);
+    const int file_step = static_cast<int>(file_delta > 0) - static_cast<int>(file_delta < 0);
+    const int rank_step = static_cast<int>(rank_delta > 0) - static_cast<int>(rank_delta < 0);
     for (chess::Square square = offset(from, file_step, rank_step);
          square != to && square != chess::Square::NO_SQ;
          square = offset(square, file_step, rank_step)) {
@@ -651,11 +651,11 @@ void add_leads_and_material(const chess::Board& board, std::vector<PositionalFea
 }
 
 [[nodiscard]] bool king_file_pressed(std::span<const chess::Board> boards,
-                                     std::span<const chess::Move> line, Side owner,
-                                     int file, int first_ply) {
+                                     std::span<const chess::Move> line, Side owner, int file,
+                                     int first_ply) {
     const chess::Color enemy = ~color_of(owner);
     for (int ply = first_ply; ply <= static_cast<int>(line.size()); ++ply) {
-        const std::size_t index = static_cast<std::size_t>(ply - 1);
+        const auto index = static_cast<std::size_t>(ply - 1);
         const chess::Board& before = boards[index];
         const chess::Move move = line[index];
         if (before.sideToMove() != enemy) {
@@ -929,14 +929,14 @@ std::vector<PositionalChange> line_changes(const chess::Board& root,
         }
         for (const PositionalFeature& feature : previous) {
             if (!contains_identity(current, feature)) {
-                changes.push_back(PositionalChange{.ply = ply,
-                                                   .change = PositionalChangeKind::Disappears,
-                                                   .holds_at_end = false,
-                                                   .net_change = false,
-                                                   .captured =
-                                                       is_capture && contains_square(feature, captured),
-                                                   .in_use = std::nullopt,
-                                                   .feature = feature});
+                changes.push_back(
+                    PositionalChange{.ply = ply,
+                                     .change = PositionalChangeKind::Disappears,
+                                     .holds_at_end = false,
+                                     .net_change = false,
+                                     .captured = is_capture && contains_square(feature, captured),
+                                     .in_use = std::nullopt,
+                                     .feature = feature});
             }
         }
         previous = std::move(current);

@@ -183,8 +183,7 @@ void write_forced_test_suffix(std::ostringstream& output, const TempoPly& ply) {
     }
 
     const ForcedTest& forced_test = *ply.forced_test;
-    output << (unforced ? " (acceptable, leaves the threat: "
-                        : " (acceptable, stops the threat: ");
+    output << (unforced ? " (acceptable, leaves the threat: " : " (acceptable, stops the threat: ");
     bool has_line = false;
     for (const ReplyLine& line : forced_test.lines) {
         if (unforced &&
@@ -200,7 +199,6 @@ void write_forced_test_suffix(std::ostringstream& output, const TempoPly& ply) {
     output << "; " << forced_test.lines.size() << " of " << forced_test.legal_moves
            << " replies searched)";
 }
-
 
 void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) {
     if (!move.tempo_ledger) {
@@ -230,8 +228,8 @@ void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) 
         }
         output << ply.ply << ". " << ply.san << ' ' << tempo_ply_label_text(ply.label);
         if (ply.label == TempoPlyLabel::GainingReply && ply.reply_gain) {
-            output << " (" << (ply.reply_gain->material >= 0 ? "+" : "")
-                   << ply.reply_gain->material << ')';
+            output << " (" << (ply.reply_gain->material >= 0 ? "+" : "") << ply.reply_gain->material
+                   << ')';
         }
         if (ply.tempo_gained) {
             output << ", tempo gained";

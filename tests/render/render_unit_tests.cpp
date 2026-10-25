@@ -136,18 +136,17 @@ report_move(std::optional<int> rank, std::string san, std::string uci, chesswhy:
     };
 }
 
-[[nodiscard]] chesswhy::TempoPly tempo_ply(
-    int ply, std::string san, chesswhy::Side side, chesswhy::TempoPlyLabel label, bool tempo_gained,
-    std::optional<chesswhy::ReplyGain> reply_gain = std::nullopt,
-    std::optional<chesswhy::ForcedTest> forced_test = std::nullopt) {
+[[nodiscard]] chesswhy::TempoPly
+tempo_ply(int ply, std::string san, chesswhy::Side side, chesswhy::TempoPlyLabel label,
+          bool tempo_gained, std::optional<chesswhy::ReplyGain> reply_gain = std::nullopt,
+          std::optional<chesswhy::ForcedTest> forced_test = std::nullopt) {
     const bool threatening = label == chesswhy::TempoPlyLabel::Threatening ||
                              label == chesswhy::TempoPlyLabel::CounterThreat;
-    const bool stops_threat =
-        label == chesswhy::TempoPlyLabel::PureReply ||
-        label == chesswhy::TempoPlyLabel::GainingReply ||
-        label == chesswhy::TempoPlyLabel::UnforcedReply ||
-        label == chesswhy::TempoPlyLabel::UnresolvedReply ||
-        label == chesswhy::TempoPlyLabel::CounterThreat;
+    const bool stops_threat = label == chesswhy::TempoPlyLabel::PureReply ||
+                              label == chesswhy::TempoPlyLabel::GainingReply ||
+                              label == chesswhy::TempoPlyLabel::UnforcedReply ||
+                              label == chesswhy::TempoPlyLabel::UnresolvedReply ||
+                              label == chesswhy::TempoPlyLabel::CounterThreat;
     return chesswhy::TempoPly{
         .ply = ply,
         .san = std::move(san),
@@ -956,67 +955,73 @@ TEST_CASE("full report tempo rows follow the v9 templates", "[unit]") {
     report.position.tempo_value = tempo_value(Side::Black, 628, TempoLabel::TempoDependent);
     MoveAssessment& detailed = report.candidates[0];
     detailed.tempo_value = tempo_value(Side::White, 788, TempoLabel::TempoDependent);
-    detailed.tempo_ledger = TempoLedger{
-        .plies =
-            {
-                tempo_ply(1, "Qxd5", Side::Black, TempoPlyLabel::Threatening, true),
-                tempo_ply(2, "Nc3", Side::White, TempoPlyLabel::PureReply, false),
-                tempo_ply(3, "Bf4", Side::Black, TempoPlyLabel::Threatening, false),
-                tempo_ply(4, "Nxe4", Side::White, TempoPlyLabel::GainingReply, false,
-                          ReplyGain{.material = 2, .mates = false, .through_ply = 4,
-                                    .settled = true, .gains = true}),
-                tempo_ply(5, "Qa5", Side::Black, TempoPlyLabel::Threatening, true),
-                tempo_ply(6, "Qd3", Side::White, TempoPlyLabel::PureReply, false),
-                tempo_ply(7, "Nf6", Side::Black, TempoPlyLabel::Threatening, false),
-                tempo_ply(8, "Qxf7", Side::White, TempoPlyLabel::UnresolvedReply, false,
-                          ReplyGain{.material = 0, .mates = false, .through_ply = 10,
-                                    .settled = false, .gains = std::nullopt},
-                          ForcedTest{
-                              .legal_moves = 18,
-                              .lines =
-                                  {ReplyLine{.san = "Qxf7",
-                                             .es_units = 0,
-                                             .acceptable = true,
-                                             .stops_threat = true},
-                                   ReplyLine{.san = "Kg8",
-                                             .es_units = 0,
-                                             .acceptable = false,
-                                             .stops_threat = false}},
-                              .forced = std::nullopt}),
-                tempo_ply(9, "Bc5", Side::Black, TempoPlyLabel::Threatening, false),
-                tempo_ply(10, "Rxd5", Side::White, TempoPlyLabel::UnforcedReply, false,
-                          ReplyGain{.material = 0, .mates = false, .through_ply = 10,
-                                    .settled = true, .gains = false},
-                          ForcedTest{
-                              .legal_moves = 24,
-                              .lines =
-                                  {ReplyLine{.san = "Rxd5",
-                                             .es_units = 1000,
-                                             .acceptable = true,
-                                             .stops_threat = false},
-                                   ReplyLine{.san = "Qxd5",
-                                             .es_units = 500,
-                                             .acceptable = true,
-                                             .stops_threat = true}},
-                              .forced = false}),
-            },
-        .tempi = Tempi{.white = 0, .black = 2},
-        .runs =
-            {
-                InitiativeRun{.holder = Side::Black,
-                              .start_ply = 1,
-                              .end_ply = 4,
-                              .tempi = 1,
-                              .ending = InitiativeEnding::Answered,
-                              .outcome = InitiativeOutcome::Unknown},
-                InitiativeRun{.holder = Side::Black,
-                              .start_ply = 5,
-                              .end_ply = 8,
-                              .tempi = 1,
-                              .ending = InitiativeEnding::Unresolved,
-                              .outcome = InitiativeOutcome::Unknown},
-            },
-    };
+    detailed.tempo_ledger =
+        TempoLedger{
+            .plies =
+                {
+                    tempo_ply(1, "Qxd5", Side::Black, TempoPlyLabel::Threatening, true),
+                    tempo_ply(2, "Nc3", Side::White, TempoPlyLabel::PureReply, false),
+                    tempo_ply(3, "Bf4", Side::Black, TempoPlyLabel::Threatening, false),
+                    tempo_ply(4, "Nxe4", Side::White, TempoPlyLabel::GainingReply, false,
+                              ReplyGain{.material = 2,
+                                        .mates = false,
+                                        .through_ply = 4,
+                                        .settled = true,
+                                        .gains = true}),
+                    tempo_ply(5, "Qa5", Side::Black, TempoPlyLabel::Threatening, true),
+                    tempo_ply(6, "Qd3", Side::White, TempoPlyLabel::PureReply, false),
+                    tempo_ply(7, "Nf6", Side::Black, TempoPlyLabel::Threatening, false),
+                    tempo_ply(8, "Qxf7", Side::White, TempoPlyLabel::UnresolvedReply, false,
+                              ReplyGain{.material = 0,
+                                        .mates = false,
+                                        .through_ply = 10,
+                                        .settled = false,
+                                        .gains = std::nullopt},
+                              ForcedTest{.legal_moves = 18,
+                                         .lines = {ReplyLine{.san = "Qxf7",
+                                                             .es_units = 0,
+                                                             .acceptable = true,
+                                                             .stops_threat = true},
+                                                   ReplyLine{.san = "Kg8",
+                                                             .es_units = 0,
+                                                             .acceptable = false,
+                                                             .stops_threat = false}},
+                                         .forced = std::nullopt}),
+                    tempo_ply(9, "Bc5", Side::Black, TempoPlyLabel::Threatening, false),
+                    tempo_ply(10, "Rxd5", Side::White, TempoPlyLabel::UnforcedReply, false,
+                              ReplyGain{.material = 0,
+                                        .mates = false,
+                                        .through_ply = 10,
+                                        .settled = true,
+                                        .gains = false},
+                              ForcedTest{.legal_moves = 24,
+                                         .lines = {ReplyLine{.san = "Rxd5",
+                                                             .es_units = 1000,
+                                                             .acceptable = true,
+                                                             .stops_threat = false},
+                                                   ReplyLine{.san = "Qxd5",
+                                                             .es_units = 500,
+                                                             .acceptable = true,
+                                                             .stops_threat = true}},
+                                         .forced = false}),
+                },
+            .tempi = Tempi{.white = 0, .black = 2},
+            .runs =
+                {
+                    InitiativeRun{.holder = Side::Black,
+                                  .start_ply = 1,
+                                  .end_ply = 4,
+                                  .tempi = 1,
+                                  .ending = InitiativeEnding::Answered,
+                                  .outcome = InitiativeOutcome::Unknown},
+                    InitiativeRun{.holder = Side::Black,
+                                  .start_ply = 5,
+                                  .end_ply = 8,
+                                  .tempi = 1,
+                                  .ending = InitiativeEnding::Unresolved,
+                                  .outcome = InitiativeOutcome::Unknown},
+                },
+        };
     detailed.tempo_ledger_skipped.reset();
     detailed.positional = {
         positional_change(PositionalTag::MobilityLead, Side::White, 12, false, std::nullopt),
@@ -1070,8 +1075,7 @@ TEST_CASE("full report text shows terminal draws and skipped refutations", "[uni
     CHECK(stalemate.find("facts read to ply 1 of ") != std::string::npos);
     CHECK(stalemate.find(" (stalemate) [rule]") != std::string::npos);
     CHECK(stalemate.find("; stalemate at ply 1") != std::string::npos);
-    CHECK(stalemate.find("Refuted by: none, the move ends the game [rule]") !=
-          std::string::npos);
+    CHECK(stalemate.find("Refuted by: none, the move ends the game [rule]") != std::string::npos);
 
     Report insufficient = report;
     insufficient.candidates.front().consequence.terminal_draw =
