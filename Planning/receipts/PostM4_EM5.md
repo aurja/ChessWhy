@@ -3,7 +3,9 @@
 Date: 2026-10-25. Machine: `debian-home` (i7-8565U, 15 GiB, Debian 13). Branch
 `postm4-em5`. Contract: `Planning/milestones/PostM4_EM5.md` §3 (acceptance §3.11, contract
 changes §4). Terms: `Planning/DBC/DEFINITIONS.md` §3.7. Parts 2 and 3 (D10–D16 and the
-block approval) are not started; this receipt covers part 1 only.
+block approval) are not started; this receipt covers part 1 only. On 2026-10-25 the Captain
+renamed parts 2 and 3 to PostM4_EM7 and PostM4_EM8 (R14), so "part 1" here is the whole of
+PostM4_EM5 and "part 2" in the sections below is PostM4_EM7. Merged into `main` 2026-10-25.
 
 ## Delivered
 

@@ -537,7 +537,7 @@ contract rules and the C++ use test agree.
 | PU17 | — | as PU16, tempo-dependent | **Kept:** `development_lead` W (ply 1); `mobility_lead` B disappears (ply 1) | Oracle matches | |
 | PU18 | — | `7k/8/2p5/3P4/8/8/8/K7 b - - 0 1`; line `Kg8 Kb2 c5 d6`<br><sub>constructed</sub> | **Kept:** `passed_pawn` W d (ply 3, advanced at ply 4)<br>**Cut:** `passed_pawn` B c (ply 3, not advanced) | Built as drawn; C++ use test passes | |
 
-## 12. PostM4_EM5 part 1 fixtures — reply evidence
+## 12. PostM4_EM5 fixtures — reply evidence
 
 **Concepts:** `EngineFixtures`, `PositionalFixtures`, `WalkedPlies`, `TerminalDraw`, `Refutation`, `SettlePoint`, `ReplyGain`, `ForcedTest`, `PlyLabel`, `TempoGained`, `RunEnding`, `RunOutcome`, `FavouredSide`, `UseTest`, `UtWitness`, `PositionWalk`
 

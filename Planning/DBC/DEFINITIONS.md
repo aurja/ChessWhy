@@ -196,9 +196,9 @@ Proposed by the Deputy on 2026-10-24 at the PostM4_EM3 kickoff (tempo value, tem
 | king pressed | Contracted (2026-10-24). For a positional change at ply `k` owned by side `X`: from ply `k` to the end of the walk the other side gives check or captures on a square of `X`'s king zone (the king's square and the squares next to it, before that move), or at the end at least two of its pieces other than pawns and the king attack that zone. From 2026-10-25 the king-file tags use king pressed on file `f` (shelter witness) instead | PostM4_EM3 §6.6, PostM4_EM5 P11 |
 | favoured side | Contracted (2026-10-24). The side a positional change helps. An appearing isolated, doubled, tripled or backward pawn, bad bishop, gap or open or half-open file next to the king or king zone attacker helps the other side; any other appearing feature helps its owner; a disappearance helps the side the appearance would not, except a captured weakness, which helps nobody (2026-10-25); `pawn_islands` and `pawn_chain` help nobody | PostM4_EM3 §6.4, PostM4_EM5 P10 |
 
-### 3.7 Reply evidence (PostM4_EM5 part 1)
+### 3.7 Reply evidence (PostM4_EM5)
 
-Proposed by the Deputy on 2026-10-25 in the PostM4_EM5 decision briefs (D1–D9), decided as recommended the same day (R5–R13) and contracted in `Planning/milestones/PostM4_EM5.md` §3. Planned: none is built yet.
+Proposed by the Deputy on 2026-10-25 in the PostM4_EM5 decision briefs (D1–D9), decided as recommended the same day (R5–R13), contracted in `Planning/milestones/PostM4_EM5.md` §3 and built the same day (called PostM4_EM5 part 1 until the rename of 2026-10-25, R14).
 
 | Term | Meaning | Defined in |
 |---|---|---|
@@ -217,16 +217,16 @@ Proposed by the Deputy on 2026-10-25 in the PostM4_EM5 decision briefs (D1–D9)
 | shelter witness | Contracted (2026-10-25, D7). For a king-file change (gap, open or half-open file next to the king) on file `f`: king pressed on file `f`, i.e. the check, zone capture or end-of-walk zone attack must land on or pass through a square of file `f` inside the king zone | PostM4_EM5 P11 |
 | conversion evidence | Contracted (2026-10-25, D8). What makes an initiative run that is not unfinished converted: the holder's material grew by ≥ 1 from before the run to the settle point after its end ply (and that point is settled), a static net change in use made inside the run favours the holder, or the run ends in the holder's checkmate. Dynamic facts do not count | PostM4_EM5 P9 |
 
-### 3.8 Proposed for PostM4_EM5 parts 2 and 3 (open)
+### 3.8 Proposed for PostM4_EM7 and PostM4_EM8 (open)
 
-Proposed by the Deputy on 2026-10-25 in the PostM4_EM5 decision briefs (`Planning/milestones/PostM4_EM5.md` §1.1, D10–D16). **Open**: none is decided or built; each row names the decision it waits on.
+Proposed by the Deputy on 2026-10-25 in the PostM4_EM5 decision briefs (D10–D16; now `Planning/milestones/PostM4_EM7.md` §1 and `Planning/milestones/PostM4_EM8.md` §1.1; PostM4_EM5 parts 2 and 3 until 2026-10-25). **Open**: none is decided or built; each row names the decision it waits on.
 
 | Term | Meaning | Defined in |
 |---|---|---|
-| net exposure | Proposed (D10). For a held piece's move under a relative pin or overloaded defender: the material the opponent then wins on the target minus the material the move itself captured or promoted; the move is restricted only when it is ≥ 1 | PostM4_EM5 D10 |
-| back-rank guard | Proposed (D12). A rook or queen of the king's side on its first rank with no piece between it and the king; `back_rank_weakness` requires that none exists (today: none on the rank at all) | PostM4_EM5 D12 |
-| motif revalidation | Proposed (D13). Before an earlier motif's denied moves are tested on a later board of a tactic line, the motif detector must still find the same motif (tag, actor, held piece, target) on that board | PostM4_EM5 D13 |
-| mandatory conditions | Proposed (D14). The facts the relevance filter must keep on every move report whatever else it drops: verdict, line, refutation, the created-threat premise or its skip reason, walked plies, and `O`'s threat with the move's parry result (parried, deferred by check or not parried) when its rank is ≥ 2 | PostM4_EM5 D14 |
+| net exposure | Proposed (D10). For a held piece's move under a relative pin or overloaded defender: the material the opponent then wins on the target minus the material the move itself captured or promoted; the move is restricted only when it is ≥ 1 | PostM4_EM7 D10 |
+| back-rank guard | Proposed (D12). A rook or queen of the king's side on its first rank with no piece between it and the king; `back_rank_weakness` requires that none exists (today: none on the rank at all) | PostM4_EM7 D12 |
+| motif revalidation | Proposed (D13). Before an earlier motif's denied moves are tested on a later board of a tactic line, the motif detector must still find the same motif (tag, actor, held piece, target) on that board | PostM4_EM7 D13 |
+| mandatory conditions | Proposed (D14). The facts the relevance filter must keep on every move report whatever else it drops: verdict, line, refutation, the created-threat premise or its skip reason, walked plies, and `O`'s threat with the move's parry result (parried, deferred by check or not parried) when its rank is ≥ 2 | PostM4_EM7 D14 |
 
 ### 3.9 Search phase and explanation phase (PostM4_EM6)
 
@@ -351,7 +351,10 @@ Decided at M2 checkpoint 2b (M2 D11–D13); rules frozen in the PostM2_EM1 plan
 | PostM3_EM2 | The milestone after M3a/M3b (Captain's name, 2026-10-22): fixes from the conceptual audit of 2026-10-22 (`Planning/critiques/2026-10-22/`) before M4: restricted and free moves, contribution rule 3′, `removal_of_defender` continuity, conditions in the template, report v5 with semantic checks, data digests; at checkpoint 3 also `tripled_pawns` and T60. Plan `Planning/milestones/PostM3_EM2.md`, receipt `Planning/receipts/PostM3_EM2.md`; complete, merged into `main` 2026-10-23 (branch `postm3-em2`) | vision §11 |
 | PostM4_EM3 | The milestone after M4 (Captain's name, 2026-10-24): tempo, initiative and an impact rating for facts (§3.6). Plan `Planning/milestones/PostM4_EM3.md`: decisions A1–A5 and B1–B3 frozen 2026-10-24; contract approved at checkpoint 1 the same day. Receipt `Planning/receipts/PostM4_EM3.md`; complete, merged into `main` 2026-10-24 (branch `postm4-em3`) | vision §11 |
 | PostM4_EM4 | The milestone after PostM4_EM3 (Captain's name "EM4", 2026-10-24), branch `postm4-em4`: the conceptual critique and the move report text. Part 1, frozen 2026-10-24 (Captain's decision R1): motif repeats merged in move reports, compact restricted-movement rows in the move report text, report v8. Parts 1b/1c: `line_fens` and the position walk. The conceptual critique of all definitions and concepts of 2026-10-24 (`Planning/critiques/2026-10-24/`). Until 2026-10-25 a part 2 was planned (the pure reply replacement and the critique's fixes); the Captain moved it to PostM4_EM5 (R4). Plan `Planning/milestones/PostM4_EM4.md`, receipt `Planning/receipts/PostM4_EM4.md`; complete, merged into `main` 2026-10-25 | vision §11 |
-| PostM4_EM5 | The milestone after PostM4_EM4 (Captain's name, 2026-10-25): fixes the findings of the conceptual critique of 2026-10-24, including the pure reply replacement "forced and gains nothing", in three parts frozen one after another: reply evidence (consequence outcome, benefit evidence, pure reply), correctness (motif evidence, relevance filter conditions) and contract and wording repairs (verdicts, game counts, glossary, vision drift). Plan `Planning/milestones/PostM4_EM5.md` | vision §11 |
+| PostM4_EM5 | The milestone after PostM4_EM4 (Captain's name, 2026-10-25): reply evidence from the conceptual critique of 2026-10-24 (terminal draws, the settled walk, reply gain and forced test, the pure reply "forced and gains nothing", run outcomes, captured weakness, shelter witness), report v9. Until 2026-10-25 it had three parts; the Captain renamed parts 2 and 3 PostM4_EM7 and PostM4_EM8 (R14), so "part 1" in its plan and receipt means the whole milestone. Plan `Planning/milestones/PostM4_EM5.md`, receipt `Planning/receipts/PostM4_EM5.md`; complete, merged into `main` 2026-10-25 (branch `postm4-em5`) | vision §11 |
+| PostM4_EM6 | The milestone after PostM4_EM5 (Captain's decisions H1–H7, 2026-10-25): search phase and explanation phase (§3.9), report v10. Plan `Planning/milestones/PostM4_EM6.md`, receipt `Planning/receipts/PostM4_EM6.md`; complete, merged into `main` 2026-10-25 (branch `postm4-em6`) | vision §11 |
+| PostM4_EM7 | Correctness fixes from the conceptual critique of 2026-10-24 (motif evidence, relevance filter conditions, the forced test's cost, the collector audit); called PostM4_EM5 part 2 until 2026-10-25. Open: D10–D14. Plan `Planning/milestones/PostM4_EM7.md` | vision §11 |
+| PostM4_EM8 | Contract and wording repairs from the conceptual critique of 2026-10-24 (verdicts, game counts, tempo labels, glossary, vision drift); called PostM4_EM5 part 3 until 2026-10-25. Open: D15, D16 and the block approval. Plan `Planning/milestones/PostM4_EM8.md` | vision §11 |
 
 ## 5. Measurement
 

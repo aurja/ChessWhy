@@ -1,7 +1,7 @@
 # PostM4_EM6 — plan (search phase and explanation phase)
 
-Branch `postm4-em6`, from `postm4-em5` after PostM4_EM5 part 1 closed (`902682b`; that branch
-is not merged into `main`). This milestone runs before PostM4_EM5 parts 2 and 3. Source: the
+Branch `postm4-em6`, from `postm4-em5` after PostM4_EM5 closed (`902682b`; that branch
+was not merged into `main` until 2026-10-25). This milestone runs before PostM4_EM7 and PostM4_EM8 (called PostM4_EM5 parts 2 and 3 until 2026-10-25). Source: the
 Captain's position F47 (`2brr3/1p4k1/2p1P3/p4P2/P4pN1/2P4B/5K2/6R1 b - - 0 1`), where
 ChessWhy says `Rd3` is best at every budget and Stockfish, run longer or as a single line,
 says `Rh8`. Terms are in `Planning/DBC/DEFINITIONS.md` §3.9.
@@ -16,7 +16,7 @@ says `Rh8`. Terms are in `Planning/DBC/DEFINITIONS.md` §3.9.
 | H4 | Defaults | Search budget 18, explanation budget 14 |
 | H5 | Tie rule | An A-rest line whose engine score is at least A-best's is verdict `best` with loss 0 |
 | H6 | Timing | No time limit (checkpoint 2, 2026-10-25): `cli_timing` measures each F fixture's default run and fails only when a run fails; speed is deferred until the tool works correctly ("make it correct > make it fast > make it nice"). Frozen before: `cli_timing` 25 s per F fixture; F32 smoke `--moves playable` ≤ 60 s, `--moves all` ≤ 150 s |
-| H7 | Milestone shape | Own milestone, before PostM4_EM5 parts 2–3; `--no-llm` stays |
+| H7 | Milestone shape | Own milestone, before PostM4_EM7 and PostM4_EM8 (PostM4_EM5 parts 2–3 when decided); `--no-llm` stays |
 
 ## 2. Evidence at freeze
 
@@ -53,8 +53,8 @@ the 41 F fixture roots (`/tmp/calib.log`, Deputy, 2026-10-25).
 - Search A splits into A-best and A-rest (not A1/A2: A1–A5 name the PostM4_EM3 tempo
   decisions). Search phase: A-best, A-rest, C. Explanation phase: B, D, E, R and every L search (threat, reply,
   forced test, reply per acceptable alternative).
-- Not in scope: the forced test's cost (PostM4_EM5 part 2), VER2-1's verdict of a C move
-  (PostM4_EM5 part 3, R2: it will use N6's score order), audience levels (M5), multi-threaded
+- Not in scope: the forced test's cost (PostM4_EM7), VER2-1's verdict of a C move
+  (PostM4_EM8, R2: it will use N6's score order), audience levels (M5), multi-threaded
   or time-limited searches.
 
 ### 3.2 Rules

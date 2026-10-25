@@ -59,8 +59,8 @@ Updated 2026-10-25.
   findings, 6 `wrong claim`. The planned part 2 became PostM4_EM5 (Captain, R4). Release
   `unit|engine|games|corpus` 213/213, `timing` pass (F12 12.4 s), ASan/UBSan
   `unit|sanitize` 176/176.
-- Milestone: **PostM4_EM5 part 1, reply evidence, complete on branch `postm4-em5`
-  2026-10-25** (not merged; parts 2 and 3 follow on the same plan). Receipt
+- Milestone: **PostM4_EM5, reply evidence, complete, merged into `main` 2026-10-25**
+  (branch `postm4-em5`; called part 1 until its parts 2 and 3 became PostM4_EM7 and PostM4_EM8). Receipt
   `Planning/receipts/PostM4_EM5.md`; contract `Planning/milestones/PostM4_EM5.md` §3
   (changes §4). Report v9: terminal draws and the skipped refutation, the settled walk,
   reply gain and forced test, the ply labels gaining / unforced / unresolved reply (a tempo
@@ -70,8 +70,8 @@ Updated 2026-10-25.
   F21, F25, F28, F40, F41, F42 re-blessed. Release `unit|engine|games|corpus` 224/224,
   `timing` 309 s (F12 13.1 s, limit 15 s); ASan/UBSan `unit|sanitize` 185/185; F32
   `--moves playable` 24.6–29.9 s (limit 30 s).
-- Milestone: **PostM4_EM6, search phase and explanation phase, complete on branch
-  `postm4-em6` (from `postm4-em5`) 2026-10-25** (not merged). Receipt
+- Milestone: **PostM4_EM6, search phase and explanation phase, complete, merged into
+  `main` 2026-10-25** (branch `postm4-em6`, after PostM4_EM5). Receipt
   `Planning/receipts/PostM4_EM6.md`; contract `Planning/milestones/PostM4_EM6.md` §3
   (changes §4). `--level` and `--budget` removed; `--search-budget` (18) and
   `--explanation-budget` (14) depths; search A splits into A-best and A-rest (the best move
@@ -80,9 +80,10 @@ Updated 2026-10-25.
   Release `unit|engine|games|corpus` 225/225; `timing` a measurement only, 957.7 s (F12
   60.0 s); ASan/UBSan `unit|sanitize` 185/185; F32 `--moves playable` 58.2 s, `--moves
   all` 126.0 s. Speed is deferred to a later milestone.
-- Next: **PostM4_EM5 part 2, correctness** (D10–D14 open for the Captain; plan §2 part 2
-  table, which also holds the forced test's cost, the collector audit and the P11 en
-  passant wording), then part 3 (D15–D16, block approval). Each part's contract is frozen
+- Next: **PostM4_EM7, correctness** (`Planning/milestones/PostM4_EM7.md`; D10–D14 open for
+  the Captain; its findings table also holds the forced test's cost, the collector audit and
+  the P11 en passant wording), then **PostM4_EM8, contract and wording repairs**
+  (`Planning/milestones/PostM4_EM8.md`; D15–D16, block approval). Each contract is frozen
   before its work starts; fresh orchestrator session.
 - Test tooling (Captain's requests, 2026-10-24): long test drivers print progress lines;
   `tools/run_tests.py --build-dir DIR [ctest args]` streams them and writes

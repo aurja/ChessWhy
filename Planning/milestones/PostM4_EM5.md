@@ -1,10 +1,12 @@
-# PostM4_EM5 — plan (fixes from the conceptual critique of 2026-10-24)
+# PostM4_EM5 — plan (reply evidence, from the conceptual critique of 2026-10-24)
 
 Branch `postm4-em5`, from `main` after PostM4_EM4 is merged. Source: the critique in
 `Planning/critiques/2026-10-24/` (findings 00–08, synthesis 09). This file holds the
-Captain's decisions and the assignment of every finding to a part. Each part's contract
-(rules, report changes, fixtures, work packages, acceptance) is frozen in this file before
-its work starts; parts 2 and 3 do not depend on part 1 and may be frozen while it runs.
+Captain's decisions and the contract of reply evidence (§3). Until 2026-10-25 it planned
+three parts; the Captain renamed parts 2 and 3 to PostM4_EM7
+(`Planning/milestones/PostM4_EM7.md`, correctness) and PostM4_EM8
+(`Planning/milestones/PostM4_EM8.md`, contract and wording repairs) (R14). "Part 1" in this
+file and its receipt means this milestone.
 
 ## 1. Captain's decisions
 
@@ -23,14 +25,15 @@ its work starts; parts 2 and 3 do not depend on part 1 and may be frozen while i
 | R11 | D7, POS2-2 king pressed (2026-10-25) | Shelter witness for king-file changes. Rejected: rename to "selected for explanation" |
 | R12 | D8, TMP-2 run outcome (2026-10-25) | Conversion evidence: material to the run's settled end, static facts only, unfinished runs `unknown`. Rejected: rename the outcomes |
 | R13 | D9, tempo rows in the move report text (2026-10-25) | Return at the end of part 1, in the position blocks (§3.8). Rejected: full report only until M5 |
+| R14 | Milestone names (2026-10-25) | Parts 2 and 3 become the milestones PostM4_EM7 and PostM4_EM8; their decisions D10–D16, the block approval and their findings move to those plans |
 
 ### 1.1 Open decisions (briefed 2026-10-25)
 
-Briefed to the Captain by the Deputy on 2026-10-25; terms in `DEFINITIONS.md` §3.7 (part 1) and §3.8 (parts 2 and 3). D1–D9
-freeze part 1; D10–D14 part 2; D15–D16 and the block approval part 3. Evidence: the Release
-build of `main` after the PostM4_EM4 merge (report v8) on the 43 F fixtures (`--full-report
---json`), replayed with python-chess. D1–D9 were decided as recommended on 2026-10-25 (R5–R13);
-D10–D16 and the block approval stay open until part 1 is done.
+Briefed to the Captain by the Deputy on 2026-10-25; terms in `DEFINITIONS.md` §3.7. D1–D9
+froze part 1. Evidence: the Release build of `main` after the PostM4_EM4 merge (report v8)
+on the 43 F fixtures (`--full-report --json`), replayed with python-chess. D1–D9 were
+decided as recommended on 2026-10-25 (R5–R13). D10–D14 moved to PostM4_EM7 §1; D15, D16
+and the block approval to PostM4_EM8 §1.1 (R14).
 
 | # | Finding | Question | Deputy's recommendation |
 |---|---|---|---|
@@ -43,18 +46,11 @@ D10–D16 and the block approval stay open until part 1 is done.
 | D7 | POS2-2 | King pressed as use | Shelter witness for king-file changes |
 | D8 | TMP-2 | Run outcome | Conversion evidence: material to the run's end, static facts only; unfinished runs `unknown` |
 | D9 | §2 open item | Tempo rows in the move report text | Return at the end of part 1, one row per position block, layout shown on V2 before building |
-| D10 | MOT2-1 | Costly restricted move | Net exposure |
-| D11 | MOT2-2 | Checking escape | Legal-capture gate (the hanging-piece gate) for relative pins and overloaded defenders |
-| D12 | MOT2-3 | Back rank guarded | Back-rank guard; the motif reference implementation and recall move with it |
-| D13 | TAC2-1 | Surviving pin in rule 3′ | Motif revalidation for every tag |
-| D14 | REP2-2 | Relevance filter | Mandatory conditions incl. `O`'s rank ≥ 2 threat and the parry result; root urgency back as one row |
-| D15 | TMP-3 | Tempo labels | Keep the names; meaning becomes the pass cost only; null tempo value prints unknown |
-| D16 | 09 §4 | Vision drift | Vision follows EM4 R1 on printed restrictions; a tempo section in vision §5 after part 1; the other four items mechanical |
-| — | TAC2-2, TMP-5, POS2-3, PRF2-1, PRF2-2, POS2-4 | Block approval | Wording fixes as the critiques' first candidates; POS2-4 specifies the legal domain only |
 
-## 2. Findings by part
+## 2. Findings
 
-Group letters G1–G10 are the synthesis's (09 §2).
+Group letters G1–G10 are the synthesis's (09 §2). The findings of parts 2 and 3 moved to
+PostM4_EM7 §2 and PostM4_EM8 §2 (R14).
 
 ### Part 1 — reply evidence (in this order)
 
@@ -69,33 +65,11 @@ Group letters G1–G10 are the synthesis's (09 §2).
 
 The tempo rows return to the move report text at the end of part 1 (R13, §3.8).
 
-### Part 2 — correctness
+### Not in part 1
 
-| Finding | Group | Fix owner |
-|---|---|---|
-| MOT2-1 a costly restricted move can collect more than it exposes | G4 | restricted moves |
-| MOT2-2 a checking escape restricted by an illegal reply | G4 | restricted moves (relative pin) |
-| MOT2-3 being on the back rank is not guarding it | G4 | `back_rank_weakness` |
-| TAC2-1 unmoved pieces do not imply a surviving pin | G4 | contribution rule 3′ |
-| POS2-4 break cost over unsearchable moves | G4 | specify the legal search domain only; break cost stays an open proposal |
-| REP2-2 relevance filter drops deferred-parry conditions | G8 | relevance filter's mandatory conditions |
-| Checkpoint 2 (2026-10-25): the forced test's cost. F32 `--moves playable` takes 24.6–29.9 s (limit 30 s; 27.9 s at PostM4_EM4) and F12 14.2 s (limit 15 s) | — | forced test: cut its search cost (e.g. reuse the reply search), budgets unchanged |
-| Checkpoint 2 (2026-10-25): the engine collector's duplicate fallback may shorten Search A silently, as it shortened F32's forced test to 4 lines (scope proposal) | — | engine line collection: audit |
-| Completion review (2026-10-25): en passant and the file-specific shelter witness. The checker presses the king from the removed pawn's square for king files and from the landing square otherwise; P11 is silent on which square counts for a file witness (scope proposal) | — | P11 wording: en passant square for the shelter witness |
-
-### Part 3 — contract and wording repairs
-
-| Finding | Group | Fix owner |
-|---|---|---|
-| VER2-1 exact tie from C graded okay | G6 | verdict (R2) |
-| REP2-1 first-visit counts worded as games played | G9 | game counts (R3) |
-| TMP-3 low pass cost labelled non-tempo | G5 | tempo label |
-| POS2-3 impact and duration from the tag taxonomy | G5 | impact rating, static scale |
-| TAC2-2 tactic recognition describes the retired margin test | G7 | glossary |
-| TMP-5 even trade vs check rule | G7 | glossary (threatening move) |
-| PRF2-1 output volume is not noise | G10 | proof measurements |
-| PRF2-2 oracle scope wording hides the sample | G10 | proof wording |
-| Vision vs concept map, six items (09 §4) | — | vision and `CONCEPTS.md`, each reconciled with the Captain |
+Correctness (MOT2-1, MOT2-2, MOT2-3, TAC2-1, POS2-4, REP2-2, the forced test's cost, the
+collector audit, the P11 en passant wording): PostM4_EM7. Contract and wording repairs
+(VER2-1, REP2-1, TMP-3, POS2-3, TAC2-2, TMP-5, PRF2-1, PRF2-2, vision drift): PostM4_EM8.
 
 ### Not in this milestone
 
@@ -119,7 +93,7 @@ move has no legal move (checkmate or stalemate) or it has insufficient material 
 
 Not in part 1: repetition and the fifty-move rule; root positions with insufficient material
 (the root stays terminal only at checkmate or stalemate); positional gains in the reply gain;
-every item of parts 2 and 3.
+every item of PostM4_EM7 and PostM4_EM8.
 
 ### 3.2 Rules
 
@@ -381,3 +355,4 @@ Batches: WP1 + WP2; then WP3 + WP4; then WP5; WP6 with the milestone-end gate.
 | 2026-10-25 | P6: `m` is the number of distinct lines Stockfish returns when that is fewer than `min(5, legal)` (F32 `--moves all`, ply after `…f6 d4`: 4 of 5 lines, the 5th was a lowerbound at the node limit); never makes a short result `true` without an unacceptable line. The engine wrapper's line collection is unchanged | Deputy |
 | 2026-10-25 | §3.8 sample: F40 block 1 reads `17.2%`, not `17.3%`. The EM3 formatter prints the double 0.1725 as 17.2 (and 0.2965 as 29.6, as the sample already had); the formatter is unchanged (WP3) | Deputy |
 | 2026-10-25 | Checkpoint 2: re-bless list approved (F07, F21, F25, F28, F40, F41, F42; new F45, F46); P6 short MultiPV and §3.8 `17.2%` ratified; timing within limits, the forced test's cost goes to part 2 (budgets unchanged); §3.7 gains the forced-test suffix (the full report text printed no forced test) | Captain |
+| 2026-10-25 | R14: parts 2 and 3 renamed PostM4_EM7 and PostM4_EM8; D10–D16, the block approval and the part 2 and 3 findings moved to their plans | Captain |

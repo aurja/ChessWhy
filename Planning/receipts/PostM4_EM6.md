@@ -1,7 +1,7 @@
 # PostM4_EM6 receipt — search phase and explanation phase
 
 Date: 2026-10-25. Machine: `debian-home` (i7-8565U, 15 GiB, Debian 13). Branch
-`postm4-em6` (built on `postm4-em5`, neither merged). Contract:
+`postm4-em6` (built on `postm4-em5`; both merged into `main` 2026-10-25, EM5 first). Contract:
 `Planning/milestones/PostM4_EM6.md` §3 (acceptance §3.9, contract changes §4). Terms:
 `Planning/DBC/DEFINITIONS.md` §3.9. Started from the Captain's F47
 (`2brr3/1p4k1/2p1P3/p4P2/P4pN1/2P4B/5K2/6R1 b - - 0 1`): ChessWhy said Rd3, deeper
