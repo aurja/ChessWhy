@@ -195,6 +195,27 @@ Proposed by the Deputy on 2026-10-24 at the PostM4_EM3 kickoff (tempo value, tem
 | king pressed | Contracted (2026-10-24). For a positional change at ply `k` owned by side `X`: from ply `k` to the end of the walk the other side gives check or captures on a square of `X`'s king zone (the king's square and the squares next to it, before that move), or at the end at least two of its pieces other than pawns and the king attack that zone | PostM4_EM3 §6.6 |
 | favoured side | Contracted (2026-10-24). The side a positional change helps. An appearing isolated, doubled, tripled or backward pawn, bad bishop, gap or open or half-open file next to the king or king zone attacker helps the other side; any other appearing feature helps its owner; a disappearance helps the side the appearance would not; `pawn_islands` and `pawn_chain` help nobody | PostM4_EM3 §6.4 |
 
+### 3.7 Proposed for PostM4_EM5 (open)
+
+Proposed by the Deputy on 2026-10-25 in the PostM4_EM5 decision briefs (`Planning/milestones/PostM4_EM5.md` §1.1, D1–D16), from the critique of 2026-10-24. **Open**: none is decided or built; each row names the decision it waits on.
+
+| Term | Meaning | Defined in |
+|---|---|---|
+| terminal draw | Proposed (D1). A position on a line's walked plies where the game is drawn by board rule: stalemate, or material that cannot mate (king against king, king and one minor piece against king). Repetition and the fifty-move rule stay out (position-only analysis). Example: F21's `Nxf6+` leaves king and knight against king | PostM4_EM5 D1 |
+| settled walk | Proposed (D2). Walked plies that go on through checks and the replies to them as well as through captures (still 6 plies, then up to 10); `walk_settled` is false when ply 10 stops the walk while the line's next move would still extend it | PostM4_EM5 D2 |
+| acceptable reply | Proposed (D3). A reply to a threatening move whose expected score is within 0.05 (the playable threshold) of the best reply, from a MultiPV search of the replies at budget `L` | PostM4_EM5 D3 |
+| forced reply | Proposed (D3). A reply that stops a threatening move's threat when every acceptable reply stops it too, so the threat cannot be ignored; unknown when the search cannot tell | PostM4_EM5 D3, R4 |
+| reply gain | Proposed (D4). What the replying side keeps, measured from the board before the threatening move through the reply and the settled exchange after it: material ≥ 1 pawn, a promotion or mate; unknown when the walk ends before the exchange settles | PostM4_EM5 D4, R4 |
+| gaining reply, unforced reply, unresolved reply | Proposed (D5). Ply labels for a reply that stops the threat and does not threaten but is not a pure reply: it keeps a reply gain (**gaining**), it gains nothing but was not a forced reply (**unforced**), or the forced or gain test is unknown (**unresolved**). None gains a tempo for the threatening side | PostM4_EM5 D5 |
+| answered, unresolved (run endings) | Proposed (D5). Run endings next to spent, runs, contested and unfinished: the answer to the holder's move is a gaining or unforced reply (**answered**) or an unresolved reply (**unresolved**) | PostM4_EM5 D5 |
+| captured weakness | Proposed (D6). A weakness feature (one whose appearance helps the other side under favoured side) that disappears because its piece was captured; it helps nobody, since the material change already records the capture | PostM4_EM5 D6 |
+| shelter witness | Proposed (D7). For a king-file change, the check, zone capture or endpoint zone attack counted by king pressed must land on or pass through a square of the changed file inside the king zone | PostM4_EM5 D7 |
+| conversion evidence | Proposed (D8). What makes an initiative run converted: the holder's material grew by ≥ 1 from before the run through the answer to its ending move and the settled exchange after it, or a static net change in use made inside the run favours the holder. Dynamic facts do not count; an unfinished run's outcome is `unknown` | PostM4_EM5 D8 |
+| net exposure | Proposed (D10). For a held piece's move under a relative pin or overloaded defender: the material the opponent then wins on the target minus the material the move itself captured or promoted; the move is restricted only when it is ≥ 1 | PostM4_EM5 D10 |
+| back-rank guard | Proposed (D12). A rook or queen of the king's side on its first rank with no piece between it and the king; `back_rank_weakness` requires that none exists (today: none on the rank at all) | PostM4_EM5 D12 |
+| motif revalidation | Proposed (D13). Before an earlier motif's denied moves are tested on a later board of a tactic line, the motif detector must still find the same motif (tag, actor, held piece, target) on that board | PostM4_EM5 D13 |
+| mandatory conditions | Proposed (D14). The facts the relevance filter must keep on every move report whatever else it drops: verdict, line, refutation, the created-threat premise or its skip reason, walked plies, and `O`'s threat with the move's parry result (parried, deferred by check or not parried) when its rank is ≥ 2 | PostM4_EM5 D14 |
+
 ## 4. Tactical motifs
 
 ### 4.1 Kinds of facts
