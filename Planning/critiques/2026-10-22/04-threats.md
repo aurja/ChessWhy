@@ -8,7 +8,7 @@ Concept nodes: `SideThreat`, `OpponentThreat`, `NullMoveReliable`, `Consequence`
 
 ## Conclusion
 
-The inspected paths follow [M1 §4.2–4.7](../milestones/M1.md); I found no computation
+The inspected paths follow [M1 §4.2–4.7](../../milestones/M1.md); I found no computation
 defect against the frozen contract. The demonstrated weaknesses lie in what the names
 promise. Three are observed at runtime:
 
@@ -35,7 +35,7 @@ searches already produce; none needs a new search.
 | urgency | in check → `O`; both ranks < 2 → `quiet`; different ranks → higher; equal → D on A's best move: not parried → `S` (`counterattack`), parried → `O` (`parry`) |
 | `creates_threat` | E: after m and `O`'s pass, single PV, 100,000 nodes; null if m checks or ends the game |
 
-[DEFINITIONS §3.3](../DBC/DEFINITIONS.md) says a threat is "not the everyday 'something
+[DEFINITIONS §3.3](../../DBC/DEFINITIONS.md) says a threat is "not the everyday 'something
 attacks something'", and ranks gate both D and urgency, so a merely playable line (rank 0–1)
 never drives a parry or urgency decision. "What a side would play is not a punishable
 threat" is therefore a wording risk (THR-4), not a computation error.
@@ -44,7 +44,7 @@ threat" is therefore a wording risk (THR-4), not a computation error.
 
 ### THR-1 — "Parries" measures beating a pass, not stopping `t` (contract-level concern; observed)
 
-**Root cause [SOURCE].** [`search_parry`](../../src/analysis/analyse.cpp) (line 291)
+**Root cause [SOURCE].** [`search_parry`](../../../src/analysis/analyse.cpp) (line 291)
 compares D against B, whose baseline has `S` passing instead of playing m (M1 §4.5).
 **[INFERENCE]** D only restricts `O` to `t`, so in exact play ES_O(D) ≤ 1 − ES_S(m). With
 p = 1 − ES_O(B), `S`'s score after a pass, "the threat still works" implies
@@ -86,7 +86,7 @@ ES_S(m) > p + 0.03 would show noise dominates the inequality.
 ### THR-2 — Checks and mate "do not parry"; `counterattack` mostly means "the best move checks" (contract-level wording concern; observed)
 
 **Root cause [SOURCE].** `search_parry` lines 277–278 implement M1 §4.5 rule 1 "(or m
-mates)"; [CONCEPTS](../DBC/CONCEPTS.md) `PtByCheck` says "A check only postpones the threat";
+mates)"; [CONCEPTS](../../DBC/CONCEPTS.md) `PtByCheck` says "A check only postpones the threat";
 urgency rule 4 consumes the boolean (`analyse`, lines 507–510).
 
 **Evidence.** [OBSERVED] Constructed `6k1/1p3ppp/8/8/8/8/1q4PP/R6K w - - 0 1`: both threats
@@ -102,7 +102,7 @@ threat is mate in 8 and the rule is `consequence_class`. White is more urgent at
 **[INFERENCE]** With THR-1, rule 4 yields `counterattack` only when A's best move checks or
 mates, or beats passing by at most 0.03 (saturation, near-zugzwang). A strong non-checking
 counterattack lowers `O`'s ES and prints `parry`, contrary to the stated intent in
-[vision §5.3](../PROJECT_VISION.md). The `counterattack` fixture F09 pins fine `Nf3+` and a
+[vision §5.3](../../PROJECT_VISION.md). The `counterattack` fixture F09 pins fine `Nf3+` and a
 fork by the f3 knight on Black's own threat line, consistent with the check path (unrun:
 `--fen "8/6pk/7p/5p2/5Pqn/1P5P/P2Q2P1/2r2RK1 b - - 0 39" --move Qg3`).
 
@@ -117,7 +117,7 @@ F22 at `quick` no longer print "false"; urgency sides are unchanged.
 
 ### THR-3 — `creates_threat` is absolute and hypothetical (contract-level concern; observed)
 
-**Root cause [SOURCE].** [`assess_move`](../../src/analysis/analyse.cpp) (lines 321–336)
+**Root cause [SOURCE].** [`assess_move`](../../../src/analysis/analyse.cpp) (lines 321–336)
 stores E's line with no baseline. Vision §5.4 separates "executes or keeps `S`'s threat"
 from "creates a new threat (E)"; no "keeps" fact was built. `NullMoveReliable` flags only
 `OpponentThreat`; in E the passing side is `O`, unflagged.
@@ -146,11 +146,11 @@ requires separately specified and validated evidence.
 
 ### THR-4 — `positional`, `quiet` and "biggest problem" are horizon residuals (accepted limitation; M4 wording risk)
 
-**[SOURCE]** [`consequence`](../../src/analysis/rules.cpp) makes `positional` the residual:
+**[SOURCE]** [`consequence`](../../../src/analysis/rules.cpp) makes `positional` the residual:
 no positive mate score, under one pawn within the walked plies, no kept promotion. M1 §4.3
-dropped the vision's ES swing and [M3a](../milestones/M3a.md) P3 reads no positional changes
+dropped the vision's ES swing and [M3a](../../milestones/M3a.md) P3 reads no positional changes
 on threat lines, so the class carries no positional content. `quiet` means both ranks are
-below 2, and [DEFINITIONS §3.4](../DBC/DEFINITIONS.md) adds "the explanation leads with
+below 2, and [DEFINITIONS §3.4](../../DBC/DEFINITIONS.md) adds "the explanation leads with
 positional facts"; vision §5.2 and `OpponentThreat` call `O`'s threat "White's biggest
 problem". All of this is documented.
 
@@ -178,7 +178,7 @@ sheet states "only fine move; root tactic" before positional facts.
 
 ### THR-5 — `null_move_reliable` is a one-sided material proxy (accepted limitation; source)
 
-[`null_move_prone`](../../src/analysis/rules.cpp) counts `S`'s pieces; `true` asserts more
+[`null_move_prone`](../../../src/analysis/rules.cpp) counts `S`'s pieces; `true` asserts more
 than it tests; the vision's risk table documents this mitigation, and E is unflagged
 (THR-3). **Recommendation [PROPOSED, no new root search]:** expose when the pass search
 scores better than A's searched best move (p > ES_S(best) + 0.03), as a diagnostic
@@ -216,13 +216,13 @@ unrun; F04, F09 and F10 expectations are historical fixture receipts.
 
 ## Sources
 
-[analyse.cpp](../../src/analysis/analyse.cpp) (`search_parry`, `assess_move`, `analyse`);
-[rules.cpp](../../src/analysis/rules.cpp) (`null_move_prone`, `walked_plies`, `consequence`,
-`consequence_rank`); [report.hpp](../../include/chesswhy/report.hpp) (`Threat`, `ParryInfo`,
-`Threats`); [render.cpp](../../src/render/render.cpp) (`write_threat`);
-[report.v4.schema.json](../../schema/report.v4.schema.json);
-[positions.json](../../tests/fixtures/positions.json) (F01, F04, F07–F10, F22);
-[unit_tests.cpp](../../tests/analysis/unit_tests.cpp); [M1](../milestones/M1.md) §4.2–4.7,
-§9, §16; [M3a](../milestones/M3a.md) P3; [vision](../PROJECT_VISION.md) §5.1–5.4 and risks;
-[DEFINITIONS](../DBC/DEFINITIONS.md) §3.3–3.4; [CONCEPTS](../DBC/CONCEPTS.md) L2/L3;
-[CODE](../DBC/CODE.md).
+[analyse.cpp](../../../src/analysis/analyse.cpp) (`search_parry`, `assess_move`, `analyse`);
+[rules.cpp](../../../src/analysis/rules.cpp) (`null_move_prone`, `walked_plies`, `consequence`,
+`consequence_rank`); [report.hpp](../../../include/chesswhy/report.hpp) (`Threat`, `ParryInfo`,
+`Threats`); [render.cpp](../../../src/render/render.cpp) (`write_threat`);
+[report.v4.schema.json](../../../schema/report.v4.schema.json);
+[positions.json](../../../tests/fixtures/positions.json) (F01, F04, F07–F10, F22);
+[unit_tests.cpp](../../../tests/analysis/unit_tests.cpp); [M1](../../milestones/M1.md) §4.2–4.7,
+§9, §16; [M3a](../../milestones/M3a.md) P3; [vision](../../PROJECT_VISION.md) §5.1–5.4 and risks;
+[DEFINITIONS](../../DBC/DEFINITIONS.md) §3.3–3.4; [CONCEPTS](../../DBC/CONCEPTS.md) L2/L3;
+[CODE](../../DBC/CODE.md).

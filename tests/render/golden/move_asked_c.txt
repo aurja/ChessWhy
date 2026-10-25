@@ -1,9 +1,21 @@
 Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]
 Budget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, L=30000, R=100000 [rule]
-Position: White to move, 20 legal moves; evaluation 50.0% for White (cp 0) [engine]
 Opening dataset: lichess-org/chess-openings@a6189a3 [book]
 Current opening: null [book]
 Last named opening: null [book]
 Showing e4 [rule]
+
+────────────────────────────────────────────────────────────
 Asked: e4 (e2e4): okay, es=47.8%, loss=2.2%, depth=12 [engine]
 Line: e4 e5; facts read to ply 2 of 2 [engine]
+
+Position: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+  Evaluation: 50.0% for White (cp 0) [engine]
+  Move: e4 (White)
+
+Position: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1
+  Evaluation: 47.8% for White (line score) [engine]
+  Move: e5 (Black)
+
+Position: rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2
+  Evaluation: 47.8% for White (line score) [engine]

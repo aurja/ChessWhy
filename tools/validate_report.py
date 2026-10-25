@@ -1668,6 +1668,32 @@ def replay_walk(
     return boards, moves
 
 
+def replay_line_fens(
+    position_fen: JsonValue, line_value: JsonValue, walked_plies: JsonValue
+) -> list[str] | None:
+    line = as_array(line_value)
+    if (
+        not isinstance(position_fen, str)
+        or line is None
+        or not isinstance(walked_plies, int)
+        or isinstance(walked_plies, bool)
+        or walked_plies < 0
+        or walked_plies > len(line)
+    ):
+        return None
+    try:
+        board = chess.Board(position_fen)
+        line_fens: list[str] = []
+        for san in line[:walked_plies]:
+            if not isinstance(san, str):
+                return None
+            _ = board.push_san(san)
+            line_fens.append(board.fen(en_passant="legal"))
+        return line_fens
+    except ValueError:
+        return None
+
+
 def null_move_has_no_legal_move(board: chess.Board) -> bool:
     passed = board.copy()
     passed.push(chess.Move.null())
@@ -2358,14 +2384,41 @@ def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> Non
     check_restrictions_everywhere(report, root, failures)
 
 
-def contribution_filtered(motifs_value: JsonValue) -> list[JsonValue]:
+def relevant_motifs(motifs_value: JsonValue) -> list[JsonValue]:
     motifs = as_array(motifs_value) or []
-    return [
-        motif
-        for motif in motifs
-        if (motif_object := as_object(motif)) is not None
-        and motif_object.get("contribution") in ("direct", "indirect")
-    ]
+    projected: list[JsonValue] = []
+    restricted_motifs: list[tuple[tuple[JsonValue, ...], int]] = []
+    identity_fields = (
+        "side",
+        "ply",
+        "actor",
+        "targets",
+        "restriction",
+        "contribution",
+    )
+    for motif_value in motifs:
+        motif = as_object(motif_value)
+        if motif is None or motif.get("contribution") not in ("direct", "indirect"):
+            continue
+        projected_motif = dict(motif)
+        projected_motif["also"] = []
+        tag = motif.get("tag")
+        if tag in RESTRICTED_TAGS:
+            identity = tuple(motif.get(field) for field in identity_fields)
+            for earlier_identity, earlier_index in restricted_motifs:
+                if identity == earlier_identity:
+                    earlier = as_object(projected[earlier_index])
+                    assert earlier is not None
+                    also = as_array(earlier["also"])
+                    assert also is not None
+                    also.append({"tag": tag, "threat": motif.get("threat")})
+                    break
+            else:
+                restricted_motifs.append((identity, len(projected)))
+                projected.append(projected_motif)
+            continue
+        projected.append(projected_motif)
+    return projected
 
 
 def projected_threat(value: JsonValue, filter_motifs: bool) -> JsonValue:
@@ -2373,9 +2426,7 @@ def projected_threat(value: JsonValue, filter_motifs: bool) -> JsonValue:
     if threat is None:
         return None
     projected = dict(threat)
-    projected["motifs"] = (
-        contribution_filtered(threat.get("motifs")) if filter_motifs else []
-    )
+    projected["motifs"] = relevant_motifs(threat.get("motifs")) if filter_motifs else []
     return projected
 
 
@@ -2569,6 +2620,9 @@ def project_assessment(
         tempo_value is not None and tempo_value.get("label") == "tempo_dependent"
     )
     ledger = as_object(assessment.get("tempo_ledger"))
+    line_fens = replay_line_fens(
+        position.get("fen"), assessment.get("line"), assessment.get("walked_plies")
+    )
     projected: JsonObject = {
         "rank": rank,
         "san": assessment.get("san"),
@@ -2580,12 +2634,13 @@ def project_assessment(
         "gives_check": assessment.get("gives_check"),
         "line": assessment.get("line"),
         "walked_plies": assessment.get("walked_plies"),
+        **({"line_fens": cast(JsonValue, line_fens)} if line_fens is not None else {}),
         "consequence": assessment.get("consequence"),
         "is_tactic": assessment.get("is_tactic"),
         "allows_tactic": assessment.get("allows_tactic"),
         "opportunity": assessment.get("opportunity"),
-        "motifs": contribution_filtered(assessment.get("motifs")),
-        "root_motifs": contribution_filtered(assessment.get("root_motifs")),
+        "motifs": relevant_motifs(assessment.get("motifs")),
+        "root_motifs": relevant_motifs(assessment.get("root_motifs")),
         "tactic_labels": assessment.get("tactic_labels"),
         "positional": net_positional_changes(
             assessment.get("positional"), tempo_dependent
@@ -2739,6 +2794,8 @@ def compare_projected_values(
         if actual_object is None:
             return
         for key, value in expected.items():
+            if key == "line_fens" and is_projected_move_pointer(pointer):
+                continue
             child_pointer = f"{pointer}/{key}"
             if key not in actual_object:
                 fail(
@@ -2752,6 +2809,8 @@ def compare_projected_values(
                     value, actual_object[key], child_pointer, failures
                 )
         for key in actual_object.keys() - expected.keys():
+            if key == "line_fens" and is_projected_move_pointer(pointer):
+                continue
             fail(
                 failures,
                 f"{pointer}/{key}",
@@ -2790,6 +2849,88 @@ def compare_projected_values(
     )
 
 
+def is_projected_move_pointer(pointer: str) -> bool:
+    parts = pointer.split("/")
+    return len(parts) == 3 and parts[1] == "moves" and parts[2].isdigit()
+
+
+def check_line_fens(moves_document: JsonValue, failures: list[Failure]) -> None:
+    document = as_object(moves_document)
+    if document is None:
+        return
+    position = as_object(document.get("position"))
+    position_fen = None if position is None else position.get("fen")
+    moves = as_array(document.get("moves"))
+    if not isinstance(position_fen, str) or moves is None:
+        return
+    for move_index, move_value in enumerate(moves):
+        move = as_object(move_value)
+        if move is None:
+            continue
+        pointer = f"/moves/{move_index}"
+        line = as_array(move.get("line"))
+        walked_plies = move.get("walked_plies")
+        if (
+            line is None
+            or not isinstance(walked_plies, int)
+            or isinstance(walked_plies, bool)
+            or walked_plies < 0
+            or walked_plies > len(line)
+        ):
+            continue
+        line_fens = as_array(move.get("line_fens"))
+        fail(
+            failures,
+            f"{pointer}/line_fens",
+            "line_fens must be an array with one FEN per walked ply",
+            line_fens is not None,
+        )
+        if line_fens is None:
+            continue
+        expected_fens = replay_line_fens(position_fen, line, walked_plies)
+        if expected_fens is None:
+            fail(
+                failures,
+                f"{pointer}/line",
+                "line SAN must be replayable from position.fen",
+                False,
+            )
+            continue
+        fail(
+            failures,
+            f"{pointer}/line_fens",
+            f"line_fens must contain {walked_plies} FENs",
+            len(line_fens) == walked_plies,
+        )
+        for ply, (expected_fen, actual_fen) in enumerate(zip(expected_fens, line_fens)):
+            fen_pointer = f"{pointer}/line_fens/{ply}"
+            if not isinstance(actual_fen, str):
+                fail(
+                    failures,
+                    fen_pointer,
+                    "FEN must match the position after the corresponding SAN",
+                    False,
+                )
+                continue
+            try:
+                actual_position = chess.Board(actual_fen).fen(en_passant="legal")
+                expected_position = chess.Board(expected_fen).fen(en_passant="legal")
+            except ValueError:
+                fail(
+                    failures,
+                    fen_pointer,
+                    "FEN must be parseable by python-chess",
+                    False,
+                )
+                continue
+            fail(
+                failures,
+                fen_pointer,
+                "FEN must match the position after the corresponding SAN",
+                actual_position == expected_position,
+            )
+
+
 def check_projection(
     full_report: JsonValue, moves_document: JsonValue, failures: list[Failure]
 ) -> None:
@@ -2802,6 +2943,7 @@ def check_projection(
         "",
         failures,
     )
+    check_line_fens(moves_document, failures)
 
 
 def schema_error_message(error: ValidationError) -> str:
@@ -2829,10 +2971,10 @@ def schema_error_message(error: ValidationError) -> str:
 def schema_for_document(base_schema: Path, document: JsonValue) -> Path:
     if document not in ("full", "moves"):
         return base_schema
-    if base_schema.name not in ("report.v7.schema.json", "moves.v7.schema.json"):
+    if base_schema.name not in ("report.v8.schema.json", "moves.v8.schema.json"):
         return base_schema
     schema_name = (
-        "report.v7.schema.json" if document == "full" else "moves.v7.schema.json"
+        "report.v8.schema.json" if document == "full" else "moves.v8.schema.json"
     )
     return base_schema.with_name(schema_name)
 
@@ -2883,7 +3025,7 @@ def validate_document_file(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="validate ChessWhy full and moves documents against their v7 schemas"
+        description="validate ChessWhy full and moves documents against their v8 schemas"
     )
     _ = parser.add_argument("schema", type=Path)
     _ = parser.add_argument("reports", type=Path, nargs="*")

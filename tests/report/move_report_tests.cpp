@@ -37,7 +37,7 @@ using namespace chesswhy;
 
 [[nodiscard]] Report base_report() {
     Report report;
-    report.input.fen = "8/8/8/8/8/8/8/K6k w - - 0 1";
+    report.input.fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
     report.input.selection.keywords = {Selection::Keyword::Best};
     report.engine.name = "Test engine";
     report.engine.multipv = 6;
@@ -77,6 +77,36 @@ using namespace chesswhy;
     motif.tag = MotifTag::Fork;
     motif.contribution = contribution;
     return motif;
+}
+[[nodiscard]] MotifRestriction restriction_with(std::vector<std::string> restricted) {
+    return MotifRestriction{
+        .piece = PieceOnSquare{.square = 48, .piece = 'P'},
+        .restricted = std::move(restricted),
+        .free = {"a7a6"},
+        .held_to = HeldTo{.kind = HeldTo::Kind::Diagonal, .name = "a7-g1"},
+    };
+}
+
+[[nodiscard]] Motif restricted_motif(MotifTag tag, MotifContribution contribution,
+                                     MotifRestriction restriction,
+                                     std::optional<MotifThreat> threat = std::nullopt) {
+    Motif motif;
+    motif.tag = tag;
+    motif.side = Side::Black;
+    motif.ply = 3;
+    motif.actor = PieceOnSquare{.square = 48, .piece = 'B'};
+    motif.targets = {PieceOnSquare{.square = 34, .piece = 'N'}};
+    motif.threat = threat;
+    motif.restriction = std::move(restriction);
+    motif.contribution = contribution;
+    return motif;
+}
+
+[[nodiscard]] std::vector<Motif> projected_motifs(std::vector<Motif> motifs) {
+    auto report = base_report();
+    report.candidates[0].motifs = std::move(motifs);
+    const auto document = move_reports(report);
+    return document.moves[0].motifs;
 }
 
 [[nodiscard]] PositionalChange positional_change(PositionalTag tag, Side side, int value, int ply,
@@ -187,7 +217,7 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
         GameMoveCount{.san = "c3", .uci = "c2c3", .games = 3});
 
     const auto document = move_reports(report);
-    CHECK(document.schema_version == 7);
+    CHECK(document.schema_version == 8);
     CHECK(document.input.moves == "all");
     CHECK(document.engine.multipv == 6);
     CHECK(document.position.fen == report.position.fen);
@@ -215,6 +245,21 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
     report.position.terminal = Terminal::Stalemate;
     CHECK(move_reports(report).selection.lines_searched == 0);
     CHECK(move_reports(report).moves.empty());
+}
+
+TEST_CASE("move reports record the FEN after each walked SAN ply", "[unit]") {
+    auto report = base_report();
+    report.candidates[0] = assessment("e4", "e2e4", Verdict::Best);
+    report.candidates[0].line_san = {"e4", "e5"};
+    report.candidates[0].walked_plies = 2;
+
+    const std::vector<std::string> expected{
+        "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1",
+        "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2"};
+    const auto document = move_reports(report);
+    REQUIRE(document.moves.size() == 1);
+    CHECK(document.moves[0].line_fens == expected);
+    CHECK(to_json(document)["moves"][0]["line_fens"] == expected);
 }
 
 TEST_CASE("move report relevance filter keeps conditional fields and drops irrelevant ones",
@@ -481,7 +526,67 @@ TEST_CASE("move report created threat keeps only the specified consequence class
     CHECK_FALSE(document.moves[5].created_threat.has_value());
 }
 
-TEST_CASE("move report JSON uses the v7 moves shape and stable key order", "[unit]") {
+TEST_CASE("move reports merge restricted-movement repeats and serialize their labels", "[unit]") {
+    auto report = base_report();
+    const MotifRestriction shared_restriction = restriction_with({"a7a8"});
+    report.candidates[0].motifs = {
+        restricted_motif(MotifTag::PinRelative, MotifContribution::Direct, shared_restriction),
+        motif_with(MotifContribution::Direct),
+        restricted_motif(MotifTag::PinTactical, MotifContribution::Direct, shared_restriction,
+                         MotifThreat{.kind = ThreatKind::Capture, .square = 13}),
+    };
+
+    const auto document = move_reports(report);
+    REQUIRE(document.moves[0].motifs.size() == 2);
+    CHECK(document.moves[0].motifs[0].tag == MotifTag::PinRelative);
+    CHECK(document.moves[0].motifs[1].tag == MotifTag::Fork);
+    REQUIRE(document.moves[0].motifs[0].also.size() == 1);
+    CHECK(document.moves[0].motifs[0].also[0].tag == MotifTag::PinTactical);
+    const auto& merged_threat = document.moves[0].motifs[0].also[0].threat;
+    REQUIRE(merged_threat.has_value());
+    CHECK((merged_threat && merged_threat->kind == ThreatKind::Capture));
+    CHECK(document.moves[0].motifs[1].also.empty());
+
+    const auto json = to_json(document);
+    const auto& merged_json = json["moves"][0]["motifs"][0];
+    std::vector<std::string> motif_keys;
+    for (auto iterator = merged_json.begin(); iterator != merged_json.end(); ++iterator) {
+        motif_keys.push_back(iterator.key());
+    }
+    REQUIRE_FALSE(motif_keys.empty());
+    CHECK(motif_keys.back() == "also");
+    CHECK(merged_json["also"].size() == 1);
+    CHECK(merged_json["also"][0]["tag"] == "pin_tactical");
+    CHECK(merged_json["also"][0]["threat"]["kind"] == "capture");
+    CHECK(merged_json["also"][0]["threat"]["square"] == "f2");
+    CHECK(json["moves"][0]["motifs"][1]["also"].empty());
+}
+
+TEST_CASE("move report leaves restricted motifs unmerged when restriction or contribution differs",
+          "[unit]") {
+    const MotifRestriction first_restriction = restriction_with({"a7a8"});
+    SECTION("different restricted moves") {
+        const auto motifs = projected_motifs({
+            restricted_motif(MotifTag::PinRelative, MotifContribution::Direct, first_restriction),
+            restricted_motif(MotifTag::PinAbsolute, MotifContribution::Direct,
+                             restriction_with({"a7a5"})),
+        });
+        REQUIRE(motifs.size() == 2);
+        CHECK(motifs[0].also.empty());
+        CHECK(motifs[1].also.empty());
+    }
+    SECTION("different contribution") {
+        const auto motifs = projected_motifs({
+            restricted_motif(MotifTag::PinRelative, MotifContribution::Direct, first_restriction),
+            restricted_motif(MotifTag::PinAbsolute, MotifContribution::Indirect, first_restriction),
+        });
+        REQUIRE(motifs.size() == 2);
+        CHECK(motifs[0].also.empty());
+        CHECK(motifs[1].also.empty());
+    }
+}
+
+TEST_CASE("move report JSON uses the v8 moves shape and stable key order", "[unit]") {
     auto report = base_report();
     report.candidates[0].parries_threat = ParryInfo{.parries = true};
     report.threats.emplace();
@@ -504,33 +609,15 @@ TEST_CASE("move report JSON uses the v7 moves shape and stable key order", "[uni
     CHECK(keys(json["position"]) == std::vector<std::string>{"fen", "side_to_move", "in_check",
                                                              "legal_moves", "terminal",
                                                              "eval_white", "tempo_value"});
-    CHECK(keys(json["moves"][0]) == std::vector<std::string>{"rank",
-                                                             "san",
-                                                             "uci",
-                                                             "eval",
-                                                             "depth",
-                                                             "loss",
-                                                             "verdict",
-                                                             "gives_check",
-                                                             "line",
-                                                             "walked_plies",
-                                                             "consequence",
-                                                             "is_tactic",
-                                                             "allows_tactic",
-                                                             "opportunity",
-                                                             "motifs",
-                                                             "root_motifs",
-                                                             "tactic_labels",
-                                                             "positional",
-                                                             "tempo_value",
-                                                             "tempo_gained",
-                                                             "initiative",
-                                                             "impact_order",
-                                                             "parried_threat",
-                                                             "created_threat",
-                                                             "refutation",
-                                                             "games"});
+    CHECK(keys(json["moves"][0]) ==
+          std::vector<std::string>{
+              "rank",         "san",         "uci",           "eval",           "depth",
+              "loss",         "verdict",     "gives_check",   "line",           "walked_plies",
+              "line_fens",    "consequence", "is_tactic",     "allows_tactic",  "opportunity",
+              "motifs",       "root_motifs", "tactic_labels", "positional",     "tempo_value",
+              "tempo_gained", "initiative",  "impact_order",  "parried_threat", "created_threat",
+              "refutation",   "games"});
     CHECK(keys(json["moves"][0]["parried_threat"]) == std::vector<std::string>{"threat", "test"});
-    CHECK(json["schema_version"] == 7);
+    CHECK(json["schema_version"] == 8);
     CHECK(json["document"] == "moves");
 }

@@ -42,10 +42,10 @@ opening-name lookup. Two provenance caveats remain.
 
 ### REF-1 — Recall shows coverage, not identification (contract-level concern)
 
-- **Root cause:** [SOURCE] In [`puzzle_eval.cpp`](../../tests/tactics/puzzle_eval.cpp)
+- **Root cause:** [SOURCE] In [`puzzle_eval.cpp`](../../../tests/tactics/puzzle_eval.cpp)
   (`process_row`), the evaluator joins the root's state motifs with every line motif. A
   theme counts as found when any mapped instance belongs to the solver, at any ply and in
-  any role ([M2](../milestones/M2.md) D1, §7.3). Only recall gates.
+  any role ([M2](../../milestones/M2.md) D1, §7.3). Only recall gates.
 - **Evidence:** [OBSERVED] Running
   `build/release/tests/tactics/tactics_puzzle_eval tests/fixtures/puzzles/test.csv` (exit
   0) prints background columns that the receipts omit:
@@ -64,12 +64,12 @@ opening-name lookup. Two provenance caveats remain.
   prediction comes from a root `pin_relative` (Rh1 against h6 and h8) and a ply-4 pin of
   c6 behind Qb5.
 
-  [SOURCE] An [M2](../milestones/M2.md) §15 row of 2026-10-19 says that requiring a later
+  [SOURCE] An [M2](../../milestones/M2.md) §15 row of 2026-10-19 says that requiring a later
   move to touch the motif "cut pin recall by .127". Each 0.05-step target lets 9 (`fork`)
   to 23 (`skewer`) more of the 300 stratum puzzles be missed before the gate fails.
 - **Impact:** [INFERENCE] For two of the ten themes, the gate cannot tell recognizing the
   idea from firing often. Section 5.3 of
-  [DEFINITIONS](../DBC/DEFINITIONS.md) says recall "checks that our definitions catch what
+  [DEFINITIONS](../../DBC/DEFINITIONS.md) says recall "checks that our definitions catch what
   chess players mean by the word"; that overstates what is measured. The repository
   already documents the neighbouring limits: agreement is not precision (§5.4), targets
   are floors (§5.6), and the direct share (§5.8).
@@ -90,12 +90,12 @@ opening-name lookup. Two provenance caveats remain.
 ### REF-2 — The test sample is selective and no longer a clean holdout (accepted limitation; prospective risk)
 
 - **Root cause:** [SOURCE] A puzzle is eligible only with rating deviation ≤ 80, at least
-  1,000 plays, popularity ≥ 80 and at most 7 moves ([M2](../milestones/M2.md) §7.1).
-  [`sample_puzzles.py`](../../tools/sample_puzzles.py) accepts only `--split test|dev`. The
+  1,000 plays, popularity ≥ 80 and at most 7 moves ([M2](../../milestones/M2.md) §7.1).
+  [`sample_puzzles.py`](../../../tools/sample_puzzles.py) accepts only `--split test|dev`. The
   test split has since been read puzzle by puzzle:
   - the §8.3 audit of misses;
   - the 2026-10-19 false-positive analysis ("92% … on test");
-  - the open scope proposals in [CURRENT_STATE](../CURRENT_STATE.md), which come from test
+  - the open scope proposals in [CURRENT_STATE](../../CURRENT_STATE.md), which come from test
     misses.
 - **Evidence:** [OBSERVED] A throwaway pass applied the §7.1 filter to the pinned export
   (SHA-256 `76335bfa…`, matching §7.1 and `assets/MANIFEST.txt`). 1,326,623 of 6,157,341
@@ -110,10 +110,10 @@ opening-name lookup. Two provenance caveats remain.
 
   The test background (6,000 puzzles) has no `equality` puzzles, 330 `defensiveMove` and
   173 `quietMove`. [SOURCE] Each root follows the opponent's move `Moves[0]`, and the
-  solution is an only-move line ([PostM2_EM1](../milestones/PostM2_EM1.md) §7).
-  [SOURCE] The [M3a receipt](../receipts/M3a.md) attributes the rarity of
+  solution is an only-move line ([PostM2_EM1](../../milestones/PostM2_EM1.md) §7).
+  [SOURCE] The [M3a receipt](../../receipts/M3a.md) attributes the rarity of
   `development_lead` (1,208 of 53,378 boards) to the boards being mostly middlegames.
-  [`fetch_assets.sh`](../../tools/fetch_assets.sh) `fetch_puzzles` downloads whatever
+  [`fetch_assets.sh`](../../../tools/fetch_assets.sh) `fetch_puzzles` downloads whatever
   export is current. The dev split can therefore only be rebuilt from the archived export.
 - **Impact:** [INFERENCE] Recall is an estimate for popular, short, decisive puzzles.
   Implementing the open scope proposals would raise test recall partly on the very puzzles
@@ -121,7 +121,7 @@ opening-name lookup. Two provenance caveats remain.
   does not bias them, but they see fewer opening positions and quiet structures.
 - **Strongest defense:** The filters buy reliable solutions and themes, and recall needs
   positions that carry a theme. The committed CC0 sample (D4) can be rerun anywhere.
-  [M2 receipt](../receipts/M2.md): dev and test values agree closely.
+  [M2 receipt](../../receipts/M2.md): dev and test values agree closely.
 - **Recommendation:** [PROPOSED]
   - Draw a third sample the same way, with a new hash salt, excluding test and dev IDs
     (about 1.3M eligible IDs are unused). Run it once per approved definition change and
@@ -134,12 +134,12 @@ opening-name lookup. Two provenance caveats remain.
 
 ### REF-3 — Book positions do not record which labels the books assert (contract-level concern)
 
-- **Root cause:** [SOURCE] [M3a](../milestones/M3a.md) §8 asks for two things at once:
+- **Root cause:** [SOURCE] [M3a](../../milestones/M3a.md) §8 asks for two things at once:
   each book board "lists the features the book's text names", and "labels come from the
   plain §4 definitions". It also requires a two-pawn `pawn_chain` near miss. Nothing in a
   fixture records which of the two sources a label has. In
-  [CONCEPTS](../DBC/CONCEPTS.md), `HandLabel` labels come "from the chess meaning".
-- **Evidence:** [SOURCE] In [`positional.json`](../../tests/fixtures/positional.json), the
+  [CONCEPTS](../../DBC/CONCEPTS.md), `HandLabel` labels come "from the chess meaning".
+- **Evidence:** [SOURCE] In [`positional.json`](../../../tests/fixtures/positional.json), the
   ten book boards (P01–P03, P05, P08–P10, P58, P59, P70) cover 5 of the 24 tags. Five
   boards carry pawn-island counts, and four of those check nothing else. Every `reason`
   restates a §4 condition.
@@ -170,10 +170,10 @@ opening-name lookup. Two provenance caveats remain.
 
 ### REF-4 — Planned retrieval: relevance is not applicability (prospective risk)
 
-- **Root cause:** [SOURCE] [Vision](../PROJECT_VISION.md) §8 plans BM25 over chunks, with
+- **Root cause:** [SOURCE] [Vision](../../PROJECT_VISION.md) §8 plans BM25 over chunks, with
   the report's tags expanded by a keyword map as the query and 1–3 excerpts shown as
   general advice. The M5 acceptance (§11) is "relevant pages for a fixed tag set;
-  citations resolve". [DEFINITIONS](../DBC/DEFINITIONS.md) §3.1 assigns `book`
+  citations resolve". [DEFINITIONS](../../DBC/DEFINITIONS.md) §3.1 assigns `book`
   provenance to "reference material, opening names".
 - **Evidence:**
   - [SOURCE] Position-level tags are nearly constant across the 53,378 oracle boards:
@@ -213,13 +213,13 @@ opening-name lookup. Two provenance caveats remain.
   - [OBSERVED, parent probes] The README position gets `opening.current` null and
     `found: false` rather than a guess. Its `opening` and `games` blocks are byte-identical
     at `quick`, `standard` and `deep`.
-  - [SOURCE] [`count_games.py`](../../tools/count_games.py) uses python-chess
+  - [SOURCE] [`count_games.py`](../../../tools/count_games.py) uses python-chess
     (`fen(en_passant="legal")`). It caught chess-library's en passant key bug (M3b review).
     It is the only reference that uses a different chess library from the code it checks.
   - [OBSERVED, throwaway] In three pinned months, games relayed twice (B3) add 0–2 games
     per month (≤ 0.085%), matched on players, date and the first 40 plies.
-- **Caveat 1 — table id:** [SOURCE] [`Table::load`](../../src/games/games.cpp) always
-  reports `table = kTable` ([M3b](../milestones/M3b.md) §5), while months and limits come
+- **Caveat 1 — table id:** [SOURCE] [`Table::load`](../../../src/games/games.cpp) always
+  reports `table = kTable` ([M3b](../../milestones/M3b.md) §5), while months and limits come
   from the loaded file. With `--games FILE`, the id therefore names the expected build, not
   the file actually read. `kDataset` and `--openings` behave the same way. For the runtime
   reproduction, see [09 — Reports](09-reports.md).
@@ -269,20 +269,20 @@ share and the §15 experiment bound it.
 
 ## Sources
 
-[`tests/tactics/puzzle_eval.cpp`](../../tests/tactics/puzzle_eval.cpp) ·
-[`tests/tactics/oracle/reference.cpp`](../../tests/tactics/oracle/reference.cpp) ·
-[`tests/positional/oracle/reference.cpp`](../../tests/positional/oracle/reference.cpp) ·
-[`tools/sample_puzzles.py`](../../tools/sample_puzzles.py) ·
-[`tools/count_games.py`](../../tools/count_games.py) ·
-[`tools/fetch_assets.sh`](../../tools/fetch_assets.sh) ·
-[`src/games/games.cpp`](../../src/games/games.cpp) ·
-[`include/chesswhy/games.hpp`](../../include/chesswhy/games.hpp) ·
-[`src/openings/openings.cpp`](../../src/openings/openings.cpp) ·
-[`tests/fixtures/positional.json`](../../tests/fixtures/positional.json) ·
-[M2](../milestones/M2.md) §7–§8, §15 · [PostM2_EM1](../milestones/PostM2_EM1.md) §7 ·
-[M3a](../milestones/M3a.md) §3, §8 · [M3b](../milestones/M3b.md) §1, §3, §5 ·
-[M2](../receipts/M2.md), [PostM2_EM1](../receipts/PostM2_EM1.md),
-[M3a](../receipts/M3a.md), [M3b](../receipts/M3b.md) receipts ·
-[DEFINITIONS](../DBC/DEFINITIONS.md) §3.1, §5, §8 · [CONCEPTS](../DBC/CONCEPTS.md) ·
-[PROJECT_VISION](../PROJECT_VISION.md) §5.7, §8, §11 ·
-[CURRENT_STATE](../CURRENT_STATE.md)
+[`tests/tactics/puzzle_eval.cpp`](../../../tests/tactics/puzzle_eval.cpp) ·
+[`tests/tactics/oracle/reference.cpp`](../../../tests/tactics/oracle/reference.cpp) ·
+[`tests/positional/oracle/reference.cpp`](../../../tests/positional/oracle/reference.cpp) ·
+[`tools/sample_puzzles.py`](../../../tools/sample_puzzles.py) ·
+[`tools/count_games.py`](../../../tools/count_games.py) ·
+[`tools/fetch_assets.sh`](../../../tools/fetch_assets.sh) ·
+[`src/games/games.cpp`](../../../src/games/games.cpp) ·
+[`include/chesswhy/games.hpp`](../../../include/chesswhy/games.hpp) ·
+[`src/openings/openings.cpp`](../../../src/openings/openings.cpp) ·
+[`tests/fixtures/positional.json`](../../../tests/fixtures/positional.json) ·
+[M2](../../milestones/M2.md) §7–§8, §15 · [PostM2_EM1](../../milestones/PostM2_EM1.md) §7 ·
+[M3a](../../milestones/M3a.md) §3, §8 · [M3b](../../milestones/M3b.md) §1, §3, §5 ·
+[M2](../../receipts/M2.md), [PostM2_EM1](../../receipts/PostM2_EM1.md),
+[M3a](../../receipts/M3a.md), [M3b](../../receipts/M3b.md) receipts ·
+[DEFINITIONS](../../DBC/DEFINITIONS.md) §3.1, §5, §8 · [CONCEPTS](../../DBC/CONCEPTS.md) ·
+[PROJECT_VISION](../../PROJECT_VISION.md) §5.7, §8, §11 ·
+[CURRENT_STATE](../../CURRENT_STATE.md)

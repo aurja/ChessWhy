@@ -4,8 +4,8 @@ Baseline `23bf1a52d856060556147f73c1bd5f90c67c8d5d`, 2026-10-22, schema v4. M4 a
 
 ## Baseline and concept nodes
 
-- **Report.** Typed `Report` ([report.hpp](../../include/chesswhy/report.hpp)) feeds `--json` and text. The [v4 schema](../../schema/report.v4.schema.json) closes 27 objects (`additionalProperties: false`); nullable keys are always present. SOURCE.
-- **Provenance, budgets.** `source` names the producing step, not confidence ([PROJECT_VISION.md](../PROJECT_VISION.md) §2). `engine.nodes` records requested per-kind budgets (standard: A 1,000,000; B, C 200,000; D, E, R 100,000). SOURCE.
+- **Report.** Typed `Report` ([report.hpp](../../../include/chesswhy/report.hpp)) feeds `--json` and text. The [v4 schema](../../../schema/report.v4.schema.json) closes 27 objects (`additionalProperties: false`); nullable keys are always present. SOURCE.
+- **Provenance, budgets.** `source` names the producing step, not confidence ([PROJECT_VISION.md](../../PROJECT_VISION.md) §2). `engine.nodes` records requested per-kind budgets (standard: A 1,000,000; B, C 200,000; D, E, R 100,000). SOURCE.
 
 ## Conclusion
 
@@ -20,7 +20,7 @@ The task investigator ran the validator and custom-table probe; it and the paren
 
 ## REP-1 Premises implicit in path
 
-- **Root cause.** One `make_threat` ([analyse.cpp](../../src/analysis/analyse.cpp)) builds the A side-to-move line, B null-move threat, E `creates_threat`, and refutation inherited from an A/C reply. R supplies the refutation's alternative, not its original line. Judgements sit at `candidates[0].tactic`, its `asked_move` copy and `refutation.tactic`. No object explicitly names its search context. SOURCE.
+- **Root cause.** One `make_threat` ([analyse.cpp](../../../src/analysis/analyse.cpp)) builds the A side-to-move line, B null-move threat, E `creates_threat`, and refutation inherited from an A/C reply. R supplies the refutation's alternative, not its original line. Judgements sit at `candidates[0].tactic`, its `asked_move` copy and `refutation.tactic`. No object explicitly names its search context. SOURCE.
 - **Evidence.** OBSERVED (predecessor, Nf6 probe): `asked_move.creates_threat` is Black's threat if White passes (Nxh5…; material 9; root_fen `… b KQkq - 4 4`), beside `eval.mate` −1 and refutation `["Qxf7#"]`; the text gives no pass qualifier. Root `tactic.alternative` (A, 1M nodes) is Qd1; `refutation.tactic.alternative` is Qh4 at quick and standard, Qd1 at deep (R).
 - **Impact.** INFERENCE: moot threats read as live.
 - **Defense.** Meanings are frozen (M1 §4.2); `root_fen` encodes the pass; `engine.nodes` records per-kind budgets.
@@ -30,7 +30,7 @@ The task investigator ran the validator and custom-table probe; it and the paren
 
 ## REP-2 Provenance = last-step origin
 
-- **Root cause.** [`serialize_move`](../../src/report/report.cpp) places verdict, loss, `in_multipv` and `gives_check` under `engine`; verdict applies rule thresholds 60/260/540 to es-units ([analysis.hpp](../../include/chesswhy/analysis.hpp)). `input.source` separately means fen|pgn. `position.side_to_move`, `in_check`, `terminal` and `fine_truncated` carry no source. [render.cpp](../../src/render/render.cpp) adds `[rule]` to nulls. SOURCE.
+- **Root cause.** [`serialize_move`](../../../src/report/report.cpp) places verdict, loss, `in_multipv` and `gives_check` under `engine`; verdict applies rule thresholds 60/260/540 to es-units ([analysis.hpp](../../../include/chesswhy/analysis.hpp)). `input.source` separately means fen|pgn. `position.side_to_move`, `in_check`, `terminal` and `fine_truncated` carry no source. [render.cpp](../../../src/render/render.cpp) adds `[rule]` to nulls. SOURCE.
 - **Evidence.** OBSERVED (predecessor, saved text): `Candidate 3: Qf6 (d8f6), inaccuracy, loss=4.0% [engine]`. Saved JSON, predecessor-run:
 
 | Budget | A nodes | Qf6 loss, verdict | Qf6 / Nh6 move-motif counts | Qxf7# refutation alt. | Asked Nf6 creates_threat material / plies |
@@ -72,21 +72,21 @@ Controls (exit 1): `$.candidates[0].tactic.forced` false→true with an alternat
 
 - **Impact.** A schema-valid report can contradict itself and pass the validator.
 - **Defense.** JSON Schema cannot express loss or margin arithmetic; F fixtures pin outcomes.
-- **Proposal (PROPOSED).** Intra-object `if/then`: mate class ⇔ `mate_in`; `fine` ⇔ null refutation; `searched` ⇔ engine; `threats.white.side` const `white`; `more_urgent` null ⇔ rule `quiet`; `cp` null when `mate` set. Generalize `check_tactic_invariants` ([engine_fixture_test.cpp](../../tests/cli/engine_fixture_test.cpp)). INFERENCE: six of 14 are intra-object.
+- **Proposal (PROPOSED).** Intra-object `if/then`: mate class ⇔ `mate_in`; `fine` ⇔ null refutation; `searched` ⇔ engine; `threats.white.side` const `white`; `more_urgent` null ⇔ rule `quiet`; `cp` null when `mate` set. Generalize `check_tactic_invariants` ([engine_fixture_test.cpp](../../../tests/cli/engine_fixture_test.cpp)). INFERENCE: six of 14 are intra-object.
 - **Acceptance (PROPOSED).** All 14 fail, both controls still fail, current reports pass.
 
 ## REP-4 Reproducibility omits code and data identity
 
-- **Root cause.** SOURCE: `run` ([cli.cpp](../../src/cli/cli.cpp)) sets `reproducible` from threads and takes the engine name from the UCI id. No ChessWhy or rules revision appears (CMake 0.1.0 is unused). `opening.dataset` is `kDataset` ([openings.cpp](../../src/openings/openings.cpp)); `table` is `kTable` ([games.cpp](../../src/games/games.cpp)); months come from the file.
+- **Root cause.** SOURCE: `run` ([cli.cpp](../../../src/cli/cli.cpp)) sets `reproducible` from threads and takes the engine name from the UCI id. No ChessWhy or rules revision appears (CMake 0.1.0 is unused). `opening.dataset` is `kDataset` ([openings.cpp](../../../src/openings/openings.cpp)); `table` is `kTable` ([games.cpp](../../../src/games/games.cpp)); months come from the file.
 - **Evidence.** OBSERVED (investigator): one-row table (copied header; months 2025-01..2025-02; games read/kept 5; start-position e2e4 count 5; digest prefix `0abcccf99b1a`), terminal FEN `rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3`, `build/release/chesswhy --fen FEN --json --games <file>`: exit 0; reported `lichess_broadcast_2200@e0cb7fab3212`, the shipped identity. The tool transcript records the result; separate stdout was not retained.
-- **Defense.** M3b §5 makes `table` = `kTable`; the 2026-10-21 change row relies on the SHA-256 that [fetch_assets.sh](../../tools/fetch_assets.sh) checks. This works for the fetched bytes, not every file at the default path. Budget flips are recorded (`input.budget`, `engine.nodes`): sensitivity, not nondeterminism ([05-verdicts.md](05-verdicts.md)).
+- **Defense.** M3b §5 makes `table` = `kTable`; the 2026-10-21 change row relies on the SHA-256 that [fetch_assets.sh](../../../tools/fetch_assets.sh) checks. This works for the fetched bytes, not every file at the default path. Budget flips are recorded (`input.budget`, `engine.nodes`): sensitivity, not nondeterminism ([05-verdicts.md](05-verdicts.md)).
 - **Impact.** OBSERVED: a custom table reports the shipped identity. INFERENCE: consumers cannot identify which data produced the report from that field.
 - **Proposal (PROPOSED).** Identify the bytes actually loaded for both default and custom datasets. Preserve supported custom inputs; do not reject them merely to keep the constant identity true. A separately requested pinned-only mode could reject mismatches. Add a rules revision at the next schema version.
 - **Acceptance (PROPOSED).** The valid one-row input loads and reports its measured identity; changing the default file's bytes also changes its identity.
 
 ## REP-5 Nulls and copies mostly sound
 
-- **Root cause.** Null meanings live in comments and plans, not the schema. The `parries_threat` comment ([report.hpp](../../include/chesswhy/report.hpp) line 274) omits the in-check case, where every candidate is null (check probe; M1 §4.5).
+- **Root cause.** Null meanings live in comments and plans, not the schema. The `parries_threat` comment ([report.hpp](../../../include/chesswhy/report.hpp) line 274) omits the in-check case, where every candidate is null (check probe; M1 §4.5).
 - **Evidence.** OBSERVED: check probe (`rnbqkbnr/ppp1pppp/3p4/1B6/4P3/8/PPPP1PPP/RNBQK1NR b KQkq - 1 2`, Bb5+): `in_check` true; `threats.white` and `null_move_reliable.value` null. Terminal probe: `[]` motifs, 12 positional facts; source inspection attributes the empty motif list to skipped computation. g6 probe (Nf6 FEN, `--move g6`): `asked_move` deep-equals `candidates[0]`; the side-to-move threat repeats its line and motifs; the root alternative copies `candidates[1]`. [05-verdicts.md](05-verdicts.md) separately demonstrates why `fine_truncated: false` does not certify exhaustive coverage.
 - **Impact.** INFERENCE: consumers may misread null as absent, and summing motifs across copies double-counts.
 - **Defense.** Judged-not-tactic is `{is_tactic: false}`, distinct from null/unjudged; copies are deliberate (PostM2_EM1 §15). A `positional` consequence is a residual class, not proof of "no threat". Check, game end and no legal move after a pass explain different unavailable results; consumers must preserve those distinctions.
@@ -103,8 +103,8 @@ Required nullable keys make absence explicit; parry source is recorded per candi
 - Unrun: proposed semantic validator, revision-identity changes and M4 consumption checks. M4 has no implementation yet.
 - `reproducible` is threads-only in code. It is not a certificate of identical executable, data, hardware or future output.
 - Probe engine: Stockfish 19, SHA-256 `0f83d24cc46d2c66c60f16001af5444873bc112b7d028594513426894c12da19`.
-- [DEFINITIONS.md](../DBC/DEFINITIONS.md)'s "report" row names schema versions 2 and 3, not 4; unchanged here.
+- [DEFINITIONS.md](../../DBC/DEFINITIONS.md)'s "report" row names schema versions 2 and 3, not 4; unchanged here.
 
 ## Sources
 
-[PROJECT_VISION.md](../PROJECT_VISION.md); [DEFINITIONS.md](../DBC/DEFINITIONS.md); [M1](../milestones/M1.md); [M2](../milestones/M2.md); [M3b](../milestones/M3b.md); [PostM2_EM1](../milestones/PostM2_EM1.md); [validate_report.py](../../tools/validate_report.py); [engine_fixture_test.cpp](../../tests/cli/engine_fixture_test.cpp); siblings [04-threats.md](04-threats.md), [05-verdicts.md](05-verdicts.md), [06-searches.md](06-searches.md), [10-explanations.md](10-explanations.md).
+[PROJECT_VISION.md](../../PROJECT_VISION.md); [DEFINITIONS.md](../../DBC/DEFINITIONS.md); [M1](../../milestones/M1.md); [M2](../../milestones/M2.md); [M3b](../../milestones/M3b.md); [PostM2_EM1](../../milestones/PostM2_EM1.md); [validate_report.py](../../../tools/validate_report.py); [engine_fixture_test.cpp](../../../tests/cli/engine_fixture_test.cpp); siblings [04-threats.md](04-threats.md), [05-verdicts.md](05-verdicts.md), [06-searches.md](06-searches.md), [10-explanations.md](10-explanations.md).

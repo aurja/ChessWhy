@@ -596,7 +596,7 @@ flowchart LR
 | `RerunIdentity` | Two fresh runs on the same input give the same bytes | rerun identity | implemented |
 | `JsonOutput` | A report printed as JSON when `--json` is given, for programs and for checking: the move report document, or the full report with `--full-report` (before 2026-10-23: the one report; until the Captain's P9 revision that day, `--full-report` alone printed JSON) | JSON output, move report document, `--full-report` | implemented |
 | `MoveSelection` | Which moves get a move report: everything the request names, together and each once, in the engine's order with asked moves outside A last; a keyword that matches no move adds nothing | selection, playable move, asked move | implemented |
-| `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute, the net changes of its line that pass the use test, its tempo facts; other moves and their facts are left out (positional changes before 2026-10-24: the last change per feature that holds at the end) | relevance filter, net change, use test | implemented |
+| `RelevanceFilter` | The rule that keeps, for one move, only the facts that bear on it: its verdict, line and refutation, a parried threat, a winning created threat, motifs that contribute with motif repeats merged into one motif that lists the other labels (from 2026-10-24), the net changes of its line that pass the use test, its tempo facts; other moves and their facts are left out (positional changes before 2026-10-24: the last change per feature that holds at the end) | relevance filter, net change, use test, motif repeats | implemented |
 | `ImpactRating` | The order of a move report's facts after the core claims (verdict, line, tactic and opportunity, refutation, conditions): parried threat, created threat, motifs, tempo facts and positional facts ranked by the consequence they bear on; ties and positional facts follow the static scale, dynamic facts first in a tempo-dependent position, static facts first otherwise | impact rating, `impact_order`, static scale | implemented |
 | `MoveReport` | The output for one selected move, each fact copied unchanged from the full report with its provenance | move report | implemented |
 | `ProjectionCheck` | Every move report fact equals the full-report field it came from, with the filter written a second time independently | projection check | implemented |
@@ -615,6 +615,7 @@ flowchart LR
     BookPassages["Book passages"]
     RestrictedMovement["Restricted-movement wording"]
     Conditions["Conditions"]
+    PositionWalk["Position walk"]
     TemplateRendering["Template rendering"]
     FactSheet["Fact sheet"]
     LevelPrompt["Level prompt"]
@@ -625,6 +626,7 @@ flowchart LR
     ReportDocument -->|every fact, with --full-report| TemplateRendering
     RestrictedMovement -->|wording| TemplateRendering
     Conditions -->|premises and limits| TemplateRendering
+    PositionWalk -->|layout of the move report text| TemplateRendering
     FactSheet & LevelPrompt & BookPassages -->|prompt| LanguageModel
     LanguageModel -->|draft prose| FactCheck
     FactCheck -->|passes| ExplanationText
@@ -643,8 +645,9 @@ flowchart LR
 | `MoveReport` | See Report | — | external |
 | `ReportDocument` | See Report | — | external |
 | `BookPassages` | See Reference knowledge | — | external |
-| `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") and the restricted and free moves are printed | restricted movement, held to, restricted moves, free moves | implemented |
+| `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") is printed. The move report text prints a compact row naming every label of a merged motif ("relative pin; tactic: Ba7-f2 capture"); the full report text also prints the restricted and free moves (Captain, 2026-10-24; before, move report rows listed the moves too) | restricted movement, held to, restricted moves, free moves, motif repeats | implemented |
 | `Conditions` | What a fact depends on, printed beside it: a threat line assumes the opponent passes, a parry by check only defers the threat, why no created threat was searched, how far a line was read, which engine and budget, how many legal moves were not judged | conditions, `creates_threat_skipped`, `walked_plies`, `legal_moves` | implemented |
+| `PositionWalk` | From 2026-10-25 (Captain): the move report text is laid out per move as a walk through the positions of its line: the move-level rows, then one position block per position (the position as a FEN, its evaluation, the root evaluation first and the line score after, the move played from it and its side, the motifs present there as uses, then its other facts in impact order); no tempo facts for now. Engine, budget and opening rows come first, always. Called `PlyWalk` from 2026-10-24 to 2026-10-25: a start block, then per walked ply the move followed by the position it reaches, tempo and initiative facts included (before that: the position facts in the header and each move's facts in one list) | position walk, position block, line score, `line_fens` | implemented |
 | `TemplateRendering` | Fixed sentences filled from report fields, adding no claim; the output never says "candidate". Without `--full-report`: one block per move report, with their conditions and `SEE` for a capture's value; today's output, later the fallback. With `--full-report`: the full report text, every computed fact, always template text (before 2026-10-23: filled from the whole report, the only text) | template rendering, full report text | implemented |
 | `FactSheet` | A compact text form of the report for the model; the core claims (verdict, refutation, conditions) at every level, tactic and blunder evidence first | fact sheet, fact selection | planned |
 | `LevelPrompt` | Instructions for a beginner, club or advanced reader | level | planned |

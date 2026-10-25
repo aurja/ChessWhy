@@ -141,7 +141,7 @@ not. Report the flagged share on the oracle's `pin_tactical` puzzle subset.
 The material conditions entered in the WP6 calibration against engine-confirmed
 precision (M2 §15, 2026-10-19/20). Checkpoint 2b removed that measure but kept the
 conditions (M2 §8.1). Its last values were `hanging_piece` .700, `pin_relative` .270 and
-`discovered_attack` .395 ([M2 receipt](../receipts/M2.md), "History: engine-confirmed
+`discovered_attack` .395 ([M2 receipt](../../receipts/M2.md), "History: engine-confirmed
 precision"). The vision's risk table still names "precision targets" as the guard
 against overfiring.
 
@@ -217,7 +217,7 @@ The engine-free row
 
 This finding is not one of the open M2 recall-miss proposals: forks by a capturable
 piece, skewers with a pawn behind, discovered attacks on pawns or defended equal pieces
-([CURRENT_STATE](../CURRENT_STATE.md)). Those concern narrow definitions; this one
+([CURRENT_STATE](../../CURRENT_STATE.md)). Those concern narrow definitions; this one
 concerns timing.
 
 **[PROPOSED] Recommendation.** When PGN input supplies the last move, record its move
@@ -251,20 +251,20 @@ motifs as ply-0 context.
 
 ## Sources
 
-- [`src/tactics/motifs.cpp`](../../src/tactics/motifs.cpp): `state_motifs`,
+- [`src/tactics/motifs.cpp`](../../../src/tactics/motifs.cpp): `state_motifs`,
   `same_identity`, `append_fork`, `append_pin_tactical`, `board_without`, `line_motifs`.
-- [`src/analysis/analyse.cpp`](../../src/analysis/analyse.cpp): `make_threat`,
+- [`src/analysis/analyse.cpp`](../../../src/analysis/analyse.cpp): `make_threat`,
   `assess_move`, `analyse`.
-- [`src/render/render.cpp`](../../src/render/render.cpp): `write_motif_label`,
+- [`src/render/render.cpp`](../../../src/render/render.cpp): `write_motif_label`,
   `write_motifs`.
-- Tests: [`tests/tactics/oracle/reference.cpp`](../../tests/tactics/oracle/reference.cpp)
+- Tests: [`tests/tactics/oracle/reference.cpp`](../../../tests/tactics/oracle/reference.cpp)
   (same turn gate and deletion),
-  [`tests/tactics/tactics_unit_tests.cpp`](../../tests/tactics/tactics_unit_tests.cpp),
-  [`tests/tactics/puzzle_eval.cpp`](../../tests/tactics/puzzle_eval.cpp).
-- Milestones: [M2](../milestones/M2.md) §4–§5, §7.3–§8.3, §15;
-  [PostM2_EM1](../milestones/PostM2_EM1.md) §4.5–§4.6.
-- DBC: [DEFINITIONS](../DBC/DEFINITIONS.md) §4.1, §4.4;
-  [FIXTURES](../DBC/FIXTURES.md) T39–T56.
-- Receipts and planning: [M2 receipt](../receipts/M2.md);
-  [PROJECT_VISION](../PROJECT_VISION.md) §5.5 and risks;
-  [CURRENT_STATE](../CURRENT_STATE.md).
+  [`tests/tactics/tactics_unit_tests.cpp`](../../../tests/tactics/tactics_unit_tests.cpp),
+  [`tests/tactics/puzzle_eval.cpp`](../../../tests/tactics/puzzle_eval.cpp).
+- Milestones: [M2](../../milestones/M2.md) §4–§5, §7.3–§8.3, §15;
+  [PostM2_EM1](../../milestones/PostM2_EM1.md) §4.5–§4.6.
+- DBC: [DEFINITIONS](../../DBC/DEFINITIONS.md) §4.1, §4.4;
+  [FIXTURES](../../DBC/FIXTURES.md) T39–T56.
+- Receipts and planning: [M2 receipt](../../receipts/M2.md);
+  [PROJECT_VISION](../../PROJECT_VISION.md) §5.5 and risks;
+  [CURRENT_STATE](../../CURRENT_STATE.md).

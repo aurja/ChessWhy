@@ -1,15 +1,50 @@
 Engine: Stockfish 19 (Threads=1, Hash=64 MB) [rule]
 Budget: standard, nodes A=1000000, B=200000, C=200000, D=100000, E=100000, L=30000, R=100000 [rule]
-Position: Black to move, 31 legal moves; evaluation 51.1% for White (cp 15) [engine]
 Opening dataset: lichess-org/chess-openings@a6189a3 [book]
 Current opening: null [book]
 Last named opening: null [book]
 Showing every playable move (4 of 31 legal moves) [rule]
+
+────────────────────────────────────────────────────────────
 1. Nf6 (g8f6): best, es=48.9%, loss=0.0%, depth=16 [engine]
 Line: Nf6; facts read to ply 1 of 1 [engine]
+
+Position: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
+  Evaluation: 51.1% for White (cp 15) [engine]
+  Move: Nf6 (Black)
+
+Position: r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4
+  Evaluation: 51.1% for White (line score) [engine]
+
+────────────────────────────────────────────────────────────
 2. d6 (d7d6): okay, es=48.1%, loss=0.8%, depth=16 [engine]
 Line: d6; facts read to ply 1 of 1 [engine]
+
+Position: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
+  Evaluation: 51.1% for White (cp 15) [engine]
+  Move: d6 (Black)
+
+Position: r1bqkbnr/ppp2ppp/2np4/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 4
+  Evaluation: 51.9% for White (line score) [engine]
+
+────────────────────────────────────────────────────────────
 3. g6 (g7g6): okay, es=47.4%, loss=1.5%, depth=16 [engine]
 Line: g6; facts read to ply 1 of 1 [engine]
+
+Position: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
+  Evaluation: 51.1% for White (cp 15) [engine]
+  Move: g6 (Black)
+
+Position: r1bqkbnr/pppp1p1p/2n3p1/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 4
+  Evaluation: 52.6% for White (line score) [engine]
+
+────────────────────────────────────────────────────────────
 4. Bc5 (f8c5): okay, es=46.6%, loss=2.2%, depth=16 [engine]
 Line: Bc5; facts read to ply 1 of 1 [engine]
+
+Position: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
+  Evaluation: 51.1% for White (cp 15) [engine]
+  Move: Bc5 (Black)
+
+Position: r1bqk1nr/pppp1ppp/2n5/2b1p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4
+  Evaluation: 53.4% for White (line score) [engine]

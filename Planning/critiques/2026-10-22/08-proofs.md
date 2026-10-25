@@ -2,9 +2,9 @@
 
 Date: 2026-10-22. Baseline: `main` at `23bf1a52d856060556147f73c1bd5f90c67c8d5d` (M1, M2,
 PostM2_EM1, M3a and M3b complete; report v4). Scope: the `Proof` diagram of
-[CONCEPTS.md](../DBC/CONCEPTS.md) (`ReferenceImplementation`, `PositionalReference`,
+[CONCEPTS.md](../../DBC/CONCEPTS.md) (`ReferenceImplementation`, `PositionalReference`,
 `GamesOracle`, `EngineFixtures`, `ContributionFixtures`), `ReportSchema`, rerun identity,
-and the proof wording in the contracts and [DEFINITIONS.md](../DBC/DEFINITIONS.md).
+and the proof wording in the contracts and [DEFINITIONS.md](../../DBC/DEFINITIONS.md).
 
 ## Conclusion
 
@@ -40,9 +40,9 @@ Counts are historical receipts at their commits, not passes observed in this rev
 | Rerun identity | Byte identity at a fixed budget and engine | Robustness to a budget or engine change | The two budget rows above |
 
 **Historical gates and claimed scope.** The receipts say plainly how their results were
-assembled. In the [M3a receipt](../receipts/M3a.md), the final ASan/UBSan run is `unit` and
+assembled. In the [M3a receipt](../../receipts/M3a.md), the final ASan/UBSan run is `unit` and
 `games` 107/107 (408 s) plus `engine` 33/33. `tactics_oracle` is credited to the branch's
-first ASan run, its code unchanged since. [CURRENT_STATE.md](../CURRENT_STATE.md) shortens
+first ASan run, its code unchanged since. [CURRENT_STATE.md](../../CURRENT_STATE.md) shortens
 this to "ASan/UBSan CTests 141/141".
 
 Several errors surfaced outside the equality gates:
@@ -73,9 +73,9 @@ one. Zero mismatches is necessary but not sufficient.
 - The L1 `Tactics` node speaks of motifs that "make it work".
 
 Provenance tags compress the same way. A consequence's `source` is the constant `rule` in
-[the schema](../../schema/report.v4.schema.json), but `class=mate` and `mate_in` come from
+[the schema](../../../schema/report.v4.schema.json), but `class=mate` and `mate_in` come from
 the engine's mate score (M1 §4.3 step 4; `consequence` in
-[rules.cpp](../../src/analysis/rules.cpp)).
+[rules.cpp](../../../src/analysis/rules.cpp)).
 
 [OBSERVED, parent-run] The README command `--fen 'r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3' --move Nf6 --budget standard --no-llm`
 prints `White threat consequence: class=mate, mate_in=1, … [rule]`.
@@ -85,7 +85,7 @@ prints `White threat consequence: class=mate, mate_in=1, … [rule]`.
 **Impact.** [INFERENCE] The Captain decides at the DBC level, and M4 will put these fields
 into words. Wording that fixtures "show the facts are right" invites reading a run with
 zero mismatches as chess truth. The planned fact check tests references, not modality
-([PROJECT_VISION.md](../PROJECT_VISION.md) §7.3).
+([PROJECT_VISION.md](../../PROJECT_VISION.md) §7.3).
 
 **Strongest defense.** The frozen acceptance texts are scoped. M2 D12 says "every position of
 the test sample". The vision's milestone table says labels "follow mechanically from the
@@ -93,7 +93,7 @@ engine lines". Vision §5.6 concedes that "a wrong label would still carry `rule
 provenance", and every template row prints its source.
 
 **Recommendation.** [PROPOSED] Keep a claim and warrant table like the one above next to
-[TESTS.md](../DBC/TESTS.md), and reword the overclaims:
+[TESTS.md](../../DBC/TESTS.md), and reword the overclaims:
 
 - Describe `Proof` as checks "against definitions, chosen examples and outside labels".
 - Replace "everywhere" with "on every compared position".
@@ -111,19 +111,19 @@ see [10 — Explanations](10-explanations.md).
 
 **Evidence.** [SOURCE] Both references call chess-library:
 
-- [The motif reference](../../tests/tactics/oracle/reference.cpp) uses
+- [The motif reference](../../../tests/tactics/oracle/reference.cpp) uses
   `movegen::legalmoves`, `isAttacked`, `makeMove` and `makeNullMove`.
-- [The positional reference](../../tests/positional/oracle/reference.cpp) uses
+- [The positional reference](../../../tests/positional/oracle/reference.cpp) uses
   `castlingRights` and `makeMove`.
 
 So do the detectors and `legal_move_count` in
-[the F harness](../../tests/cli/engine_fixture_test.cpp). The library is vendored
-header-only at a pinned commit ([DEPENDENCIES.md](../../third_party/DEPENDENCIES.md)). The
+[the F harness](../../../tests/cli/engine_fixture_test.cpp). The library is vendored
+header-only at a pinned commit ([DEPENDENCIES.md](../../../third_party/DEPENDENCIES.md)). The
 project's CMake does not build its upstream perft tests.
 
 Only the games oracle crosses libraries, and a library-semantics error appeared exactly
 there. `position_key` relied on chess-library dropping a pseudo-legal en passant square,
-which it does not do after `makeMove` ([M3b receipt](../receipts/M3b.md), Review). Review
+which it does not do after `makeMove` ([M3b receipt](../../receipts/M3b.md), Review). Review
 found it with the game now kept as `games_edge.pgn`. The 81-month equality could not
 reveal it, because the pinned table was unaffected.
 
@@ -133,12 +133,12 @@ compile those assertions out.
 
 The shared corpus is thin at the edges:
 
-- [OBSERVED] [test.csv](../../tests/fixtures/puzzles/test.csv) has 16 `enPassant` and
+- [OBSERVED] [test.csv](../../../tests/fixtures/puzzles/test.csv) has 16 `enPassant` and
   2 `underPromotion` puzzles, and no `castling` or `stalemate` theme.
 - The M2 reviewer's nine edge inputs gave 0 mismatches but are not oracle inputs. No
-  [motifs.json](../../tests/fixtures/motifs.json) line under-promotes, and only T54 starts
+  [motifs.json](../../../tests/fixtures/motifs.json) line under-promotes, and only T54 starts
   with an en passant square.
-- [positional_oracle](../../tests/positional/oracle/positional_oracle.cpp) reads only the
+- [positional_oracle](../../../tests/positional/oracle/positional_oracle.cpp) reads only the
   puzzle CSV, so the P fixtures' boundary boards are never compared detector against
   reference (`reference_self_check` runs the reference alone on a few of them).
 
@@ -203,10 +203,10 @@ bound the concern.
 - Labels changed on C01, C08, C09 and C16.
 - Rule changes made C10 and C12–C14 match.
 
-The record is in [PostM2_EM1 §15](../milestones/PostM2_EM1.md) and the Comments column of
-[FIXTURES.md](../DBC/FIXTURES.md). The hand-label definition permits this adjudication.
+The record is in [PostM2_EM1 §15](../../milestones/PostM2_EM1.md) and the Comments column of
+[FIXTURES.md](../../DBC/FIXTURES.md). The hand-label definition permits this adjudication.
 Unlike M2, the C fixtures have no held-out split. The puzzle check prints only a direct
-share (`stratum_direct`, [puzzle_eval.cpp](../../tests/tactics/puzzle_eval.cpp)).
+share (`stratum_direct`, [puzzle_eval.cpp](../../../tests/tactics/puzzle_eval.cpp)).
 
 [OBSERVED, parent-run] `chesswhy --fen '6k1/5ppp/8/8/8/1q6/5PPP/4R1K1 w - - 0 1' --budget standard --json`
 judges Re8# a tactic with margin 1.0 and `back_rank_mate` `direct`. The root
@@ -254,9 +254,9 @@ contributions never change verdicts.
   schema validation, and I ran no proposed experiment.
 - I found no fixture problem that needs a Comments entry.
 
-Sources: [M1](../milestones/M1.md) §4.3, §9.1, §16; [M2](../milestones/M2.md) §1, §7.4, §15;
-[PostM2_EM1](../milestones/PostM2_EM1.md) §4.3, §9, §15; [M3a](../milestones/M3a.md) §8;
-[M3b](../milestones/M3b.md) §9; receipts [M2](../receipts/M2.md),
-[PostM2_EM1](../receipts/PostM2_EM1.md); [motif_oracle.cpp](../../tests/tactics/motif_oracle.cpp);
-[reference_self_check.cpp](../../tests/positional/oracle/reference_self_check.cpp);
-[validate_report.py](../../tools/validate_report.py); [count_games.py](../../tools/count_games.py).
+Sources: [M1](../../milestones/M1.md) §4.3, §9.1, §16; [M2](../../milestones/M2.md) §1, §7.4, §15;
+[PostM2_EM1](../../milestones/PostM2_EM1.md) §4.3, §9, §15; [M3a](../../milestones/M3a.md) §8;
+[M3b](../../milestones/M3b.md) §9; receipts [M2](../../receipts/M2.md),
+[PostM2_EM1](../../receipts/PostM2_EM1.md); [motif_oracle.cpp](../../../tests/tactics/motif_oracle.cpp);
+[reference_self_check.cpp](../../../tests/positional/oracle/reference_self_check.cpp);
+[validate_report.py](../../../tools/validate_report.py); [count_games.py](../../../tools/count_games.py).

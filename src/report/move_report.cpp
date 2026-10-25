@@ -83,12 +83,42 @@ using Json = nlohmann::ordered_json;
     const auto relevant = [](const Motif& motif) {
         return motif.contribution && *motif.contribution != MotifContribution::None;
     };
+    const auto restricted_movement = [](MotifTag tag) {
+        switch (tag) {
+        case MotifTag::PinAbsolute:
+        case MotifTag::PinRelative:
+        case MotifTag::OverloadedDefender:
+        case MotifTag::PinTactical:
+            return true;
+        default:
+            return false;
+        }
+    };
+    const auto repeats = [&restricted_movement](const Motif& first, const Motif& later) {
+        return restricted_movement(first.tag) && restricted_movement(later.tag) &&
+               first.side == later.side && first.ply == later.ply && first.actor == later.actor &&
+               first.targets == later.targets && first.restriction == later.restriction &&
+               first.contribution == later.contribution;
+    };
     std::vector<Motif> result;
     result.reserve(static_cast<std::size_t>(std::ranges::count_if(motifs, relevant)));
     for (const auto& motif : motifs) {
-        if (relevant(motif)) {
-            result.push_back(motif);
+        if (!relevant(motif)) {
+            continue;
         }
+        Motif projected = motif;
+        projected.also.clear();
+        if (restricted_movement(projected.tag)) {
+            const auto first =
+                std::ranges::find_if(result, [&projected, &repeats](const Motif& entry) {
+                    return repeats(entry, projected);
+                });
+            if (first != result.end()) {
+                first->also.push_back(MotifLabel{.tag = projected.tag, .threat = projected.threat});
+                continue;
+            }
+        }
+        result.push_back(std::move(projected));
     }
     return result;
 }
@@ -196,6 +226,14 @@ using Json = nlohmann::ordered_json;
         motif.restriction ? serialize_motif_restriction(*motif.restriction) : Json(nullptr);
     value["contribution"] =
         motif.contribution ? Json(to_string(*motif.contribution)) : Json(nullptr);
+    Json also = Json::array();
+    for (const MotifLabel& label : motif.also) {
+        Json item = Json::object();
+        item["tag"] = to_string(label.tag);
+        item["threat"] = label.threat ? serialize_motif_threat(*label.threat) : Json(nullptr);
+        also.push_back(std::move(item));
+    }
+    value["also"] = std::move(also);
     return value;
 }
 
@@ -356,6 +394,7 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["gives_check"] = move.gives_check;
     value["line"] = move.line_san;
     value["walked_plies"] = move.walked_plies;
+    value["line_fens"] = move.line_fens;
     value["consequence"] = serialize_consequence(move.consequence);
     value["is_tactic"] = move.is_tactic;
     value["allows_tactic"] = move.allows_tactic;
@@ -518,6 +557,23 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     return value;
 }
 
+[[nodiscard]] std::vector<std::string> replay_line_fens(const Report& report,
+                                                        const MoveAssessment& assessment) {
+    chess::Board board(report.position.fen);
+    std::vector<std::string> fens;
+    fens.reserve(static_cast<std::size_t>(assessment.walked_plies));
+    for (int ply = 0; ply < assessment.walked_plies; ++ply) {
+        const chess::Move move =
+            chess::uci::parseSan(board, assessment.line_san.at(static_cast<std::size_t>(ply)));
+        if (move == chess::Move::NO_MOVE) {
+            throw std::invalid_argument("cannot replay move report SAN line");
+        }
+        board.makeMove(move);
+        fens.push_back(board.getFen());
+    }
+    return fens;
+}
+
 [[nodiscard]] MoveReport assess_move(const Report& report, const MoveAssessment& assessment,
                                      std::optional<int> rank) {
     MoveReport result;
@@ -531,6 +587,7 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     result.gives_check = assessment.gives_check;
     result.line_san = assessment.line_san;
     result.walked_plies = assessment.walked_plies;
+    result.line_fens = replay_line_fens(report, assessment);
     result.consequence = assessment.consequence;
     result.is_tactic = assessment.is_tactic;
     result.allows_tactic = assessment.allows_tactic;

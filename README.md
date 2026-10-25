@@ -30,7 +30,7 @@ search, so the same move can get a different verdict in a different request; eac
 reproducible. The current release renders reports without a language model; verbalisation is
 planned for M5.
 
-In report v7, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
+In report v8, `pin_absolute`, `pin_relative`, `overloaded_defender` and `pin_tactical` have a
 `restriction` object. Its `piece` is the held piece (the first target for either pin or a tactical
 pin, the actor for an overloaded defender); `restricted` and `free` are sorted UCI move lists.
 `restricted` contains moves the motif denies or makes costly: an absolute pin includes pseudo-legal
@@ -43,6 +43,8 @@ existence condition is that `restricted` is non-empty. Moves are judged with the
 A held pawn's move set also includes a hypothetical capture onto every on-board diagonal-front
 square, whatever stands there (including an empty square), judged after the pawn moves there and
 the previous occupant is removed.
+Move report text prints restricted-movement rows without the restricted/free move lists and
+names every label of merged motif repeats.
 
 Positional facts in `position.positional` describe pawn structure, king safety, pieces, space/development
 and material; per-line `positional` entries record features appearing or disappearing, with `rule`
@@ -152,9 +154,15 @@ time. `--json` chooses the format and `--full-report` the content, independently
 | Flags | Output |
 |---|---|
 | none | move report text: one section per selected move |
-| `--json` | move report document (`schema/moves.v7.schema.json`) |
+| `--json` | move report document (`schema/moves.v8.schema.json`) |
 | `--full-report` | full report text: every computed fact |
-| `--json --full-report` | full report JSON (`schema/report.v7.schema.json`) |
+| `--json --full-report` | full report JSON (`schema/report.v8.schema.json`) |
+
+The default move report lays out each selected move as a position walk: after the move's verdict
+rows, each position on its line gets a block with its FEN, its evaluation for White, the move
+played from it (except after the last walked ply), and the motifs, tactic labels, threat rows and
+positional changes assigned to that ply. Tempo facts appear only in the JSON and the full report
+text.
 
 A move report keeps the move's verdict, line, consequence, tactic and opportunity judgements and
 refutation, and only the threats, motifs and positional changes that bear on that move; every
@@ -188,8 +196,8 @@ Save the full report JSON as `full.json` and the move report document of the sam
 from its `document` field (add more paths to validate several files):
 
 ```sh
-.venv/bin/python tools/validate_report.py schema/report.v7.schema.json full.json moves.json
-.venv/bin/python tools/validate_report.py schema/report.v7.schema.json --projection full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v8.schema.json full.json moves.json
+.venv/bin/python tools/validate_report.py schema/report.v8.schema.json --projection full.json moves.json
 ```
 
 The checker validates the schema first, then checks report relations it cannot express: loss and

@@ -6,7 +6,7 @@ addition (`held_to`, §4.1). Open: every fixture mismatch the rule changes cause
 (checkpoint 2, §12). Changes to anything else are contract changes: the orchestrator
 makes them, records them in §15 and tells the Captain.
 
-Intent: fix what the conceptual audit (`Planning/critiques/`, 2026-10-22) found before
+Intent: fix what the conceptual audit (`Planning/critiques/2026-10-22/`) found before
 M4 puts the report into words. The report must state the conditions its facts depend
 on, a "none" contribution must mean the tactic works without the motif, restricted
 movement must say which moves are restricted, the report's relations must be checked

@@ -1,4 +1,4 @@
-// Move report document declarations for report v7. Implemented in batch 2.
+// Move report document declarations for report v8. Implemented in batch 2.
 #pragma once
 
 #include "chesswhy/report.hpp"
@@ -39,6 +39,7 @@ struct MoveReport {
     bool gives_check = false;
     std::vector<std::string> line_san;
     int walked_plies = 0;
+    std::vector<std::string> line_fens;
     Consequence consequence;
     bool is_tactic = false;
     bool allows_tactic = false;

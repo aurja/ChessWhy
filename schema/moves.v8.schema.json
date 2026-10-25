@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/moves.v7.schema.json",
-  "title": "ChessWhy move report, schema version 7",
+  "$id": "https://chesswhy.local/schema/moves.v8.schema.json",
+  "title": "ChessWhy move report, schema version 8",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,8 +17,8 @@
   ],
   "properties": {
     "schema_version": {
-      "description": "Schema version of the report; this schema accepts version 7 [rule].",
-      "const": 7
+      "description": "Schema version of the report; this schema accepts version 8 [rule].",
+      "const": 8
     },
     "document": {
       "description": "Kind of report document emitted by this schema [rule].",
@@ -351,7 +351,7 @@
     "move": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["rank", "san", "uci", "eval", "depth", "loss", "verdict", "gives_check", "line", "walked_plies", "consequence", "is_tactic", "allows_tactic", "opportunity", "motifs", "root_motifs", "tactic_labels", "positional", "tempo_value", "tempo_gained", "initiative", "impact_order", "parried_threat", "created_threat", "refutation", "games"],
+      "required": ["rank", "san", "uci", "eval", "depth", "loss", "verdict", "gives_check", "line", "walked_plies", "line_fens", "consequence", "is_tactic", "allows_tactic", "opportunity", "motifs", "root_motifs", "tactic_labels", "positional", "tempo_value", "tempo_gained", "initiative", "impact_order", "parried_threat", "created_threat", "refutation", "games"],
       "properties": {
         "rank": {"description": "1-based MultiPV rank, or null for a move assessed by Search C [engine].", "type": ["integer", "null"], "minimum": 1},
         "san": {"description": "Standard algebraic notation for the move [engine].", "type": "string"},
@@ -363,6 +363,7 @@
         "gives_check": {"description": "Whether the move gives check [rule].", "type": "boolean"},
         "line": {"description": "SAN line from the current position, starting with this move, up to 10 plies [engine].", "$ref": "#/$defs/san_line"},
         "walked_plies": {"description": "Number of line plies from which motif and positional facts were read [rule].", "type": "integer", "minimum": 0},
+        "line_fens": {"description": "FEN after each walked ply in line [rule].", "type": "array", "items": {"type": "string"}},
         "consequence": {"description": "Rule-derived consequence of this move's own line from the analyzed position [rule].", "$ref": "#/$defs/consequence"},
         "is_tactic": {"description": "Whether this move's own line has consequence class mate or material [rule].", "type": "boolean"},
         "allows_tactic": {"description": "Whether the move loses at least one pawn net or is mated along its own line [rule].", "type": "boolean"},
@@ -549,7 +550,7 @@
     "motif": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain", "threat", "restriction", "contribution"],
+      "required": ["source", "tag", "side", "ply", "actor", "targets", "gain", "threat", "restriction", "contribution", "also"],
       "properties": {
         "source": {"description": "Motif provenance [rule].", "const": "rule"},
         "tag": {"description": "Tactical motif tag [rule].", "enum": ["hanging_piece", "pin_absolute", "pin_relative", "back_rank_weakness", "overloaded_defender", "trapped_piece", "pin_tactical", "fork", "skewer", "discovered_check", "discovered_attack", "double_check", "back_rank_mate", "promotion"]},
@@ -560,7 +561,23 @@
         "gain": {"description": "Static-exchange gain in pawn units when defined for this motif [rule].", "type": ["integer", "null"]},
         "threat": {"description": "Threat associated with a tactical pin, or null [rule].", "oneOf": [{"$ref": "#/$defs/motif_threat"}, {"type": "null"}]},
         "restriction": {"description": "Restricted piece and its move set when defined for this motif [rule].", "oneOf": [{"$ref": "#/$defs/motif_restriction"}, {"type": "null"}]},
-        "contribution": {"description": "Motif's role in the tactic, or null when not judged [rule].", "enum": ["direct", "indirect", "none", null]}
+        "contribution": {"description": "Motif's role in the tactic, or null when not judged [rule].", "enum": ["direct", "indirect", "none", null]},
+        "also": {
+          "description": "Other labels merged into this restricted-movement motif, in source list order [rule].",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["tag", "threat"],
+            "properties": {
+              "tag": {"description": "Additional restricted-movement motif tag [rule].", "enum": ["pin_absolute", "pin_relative", "overloaded_defender", "pin_tactical"]},
+              "threat": {"description": "Threat associated with an additional tactical pin label, or null [rule].", "oneOf": [{"$ref": "#/$defs/motif_threat"}, {"type": "null"}]}
+            },
+            "if": {"properties": {"tag": {"const": "pin_tactical"}}},
+            "then": {"properties": {"threat": {"$ref": "#/$defs/motif_threat"}}},
+            "else": {"properties": {"threat": {"type": "null"}}}
+          }
+        }
       }
     },
     "motif_threat": {

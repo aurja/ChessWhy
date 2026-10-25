@@ -21,16 +21,16 @@ text, while incidental churn always can. Nothing here breaches the frozen M3a co
 ## What the approach does
 
 - [SOURCE] `positional::features` computes 24 tags on one board, with `rule` provenance
-  and no engine weighting ([M3a](../milestones/M3a.md) §3–§4). `position.positional` holds
+  and no engine weighting ([M3a](../../milestones/M3a.md) §3–§4). `position.positional` holds
   the root's features and appears in JSON only (§10).
 - [SOURCE] `line_changes` compares identities between consecutive boards over the walked
   plies (6, extended while the next move is a capture, up to 10). `holds_at_end` compares
   each change with the last walked board (§5). A feature whose identity persists while its
   pieces or value change is explicitly "not a change" (§5; PL04–PL06).
 - [SOURCE] Captain's decisions: every ply is measured (P2, option C), every change is
-  printed and M4 selects (option A, [CURRENT_STATE](../CURRENT_STATE.md)), thresholds are
+  printed and M4 selects (option A, [CURRENT_STATE](../../CURRENT_STATE.md)), thresholds are
   set by P4 and definitions by P5. `TiedToLine` is implemented only as "the renderer
-  prints line changes" ([CODE](../DBC/CODE.md)).
+  prints line changes" ([CODE](../../DBC/CODE.md)).
 
 ## Findings
 
@@ -38,12 +38,12 @@ text, while incidental churn always can. Nothing here breaches the frozen M3a co
 
 **Root cause.** §4.5 says "X has more rooks than Y, and Y has more knights plus bishops
 than X" (identity: tag and side). This is documented in
-[DEFINITIONS](../DBC/DEFINITIONS.md) §9, not an undocumented choice. The ordinary term
+[DEFINITIONS](../../DBC/DEFINITIONS.md) §9, not an undocumented choice. The ordinary term
 means a rook for *one* minor piece, but the rule also fires for:
 
 - a rook against two minors. That is the `Imbalances` case that
-  [CONCEPTS](../DBC/CONCEPTS.md) defers, because "a wrong label would still carry `rule`
-  provenance" ([vision](../PROJECT_VISION.md) §5.6);
+  [CONCEPTS](../../DBC/CONCEPTS.md) defers, because "a wrong label would still carry `rule`
+  provenance" ([vision](../../PROJECT_VISION.md) §5.6);
 - positions where other material dwarfs the trade.
 
 **Evidence.** [OBSERVED] Four boards where the side to move is checkmated, so no search
@@ -59,7 +59,7 @@ every run exited 0.
 
 [OBSERVED, throwaway python-chess re-implementation of §4.5, not the shipped detector]
 Run on the `positional_oracle` boards (each puzzle FEN in
-[test.csv](../../tests/fixtures/puzzles/test.csv) plus every solution ply), it reproduces
+[test.csv](../../../tests/fixtures/puzzles/test.csv) plus every solution ply), it reproduces
 the receipt's 53,378 boards and 7,662 `exchange_up` boards exactly. Of those 7,662:
 
 - 5,242 (68%) have the single-exchange shape: one more rook, one more enemy minor, equal
@@ -144,7 +144,7 @@ seventh-rank rooks and the net +1, within a stated item budget.
 **Evidence.**
 
 - [SOURCE] A change at the last walked ply holds by construction. `MoveAssessment` carries
-  no walked-ply count ([report.hpp](../../include/chesswhy/report.hpp)), yet the text
+  no walked-ply count ([report.hpp](../../../include/chesswhy/report.hpp)), yet the text
   prints lines of up to 10 plies.
 - [OBSERVED, parent's run] README line `Qe7 Nc3 Nd4 Qd1 c6 Nf3 Nf6 O-O d6 Nxd4` prints
   `+ development_lead: white 2 (ply 6) [rule]` with no "not at end".
@@ -257,14 +257,14 @@ rule proposal.
 
 ## Sources
 
-- [M3a](../milestones/M3a.md) §1, §3–§5, §8, §10, §11; [receipt](../receipts/M3a.md) §9
+- [M3a](../../milestones/M3a.md) §1, §3–§5, §8, §10, §11; [receipt](../../receipts/M3a.md) §9
   counts and "Volume along lines".
-- [DEFINITIONS](../DBC/DEFINITIONS.md) §8–§9; [CONCEPTS](../DBC/CONCEPTS.md), "Positional
-  facts"; [CODE](../DBC/CODE.md); [FIXTURES](../DBC/FIXTURES.md) §8.
-- [Vision](../PROJECT_VISION.md) §5.6, §8; [CURRENT_STATE](../CURRENT_STATE.md).
-- [positional.cpp](../../src/positional/positional.cpp): `add_leads_and_material`,
-  `same_identity`, `line_changes`. [report.hpp](../../include/chesswhy/report.hpp):
-  `MoveAssessment`. [analyse.cpp](../../src/analysis/analyse.cpp): `assess_move`,
-  `analyse`. [render.cpp](../../src/render/render.cpp): `write_positional_changes`.
-- [positional.json](../../tests/fixtures/positional.json) P01–P70, PL01–PL07;
-  [positional_oracle.cpp](../../tests/positional/oracle/positional_oracle.cpp).
+- [DEFINITIONS](../../DBC/DEFINITIONS.md) §8–§9; [CONCEPTS](../../DBC/CONCEPTS.md), "Positional
+  facts"; [CODE](../../DBC/CODE.md); [FIXTURES](../../DBC/FIXTURES.md) §8.
+- [Vision](../../PROJECT_VISION.md) §5.6, §8; [CURRENT_STATE](../../CURRENT_STATE.md).
+- [positional.cpp](../../../src/positional/positional.cpp): `add_leads_and_material`,
+  `same_identity`, `line_changes`. [report.hpp](../../../include/chesswhy/report.hpp):
+  `MoveAssessment`. [analyse.cpp](../../../src/analysis/analyse.cpp): `assess_move`,
+  `analyse`. [render.cpp](../../../src/render/render.cpp): `write_positional_changes`.
+- [positional.json](../../../tests/fixtures/positional.json) P01–P70, PL01–PL07;
+  [positional_oracle.cpp](../../../tests/positional/oracle/positional_oracle.cpp).

@@ -1,6 +1,6 @@
 # Current state
 
-Updated 2026-10-24.
+Updated 2026-10-25.
 
 - Milestone: **M3a and M3b complete, merged into `main` 2026-10-22** (Captain ran both
   smoke commands and approved). Receipts `Planning/receipts/M3a.md` and
@@ -50,11 +50,20 @@ Updated 2026-10-24.
   `unit`, labels `corpus`, `timing`, `sanitize`, ASan at `-O1`. Release
   `unit|engine|games|corpus` 205/205 in 376 s, `timing` 261 s (F12 12.0 s, limit 15 s);
   ASan/UBSan `unit|sanitize` 168/168 in 101 s; F32 `--moves playable` 27.9 s (limit 30 s).
-- Next: **conceptual critique of all definitions and concepts** (Captain, 2026-10-24),
-  then PostM4_EM4. The pure reply definition is open (V2's `...Nxc2` wins a rook yet counts
-  as pure); EM4 replaces it with "forced and gains nothing". Eight critique agents started
-  and were paused on the OpenAI usage limit with provisional findings; they resume one at a
-  time, writing to `Planning/critiques/2026-10-24/`.
+- Milestone: **PostM4_EM4 the conceptual critique and the move report text complete**
+  (2026-10-25; merge into `main` awaits the Captain). Receipt
+  `Planning/receipts/PostM4_EM4.md`; contract `Planning/milestones/PostM4_EM4.md`. Report
+  v8: motif repeats merged (`also`), compact restricted-movement rows, `line_fens`, the
+  position walk (no tempo rows in the move report text for now). Conceptual critique of all
+  definitions and concepts in `Planning/critiques/2026-10-24/` (00–08, synthesis 09): 20
+  findings, 6 `wrong claim`. The planned part 2 became PostM4_EM5 (Captain, R4). Release
+  `unit|engine|games|corpus` 213/213, `timing` pass (F12 12.4 s), ASan/UBSan
+  `unit|sanitize` 176/176.
+- Next: **PostM4_EM5, fixes from the critique** (`Planning/milestones/PostM4_EM5.md`): part 1
+  reply evidence (consequence outcome, benefit evidence, pure reply "forced and gains
+  nothing"), part 2 correctness (motif evidence, relevance filter conditions), part 3
+  contract and wording repairs (VER2-1 option A, REP2-1 option 1, glossary, vision drift).
+  Each part's contract is frozen before its work starts; fresh orchestrator session.
 - Test tooling (Captain's requests, 2026-10-24): long test drivers print progress lines;
   `tools/run_tests.py --build-dir DIR [ctest args]` streams them and writes
   `DIR/test_progress.json`; `.omp/extensions/test-progress.ts` shows running tests in

@@ -5,9 +5,10 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-24, PostM4_EM3 milestone-end gate after the test redesign: 206 CTests
-(153 `unit`, 48 `engine` of which 15 also `sanitize`, 2 `games`, 2 `corpus`, 1 `timing`, no
-`model` yet). Release runs all of them; ASan/UBSan runs `unit` and `sanitize` (168); all pass.
+**Snapshot:** 2026-10-25, PostM4_EM4 milestone-end gate: 214 CTests (161 `unit`, 48
+`engine` of which 15 also `sanitize`, 2 `games`, 2 `corpus`, 1 `timing`, no `model` yet).
+Release runs all of them; ASan/UBSan runs `unit` and `sanitize` (176). Release
+`unit|engine|games|corpus` 213/213, `timing` pass, ASan/UBSan 176/176.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
 that adds, renames or removes a test, and checks it at each milestone end.
@@ -153,13 +154,13 @@ Program tests:
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| report_JSON follows v7 report key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
+| report_JSON follows v8 report key order | unit | Keys come out in schema order (stable diffs, reproducible reports) | `ReportSchema`, `JsonOutput`, `Reproducible` |
 | report_enum values use the schema spellings | unit | Nine report enums serialise to the schema's strings | `ReportSchema`, `JsonOutput` |
 | report_scores and optional values are serialized | unit | ES, cp, mate and nulls | `ExpectedScore`, `ReportSchema`, `JsonOutput` |
-| report_motif JSON uses the schema v7 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
-| report_opportunity judgements and tactic-line fields serialize in v7 | unit | Opportunity judgement, `is_tactic`, `allows_tactic`, tactic labels, root motifs and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLine`, `TacticLabel`, `Contribution` |
-| report_v7 analysis fields and restriction serialize | unit | `legal_moves`, `playable_truncated`, `depth`, `walked_plies`, `detailed`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
-| report_tempo fields serialize in v7 | unit | Root and per-move `tempo_value`, the tempo ledger with plies, tempi and initiative runs, `tempo_ledger_skipped`, and `net_change` / `in_use` on positional changes | `ReportSchema`, `TempoValue`, `TempoLedger`, `NetChange`, `UseTest` |
+| report_motif JSON uses the schema v8 shape | unit | Motif objects, including `threat` (`{kind, square}` for `pin_tactical`, null otherwise) and `restriction` | `ReportSchema`, `StateMotif`, `TacticalPin`, `Restriction`, `JsonOutput` |
+| report_opportunity judgements and tactic-line fields serialize in v8 | unit | Opportunity judgement, `is_tactic`, `allows_tactic`, tactic labels, root motifs and contributions | `ReportSchema`, `OpportunityJudgement`, `TacticLine`, `TacticLabel`, `Contribution` |
+| report_v8 analysis fields and restriction serialize | unit | `legal_moves`, `playable_truncated`, `depth`, `walked_plies`, `detailed`, `creates_threat_skipped` and `restriction` with `held_to` | `ReportSchema`, `CandidateMove`, `PlayableSet`, `CreatedThreat`, `Restriction` |
+| report_tempo fields serialize in v8 | unit | Root and per-move `tempo_value`, the tempo ledger with plies, tempi and initiative runs, `tempo_ledger_skipped`, and `net_change` / `in_use` on positional changes | `ReportSchema`, `TempoValue`, `TempoLedger`, `NetChange`, `UseTest` |
 
 `move_report_tests.cpp` (`move_report_unit_tests`), on hand-built full reports:
 
@@ -170,19 +171,21 @@ Program tests:
 | move_report_move report headers copy only the M4 position and game fields | unit | The document's position, opening and game-source headers equal the full report's fields | `MoveReport`, `RelevanceFilter` |
 | move_report_move report relevance filter keeps conditional fields and drops irrelevant ones | unit | Refutation, parried threat, contributing motifs and the net positional change are kept when they bear on the move; other facts are dropped | `RelevanceFilter`, `MoveReport`, `Contribution`, `TiedToLine` |
 | move_report_move report created threat keeps only the specified consequence classes | unit | A created threat is kept only when its consequence class wins something | `RelevanceFilter`, `CreatedThreat` |
-| move_report_move report JSON uses the v7 moves shape and stable key order | unit | `to_json` writes `document: "moves"` with keys in schema order | `JsonOutput`, `MoveReport`, `Reproducible` |
-| move_report_move report tempo and positional groups follow impact order | unit | Move report groups (parried threat, created threat, motifs, tempo rows, dynamic and static positional rows) come out in `impact_order`, ranked by consequence | `ImpactRating`, `MoveReport`, `TempoGained` |
+| move_report_move report JSON uses the v8 moves shape and stable key order | unit | `to_json` writes `document: "moves"` with keys in schema order | `JsonOutput`, `MoveReport`, `Reproducible` |
+| move_report_move reports merge restricted-movement repeats and serialize their labels | unit | A relative pin and a tactical pin with equal side, ply, actor, targets, restriction and contribution become one motif in the first one's place with `also` naming the tactical pin; a fork keeps `also: []`; the JSON writes `also` | `RelevanceFilter`, `MoveReport`, `JsonOutput` |
+| move_report_move report leaves restricted motifs unmerged when restriction or contribution differs | unit | A differing `restricted` list or a differing contribution keeps two motifs | `RelevanceFilter` |
 | move_report_move report positional filtering and order follows root tempo dependence | unit | Only net changes that pass the use test are kept; dynamic facts come first in a tempo-dependent position, static facts first otherwise | `TiedToLine`, `RelevanceFilter`, `ImpactRating`, `TempoLabel` |
 | move_report_move report tempo projections are null exactly when no ledger exists | unit | Tempo gained and initiative rows are null when the line has no tempo ledger and copied from it otherwise | `RelevanceFilter`, `TempoLedger`, `InitiativeRun` |
 | move_report_impact order sorts ranked groups stably around both positional base orders | unit | Groups with the same consequence rank keep their base order, for both the dynamic-first and the static-first order | `ImpactRating`, `StaticScale` |
+| move_report_move reports record the FEN after each walked SAN ply | unit | `line_fens` holds the exact FEN after each walked ply of a known line, one per walked ply | `MoveReport`, `PositionWalk` |
 
 Program tests:
 
 | Test | Program | Label | Checks | Concepts |
 |---|---|---|---|---|
 | `report_schema_examples` | `report_schema_examples` (`write_examples.cpp`) | unit | Writes eight example reports (terminal checkmate, side in check, normal, PGN opening, tactic with labels, forced, negative margin, refutation) and the move report document of each; they carry positional features and changes and a games source, found and not found | `ReportDocument`, `MoveReport`, `JsonOutput`, `ReportSchema`, `GameCounts` |
-| `report_schema_unit` | `tools/validate_report.py` | unit | The eight full reports validate against `schema/report.v7.schema.json` | `ReportSchema` |
-| `move_report_schema_unit` | `tools/validate_report.py` | unit | The eight move report documents validate against `schema/moves.v7.schema.json` | `ReportSchema`, `MoveReport` |
+| `report_schema_unit` | `tools/validate_report.py` | unit | The eight full reports validate against `schema/report.v8.schema.json` | `ReportSchema` |
+| `move_report_schema_unit` | `tools/validate_report.py` | unit | The eight move report documents validate against `schema/moves.v8.schema.json` | `ReportSchema`, `MoveReport` |
 
 ## 7. Render — `tests/render/render_unit_tests.cpp` (`render_unit_tests`)
 
@@ -191,7 +194,7 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
 | render_example reports match the golden text | unit | The eight example reports render byte for byte as the golden full report text | `TemplateRendering`, `ExplanationText`, `ReportDocument` |
-| render_move report documents match golden text without candidate wording | unit | Six move report documents (best move, playable set, asked move outside A, blunder with refutation, empty selection, terminal position) render byte for byte as their golden files; no output contains "candidate" in any case | `TemplateRendering`, `MoveReport`, `Conditions` |
+| render_move report documents match golden text without candidate wording | unit | Six move report documents (best move, playable set, asked move outside A, blunder with refutation, empty selection, terminal position) render byte for byte as their golden files, laid out as the position walk; no output contains "candidate" in any case | `TemplateRendering`, `MoveReport`, `Conditions`, `PositionWalk` |
 | render_non-detailed engine lines omit unsearched details | unit | An A line that was not detailed prints no parry, created threat or refutation, even if the fields were filled | `TemplateRendering`, `CandidateMove` |
 | render_position evaluation renders the mate score when available | unit | The mate score is shown alongside ES | `TemplateRendering`, `ExpectedScore` |
 | render_motif rows and level-independent output | unit | Motif rows; output does not change with `--level` where it should not | `ExplanationText`, `StateMotif`, `TacticalPin`, `TemplateRendering` |
@@ -199,6 +202,12 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | render_positional and game facts render only from report fields | unit | Positional change rows (`+`/`−`, ply, `not at end`, value) under each line, `position.positional` not printed; the games row after the opening (found or not in the table) and the per-move row; no ranking words | `TemplateRendering`, `TiedToLine`, `GameCounts` |
 | render_PostM3_EM2 template wording matches its golden lines | unit | Conditions ("if Black passes", deferred parry, skip reason, facts read to ply k of n, engine and budget, engine lines of legal moves), `SEE` for a capture and held-to wording render as in the plan | `TemplateRendering`, `Conditions`, `RestrictedMovement` |
 | render_full report tempo rows follow the v7 templates | unit | Root and after-move tempo values with their labels, the tempo ledger (with skip reasons), initiative runs, and ` (passing change)` / ` (fails the use test)` marks render as in the plan | `TemplateRendering`, `TempoValue`, `TempoLedger`, `InitiativeRun`, `RunOutcome`, `NetChange`, `UseTest` |
+| render_move report text compacts restricted-movement rows | unit | A merged and an unmerged restricted-movement motif print the compact row: every label in the parentheses, held-to wording, no `restricted:` or `free:` list | `RestrictedMovement`, `TemplateRendering` |
+| render_full report text retains restricted and free move lists | unit | The full report text still lists the restricted and free moves of a restricted-movement motif | `RestrictedMovement`, `TemplateRendering` |
+| render_move report facts render in their position-walk blocks | unit | Facts at positions 0, 1 and 3 and a positional change at position 2 print in those position blocks, `Uses:` rows before the other facts, with the part 1b row forms (no `ply k` in motif rows, `(net change to ply N)` on positional rows); each block shows its FEN, its evaluation and, except the last, its move and side; no tempo row although the document holds tempo facts | `PositionWalk`, `TemplateRendering`, `ImpactRating` |
+| render_empty move report selection prints one position block | unit | With no move shown, the text ends with one position block (FEN, `To move:` with side and legal moves, evaluation) and no separator | `PositionWalk`, `TemplateRendering` |
+| render_line score evaluation is stated from White's view | unit | Block 0 prints the root evaluation; blocks after the move print the move's score as the line score, turned to White's view when Black moved (ES complemented, cp and mate negated) | `PositionWalk`, `ExpectedScore` |
+| render_move report positional groups follow impact order | unit | Within a position block the groups after the `Uses:` rows (parried threat, created threat, dynamic and static positional rows) come out in `impact_order`, ranked by consequence; the tempo group prints nothing | `ImpactRating`, `PositionWalk`, `StaticScale` |
 
 ## 8. CLI — `tests/cli/`
 
@@ -219,7 +228,7 @@ Program tests:
 |---|---|---|---|---|
 | `cli_fixture_F01` … `cli_fixture_F44` (one per F fixture, F16 absent: 43 tests) | `cli_fixture_test` (`engine_fixture_test.cpp`) | engine; also `sanitize` for the `sanitize` fixtures | Builds the report once per run (`cli::build_report`, from 2026-10-24; before, one CLI run per output) and writes all four outputs from it: checks the full report JSON's `equals` fields, `playable_includes`, `motifs_include`, `positional_include`, `line_prefix`; `text_contains` on the move report text, `full_text_contains` on the full report text, and the `moves_` keys on the move report document; repeats this for each entry of `runs`; prints the default run's wall time without judging it; `PROCESSORS 2` (our process plus one Stockfish); CTest timeout 3600 s; prints a progress line per run; saves both JSON documents for `report_schema` | `EngineFixtures`, `Verdict`, `AllowsTactic`, `TacticTest`, `OpportunityJudgement`, `MoveSelection`, `MoveReport`, `StateMotif`, `Conditions`, `TempoValue`, `TempoLabel`, `TempoLedger`, `TempoGained`, `InitiativeRun`, `RunOutcome`, `ImpactRating`, `TiedToLine` |
 | `cli_timing` | `cli_fixture_test --timing` (`engine_fixture_test.cpp`) | timing | Registered only with `CHESSWHY_CHECK_TIMING` on (Release): runs alone (`RUN_SERIAL`), times one report build plus full report JSON of every F fixture's default arguments, prints each time and fails listing every fixture above 15 s (12 s before 2026-10-24; judged inside each `cli_fixture_<ID>` until then, where load from parallel tests inflated it). Label `engine` until 2026-10-24 | `EngineFixtures`, `Reproducible` |
-| `report_schema` | `tools/validate_report.py` | engine | Every saved F full report validates against `schema/report.v7.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic and opportunity relations); every saved move report document validates against `schema/moves.v7.schema.json` and passes the projection check against the full report of the same command; runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `ProjectionCheck`, `EngineFixtures` |
+| `report_schema` | `tools/validate_report.py` | engine | Every saved F full report validates against `schema/report.v8.schema.json` and passes the semantic check (verdict and loss, mate and score, parry test, urgency, legal lines, asked-move copy, threat skips, restrictions, tactic and opportunity relations); every saved move report document validates against `schema/moves.v8.schema.json` and passes the projection check against the full report of the same command (motif repeats merged); runs after all `cli_fixture_*` tests | `ReportSchema`, `SemanticCheck`, `ProjectionCheck`, `EngineFixtures` |
 | `cli_rerun_identity` | `cli_identity_test` (`identity_test.cpp`) | engine | F01, F03, F12, F25, F29, F30: two report builds give byte-identical full report JSON, move report document, move report text and full report text; so do two builds of a fixed position's move report text (`--moves Nf6` after 3.Qh5); `PROCESSORS 2` | `RerunIdentity`, `Reproducible`, `ReportDocument`, `JsonOutput`, `MoveReport` |
 
 ## 9. pgntool — `tests/pgntool/pgntool_unit_tests.cpp` (`pgntool_unit_tests`)
@@ -299,4 +308,4 @@ Python `unittest` cases on hand-built JSON, one CTest.
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| `checker_unit` | unit | The semantic check rejects a best move with a different score, a blunder that allows no tactic, tactic flags that disagree with the consequence, details on a non-detailed line, labels off tactic lines, a wrong opportunity flag at the margin, a selection out of typed order and a wrong `playable_truncated`; it derives `creates_threat_skipped` from the board on detailed lines only (a non-detailed checking move keeps null); one mutant per tempo relation (tempo value and label at the unit boundaries, ledger labels and tempi, initiative runs and their outcome) and per use-test rule (tags, timing, king pressed, superseded changes) is rejected, net change and `in_use` are re-derived independently; the projection check's independent filter drops non-contributing motifs and changes that are not net or fail the use test, orders the rest by impact order, and flags a move fact that differs from the full report | `SemanticCheck`, `ProjectionCheck`, `MoveSelection`, `NetChange`, `UseTest`, `TempoValue`, `TempoLedger`, `InitiativeRun`, `ImpactRating` |
+| `checker_unit` | unit | The semantic check rejects a best move with a different score, a blunder that allows no tactic, tactic flags that disagree with the consequence, details on a non-detailed line, labels off tactic lines, a wrong opportunity flag at the margin, a selection out of typed order and a wrong `playable_truncated`; it derives `creates_threat_skipped` from the board on detailed lines only (a non-detailed checking move keeps null); one mutant per tempo relation (tempo value and label at the unit boundaries, ledger labels and tempi, initiative runs and their outcome) and per use-test rule (tags, timing, king pressed, superseded changes) is rejected, net change and `in_use` are re-derived independently; the projection check's independent filter drops non-contributing motifs, merges motif repeats (an unmerged repeat, a dropped `also` label and `also` labels out of order are rejected), drops changes that are not net or fail the use test, orders the rest by impact order, and flags a move fact that differs from the full report; `line_fens` is replayed from the position and a wrong or missing FEN is rejected; the move report schema rejects an `also` label `pin_tactical` without a threat and any other `also` label with one | `SemanticCheck`, `ProjectionCheck`, `MoveSelection`, `NetChange`, `UseTest`, `TempoValue`, `TempoLedger`, `InitiativeRun`, `ImpactRating`, `RelevanceFilter`, `PositionWalk` |

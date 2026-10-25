@@ -4,9 +4,9 @@ Baseline `23bf1a52d856060556147f73c1bd5f90c67c8d5d` · 2026-10-22 · schema v4 �
 
 ## Baseline and concept nodes
 
-- **Engine.** Stockfish 19 (`sf_19`), Threads 1, Hash 64 ([cli.cpp](../../src/cli/cli.cpp)).
-- **Budgets.** Standard: A 1,000,000; B, C 200,000; D, E, R 100,000 ([`node_budget`](../../src/analysis/rules.cpp); kinds per [M1 §3](../milestones/M1.md#3-budgets-and-engine-settings)). R searches the refutation's alternative ([PostM2](../milestones/PostM2_EM1.md) §3). Quick and Deep scale rows by ¼ and 4×.
-- **Units.** es-units = 2W+D, 0–2000 ([M1 §4](../milestones/M1.md#4-analysis-rules)). Fine ≤ 60; inaccuracy 61–259; mistake 260–539; blunder ≥ 540 ([M1 §4.7](../milestones/M1.md#47-moves-and-verdicts)). Tactic margin ≥ 260 ([PostM2 §4.1](../milestones/PostM2_EM1.md#41-tactic-judgement)).
+- **Engine.** Stockfish 19 (`sf_19`), Threads 1, Hash 64 ([cli.cpp](../../../src/cli/cli.cpp)).
+- **Budgets.** Standard: A 1,000,000; B, C 200,000; D, E, R 100,000 ([`node_budget`](../../../src/analysis/rules.cpp); kinds per [M1 §3](../../milestones/M1.md#3-budgets-and-engine-settings)). R searches the refutation's alternative ([PostM2](../../milestones/PostM2_EM1.md) §3). Quick and Deep scale rows by ¼ and 4×.
+- **Units.** es-units = 2W+D, 0–2000 ([M1 §4](../../milestones/M1.md#4-analysis-rules)). Fine ≤ 60; inaccuracy 61–259; mistake 260–539; blunder ≥ 540 ([M1 §4.7](../../milestones/M1.md#47-moves-and-verdicts)). Tactic margin ≥ 260 ([PostM2 §4.1](../../milestones/PostM2_EM1.md#41-tactic-judgement)).
 - **Working terms (not official).** *Deterministic*: identical output for identical configuration on this host. *Stable*: same category across budgets; not guaranteed.
 
 ## Conclusion
@@ -39,7 +39,7 @@ Central root (OBSERVED): 1.e4 e5 2.Bc4 Nc6 3.Qh5, FEN `r1bqkbnr/pppp1ppp/2n5/4p2
 
 ### SRCH-2 — Margins subtract values from different kinds, budgets and depths
 
-- **Root cause.** A (MultiPV, 1,000,000 nodes), C (single PV, requested 200,000), R (100,000) and child-root A are subtracted as if comparable. [PostM2 §4.1](../milestones/PostM2_EM1.md#41-tactic-judgement) accepts negative margins for this reason. Kind and budget are confounded (INFERENCE).
+- **Root cause.** A (MultiPV, 1,000,000 nodes), C (single PV, requested 200,000), R (100,000) and child-root A are subtracted as if comparable. [PostM2 §4.1](../../milestones/PostM2_EM1.md#41-tactic-judgement) accepts negative margins for this reason. Kind and budget are confounded (INFERENCE).
 - **Evidence.** Standard unless noted:
 
 | Comparison | Value 1 | Value 2 | Abs. Δ (units) |
@@ -61,25 +61,25 @@ F11 root `1r1q1rk1/4b1pp/4b3/1p1pPp2/3p1P2/8/1PBB2PP/R2Q1RK1 w - f6 0 18`, `--bu
 
 ### SRCH-3 — Repetition history never reaches the engine
 
-- **Root cause.** [`SearchRequest`](../../include/chesswhy/engine.hpp) supplies a FEN rather than a preceding move history; [`Engine::Impl::search`](../../src/engine/engine.cpp) sends `position fen`. The PGN mainline reaches opening lookup, not engine history (SOURCE). Stockfish's [repetition logic](https://github.com/official-stockfish/Stockfish/blob/sf_19/src/position.cpp) needs earlier positions.
+- **Root cause.** [`SearchRequest`](../../../include/chesswhy/engine.hpp) supplies a FEN rather than a preceding move history; [`Engine::Impl::search`](../../../src/engine/engine.cpp) sends `position fen`. The PGN mainline reaches opening lookup, not engine history (SOURCE). Stockfish's [repetition logic](https://github.com/official-stockfish/Stockfish/blob/sf_19/src/position.cpp) needs earlier positions.
 - **Example (PROPOSED, UNRUN).** PGN `1. Nf3 Nf6 2. Ng1 Ng8 3. Nf3 Nf6 4. Ng1 *`; inspect the position after seven plies and ask Ng8. Hand-derived root `rnbqkb1r/pppppppp/5n2/8/8/8/PPPPPPPP/RNBQKBNR b KQkq - 7 4`. After 4…Ng8 the start position occurs for the third time. CLI `--ply` handling was not exercised for this example.
 - **Impact.** Search cannot use pre-root repetition history that was discarded (SOURCE). The resulting evaluation difference is unmeasured; a near-equal opening may get the same score either way.
-- **Strongest defense.** The [input contract](../milestones/M1.md#5-input) is position-based, and a bare FEN cannot encode history. This is a scope boundary, not evidence that a frozen position-only acceptance test fails.
+- **Strongest defense.** The [input contract](../../milestones/M1.md#5-input) is position-based, and a bare FEN cannot encode history. This is a scope boundary, not evidence that a frozen position-only acceptance test fails.
 - **Proposal.** Explicitly state the history-free limit. If game-aware PGN analysis is wanted, preserve its initial position and mainline (including setup-FEN games), rather than always using `startpos`.
 - **Acceptance experiment (PROPOSED).** Compare identical boards with different legal repetition histories against a history-aware reference, including an independently established claimable draw. Equal scores on the neutral example do not falsify history loss; do not use "bestmove must differ" as the criterion.
 
 ### SRCH-4 — Identity records configuration, not the executable
 
-- **Root cause.** [`EngineInfo`](../../include/chesswhy/report.hpp) records engine name/settings, not executable digest, NNUE identity or ChessWhy revision. [identity_test.cpp](../../tests/cli/identity_test.cpp) historically checks same-host reruns, not artifact equivalence (SOURCE; test not rerun).
+- **Root cause.** [`EngineInfo`](../../../include/chesswhy/report.hpp) records engine name/settings, not executable digest, NNUE identity or ChessWhy revision. [identity_test.cpp](../../../tests/cli/identity_test.cpp) historically checks same-host reruns, not artifact equivalence (SOURCE; test not rerun).
 - **Evidence.** OBSERVED UCI name: Stockfish 19; executable SHA-256: `0f83d24cc46d2c66c60f16001af5444873bc112b7d028594513426894c12da19`. The fetch manifest pins a release archive; its hash is not expected to equal the extracted executable's hash. No mismatch is alleged.
 - **Impact.** Different binaries can share the same reported identity even when results differ (INFERENCE). Identical configuration is insufficient to reconstruct a past run.
-- **Strongest defense.** [fetch_assets.sh](../../tools/fetch_assets.sh) pins the downloaded artifact, and the project has same-host identity tests. These are useful controls, just narrower than a portable reproducibility certificate.
+- **Strongest defense.** [fetch_assets.sh](../../../tools/fetch_assets.sh) pins the downloaded artifact, and the project has same-host identity tests. These are useful controls, just narrower than a portable reproducibility certificate.
 - **Proposal.** Record a ChessWhy revision and executable identity in a versioned report or replay receipt. Avoid collecting expensive environment telemetry: identify the actual inputs first.
 - **Acceptance experiment (PROPOSED).** Different executable contents produce different recorded content identities; repeated use of the same contents preserves identity regardless of pathname. Check the report against the loaded artifact.
 
 ### SRCH-5 — ES depends on a material-dependent WDL curve
 
-- **Root cause.** ES derives from Stockfish WDL, whose [win_rate_model](https://github.com/official-stockfish/Stockfish/blob/sf_19/src/uci.cpp) fits long-time-control fishtest statistics with material-dependent parameters (SOURCE). The scale limitation is accepted in [M1 §4.7](../milestones/M1.md#47-moves-and-verdicts).
+- **Root cause.** ES derives from Stockfish WDL, whose [win_rate_model](https://github.com/official-stockfish/Stockfish/blob/sf_19/src/uci.cpp) fits long-time-control fishtest statistics with material-dependent parameters (SOURCE). The scale limitation is accepted in [M1 §4.7](../../milestones/M1.md#47-moves-and-verdicts).
 - **Evidence.** README d5 candidate, standard: cp −175, ES 48 units (.024), loss 1007, blunder (OBSERVED).
 - **Impact.** This is engine expected score, not a calibrated prediction for this user's games. Material-dependent scaling may affect comparisons across positions (INFERENCE; no isolated effect measured).
 - **Strongest defense.** The limit is recorded; integer units avoid floating-point boundary errors. A fixed centipawn curve is not automatically a better chess scale.
@@ -88,8 +88,8 @@ F11 root `1r1q1rk1/4b1pp/4b3/1p1pPp2/3p1P2/8/1PBB2PP/R2Q1RK1 w - f6 0 18`, `--bu
 
 ## Strengths
 
-- Fixed nodes, `Threads=1`, `Hash 64`, `ucinewgame` before each search ([M1 §2](../milestones/M1.md#2-calibration-evidence), historical).
-- Integer es-units; accepted limits recorded with reasons ([M1 §4.7](../milestones/M1.md#47-moves-and-verdicts); [PostM2 §4.1](../milestones/PostM2_EM1.md#41-tactic-judgement)).
+- Fixed nodes, `Threads=1`, `Hash 64`, `ucinewgame` before each search ([M1 §2](../../milestones/M1.md#2-calibration-evidence), historical).
+- Integer es-units; accepted limits recorded with reasons ([M1 §4.7](../../milestones/M1.md#47-moves-and-verdicts); [PostM2 §4.1](../../milestones/PostM2_EM1.md#41-tactic-judgement)).
 
 ## Verification limits
 

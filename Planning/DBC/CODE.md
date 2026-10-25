@@ -148,23 +148,24 @@ Rules, checked by `python3 tools/check_dbc.py`:
 | `Provenance` | `src/report/report.cpp` `to_json`; `include/chesswhy/report.hpp` `parry_source` | Written as a `source` field beside each fact |
 | `Reproducible` | `src/cli/cli.cpp` `build_report`; `include/chesswhy/report.hpp` `EngineInfo` | |
 | `ReportDocument` | `include/chesswhy/report.hpp` `Report` `to_json`; `src/report/report.cpp` `to_json` | |
-| `ReportSchema` | `schema/report.v7.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
+| `ReportSchema` | `schema/report.v8.schema.json`; `include/chesswhy/report.hpp` `kSchemaVersion`; `tools/validate_report.py` | |
 | `SemanticCheck` | `tools/validate_report.py` `check_all_semantics` `check_score_relations` `check_parry_relations` `check_threat_skip` `check_restrictions_everywhere` `check_tactic_invariants` `check_tempo_and_positional_semantics` `check_tempo_value` `check_tempo_ledger` `use_test` `check_positional_relations` | Run by CTest `report_schema` on every F report; `use_test` re-implements the use test independently |
 | `RerunIdentity` | `tests/cli/identity_test.cpp` | |
 | `JsonOutput` | `src/cli/output.cpp` `write_output`; `src/report/move_report.cpp` `to_json` | `--json` prints the move report document, `--json --full-report` the full report |
 | `MoveSelection` | `src/report/move_report.cpp` `move_reports` `selected_from_a` `selected_by_keyword`; `src/analysis/analyse.cpp` `selected_by_selection` | Engine order, asked moves outside A last, each move once |
-| `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence` | Positional changes: `net_change && in_use`, ordered by `positional::impact_order` |
+| `RelevanceFilter` | `src/report/move_report.cpp` `assess_move` `relevant_motifs` `projected_threat` `has_created_threat_consequence`; `include/chesswhy/report.hpp` `MotifLabel` `Motif::also` | Positional changes: `net_change && in_use`, ordered by `positional::impact_order`. Motif repeats merge inside `relevant_motifs` |
 | `ImpactRating` | `src/report/move_report.cpp` `impact_order`; `src/positional/positional.cpp` `impact_order`; `include/chesswhy/move_report.hpp` `ImpactGroup`; `src/render/render.cpp` `write_move_report` | Groups for the move report; positional facts ordered within their group |
-| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v7.schema.json` | |
+| `MoveReport` | `include/chesswhy/move_report.hpp` `MoveReport` `MoveReportDocument` `SelectionInfo` `PositionSummary`; `src/report/move_report.cpp` `move_reports`; `schema/moves.v8.schema.json` | |
 | `ProjectionCheck` | `tools/validate_report.py` `projected_move_document` `project_assessment` `net_positional_changes` `positional_identity` `projected_tempo_gained` `check_projection` | Second, independent filter; `--projection FULL MOVES` |
 
 ## Explanation
 
 | Node | Code | Notes |
 |---|---|---|
-| `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` `write_restriction` `write_held_to` | |
+| `RestrictedMovement` | `src/render/render.cpp` `write_motif_label` `write_motif_inner_label` `write_compact_restricted_motif_label` `write_restriction` `write_held_to` | Compact rows in the move report text: `write_motifs(…, compact_restricted = true)` |
 | `Conditions` | `src/render/render.cpp` `write_engine_line_count` `write_selection_count` `write_walk` `creates_threat_skip_reason` | |
-| `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` `write_tempo_value` `write_tempo_ledger` `write_initiative_runs` `write_move_tempo_rows` | Two overloads of `text`: move report text and full report text |
+| `PositionWalk` | `src/render/render.cpp` `write_move_report` `write_position_block` `write_no_move_block` `write_root_evaluation` `write_line_evaluation` `write_white_evaluation` `write_position_move` `write_move_report_group` `write_move_motifs` `write_move_tactic_labels` `write_move_positional_group`; `src/report/move_report.cpp` `replay_line_fens`; `tools/validate_report.py` (line_fens replay in the projection check) | `walked_plies` + 1 position blocks per move; facts placed by their position; no tempo rows |
+| `TemplateRendering` | `src/render/render.cpp` `text` `write_move_report` `write_selection` `write_move_details` `write_tempo_value` `write_tempo_ledger` `write_initiative_runs` | Two overloads of `text`: move report text and full report text |
 | `ExplanationText` | `src/cli/output.cpp` `write_output` | Prints the rendered text |
 
 ## Fixtures and measurement
