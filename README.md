@@ -166,6 +166,26 @@ Explain a position's best move (the default) or the moves named by `--moves`:
 build/release/chesswhy --fen "r1bqkbnr/pppp1ppp/2n5/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R b KQkq - 3 3" --moves playable
 ```
 
+All flags of `chesswhy`:
+
+| Flag | Default | Effect |
+|---|---|---|
+| `--fen FEN` | — | The position to analyse. Exactly one of `--fen` and `--pgn` is required |
+| `--pgn FILE` | — | Read the position from a PGN file, chosen by `--game` and `--ply` |
+| `--game N` | 1 | With `--pgn`: the game, counted from 1 |
+| `--ply N` | 0 | With `--pgn`: half-moves played from the game's start (0 = start position) |
+| `--moves LIST` | `best` | The moves to explain: moves and keywords, see below |
+| `--budget quick\|standard\|deep` | `standard` | Engine effort as fixed node counts. The best-move search gets 250 k, 1 M or 4 M nodes for 5 lines (more lines get proportionally more); every other search scales the same way. Deeper budgets can change close verdicts and, in a near-tie, the best move |
+| `--threads N` | 1 | Stockfish threads. Same node counts, so faster but no deeper; above 1 the report is marked non-reproducible |
+| `--level beginner\|club\|advanced` | `club` | Recorded in the report; no effect on the analysis or the text yet |
+| `--json` | off | JSON output instead of text (see the output table below) |
+| `--full-report` | off | Every computed fact instead of the move report (see the output table below) |
+| `--no-llm` | off | Accepted; no effect yet, since the text always comes from templates |
+| `--engine PATH` | `assets/engines/stockfish` | The UCI engine binary; fixtures are pinned to the Stockfish 19 build there |
+| `--openings DIR` | `assets/data/openings` | The opening-name tables |
+| `--games FILE` | `assets/data/games/lichess_broadcast_2200.tsv` | The broadcast game-count table |
+| `--help` | — | Print the usage and exit |
+
 `--moves` takes a comma-separated list without spaces; the result is the union of its items:
 
 | Item | Selects |
@@ -228,10 +248,9 @@ a root position is terminal only at checkmate or stalemate. A non-playable move 
 has a null `refutation` and `refutation_skipped: game_over`; `creates_threat_skipped` is
 `game_over` when the move ends the game and no created threat is searched.
 
-Analyze a position from a PGN. `--game` is 1-based; `--ply` counts half-moves from the game's start, with 0 denoting the initial position. Before White's move N, use ply `2(N−1)`; before Black's move N, use ply `2N−1`. Budgets are `quick`, `standard` (default), or `deep`.
-`--games FILE` selects the broadcast-count table (default
-`assets/data/games/lichess_broadcast_2200.tsv`). A missing or invalid table fails with exit 3 and one
-`chesswhy: error: ...` line.
+Analyze a position from a PGN: before White's move N, use ply `2(N−1)`; before Black's move N,
+use ply `2N−1`. A missing or invalid games table fails with exit 3 and one `chesswhy: error: ...`
+line.
 
 Analysis is position-only: PGN history selects the position but is not an input to the searches or
 rules. The playable moves listed are those among the lines the engine searched; with `best` or
