@@ -9,11 +9,13 @@ Showing e4 [rule]
 Asked: e4 (e2e4): okay, es=47.8%, loss=2.2%, depth=12 [engine]
 Line: e4 e5; facts read to ply 2 of 2 [engine]
 
-Start: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
-  Position: White to move, 20 legal moves; evaluation 50.0% for White (cp 0) [engine]
+Position: rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+  Evaluation: 50.0% for White (cp 0) [engine]
+  Move: e4 (White)
 
-Ply 1: e4 (White)
 Position: rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1
+  Evaluation: 47.8% for White (line score) [engine]
+  Move: e5 (Black)
 
-Ply 2: e5 (Black)
 Position: rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq - 0 2
+  Evaluation: 47.8% for White (line score) [engine]

@@ -12,11 +12,13 @@ Refuted by: Qxf7# ; a tactic: White mates in 1 [engine]
 Opportunity: margin 0.20 over Qe2 [engine]
 Uses: fork: Q h5 → k f7, k e8 (ply 1, direct) [rule]
 
-Start: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
-  Position: Black to move, 28 legal moves; evaluation 51.1% for White (cp 15) [engine]
+Position: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
+  Evaluation: 51.1% for White (cp 15) [engine]
+  Move: Nf6 (Black)
 
-Ply 1: Nf6 (Black)
 Position: r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4
+  Evaluation: 73.3% for White (line score) [engine]
+  Move: Qxf7# (White)
 
-Ply 2: Qxf7# (White)
 Position: r1bqkb1r/pppp1Qpp/2n2n2/4p3/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 0 4
+  Evaluation: 73.3% for White (line score) [engine]

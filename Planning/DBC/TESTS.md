@@ -5,9 +5,9 @@ and the concept nodes of [CONCEPTS.md](CONCEPTS.md) it checks (their code is in
 [CODE.md](CODE.md)). Terms are defined in [DEFINITIONS.md](DEFINITIONS.md) (§6.3 for
 labels, gates and builds); fixtures are listed in [FIXTURES.md](FIXTURES.md).
 
-**Snapshot:** 2026-10-25, PostM4_EM4 part 1b batch (Release `unit|engine` 208/208): 213 CTests
-(160 `unit`, 48 `engine` of which 15 also `sanitize`, 2 `games`, 2 `corpus`, 1 `timing`, no
-`model` yet). Release runs all of them; ASan/UBSan runs `unit` and `sanitize` (175). The
+**Snapshot:** 2026-10-25, PostM4_EM4 part 1c batch (Release `unit` 161/161): 214 CTests
+(161 `unit`, 48 `engine` of which 15 also `sanitize`, 2 `games`, 2 `corpus`, 1 `timing`, no
+`model` yet). Release runs all of them; ASan/UBSan runs `unit` and `sanitize` (176). The
 PostM4_EM3 milestone-end gate passed all 206 then.
 
 **Keeping it current.** The orchestrator updates this file in the same commit
@@ -174,11 +174,10 @@ Program tests:
 | move_report_move report JSON uses the v8 moves shape and stable key order | unit | `to_json` writes `document: "moves"` with keys in schema order | `JsonOutput`, `MoveReport`, `Reproducible` |
 | move_report_move reports merge restricted-movement repeats and serialize their labels | unit | A relative pin and a tactical pin with equal side, ply, actor, targets, restriction and contribution become one motif in the first one's place with `also` naming the tactical pin; a fork keeps `also: []`; the JSON writes `also` | `RelevanceFilter`, `MoveReport`, `JsonOutput` |
 | move_report_move report leaves restricted motifs unmerged when restriction or contribution differs | unit | A differing `restricted` list or a differing contribution keeps two motifs | `RelevanceFilter` |
-| move_report_move report tempo and positional groups follow impact order | unit | Move report groups (parried threat, created threat, motifs, tempo rows, dynamic and static positional rows) come out in `impact_order`, ranked by consequence | `ImpactRating`, `MoveReport`, `TempoGained` |
 | move_report_move report positional filtering and order follows root tempo dependence | unit | Only net changes that pass the use test are kept; dynamic facts come first in a tempo-dependent position, static facts first otherwise | `TiedToLine`, `RelevanceFilter`, `ImpactRating`, `TempoLabel` |
 | move_report_move report tempo projections are null exactly when no ledger exists | unit | Tempo gained and initiative rows are null when the line has no tempo ledger and copied from it otherwise | `RelevanceFilter`, `TempoLedger`, `InitiativeRun` |
 | move_report_impact order sorts ranked groups stably around both positional base orders | unit | Groups with the same consequence rank keep their base order, for both the dynamic-first and the static-first order | `ImpactRating`, `StaticScale` |
-| move_report_move reports record the FEN after each walked SAN ply | unit | `line_fens` holds the exact FEN after each walked ply of a known line, one per walked ply | `MoveReport`, `PlyWalk` |
+| move_report_move reports record the FEN after each walked SAN ply | unit | `line_fens` holds the exact FEN after each walked ply of a known line, one per walked ply | `MoveReport`, `PositionWalk` |
 
 Program tests:
 
@@ -195,7 +194,7 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
 | render_example reports match the golden text | unit | The eight example reports render byte for byte as the golden full report text | `TemplateRendering`, `ExplanationText`, `ReportDocument` |
-| render_move report documents match golden text without candidate wording | unit | Six move report documents (best move, playable set, asked move outside A, blunder with refutation, empty selection, terminal position) render byte for byte as their golden files, laid out as the ply walk; no output contains "candidate" in any case | `TemplateRendering`, `MoveReport`, `Conditions`, `PlyWalk` |
+| render_move report documents match golden text without candidate wording | unit | Six move report documents (best move, playable set, asked move outside A, blunder with refutation, empty selection, terminal position) render byte for byte as their golden files, laid out as the position walk; no output contains "candidate" in any case | `TemplateRendering`, `MoveReport`, `Conditions`, `PositionWalk` |
 | render_non-detailed engine lines omit unsearched details | unit | An A line that was not detailed prints no parry, created threat or refutation, even if the fields were filled | `TemplateRendering`, `CandidateMove` |
 | render_position evaluation renders the mate score when available | unit | The mate score is shown alongside ES | `TemplateRendering`, `ExpectedScore` |
 | render_motif rows and level-independent output | unit | Motif rows; output does not change with `--level` where it should not | `ExplanationText`, `StateMotif`, `TacticalPin`, `TemplateRendering` |
@@ -205,8 +204,10 @@ Text rendering of a report, compared with `tests/render/golden/*.txt`.
 | render_full report tempo rows follow the v7 templates | unit | Root and after-move tempo values with their labels, the tempo ledger (with skip reasons), initiative runs, and ` (passing change)` / ` (fails the use test)` marks render as in the plan | `TemplateRendering`, `TempoValue`, `TempoLedger`, `InitiativeRun`, `RunOutcome`, `NetChange`, `UseTest` |
 | render_move report text compacts restricted-movement rows | unit | A merged and an unmerged restricted-movement motif print the compact row: every label in the parentheses, held-to wording, no `restricted:` or `free:` list | `RestrictedMovement`, `TemplateRendering` |
 | render_full report text retains restricted and free move lists | unit | The full report text still lists the restricted and free moves of a restricted-movement motif | `RestrictedMovement`, `TemplateRendering` |
-| render_move report facts render in their ply-walk blocks | unit | Facts at plies 0, 1 and 3 and a positional change at ply 2 print in those blocks with the ply-walk row forms (no `ply k` in motif rows, `(net change to ply N)` on positional rows); tempo gained and an initiative run print in their plies; each block shows its move, mover and FEN | `PlyWalk`, `TemplateRendering`, `ImpactRating` |
-| render_empty move report selection prints one start block | unit | With no move shown, the text ends with one start block (FEN, position, tempo value) and no separator | `PlyWalk`, `TemplateRendering` |
+| render_move report facts render in their position-walk blocks | unit | Facts at positions 0, 1 and 3 and a positional change at position 2 print in those position blocks, `Uses:` rows before the other facts, with the part 1b row forms (no `ply k` in motif rows, `(net change to ply N)` on positional rows); each block shows its FEN, its evaluation and, except the last, its move and side; no tempo row although the document holds tempo facts | `PositionWalk`, `TemplateRendering`, `ImpactRating` |
+| render_empty move report selection prints one position block | unit | With no move shown, the text ends with one position block (FEN, `To move:` with side and legal moves, evaluation) and no separator | `PositionWalk`, `TemplateRendering` |
+| render_line score evaluation is stated from White's view | unit | Block 0 prints the root evaluation; blocks after the move print the move's score as the line score, turned to White's view when Black moved (ES complemented, cp and mate negated) | `PositionWalk`, `ExpectedScore` |
+| render_move report positional groups follow impact order | unit | Within a position block the groups after the `Uses:` rows (parried threat, created threat, dynamic and static positional rows) come out in `impact_order`, ranked by consequence; the tempo group prints nothing | `ImpactRating`, `PositionWalk`, `StaticScale` |
 
 ## 8. CLI — `tests/cli/`
 
@@ -307,4 +308,4 @@ Python `unittest` cases on hand-built JSON, one CTest.
 
 | Test | Label | Checks | Concepts |
 |---|---|---|---|
-| `checker_unit` | unit | The semantic check rejects a best move with a different score, a blunder that allows no tactic, tactic flags that disagree with the consequence, details on a non-detailed line, labels off tactic lines, a wrong opportunity flag at the margin, a selection out of typed order and a wrong `playable_truncated`; it derives `creates_threat_skipped` from the board on detailed lines only (a non-detailed checking move keeps null); one mutant per tempo relation (tempo value and label at the unit boundaries, ledger labels and tempi, initiative runs and their outcome) and per use-test rule (tags, timing, king pressed, superseded changes) is rejected, net change and `in_use` are re-derived independently; the projection check's independent filter drops non-contributing motifs, merges motif repeats (an unmerged repeat, a dropped `also` label and `also` labels out of order are rejected), drops changes that are not net or fail the use test, orders the rest by impact order, and flags a move fact that differs from the full report; `line_fens` is replayed from the position and a wrong or missing FEN is rejected | `SemanticCheck`, `ProjectionCheck`, `MoveSelection`, `NetChange`, `UseTest`, `TempoValue`, `TempoLedger`, `InitiativeRun`, `ImpactRating`, `RelevanceFilter`, `PlyWalk` |
+| `checker_unit` | unit | The semantic check rejects a best move with a different score, a blunder that allows no tactic, tactic flags that disagree with the consequence, details on a non-detailed line, labels off tactic lines, a wrong opportunity flag at the margin, a selection out of typed order and a wrong `playable_truncated`; it derives `creates_threat_skipped` from the board on detailed lines only (a non-detailed checking move keeps null); one mutant per tempo relation (tempo value and label at the unit boundaries, ledger labels and tempi, initiative runs and their outcome) and per use-test rule (tags, timing, king pressed, superseded changes) is rejected, net change and `in_use` are re-derived independently; the projection check's independent filter drops non-contributing motifs, merges motif repeats (an unmerged repeat, a dropped `also` label and `also` labels out of order are rejected), drops changes that are not net or fail the use test, orders the rest by impact order, and flags a move fact that differs from the full report; `line_fens` is replayed from the position and a wrong or missing FEN is rejected | `SemanticCheck`, `ProjectionCheck`, `MoveSelection`, `NetChange`, `UseTest`, `TempoValue`, `TempoLedger`, `InitiativeRun`, `ImpactRating`, `RelevanceFilter`, `PositionWalk` |

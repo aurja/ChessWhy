@@ -158,9 +158,11 @@ time. `--json` chooses the format and `--full-report` the content, independently
 | `--full-report` | full report text: every computed fact |
 | `--json --full-report` | full report JSON (`schema/report.v8.schema.json`) |
 
-The default move report lays out each selected move as a ply walk: a `Start` block shows the root
-position and tempo value, then each walked ply shows its SAN move, resulting FEN, and facts assigned
-to that ply.
+The default move report lays out each selected move as a position walk: after the move's verdict
+rows, each position on its line gets a block with its FEN, its evaluation for White, the move
+played from it (except after the last walked ply), and the motifs, tactic labels, threat rows and
+positional changes assigned to that ply. Tempo facts appear only in the JSON and the full report
+text.
 
 A move report keeps the move's verdict, line, consequence, tactic and opportunity judgements and
 refutation, and only the threats, motifs and positional changes that bear on that move; every

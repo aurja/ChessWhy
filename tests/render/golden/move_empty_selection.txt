@@ -5,5 +5,6 @@ Current opening: null [book]
 Last named opening: null [book]
 Showing no moves [rule]
 
-Start: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
-  Position: Black to move, 28 legal moves; evaluation 51.1% for White (cp 15) [engine]
+Position: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
+  To move: Black, 28 legal moves [rule]
+  Evaluation: 51.1% for White (cp 15) [engine]

@@ -11,24 +11,23 @@ Line: g6 d3 Bc5 Nf3; facts read to ply 3 of 4 [engine]
 Opportunity: margin 0.21 over Bc5 [engine]
 Played in 5421 of 10260 games (platform: over the board; source: Lichess broadcast database) [games]
 
-Start: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
-  Position: Black to move, 28 legal moves; evaluation 51.1% for White (cp 15) [engine]
-  Tempo value: 31.4% for Black (tempo-dependent position) [engine]
+Position: r1bqkbnr/pppp1ppp/2n5/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR b KQkq - 3 3
+  Evaluation: 51.1% for White (cp 15) [engine]
+  Move: g6 (Black)
   Uses: back_rank_weakness: k e8 (indirect) [rule]
 
-Ply 1: g6 (Black)
 Position: r1bqkbnr/pppp1p1p/2n3p1/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 4
+  Evaluation: 51.1% for White (line score) [engine]
+  Move: d3 (White)
   Parries White's threat: Qxf7# (White mates in 1) [engine]
   Threatens (if White passes): Nxe4 (Black wins 1 pawn net by ply 6) [engine]
-  Tempo value: 39.4% for White (tempo-dependent position) [engine]
 
-Ply 2: d3 (White)
 Position: r1bqkbnr/pppp1p1p/2n3p1/4p2Q/2B1P3/3P4/PPP2PPP/RNB1K1NR b KQkq - 0 4
+  Evaluation: 51.1% for White (line score) [engine]
+  Move: Bc5 (Black)
   Uses: fork: N e5 → r c6, k g6 (direct) [rule]
-  Tempo: White gains a tempo with d3 [engine]
-  Initiative: White from ply 2, 1 tempo; spent at ply 4; converted [rule]
   + mobility_lead: black 12 (net change to ply 3) [rule]
   + isolated_pawn: white: P c2 (net change to ply 3) [rule]
 
-Ply 3: Bc5 (Black)
 Position: r1bqk1nr/pppp1p1p/2n3p1/2b1p2Q/2B1P3/3P4/PPP2PPP/RNB1K1NR w KQkq - 1 5
+  Evaluation: 51.1% for White (line score) [engine]
