@@ -538,3 +538,23 @@ contract rules and the C++ use test agree.
 | PU16 | — | F28 root; line `Nc3 f6 d3 c5 Be3 Bg4`; not tempo-dependent | **Cut:** `development_lead` W (ply 1); `mobility_lead` B disappears (ply 1); `pawn_chain` | Oracle matches | |
 | PU17 | — | as PU16, tempo-dependent | **Kept:** `development_lead` W (ply 1); `mobility_lead` B disappears (ply 1) | Oracle matches | |
 | PU18 | — | `7k/8/2p5/3P4/8/8/8/K7 b - - 0 1`; line `Kg8 Kb2 c5 d6`<br><sub>constructed</sub> | **Kept:** `passed_pawn` W d (ply 3, advanced at ply 4)<br>**Cut:** `passed_pawn` B c (ply 3, not advanced) | Built as drawn; C++ use test passes | |
+
+## 12. PostM4_EM5 part 1 fixtures — reply evidence (planned)
+
+**Concepts:** `EngineFixtures`, `PositionalFixtures`, `WalkedPlies`, `TerminalDraw`, `Refutation`, `SettlePoint`, `ReplyGain`, `ForcedTest`, `PlyLabel`, `TempoGained`, `RunEnding`, `RunOutcome`, `FavouredSide`, `UseTest`, `UtWitness`, `PositionWalk`
+
+Contracted on 2026-10-25 (`Planning/milestones/PostM4_EM5.md` §3.6); none is built yet, so
+"Codebase today" gives what the PostM4_EM4 build reports. F45 and F46 will join
+`positions.json` (§1 rules); PU19 and PU20 the `uses` section of `positional.json` (§11
+rules). Boards are rendered once the fixtures are in the JSON files. Re-blessed under the same
+contract, with old and new values listed at checkpoint 2: F21 (`Nxf6+` ends in insufficient
+material at ply 1), F40 (`Qd8` stays a pure reply, now with its forced test), F41 (`Nxc2`
+becomes a gaining reply: no tempo gained, no initiative run), F07 (`Kg1` walked through the
+checks), and every other fixture whose pinned fact the settled walk or the new labels change.
+
+| ID | Board | Position | Fixture claims | Codebase today | Comments |
+|---|---|---|---|---|---|
+| F45 | — | `8/8/8/8/6q1/6R1/5k2/7K b - - 0 1`<br>`--moves Qxg3`<br><sub>constructed: the capture stalemates</sub> | Qxg3: walked plies 1, terminal draw stalemate at ply 1, material 5, a tactic; no refutation (`refutation_skipped` game over); no created threat (game over) | Not run as a fixture; the critique (THR2-1) shows material 5 and no terminal draw | |
+| F46 | — | `3r2k1/8/2n5/8/3P4/2N5/8/R5K1 b - - 0 1`<br>`--moves Rxd4`<br><sub>constructed (critique POS2-1, TMP-2)</sub> | Rxd4: White's `isolated_pawn` d disappears at ply 1, captured, favours nobody; Black's run outcome unknown when unfinished | Not run as a fixture; the critique shows the capture credited to White's opponent as a positional gain | |
+| PU19 | — | `6k1/8/8/8/1n6/8/4BP2/4K2R w K - 0 1`; line `f4 Nd3+ Bxd3 Kf7 Bc4+ Ke7`<br><sub>constructed (critique POS2-2)</sub> | **Cut:** White's f-file shelter change (ply 1): `Nd3+` checks from outside the f-file squares of the king zone | Kept today: any check presses the king | |
+| PU20 | — | `q5k1/8/8/8/8/8/5PPP/6K1 w - - 0 1`; line `h3 Kh7 f4 Qa7+ Kh2`<br><sub>constructed; WP2 may adjust the board</sub> | **Kept:** White's f-file shelter change (ply 3): `Qa7+` checks through f2 | Kept today (any check) | |
