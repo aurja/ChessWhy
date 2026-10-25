@@ -109,8 +109,9 @@ Updated 2026-10-25.
   v2, recall targets met, reference implementation 0 mismatches.
 - Decided 2026-10-19/20 (M2 D1–D13): see M2 §1. ChessWhy stays MIT; lichess-puzzler
   (AGPL-3.0) is read for definitions only, never copied, and credited.
-- Engine CTests: the F fixture tests run in parallel; the 15 s timing check is one
-  serial test, `cli_timing`, registered only with `CHESSWHY_CHECK_TIMING` on (Release).
+- Engine CTests: the F fixture tests run in parallel; `cli_timing` is one serial
+  measurement, registered only with `CHESSWHY_CHECK_TIMING` on (Release); no time limit
+  from 2026-10-25 (15 s before). Speed is deferred: a later milestone makes it fast.
   CTest `TIMEOUT 3600` on `tactics_oracle` and the F fixture tests (F32 takes about 29 min
   alone under ASan/UBSan at M4).
 - M1 complete, merged into `main` (receipt `Planning/receipts/M1.md`): CLI, engine

@@ -15,7 +15,7 @@ says `Rh8`. Terms are in `Planning/DBC/DEFINITIONS.md` §3.9.
 | H3 | Search shape | Step 1a, search A-best: the best line alone at the search budget. Step 1b, search A-rest: the other requested lines at the same depth, without A-best's move. Step 2, the explanation phase: every explanation search at the explanation budget |
 | H4 | Defaults | Search budget 18, explanation budget 14 |
 | H5 | Tie rule | An A-rest line whose engine score is at least A-best's is verdict `best` with loss 0 |
-| H6 | Timing limits | `cli_timing` 25 s per F fixture; F32 smoke `--moves playable` ≤ 60 s, `--moves all` ≤ 150 s |
+| H6 | Timing | No time limit (checkpoint 2, 2026-10-25): `cli_timing` measures each F fixture's default run and fails only when a run fails; speed is deferred until the tool works correctly ("make it correct > make it fast > make it nice"). Frozen before: `cli_timing` 25 s per F fixture; F32 smoke `--moves playable` ≤ 60 s, `--moves all` ≤ 150 s |
 | H7 | Milestone shape | Own milestone, before PostM4_EM5 parts 2–3; `--no-llm` stays |
 
 ## 2. Evidence at freeze
@@ -152,7 +152,7 @@ text change.
 
 | Fixture | Change |
 |---|---|
-| F47 (new) | `2brr3/1p4k1/2p1P3/p4P2/P4pN1/2P4B/5K2/6R1 b - - 0 1`, `--moves playable`: candidate 1 `Rh8` (`e8h8`); `Rd3` (`d8d3`) a candidate with verdict `best` and loss 0 (N5, N6) |
+| F47 (new) | `2brr3/1p4k1/2p1P3/p4P2/P4pN1/2P4B/5K2/6R1 b - - 0 1`, `--moves best,Rd3` (checkpoint 2; `--moves playable` before, where A-rest's 21 lines score Rd3 cp −18, verdict `okay`, loss 0.0005: width dependence): candidate 1 `Rh8` (`e8h8`); `Rd3` (`d8d3`) a candidate with verdict `best` and loss 0 (N5, N6) |
 | F32 (changed) | Also asserts N11: candidate 1 is the same move under `best`, `top6` and `playable` |
 | F29, F30 | `--budget quick` becomes `--search-budget 12 --explanation-budget 10` |
 | E14 | Expects `unknown flag --level` |
@@ -170,8 +170,8 @@ the same-score unit test becomes an N6 score-order test (cp, mate for, mate agai
 | WP1 analysis, engine, report, CLI | `include/chesswhy/{report,engine,analysis,cli}.hpp`, `src/engine/*`, `src/analysis/*`, `src/report/report.cpp`, `src/cli/*`, `schema/report.v10.schema.json` (rename from v9), `tests/analysis/*`, `tests/engine/*`, `tests/report/report_unit_tests.cpp`, `tests/report/example_reports.hpp`, `tests/cli/unit_tests.cpp`; schema-version mentions anywhere | N1–N4, N7–N11; §3.3–§3.4 | — (commits headers first) |
 | WP2 move report and render | `src/report/move_report.cpp`, `schema/moves.v10.schema.json`, `tests/report/move_report_tests.cpp`, `src/render/*`, `tests/render/*` and goldens | §3.3 moves document, §3.5 | WP1 headers |
 | WP3 checker | `tools/validate_report.py`, `tests/checker/*` | N5–N8 in the oracle: `at_least_score` for `best`, v10 keys and ranges, `playable_truncated` under N8, margin unclamped | — |
-| WP4 fixtures and timing | `tests/fixtures/positions.json`, `tests/cli/*` except `unit_tests.cpp` | §3.6, H6 (`run_timing` 25 s) | WP1–WP3 |
-| WP5 docs | `README.md` | flags, defaults, ranges, timing limits, report v10 fields | WP4 |
+| WP4 fixtures and timing | `tests/fixtures/positions.json`, `tests/cli/*` except `unit_tests.cpp`; the `CHESSWHY_CHECK_TIMING` description in `CMakeLists.txt` | §3.6, H6 (`run_timing` measures, no limit) | WP1–WP3 |
+| WP5 docs | `README.md` | flags, defaults, ranges, `cli_timing` as a measurement, report v10 fields | WP4 |
 
 ### 3.8 Checkpoints
 
@@ -184,7 +184,7 @@ the same-score unit test becomes an N6 score-order test (cp, mate for, mate agai
 
 ### 3.9 Acceptance
 
-- [ ] `chesswhy --fen <F47> --moves playable --full-report --json`: candidate 1 `e8h8`;
+- [ ] `chesswhy --fen <F47> --moves best,Rd3 --full-report --json`: candidate 1 `e8h8`;
       `d8d3` a candidate with verdict `best`, loss 0.
 - [ ] F32 candidate 1 is identical under `--moves best`, `top6` and `playable` (N11).
 - [ ] `--budget` and `--level` are rejected as unknown flags; out-of-range and non-integer
@@ -193,8 +193,8 @@ the same-score unit test becomes an N6 score-order test (cp, mate for, mate agai
       `level`, `budget` or `engine.nodes`; both schemas validate every fixture report.
 - [ ] The checker applies N6's at-least test and N8 and passes on every fixture report.
 - [ ] Two builds of the same report are byte-identical (`cli_rerun_identity`).
-- [ ] `cli_timing` ≤ 25 s per fixture; F32 `--moves playable` ≤ 60 s and `--moves all`
-      ≤ 150 s (smoke), or the Captain's decision at checkpoint 2.
+- [ ] `cli_timing` passes with no time limit (H6, checkpoint 2); the receipt records each
+      fixture's time and the F32 `--moves playable` and `--moves all` smoke times.
 - [ ] Milestone-end gate per AGENTS.md; DBC files current; `tools/check_dbc.py` passes.
 
 ## 4. Contract changes
@@ -202,3 +202,4 @@ the same-score unit test becomes an N6 score-order test (cp, mate for, mate agai
 | Date | Change | By |
 |---|---|---|
 | 2026-10-25 | Checkpoint 1 passed: diagrams approved. Forced-test timing risk (MultiPV 5 at depth 14, about 10× today's cost): build as frozen and measure at checkpoint 2 (option 1) | Captain |
+| 2026-10-25 | Checkpoint 2 passed. Re-bless list approved (best-move changes F15, F28, F31, F44, F46; verdict changes F05, F12, F32). H6 time limits removed; `cli_timing` stays as a measurement (measured at 18/14: 14 default runs over 25 s, slowest F01 47.2 s; total 821 s). F47 asks `--moves best,Rd3` instead of `--moves playable`. Defaults stay 18/14. Speed is deferred, not dropped: a later milestone makes it fast (the explanation phase at depth 14 costs 16–30 s on F01, F08, F12; the search phase 14–16 s) | Captain |

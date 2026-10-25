@@ -75,8 +75,9 @@ chesswhy --pgn game.pgn [--game 2] [--ply 31] [--moves ITEM[,ITEM...]]
   PostM4_EM6): `--search-budget N` (default 18) for the searches that find and rank the
   moves (A-best, A-rest, C) and `--explanation-budget N` (default 14) for the searches that
   explain them (B, D, E, R, L); both accept 1–60. Run longer, a search's line 1 can
-  change; the defaults keep a default report within about 25 s on the development
-  laptop (i7-8565U, CPU only). `--threads N` trades reproducibility for speed and marks
+  change. Speed has no limit for now (Captain, 2026-10-25: correct first, fast later);
+  `cli_timing` measures the default reports on the development laptop (i7-8565U, CPU
+  only; slowest F fixture 47.2 s at the defaults). `--threads N` trades reproducibility for speed and marks
   the report non-reproducible. Audience levels (`--level`, removed in PostM4_EM6) are an
   open question for M5.
 
