@@ -152,7 +152,8 @@ constexpr std::array<PositionalTag, 25> kTags{
 
 [[nodiscard]] bool same_change(const PositionalChange& left, const PositionalChange& right) {
     return left.ply == right.ply && left.change == right.change &&
-           left.holds_at_end == right.holds_at_end && same_feature(left.feature, right.feature);
+           left.holds_at_end == right.holds_at_end && left.captured == right.captured &&
+           same_feature(left.feature, right.feature);
 }
 
 [[nodiscard]] std::string feature_string(const PositionalFeature& feature) {
@@ -198,6 +199,7 @@ constexpr std::array<PositionalTag, 25> kTags{
     return "{ply=" + std::to_string(change.ply) +
            ",change=" + std::string(change_name(change.change)) +
            ",holds_at_end=" + (change.holds_at_end ? "true" : "false") +
+           ",captured=" + (change.captured ? "true" : "false") +
            ",feature=" + feature_string(change.feature) + "}";
 }
 

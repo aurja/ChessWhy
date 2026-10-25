@@ -276,6 +276,51 @@ def check_threat_legality(
     return board, moves
 
 
+def check_refutation_skip(
+    move: JsonObject,
+    pointer: str,
+    root: chess.Board,
+    failures: list[Failure],
+) -> None:
+    assessed = legal_san_move(root, move.get("san"))
+    after_move = None
+    if assessed is not None:
+        after_move = root.copy()
+        after_move.push(assessed)
+    game_over = after_move is not None and rule_game_over(after_move)
+    refutation = as_object(move.get("refutation"))
+    verdict = move.get("verdict")
+    non_playable = verdict not in ("best", "okay")
+    expected_skip = (
+        "game_over" if game_over and refutation is None and non_playable else None
+    )
+    if game_over:
+        fail(
+            failures,
+            f"{pointer}/refutation",
+            "a move ending the game must not have a refutation",
+            refutation is None,
+        )
+    fail(
+        failures,
+        f"{pointer}/refutation_skipped",
+        "P2: refutation_skipped is game_over iff a non-playable move has no refutation because it ends the game",
+        move.get("refutation_skipped") == expected_skip,
+    )
+    if refutation is not None:
+        refutation_root = board_from_fen(
+            refutation.get("root_fen"),
+            f"{pointer}/refutation/root_fen",
+            failures,
+        )
+        fail(
+            failures,
+            f"{pointer}/refutation/root_fen",
+            "a refutation must not be searched from a game-over board",
+            refutation_root is not None and not rule_game_over(refutation_root),
+        )
+
+
 def check_move_legality(
     move: JsonValue,
     pointer: str,
@@ -285,6 +330,7 @@ def check_move_legality(
     move_object = as_object(move)
     if move_object is None:
         return None
+    check_refutation_skip(move_object, pointer, root, failures)
     first_move = check_move_pair(root, move, pointer, failures)
     line_moves = replay_san_line(
         root, move_object.get("line"), f"{pointer}/line", failures
@@ -670,10 +716,10 @@ def check_threat_skip(
         return  # check_move_annotations requires the skip fact to be null here
     after_move = root.copy()
     after_move.push(assessed_move)
-    if after_move.is_check():
-        expected: str | None = "gives_check"
-    elif not any(after_move.legal_moves):
-        expected = "game_over"
+    if rule_game_over(after_move):
+        expected: str | None = "game_over"
+    elif after_move.is_check():
+        expected = "gives_check"
     else:
         after_null = after_move.copy()
         after_null.push(chess.Move.null())
@@ -1529,7 +1575,9 @@ TEMPO_STATIC_GROUPS = {
 
 
 def rule_game_over(board: chess.Board) -> bool:
-    return board.is_checkmate() or board.is_stalemate()
+    return (
+        board.is_checkmate() or board.is_stalemate() or board.is_insufficient_material()
+    )
 
 
 def material_balance(board: chess.Board, side: chess.Color) -> int:
@@ -1639,6 +1687,152 @@ def consequence_rank(consequence_value: JsonValue) -> int | None:
     return None
 
 
+def continuation_move(board: chess.Board, move: chess.Move) -> bool:
+    return board.is_capture(move) or board.is_check() or board.gives_check(move)
+
+
+def derive_walk(
+    root: chess.Board, line_value: JsonValue
+) -> tuple[list[chess.Board], list[chess.Move], bool | None] | None:
+    line = as_array(line_value)
+    if line is None:
+        return None
+    boards = [root.copy()]
+    moves: list[chess.Move] = []
+    current = root.copy()
+    first_six = min(6, len(line))
+    for index in range(first_six):
+        san = line[index]
+        move = legal_san_move(current, san)
+        if move is None:
+            return None
+        current.push(move)
+        moves.append(move)
+        boards.append(current.copy())
+        if rule_game_over(current):
+            return boards, moves, True
+    limit = min(10, len(line))
+    while len(moves) < limit and not rule_game_over(current):
+        move = legal_san_move(current, line[len(moves)])
+        if move is None:
+            return None
+        if not continuation_move(current, move):
+            break
+        current.push(move)
+        moves.append(move)
+        boards.append(current.copy())
+        if rule_game_over(current):
+            break
+    if len(moves) < 10:
+        settled: bool | None = True
+    elif len(line) > 10:
+        next_move = legal_san_move(current, line[10])
+        settled = next_move is None or not continuation_move(current, next_move)
+    else:
+        settled = None
+    return boards, moves, settled
+
+
+def check_line_consequence(
+    root: chess.Board,
+    line_value: JsonValue,
+    consequence_value: JsonValue,
+    pointer: str,
+    failures: list[Failure],
+    walked_value: JsonValue = None,
+) -> tuple[list[chess.Board], list[chess.Move], bool | None] | None:
+    derived = derive_walk(root, line_value)
+    consequence = as_object(consequence_value)
+    if derived is None or consequence is None:
+        return derived
+    boards, moves, settled = derived
+    if walked_value is not None:
+        fail(
+            failures,
+            f"{pointer}/walked_plies",
+            f"walked_plies must be {len(moves)} under P3 settled-walk derivation",
+            walked_value == len(moves),
+        )
+    if settled is not None:
+        fail(
+            failures,
+            f"{pointer}/consequence/settled",
+            "consequence.settled must match the P3 settled walk",
+            consequence.get("settled") is settled,
+        )
+    end = boards[-1]
+    draw: JsonObject | None = None
+    if end.is_stalemate():
+        draw = {"kind": "stalemate", "ply": len(moves)}
+    elif end.is_insufficient_material() and not end.is_checkmate():
+        draw = {"kind": "insufficient_material", "ply": len(moves)}
+    fail(
+        failures,
+        f"{pointer}/consequence/terminal_draw",
+        "terminal_draw must record the first stalemate or insufficient-material board in the P1 walk",
+        consequence.get("terminal_draw") == draw,
+    )
+    if draw is not None:
+        fail(
+            failures,
+            f"{pointer}/consequence/plies",
+            "a terminal draw's ply must equal consequence.plies",
+            consequence.get("plies") == draw["ply"],
+        )
+    return derived
+
+
+def check_nested_consequence(
+    value: JsonValue, pointer: str, failures: list[Failure]
+) -> None:
+    nested = as_object(value)
+    if nested is None:
+        return
+    nested_root = board_from_fen(
+        nested.get("root_fen"), f"{pointer}/root_fen", failures
+    )
+    if nested_root is not None:
+        _ = check_line_consequence(
+            nested_root,
+            nested.get("line"),
+            nested.get("consequence"),
+            pointer,
+            failures,
+        )
+
+
+def check_all_consequence_semantics(
+    report: JsonObject, root: chess.Board | None, failures: list[Failure]
+) -> None:
+    if root is not None:
+        for field in ("candidates", "asked_moves"):
+            for index, value in enumerate(as_array(report.get(field)) or []):
+                assessment = as_object(value)
+                if assessment is None:
+                    continue
+                pointer = f"/{field}/{index}"
+                _ = check_line_consequence(
+                    root,
+                    assessment.get("line"),
+                    assessment.get("consequence"),
+                    pointer,
+                    failures,
+                    assessment.get("walked_plies"),
+                )
+                for nested_field in ("creates_threat", "refutation"):
+                    _ = check_nested_consequence(
+                        assessment.get(nested_field),
+                        f"{pointer}/{nested_field}",
+                        failures,
+                    )
+    threats = as_object(report.get("threats"))
+    if threats is not None:
+        for color in ("white", "black"):
+            _ = check_nested_consequence(
+                threats.get(color), f"/threats/{color}", failures
+            )
+
+
 def replay_walk(
     root: chess.Board,
     assessment: JsonObject,
@@ -1704,6 +1898,8 @@ def favoured_side(change: JsonObject) -> str | None:
     tag = change.get("tag")
     if tag in ("pawn_islands", "pawn_chain"):
         return None
+    if change.get("captured") is True and tag in TEMPO_WEAKNESS_TAGS:
+        return None
     side = change.get("side")
     if side not in ("white", "black"):
         return None
@@ -1726,6 +1922,12 @@ def change_squares(change: JsonObject) -> set[chess.Square]:
     return squares
 
 
+def captured_square(board: chess.Board, move: chess.Move) -> chess.Square:
+    if board.is_en_passant(move):
+        return move.to_square + (-8 if board.turn == chess.WHITE else 8)
+    return move.to_square
+
+
 def king_zone(board: chess.Board, side: chess.Color) -> chess.SquareSet:
     king = board.king(side)
     if king is None:
@@ -1738,8 +1940,15 @@ def king_pressed(
     start_ply: int,
     boards: list[chess.Board],
     moves: list[chess.Move],
+    file_name: JsonValue = None,
 ) -> bool:
     other = not side
+    file_mask = (
+        chess.BB_ALL
+        if not isinstance(file_name, str) or file_name not in chess.FILE_NAMES
+        else chess.BB_FILES[chess.FILE_NAMES.index(file_name)]
+    )
+    on_file = isinstance(file_name, str) and file_name in chess.FILE_NAMES
     end_ply = len(moves)
     for ply in range(start_ply, end_ply + 1):
         before = boards[ply - 1]
@@ -1747,11 +1956,31 @@ def king_pressed(
         if before.turn != other:
             continue
         after = boards[ply]
-        zone = king_zone(before, side)
-        if after.is_check() or (before.is_capture(move) and move.to_square in zone):
+        zone = king_zone(before, side) & chess.SquareSet(file_mask)
+        capture_square = move.to_square
+        if on_file and before.is_en_passant(move):
+            capture_square += -8 if other == chess.WHITE else 8
+        if before.is_capture(move) and capture_square in zone:
             return True
+        if not after.is_check():
+            continue
+        if not on_file:
+            return True
+        king = after.king(side)
+        if king is None:
+            continue
+        for square in after.attackers(other, king):
+            if square in zone:
+                return True
+            piece = after.piece_at(square)
+            if (
+                piece is not None
+                and piece.piece_type in (chess.BISHOP, chess.ROOK, chess.QUEEN)
+                and chess.SquareSet(chess.between(square, king)) & zone
+            ):
+                return True
     end = boards[-1]
-    zone = king_zone(end, side)
+    zone = king_zone(end, side) & chess.SquareSet(file_mask)
     attackers = chess.SquareSet()
     for square in zone:
         attackers |= end.attackers(other, square)
@@ -1824,7 +2053,7 @@ def use_test(
         end.has_kingside_castling_rights(side)
         or end.has_queenside_castling_rights(side)
     ):
-        return king_pressed(side, ply, boards, moves)
+        return king_pressed(side, ply, boards, moves, change.get("file"))
     if ply <= 2 and tag in (
         TEMPO_WEAK_PAWNS | TEMPO_PASSERS | TEMPO_SHELTER | TEMPO_ROOK_FILES
     ):
@@ -1860,7 +2089,13 @@ def use_test(
             before.turn == other and move.to_square in squares
         )
     if appearing and (tag in TEMPO_SHELTER or tag == "king_zone_attacker"):
-        return king_pressed(side, ply, boards, moves)
+        return king_pressed(
+            side,
+            ply,
+            boards,
+            moves,
+            change.get("file") if tag in TEMPO_KING_FILES else None,
+        )
     if tag in TEMPO_ROOK_FILES:
         if not appearing:
             return False
@@ -1873,12 +2108,28 @@ def use_test(
     return False
 
 
+def settle_point(
+    ply: int,
+    boards: list[chess.Board],
+    moves: list[chess.Move],
+    walk_settled: bool,
+) -> tuple[int, bool]:
+    end = len(moves)
+    point = ply
+    while point < end and continuation_move(boards[point], moves[point]):
+        point += 1
+    return point, point < end or walk_settled
+
+
 def expected_initiative_runs(
     plies: list[JsonValue],
     boards: list[chess.Board],
     changes_value: JsonValue,
+    moves: list[chess.Move] | None = None,
+    walk_settled: bool = True,
 ) -> list[JsonObject]:
-    n = len(plies)
+    n = min(len(plies), len(boards) - 1)
+    line_moves = moves if moves is not None else []
     changes = as_array(changes_value) or []
     runs: list[JsonObject] = []
     scan = 1
@@ -1895,64 +2146,78 @@ def expected_initiative_runs(
             if following is None or following.get("tempo_gained") is not True:
                 break
             last_gain += 2
-        ending_ply = last_gain + 2
-        if ending_ply > n:
+        end_ply = last_gain + 2
+        if end_ply > n:
             ending = "unfinished"
             end = n
         else:
-            ending_move = as_object(plies[ending_ply - 1]) or {}
+            ending_move = as_object(plies[end_ply - 1]) or {}
             if ending_move.get("threatening") is not True:
                 ending = "spent"
-                end = ending_ply
-            elif boards[ending_ply].is_checkmate():
+                end = end_ply
+            elif boards[end_ply].is_checkmate():
                 ending = "runs"
-                end = ending_ply
-            elif ending_ply + 1 > n:
+                end = end_ply
+            elif end_ply + 1 > n:
                 ending = "unfinished"
-                end = ending_ply
+                end = end_ply
             else:
-                reply = as_object(plies[ending_ply]) or {}
-                if reply.get("label") == "counter_threat":
+                reply = as_object(plies[end_ply]) or {}
+                reply_label = reply.get("label")
+                if reply_label == "counter_threat":
                     ending = "contested"
-                    end = ending_ply + 1
-                elif reply.get("stops_threat") is False:
-                    ending = "runs"
-                    end = ending_ply + 1
+                elif reply_label in ("gaining_reply", "unforced_reply"):
+                    ending = "answered"
+                elif reply_label == "unresolved_reply":
+                    ending = "unresolved"
                 else:
                     ending = "runs"
-                    end = ending_ply + 1
-        converted = False
-        holder_color = holder == "white"
-        if holder in ("white", "black") and (
-            material_balance(boards[-1], holder_color)
-            - material_balance(boards[start - 1], holder_color)
-            >= 1
-        ):
-            converted = True
+                end = end_ply + 1
 
-        def change_converts(
-            change_value: JsonValue,
-            run_start: int,
-            run_end: int,
-            run_holder: JsonValue,
-        ) -> bool:
-            change = as_object(change_value)
-            if change is None:
-                return False
-            ply = change.get("ply")
-            return (
-                change.get("net_change") is True
-                and change.get("in_use") is True
-                and isinstance(ply, int)
-                and not isinstance(ply, bool)
-                and run_start <= ply <= run_end
-                and favoured_side(change) == run_holder
+        if ending == "unfinished":
+            outcome = "unknown"
+        else:
+            point, point_settled = settle_point(end, boards, line_moves, walk_settled)
+            holder_color = holder == "white"
+            converted = (
+                holder in ("white", "black")
+                and point_settled
+                and material_balance(boards[point], holder_color)
+                - material_balance(boards[start - 1], holder_color)
+                >= 1
             )
 
-        if not converted:
-            converted = any(
-                change_converts(change_value, start, end, holder)
-                for change_value in changes
+            def change_converts(
+                change_value: JsonValue,
+                start_ply: int = start,
+                end_ply: int = end,
+                run_holder: JsonValue = holder,
+            ) -> bool:
+                change = as_object(change_value)
+                if change is None:
+                    return False
+                ply = change.get("ply")
+                return (
+                    change.get("tag") not in TEMPO_DYNAMIC_TAGS
+                    and change.get("net_change") is True
+                    and change.get("in_use") is True
+                    and isinstance(ply, int)
+                    and not isinstance(ply, bool)
+                    and start_ply <= ply <= end_ply
+                    and favoured_side(change) == run_holder
+                )
+
+            converted = converted or any(
+                change_converts(change_value) for change_value in changes
+            )
+            if boards[end].is_checkmate() and boards[end].turn != holder_color:
+                converted = True
+            outcome = (
+                "converted"
+                if converted
+                else "unknown"
+                if not point_settled
+                else "evaporated"
             )
         runs.append(
             {
@@ -1961,12 +2226,154 @@ def expected_initiative_runs(
                 "end_ply": end,
                 "tempi": (last_gain - start) // 2 + 1,
                 "ending": ending,
-                "outcome": "converted" if converted else "evaporated",
+                "outcome": outcome,
                 "source": "rule",
             }
         )
         scan = max(start + 1, end)
     return runs
+
+
+def expected_reply_gain(
+    ply: int,
+    boards: list[chess.Board],
+    moves: list[chess.Move],
+    walk_settled: bool,
+) -> JsonObject:
+    side = boards[ply - 1].turn
+    point, settled = settle_point(ply, boards, moves, walk_settled)
+    material = material_balance(boards[point], side) - material_balance(
+        boards[ply - 2], side
+    )
+    mates = boards[point].is_checkmate() and boards[point].turn != side
+    return {
+        "material": material,
+        "mates": mates,
+        "through_ply": point,
+        "settled": settled,
+        "gains": None if not settled else material >= 1 or mates,
+    }
+
+
+def check_forced_test(
+    value: JsonValue,
+    pointer: str,
+    board: chess.Board,
+    played_san: JsonValue,
+    played_stops: JsonValue,
+    failures: list[Failure],
+) -> bool | None:
+    forced_test = as_object(value)
+    fail(
+        failures,
+        pointer,
+        "forced_test must be present exactly when reply_gain.gains is false",
+        forced_test is not None,
+    )
+    if forced_test is None:
+        return None
+    legal_moves = board.legal_moves.count()
+    actual_legal = forced_test.get("legal_moves")
+    fail(
+        failures,
+        f"{pointer}/legal_moves",
+        f"forced_test.legal_moves must equal the position's {legal_moves} legal moves",
+        actual_legal == legal_moves,
+    )
+    lines = as_array(forced_test.get("lines"))
+    max_lines = min(5, legal_moves)
+    fail(
+        failures,
+        f"{pointer}/lines",
+        f"forced_test must contain 1 to {max_lines} distinct MultiPV lines",
+        lines is not None and 1 <= len(lines) <= max_lines,
+    )
+    if not lines:
+        return None
+    first = as_object(lines[0])
+    best_units = None if first is None else number_units(first.get("es"))
+    accepted: list[bool] = []
+    stops: list[JsonValue] = []
+    seen: set[str] = set()
+    for index, line_value in enumerate(lines):
+        line = as_object(line_value)
+        line_pointer = f"{pointer}/lines/{index}"
+        if line is None:
+            accepted.append(False)
+            stops.append(None)
+            continue
+        san = line.get("san")
+        line_move = legal_san_move(board, san)
+        fail(
+            failures,
+            f"{line_pointer}/san",
+            "forced-test alternatives must be legal and unique",
+            line_move is not None and isinstance(san, str) and san not in seen,
+        )
+        if isinstance(san, str):
+            seen.add(san)
+        score = number_units(line.get("es"))
+        acceptable = (
+            best_units is not None and score is not None and score >= best_units - 100
+        )
+        fail(
+            failures,
+            f"{line_pointer}/acceptable",
+            "acceptable must mean expected score is within 0.05 of line 1",
+            line.get("acceptable") is acceptable,
+        )
+        accepted.append(acceptable)
+        line_stops = line.get("stops_threat")
+        if not acceptable:
+            fail(
+                failures,
+                f"{line_pointer}/stops_threat",
+                "unacceptable alternatives must not have a reply search",
+                line_stops is None,
+            )
+        elif line_move is not None:
+            after = board.copy()
+            after.push(line_move)
+            if san == played_san:
+                expected_stops = played_stops
+                fail(
+                    failures,
+                    f"{line_pointer}/stops_threat",
+                    "the played alternative uses its own stops_threat result",
+                    line_stops is expected_stops,
+                )
+            elif rule_game_over(after):
+                fail(
+                    failures,
+                    f"{line_pointer}/stops_threat",
+                    "a game-ending forced-test alternative stops the threat",
+                    line_stops is True,
+                )
+            else:
+                fail(
+                    failures,
+                    f"{line_pointer}/stops_threat",
+                    "acceptable alternatives must report their reply-search result",
+                    isinstance(line_stops, bool),
+                )
+        stops.append(line_stops)
+    if any(ok and stop is False for ok, stop in zip(accepted, stops)):
+        expected_forced: bool | None = False
+    elif (
+        all(accepted)
+        and all(stop is True for stop in stops)
+        and len(lines) < legal_moves
+    ):
+        expected_forced = None
+    else:
+        expected_forced = True
+    fail(
+        failures,
+        f"{pointer}/forced",
+        "forced must follow the P6 option-A acceptable-line test",
+        forced_test.get("forced") is expected_forced,
+    )
+    return expected_forced
 
 
 def check_tempo_ledger(
@@ -1989,11 +2396,16 @@ def check_tempo_ledger(
     )
     line = as_array(assessment.get("line")) or []
     expected_labels: list[str] = []
+    expected_threatenings: list[bool] = []
+    consequence = as_object(assessment.get("consequence"))
+    settled_value = None if consequence is None else consequence.get("settled")
+    walk_settled = settled_value if isinstance(settled_value, bool) else count < 10
     for index, ply_value in enumerate(plies_value):
         ply_pointer = f"{pointer}/tempo_ledger/plies/{index}"
         ply = as_object(ply_value)
         if ply is None:
             expected_labels.append("neither")
+            expected_threatenings.append(False)
             continue
         expected_ply = index + 1
         fail(
@@ -2018,6 +2430,7 @@ def check_tempo_ledger(
         )
         if index >= len(moves):
             expected_labels.append("neither")
+            expected_threatenings.append(False)
             continue
         after = boards[index + 1]
         by_check = after.is_check()
@@ -2067,11 +2480,9 @@ def check_tempo_ledger(
             "a ply is threatening iff it gives check or its consequence rank is at least two",
             ply.get("threatening") is expected_threatening,
         )
+        expected_threatenings.append(expected_threatening)
 
-        previous = as_object(plies_value[index - 1]) if index > 0 else None
-        previous_threatening = (
-            previous is not None and previous.get("threatening") is True
-        )
+        previous_threatening = index > 0 and expected_threatenings[index - 1]
         stops = ply.get("stops_threat")
         if not previous_threatening:
             fail(
@@ -2094,26 +2505,79 @@ def check_tempo_ledger(
                 "a reply to a threat must report whether it stops that threat",
                 isinstance(stops, bool),
             )
-        if previous_threatening:
-            if isinstance(stops, bool):
-                label = (
-                    "counter_threat"
-                    if expected_threatening and stops
-                    else "pure_reply"
-                    if stops
-                    else "threatening"
-                    if expected_threatening
-                    else "neither"
+
+        eligible_reply = (
+            previous_threatening and stops is True and not expected_threatening
+        )
+        expected_gain: JsonObject | None = None
+        forced: bool | None = None
+        if eligible_reply:
+            expected_gain = expected_reply_gain(index + 1, boards, moves, walk_settled)
+            actual_gain = as_object(ply.get("reply_gain"))
+            fail(
+                failures,
+                f"{ply_pointer}/reply_gain",
+                "reply_gain must be present exactly for an answering non-threatening reply that stops the threat",
+                actual_gain is not None,
+            )
+            if actual_gain is not None:
+                for field, expected_value in expected_gain.items():
+                    fail(
+                        failures,
+                        f"{ply_pointer}/reply_gain/{field}",
+                        f"reply_gain.{field} must match the P4 settle point and P5 reply-gain calculation",
+                        type(actual_gain.get(field)) is type(expected_value)
+                        and actual_gain.get(field) == expected_value,
+                    )
+            if expected_gain["gains"] is False:
+                forced = check_forced_test(
+                    ply.get("forced_test"),
+                    f"{ply_pointer}/forced_test",
+                    boards[index],
+                    expected_san,
+                    stops,
+                    failures,
                 )
             else:
-                label = "neither"
+                fail(
+                    failures,
+                    f"{ply_pointer}/forced_test",
+                    "forced_test must be null unless reply_gain.gains is false",
+                    ply.get("forced_test") is None,
+                )
         else:
+            fail(
+                failures,
+                f"{ply_pointer}/reply_gain",
+                "reply_gain must be null outside P5 eligible replies",
+                ply.get("reply_gain") is None,
+            )
+            fail(
+                failures,
+                f"{ply_pointer}/forced_test",
+                "forced_test must be null unless reply_gain.gains is false",
+                ply.get("forced_test") is None,
+            )
+
+        if not previous_threatening or stops is not True:
             label = "threatening" if expected_threatening else "neither"
+        elif expected_threatening:
+            label = "counter_threat"
+        elif expected_gain is None or expected_gain["gains"] is None:
+            label = "unresolved_reply"
+        elif expected_gain["gains"] is True:
+            label = "gaining_reply"
+        elif forced is True:
+            label = "pure_reply"
+        elif forced is False:
+            label = "unforced_reply"
+        else:
+            label = "unresolved_reply"
         expected_labels.append(label)
         fail(
             failures,
             f"{ply_pointer}/label",
-            "ledger label must follow the preceding threat, stop test, and this ply's threat",
+            "ledger label must follow P5 reply gain, P6 forced test and P7 threat facts",
             ply.get("label") == label,
         )
 
@@ -2150,7 +2614,11 @@ def check_tempo_ledger(
             )
 
     expected_runs = expected_initiative_runs(
-        plies_value, boards, assessment.get("positional")
+        plies_value,
+        boards,
+        assessment.get("positional"),
+        moves,
+        walk_settled,
     )
     runs = as_array(ledger.get("runs"))
     fail(
@@ -2175,7 +2643,13 @@ def check_tempo_ledger(
                 fail(
                     failures,
                     f"{run_pointer}/{key}",
-                    f"initiative run {key} must match the §6.3 derivation",
+                    (
+                        "P8: initiative run ending must match the first-matching ending rule"
+                        if key == "ending"
+                        else "P9: initiative run outcome must match conversion evidence"
+                        if key == "outcome"
+                        else f"initiative run {key} must match the §6.3 derivation"
+                    ),
                     type(actual.get(key)) is type(expected_value)
                     and actual.get(key) == expected_value,
                 )
@@ -2220,6 +2694,26 @@ def check_positional_relations(
             "only the last change per identity is net, iff its final direction differs from root features",
             change.get("net_change") is expected_net,
         )
+        ply = change.get("ply")
+        expected_captured = False
+        if (
+            change.get("change") == "disappears"
+            and isinstance(ply, int)
+            and not isinstance(ply, bool)
+            and 1 <= ply <= len(moves)
+        ):
+            before = boards[ply - 1]
+            move = moves[ply - 1]
+            if before.is_capture(move):
+                expected_captured = captured_square(before, move) in change_squares(
+                    change
+                )
+        fail(
+            failures,
+            f"{change_pointer}/captured",
+            "captured is true iff a disappearing feature's piece was captured at this ply (P10)",
+            change.get("captured") is expected_captured,
+        )
         if not expected_net:
             fail(
                 failures,
@@ -2232,7 +2726,7 @@ def check_positional_relations(
         fail(
             failures,
             f"{change_pointer}/in_use",
-            "in_use must match the §6.6 use test",
+            "P11 king-file shelter witness and §6.6 use test must match in_use",
             change.get("in_use") is expected_use,
         )
 
@@ -2350,6 +2844,7 @@ def check_all_semantics(report_value: JsonValue, failures: list[Failure]) -> Non
     check_selection_relations(report, root, failures)
     check_playable_truncated(report, failures)
     check_position_relations(report, root, failures)
+    check_all_consequence_semantics(report, root, failures)
     check_tempo_and_positional_semantics(report, root, failures)
     check_terminal_relations(report, failures)
     check_urgency(report, failures)
@@ -2652,6 +3147,7 @@ def project_assessment(
         "parried_threat": None,
         "created_threat": None,
         "refutation": None,
+        "refutation_skipped": assessment.get("refutation_skipped"),
         "games": game_count_for_move(report, assessment.get("uci")),
     }
     parry = as_object(assessment.get("parries_threat"))
@@ -2971,10 +3467,10 @@ def schema_error_message(error: ValidationError) -> str:
 def schema_for_document(base_schema: Path, document: JsonValue) -> Path:
     if document not in ("full", "moves"):
         return base_schema
-    if base_schema.name not in ("report.v8.schema.json", "moves.v8.schema.json"):
+    if base_schema.name not in ("report.v9.schema.json", "moves.v9.schema.json"):
         return base_schema
     schema_name = (
-        "report.v8.schema.json" if document == "full" else "moves.v8.schema.json"
+        "report.v9.schema.json" if document == "full" else "moves.v9.schema.json"
     )
     return base_schema.with_name(schema_name)
 
@@ -3025,7 +3521,7 @@ def validate_document_file(
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        description="validate ChessWhy full and moves documents against their v8 schemas"
+        description="validate ChessWhy full and moves documents against their v9 schemas"
     )
     _ = parser.add_argument("schema", type=Path)
     _ = parser.add_argument("reports", type=Path, nargs="*")

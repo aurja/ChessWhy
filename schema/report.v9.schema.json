@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://chesswhy.local/schema/report.v8.schema.json",
-  "title": "ChessWhy full report, schema version 8",
+  "$id": "https://chesswhy.local/schema/report.v9.schema.json",
+  "title": "ChessWhy full report, schema version 9",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,8 +19,8 @@
   ],
   "properties": {
     "schema_version": {
-      "description": "Schema version of the report; this schema accepts version 8 [rule].",
-      "const": 8
+      "description": "Schema version of the report; this schema accepts version 9 [rule].",
+      "const": 9
     },
     "document": {
       "description": "Kind of report document emitted by this schema [rule].",
@@ -630,6 +630,186 @@
         }
       }
     },
+    "terminal_draw": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "ply"
+      ],
+      "properties": {
+        "kind": {
+          "description": "Kind of terminal draw encountered on the walked line [rule].",
+          "enum": [
+            "stalemate",
+            "insufficient_material"
+          ]
+        },
+        "ply": {
+          "description": "Ply at which the terminal draw was reached; equals consequence.plies [rule].",
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "reply_gain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "material",
+        "mates",
+        "through_ply",
+        "settled",
+        "gains"
+      ],
+      "properties": {
+        "material": {
+          "description": "Material gained by the replying side through the settle point [rule].",
+          "type": "integer"
+        },
+        "mates": {
+          "description": "Whether the replying side checkmates through the settle point [rule].",
+          "type": "boolean"
+        },
+        "through_ply": {
+          "description": "Last ply included in the reply gain measurement [rule].",
+          "type": "integer",
+          "minimum": 1
+        },
+        "settled": {
+          "description": "Whether the settle point for the reply gain is settled [rule].",
+          "type": "boolean"
+        },
+        "gains": {
+          "description": "Whether material or mate is gained; null iff the settle point is unsettled [rule].",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "settled": {
+                "const": false
+              }
+            },
+            "required": [
+              "settled"
+            ]
+          },
+          "then": {
+            "properties": {
+              "gains": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "gains": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "reply_line": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "san",
+        "es",
+        "acceptable",
+        "stops_threat"
+      ],
+      "properties": {
+        "san": {
+          "description": "SAN of the alternative move in the forced test [engine].",
+          "type": "string"
+        },
+        "es": {
+          "description": "Expected score of the alternative from the replying side's perspective [engine].",
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "acceptable": {
+          "description": "Whether the alternative is within 0.05 expected score of line 1 [rule].",
+          "type": "boolean"
+        },
+        "stops_threat": {
+          "description": "Whether the alternative stops the threat, or null when not acceptable [engine/rule].",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "acceptable": {
+                "const": false
+              }
+            },
+            "required": [
+              "acceptable"
+            ]
+          },
+          "then": {
+            "properties": {
+              "stops_threat": {
+                "type": "null"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "stops_threat": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "forced_test": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "legal_moves",
+        "lines",
+        "forced"
+      ],
+      "properties": {
+        "legal_moves": {
+          "description": "Number of legal moves in the position tested [engine].",
+          "type": "integer",
+          "minimum": 1
+        },
+        "lines": {
+          "description": "First min(5, legal_moves) MultiPV alternatives at the forced-test budget [engine].",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 5,
+          "items": {
+            "$ref": "#/$defs/reply_line"
+          }
+        },
+        "forced": {
+          "description": "Whether every acceptable alternative stops the threat; null when the top lines are inconclusive [rule].",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      }
+    },
     "tempo_ply": {
       "type": "object",
       "additionalProperties": false,
@@ -642,7 +822,9 @@
         "threat_rank",
         "stops_threat",
         "label",
-        "tempo_gained"
+        "tempo_gained",
+        "reply_gain",
+        "forced_test"
       ],
       "properties": {
         "ply": {
@@ -688,12 +870,37 @@
             "threatening",
             "pure_reply",
             "counter_threat",
-            "neither"
+            "neither",
+            "gaining_reply",
+            "unforced_reply",
+            "unresolved_reply"
           ]
         },
         "tempo_gained": {
           "description": "Whether this threat is answered by a pure reply [rule].",
           "type": "boolean"
+        },
+        "reply_gain": {
+          "description": "Material or mate gained by an answering reply, or null when this ply is not eligible [rule].",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/reply_gain"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "forced_test": {
+          "description": "MultiPV test of whether the threat is forced, set iff reply_gain.gains is false [engine].",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/forced_test"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "allOf": [
@@ -730,6 +937,40 @@
           "then": {
             "properties": {
               "threat_rank": {
+                "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "reply_gain": {
+                "type": "object",
+                "properties": {
+                  "gains": {
+                    "const": false
+                  }
+                },
+                "required": [
+                  "gains"
+                ]
+              }
+            },
+            "required": [
+              "reply_gain"
+            ]
+          },
+          "then": {
+            "properties": {
+              "forced_test": {
+                "$ref": "#/$defs/forced_test"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "forced_test": {
                 "type": "null"
               }
             }
@@ -775,21 +1016,69 @@
             "spent",
             "contested",
             "runs",
-            "unfinished"
+            "unfinished",
+            "answered",
+            "unresolved"
           ]
         },
         "outcome": {
-          "description": "Whether a run's gain is converted or evaporated [rule].",
+          "description": "Whether the run's gain is converted, evaporated, or unknown [rule].",
           "enum": [
             "converted",
-            "evaporated"
+            "evaporated",
+            "unknown"
           ]
         },
         "source": {
           "description": "Provenance of the initiative run [rule].",
           "const": "rule"
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "ending": {
+                "const": "unfinished"
+              }
+            },
+            "required": [
+              "ending"
+            ]
+          },
+          "then": {
+            "properties": {
+              "outcome": {
+                "const": "unknown"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "outcome": {
+                "enum": [
+                  "converted",
+                  "evaporated"
+                ]
+              }
+            },
+            "required": [
+              "outcome"
+            ]
+          },
+          "then": {
+            "properties": {
+              "ending": {
+                "not": {
+                  "const": "unfinished"
+                }
+              }
+            }
+          }
+        }
+      ]
     },
     "tempo_ledger": {
       "type": "object",
@@ -907,7 +1196,9 @@
         "mate_in",
         "material",
         "promotes",
-        "plies"
+        "plies",
+        "terminal_draw",
+        "settled"
       ],
       "properties": {
         "source": {
@@ -943,6 +1234,21 @@
           "description": "Number of threat-line plies consumed by the consequence rule [rule].",
           "type": "integer",
           "minimum": 0
+        },
+        "terminal_draw": {
+          "description": "Stalemate or insufficient-material draw reached at consequence.plies, or null [rule].",
+          "oneOf": [
+            {
+              "$ref": "#/$defs/terminal_draw"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "settled": {
+          "description": "Whether the walked consequence is settled; true whenever plies is less than 10 [rule].",
+          "type": "boolean"
         }
       },
       "allOf": [
@@ -965,6 +1271,44 @@
             "properties": {
               "mate_in": {
                 "type": "null"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "plies": {
+                "maximum": 9
+              }
+            },
+            "required": [
+              "plies"
+            ]
+          },
+          "then": {
+            "properties": {
+              "settled": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "settled": {
+                "const": false
+              }
+            },
+            "required": [
+              "settled"
+            ]
+          },
+          "then": {
+            "properties": {
+              "plies": {
+                "const": 10
               }
             }
           }
@@ -1067,6 +1411,7 @@
         "tempo_ledger",
         "tempo_ledger_skipped",
         "refutation",
+        "refutation_skipped",
         "motifs",
         "opportunity",
         "tactic_labels",
@@ -1269,7 +1614,7 @@
           ]
         },
         "refutation": {
-          "description": "Opponent's refutation line, set iff verdict is not playable [engine].",
+          "description": "Opponent's refutation line, set iff verdict is not playable and refutation_skipped is null [engine].",
           "oneOf": [
             {
               "allOf": [
@@ -1288,6 +1633,17 @@
             {
               "type": "null"
             }
+          ]
+        },
+        "refutation_skipped": {
+          "description": "Game-over reason refutation was skipped; game_over iff refutation is null for a non-playable verdict [rule].",
+          "type": [
+            "string",
+            "null"
+          ],
+          "enum": [
+            "game_over",
+            null
           ]
         },
         "motifs": {
@@ -1366,26 +1722,35 @@
             "properties": {
               "refutation": {
                 "type": "null"
+              },
+              "refutation_skipped": {
+                "type": "null"
               }
             }
           },
           "else": {
-            "properties": {
-              "refutation": {
-                "allOf": [
-                  {
-                    "$ref": "#/$defs/threat"
+            "anyOf": [
+              {
+                "properties": {
+                  "refutation": {
+                    "type": "object"
                   },
-                  {
-                    "properties": {
-                      "is_tactic": {
-                        "type": "boolean"
-                      }
-                    }
+                  "refutation_skipped": {
+                    "type": "null"
                   }
-                ]
+                }
+              },
+              {
+                "properties": {
+                  "refutation": {
+                    "type": "null"
+                  },
+                  "refutation_skipped": {
+                    "const": "game_over"
+                  }
+                }
               }
-            }
+            ]
           }
         },
         {
@@ -2245,6 +2610,44 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "change": {
+                "const": "appears"
+              }
+            },
+            "required": [
+              "change"
+            ]
+          },
+          "then": {
+            "properties": {
+              "captured": {
+                "const": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "captured": {
+                "const": true
+              }
+            },
+            "required": [
+              "captured"
+            ]
+          },
+          "then": {
+            "properties": {
+              "change": {
+                "const": "disappears"
+              }
+            }
+          }
         }
       ],
       "required": [
@@ -2253,6 +2656,7 @@
         "change",
         "holds_at_end",
         "net_change",
+        "captured",
         "in_use",
         "tag",
         "side",
@@ -2283,6 +2687,10 @@
         },
         "net_change": {
           "description": "Whether this is the last change of a feature that differs from the root [rule].",
+          "type": "boolean"
+        },
+        "captured": {
+          "description": "Whether this disappearance was caused by capture of a piece in the feature [rule].",
           "type": "boolean"
         },
         "in_use": {

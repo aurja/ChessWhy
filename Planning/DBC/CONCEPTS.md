@@ -139,6 +139,7 @@ flowchart LR
         SearchR["R: best alternative to a refutation"]
         ThreatSearch["L: threat search after a ply"]
         ReplySearch["L: reply search after the answer"]
+        ForcedSearch["L: acceptable replies to a threatening move"]
     end
     StockfishProcess["Stockfish process"]
     ExpectedScore["Expected score"]
@@ -150,6 +151,8 @@ flowchart LR
     SearchA & SearchC -->|detailed line that is not playable| SearchR
     SearchA & SearchC -->|detailed line, plies 2 on| ThreatSearch
     ThreatSearch -->|threatening move| ReplySearch
+    ReplySearch -->|answer stops the threat and gains nothing| ForcedSearch
+    ForcedSearch -->|each acceptable alternative| ReplySearch
     NodeBudget -.->|limits| Runs
     Runs -->|position, node limit, moves to search| StockfishProcess
     StockfishProcess -->|lines with win, draw, loss| ExpectedScore
@@ -171,7 +174,8 @@ flowchart LR
 | `SearchE` | After a move, `S` moves again: which threat the move created. Only for detailed lines | E, detailed line | implemented |
 | `SearchR` | After a move that is not playable, `O`'s best move other than the refutation, to judge the refutation as an opportunity; only for detailed lines | R, detailed line | implemented |
 | `ThreatSearch` | On each ply of a detailed line from the second on, the side that just moved moves again: is the ply a threatening move? Ply 1 uses E; a check needs no search. Not run when `S` is in check or `null_move_reliable` is false | L, threat search, threatening move | implemented |
-| `ReplySearch` | After the answer to a threatening move, the threatening side to move: did the answer stop the threat? Runs only after a threatening move | L, reply search, pure reply | implemented |
+| `ReplySearch` | After the answer to a threatening move, the threatening side to move: did the answer stop the threat? Runs after a threatening move and, from 2026-10-25, after each acceptable alternative of the forced test | L, reply search, pure reply, forced test | implemented |
+| `ForcedSearch` | On the board before a reply that stops the threat, does not threaten and keeps no reply gain: the replier's five best moves, to find the acceptable replies | L, forced test, acceptable reply | implemented |
 | `StockfishProcess` | Stockfish runs as a separate program and answers over UCI; each line's first move is kept once | UCI, MultiPV K | implemented |
 | `ExpectedScore` | Win/draw/loss turned into one score from 0 to 1; every threshold uses it, never centipawns | WDL, ES, es_units | implemented |
 
@@ -187,6 +191,7 @@ flowchart LR
     NullMoveReliable["Null-move reliability"]
     WalkedPlies["Walked plies"]
     Consequence["Consequence"]
+    TerminalDraw["Terminal draw"]
     ConsequenceRank["Rank"]
     Urgency["Urgency"]
     SearchA -->|best line| SideThreat
@@ -194,6 +199,8 @@ flowchart LR
     NullMoveReliable -.->|flags| OpponentThreat
     SideThreat & OpponentThreat -->|line| WalkedPlies
     WalkedPlies -->|plies to read| Consequence
+    WalkedPlies -->|stalemate or insufficient material where the walk stops| TerminalDraw
+    TerminalDraw -->|kind and ply, class unchanged| Consequence
     Consequence -->|class| ConsequenceRank
     ConsequenceRank -->|two ranks| Urgency
     ParryTest -->|does the best move parry?| Urgency
@@ -211,8 +218,9 @@ flowchart LR
 | `SideThreat` | What `S` would do with its move: A's best line | threat, S | implemented |
 | `OpponentThreat` | What `O` would do if it were its move: B's line. "White's biggest problem" is Black's threat | threat, O | implemented |
 | `NullMoveReliable` | Passing misleads when `S` has almost no pieces (zugzwang); the report says so | `null_move_reliable` | implemented |
-| `WalkedPlies` | How far a line is read: six plies, then on while captures continue, at most ten | walked plies | implemented |
+| `WalkedPlies` | How far a line is read: six plies, then on while the next move is a continuation move (a capture, a check or the answer to a check), at most ten, stopping at the first game-over board; settled unless ply ten stops it while the engine line would still go on (from 2026-10-25; before: six plies, then on while captures continue, at most ten) | walked plies, settled walk, continuation move, game over | implemented |
 | `Consequence` | What a line achieves for the side playing it: mate, material, promotion or only position | consequence, consequence class | implemented |
+| `TerminalDraw` | The walk ends in stalemate or with insufficient material: the consequence names it and its ply, class and rank stay as measured, and a move that ends the game has no refutation | terminal draw, game over, `refutation_skipped` | implemented |
 | `ConsequenceRank` | The consequence as a number, so two threats can be compared | rank | implemented |
 | `Urgency` | Which side's threat matters more now, and by which rule | urgency | implemented |
 
@@ -263,7 +271,7 @@ flowchart LR
 | `PlayableSet` | The playable moves among A's lines, in engine order; the engine's lines only, so unlisted moves are not judged and may also be playable; the number of legal moves stands beside it. Called `FineSet`, "the fine moves among the candidates", before 2026-10-23 | playable move, `playable_truncated`, `legal_moves` | implemented |
 | `ParryTest` | Does the move stop `O`'s threat? "Stop" means the threat no longer wins against the pass baseline, not that it was prevented | parry test, `parries_threat` | implemented |
 | `CreatedThreat` | The threat `S` would have after the move if `O` passed, from E; none when the move gives check, ends the game or leaves `O` no legal move, and the report names which | `creates_threat`, `creates_threat_skipped` | implemented |
-| `Refutation` | For a move that is not playable: `O`'s best reply line, read like a threat (for a move that is not fine before 2026-10-23) | refutation | implemented |
+| `Refutation` | For a move that is not playable: `O`'s best reply line, read like a threat (for a move that is not fine before 2026-10-23); none after a move that ends the game, and the report says so (from 2026-10-25) | refutation, `refutation_skipped`, game over | implemented |
 
 ### L2 · Motifs (`Motifs`)
 
@@ -389,7 +397,7 @@ flowchart LR
     FavouredSide["Favoured side"]
     StaticScale["Static scale, static and dynamic facts"]
     TempoLabel["Tempo-dependent position"]
-    RunOutcome["Converted or evaporated"]
+    RunOutcome["Converted, evaporated or unknown"]
     ImpactRating["Impact rating"]
     AnalysedPosition & WalkedPlies -->|boards| PawnStructure & KingSafety & PieceActivity & SpaceDevelopment & MaterialBalance
     PawnStructure -->|families| NamedStructures
@@ -426,8 +434,8 @@ flowchart LR
 | `PositionalChange` | A positional feature that appears or disappears along a line, judged by its identity, and whether that still holds at the end | positional change, feature identity, `holds_at_end` | implemented |
 | `TiedToLine` | A positional fact enters the move report only when it is a net change of the line that passes the use test (since 2026-10-24; before, the last change per feature identity that holds at the end). The full report keeps every change, marked as passing or failing the use test | positional fact, net change, use test | implemented |
 | `NetChange` | For one line, the last change per feature identity, kept only when the root and the end of the walk differ (the feature is there at one and not at the other); the rest are passing changes | net change, passing change, `net_change` | implemented |
-| `UseTest` | Whether a later move of the walk uses a net change (attacks or wins a weak pawn, advances a passed pawn, moves a rook along its file, presses a weakened king), or the move or its reply made it; per-tag rules in the L3 diagram | use test, `in_use`, king pressed | implemented |
-| `FavouredSide` | The side a change helps: a weakness that appears helps the opponent of its owner, any other feature that appears helps its owner, a disappearance helps the other side; pawn islands and pawn chains help nobody | favoured side | implemented |
+| `UseTest` | Whether a later move of the walk uses a net change (attacks or wins a weak pawn, advances a passed pawn, moves a rook along its file, presses a weakened king), or the move or its reply made it; per-tag rules in the L3 diagram. A change to a file next to the king needs a shelter witness on that file (from 2026-10-25; before, any press on the king zone) | use test, `in_use`, king pressed, shelter witness | implemented |
+| `FavouredSide` | The side a change helps: a weakness that appears helps the opponent of its owner, any other feature that appears helps its owner, a disappearance helps the other side, except a captured weakness, which helps nobody (from 2026-10-25); pawn islands and pawn chains help nobody | favoured side, captured weakness | implemented |
 | `StaticScale` | The group of each positional tag on the static scale (king safety, material, pawn structure, pieces, space and development) and whether the fact is dynamic (castling rights, king zone attackers, mobility and development leads) or static | static scale, static fact, dynamic fact | implemented |
 
 ### L2 · Tempo and initiative (`Tempo`)
@@ -439,35 +447,44 @@ flowchart LR
     SearchE["E: threat the move creates"]
     ThreatSearch["L: threat search after a ply"]
     ReplySearch["L: reply search after the answer"]
+    ForcedSearch["L: acceptable replies to a threatening move"]
+    WalkedPlies["Walked plies"]
     UseTest["Use test"]
     FavouredSide["Favoured side"]
     TempoValue["Tempo value"]
     TempoLabel["Tempo-dependent position"]
     ThreatTest["Threatening move"]
     ReplyTest["Reply stops the threat"]
+    SettlePoint["Settle point"]
+    ReplyGain["Reply gain"]
+    ForcedTest["Forced reply"]
     PlyLabel["Ply label"]
     TempoGained["Tempo gained"]
     TempoLedger["Tempo ledger"]
     InitiativeRun["Initiative run"]
     RunEnding["How a run ends"]
-    RunOutcome["Converted or evaporated"]
+    RunOutcome["Converted, evaporated or unknown"]
     SearchA -->|side to move moves| TempoValue
     SearchB & SearchE -->|side to move passes| TempoValue
     TempoValue -->|value| TempoLabel
     SearchE & ThreatSearch -->|threat after a ply| ThreatTest
     ThreatTest -->|threatening move| ReplySearch
     ReplySearch -->|threat after the answer| ReplyTest
-    ThreatTest & ReplyTest -->|each ply| PlyLabel
+    WalkedPlies -->|continuation moves| SettlePoint
+    ReplyTest & SettlePoint -->|answer stops the threat, exchange after it| ReplyGain
+    ReplyGain -->|gains nothing| ForcedSearch
+    ForcedSearch & ReplySearch -->|acceptable replies, does each stop it?| ForcedTest
+    ThreatTest & ReplyTest & ReplyGain & ForcedTest -->|each ply| PlyLabel
     PlyLabel -->|threatening move, then pure reply| TempoGained
     PlyLabel & TempoGained -->|one line| TempoLedger
     TempoGained -->|tempi one after another| InitiativeRun
     InitiativeRun & PlyLabel -->|the holder's next move and its answer| RunEnding
-    InitiativeRun -->|material over the run| RunOutcome
-    UseTest & FavouredSide -->|changes in use, side they help| RunOutcome
+    InitiativeRun & SettlePoint -->|material to the run's settled end, mate| RunOutcome
+    UseTest & FavouredSide -->|static changes in use, side they help| RunOutcome
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
-    class SearchA,SearchB,SearchE,ThreatSearch,ReplySearch,UseTest,FavouredSide external
+    class SearchA,SearchB,SearchE,ThreatSearch,ReplySearch,ForcedSearch,WalkedPlies,UseTest,FavouredSide external
 ```
 
 | Node | Meaning | Terms | Status |
@@ -477,18 +494,23 @@ flowchart LR
 | `SearchE` | See Engine searches | — | external |
 | `ThreatSearch` | See Engine searches | — | external |
 | `ReplySearch` | See Engine searches | — | external |
+| `ForcedSearch` | See Engine searches | — | external |
+| `WalkedPlies` | See Threats and urgency | — | external |
 | `UseTest` | See Positional facts | — | external |
 | `FavouredSide` | See Positional facts | — | external |
 | `TempoValue` | What having the move is worth to the side to move: its score when it moves minus its score when it passes. At the root from A and B; after each move from A's line (or C) and E. Null when that side is in check or a search is missing | tempo value | implemented |
 | `TempoLabel` | Tempo-dependent position above 0.10, non-tempo position below 0.05, zugzwang below 0, no label in between. The root's label decides the impact order and whether leads pass the use test | tempo-dependent position, non-tempo position, zugzwang | implemented |
 | `ThreatTest` | A ply is a threatening move when its side's threat after it reaches rank 2 or more; a check is one by rule | threatening move, rank | implemented |
-| `ReplyTest` | After the answer to a threatening move, the threatening side's best line stays below rank 2; an answer that ends the game stops the threat | reply search, pure reply | implemented |
-| `PlyLabel` | Each ply is threatening, a pure reply, a counter-threat or neither; rule in the L3 diagram | ply label, counter-threat | implemented |
-| `TempoGained` | A threatening move whose answer is a pure reply | tempo gained | implemented |
-| `TempoLedger` | Per detailed line: every walked ply with its label, the tempi gained per side and the initiative runs. Not built when `S` is in check, when `null_move_reliable` is false, or for a line that is not detailed | tempo ledger, `tempo_ledger_skipped` | implemented |
+| `ReplyTest` | After the answer to a threatening move, the threatening side's best line stays below rank 2; an answer that ends the game stops the threat | reply search, game over | implemented |
+| `SettlePoint` | From a ply, on while the next walked move is a continuation move: where the exchange it starts is over; unknown when the walk ends unsettled there | settle point, continuation move, settled walk | implemented |
+| `ReplyGain` | For an answer that stops the threat and does not threaten: what the replier keeps from the board before the threatening move to the settle point after the answer, material of at least a pawn or mate | reply gain | implemented |
+| `ForcedTest` | For an answer that stops the threat and gains nothing: forced when every acceptable reply stops the threat too, not forced when one leaves it, unknown when all five searched lines are acceptable and all stop it (Captain, 2026-10-25, option A) | forced reply, forced test, acceptable reply | implemented |
+| `PlyLabel` | Each ply is threatening, a pure reply, a counter-threat, a gaining, unforced or unresolved reply, or neither; rule in the L3 diagram. Before 2026-10-25: threatening, pure reply (any answer that stops the threat without threatening), counter-threat, neither | ply label, counter-threat, pure reply, gaining reply, unforced reply, unresolved reply | implemented |
+| `TempoGained` | A threatening move whose answer is a pure reply: a forced answer that gains nothing (from 2026-10-25; before: any answer that stops the threat without threatening) | tempo gained | implemented |
+| `TempoLedger` | Per detailed line: every walked ply with its label, its reply gain and forced test where they apply, the tempi gained per side and the initiative runs. Not built when `S` is in check, when `null_move_reliable` is false, or for a line that is not detailed | tempo ledger, `tempo_ledger_skipped` | implemented |
 | `InitiativeRun` | A side gains tempi one after another: it starts at a tempo gained and goes on while each of the holder's next moves also gains one | initiative, initiative run | implemented |
-| `RunEnding` | The holder's next move does not threaten (spent), mates (runs), is answered by a counter-threat (contested) or by a move that does not stop the threat (runs); or the walk ends first (unfinished) | run ending | implemented |
-| `RunOutcome` | Converted when the holder gains material from the run's start to the end of the walk, or a change in use inside the run helps the holder; evaporated otherwise | converted, evaporated | implemented |
+| `RunEnding` | The holder's next move does not threaten (spent), mates (runs), is answered by a counter-threat (contested), by a move that does not stop the threat (runs), by a gaining or unforced reply (answered) or by an unresolved reply (unresolved); or the walk ends first (unfinished). Answered and unresolved from 2026-10-25 | run ending | implemented |
+| `RunOutcome` | Converted when the run has conversion evidence: the holder's material grows to the run's settled end, a static change in use inside the run helps the holder, or the holder mates; unknown when the run is unfinished or ends unsettled without other evidence; evaporated otherwise. From 2026-10-25; before: material to the end of the walk or any change in use, no unknown | converted, evaporated, unknown, conversion evidence | implemented |
 
 ### L2 · Reference knowledge (`Reference`)
 
@@ -592,7 +614,7 @@ flowchart LR
 | `Reproducible` | The settings that make a report repeat exactly, recorded in the report: budget, threads, hash and nodes. The engine binary and the ChessWhy revision are not identified (named 2026-10-22) | reproducible | implemented |
 | `ReportDocument` | The full report: the JSON document of one question with every computed fact; the only place chess claims live; what fixtures and checks read. Called "report document" before 2026-10-23 | report, full report, facts first | implemented |
 | `ReportSchema` | The versioned JSON Schema every report must satisfy, with a description on every field and if/then rules for local relations | report schema | implemented |
-| `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves; tempo values and labels, ledger labels and tempi, initiative runs and outcomes, net changes and the use test | semantic check | implemented |
+| `SemanticCheck` | Relations between fields checked against the board and each other: verdict and loss, mate and score, parry test, urgency, side to move, legal lines, the asked-move copy, tactic invariants, restricted moves; tempo values and labels, ledger labels and tempi, initiative runs and outcomes, net changes and the use test; from 2026-10-25 also the settled walk and terminal draws, skipped refutations, reply gains, forced tests, the new labels, endings and outcomes, captured weaknesses and the shelter witness | semantic check | implemented |
 | `RerunIdentity` | Two fresh runs on the same input give the same bytes | rerun identity | implemented |
 | `JsonOutput` | A report printed as JSON when `--json` is given, for programs and for checking: the move report document, or the full report with `--full-report` (before 2026-10-23: the one report; until the Captain's P9 revision that day, `--full-report` alone printed JSON) | JSON output, move report document, `--full-report` | implemented |
 | `MoveSelection` | Which moves get a move report: everything the request names, together and each once, in the engine's order with asked moves outside A last; a keyword that matches no move adds nothing | selection, playable move, asked move | implemented |
@@ -646,8 +668,8 @@ flowchart LR
 | `ReportDocument` | See Report | — | external |
 | `BookPassages` | See Reference knowledge | — | external |
 | `RestrictedMovement` | Pins, overloaded defenders and tactical pins are all worded "restricted movement"; restricted means the piece cannot move in all the ways it otherwise could, not that it cannot move (Captain, 2026-10-22); how the piece is held ("at square e5", "along file e") is printed. The move report text prints a compact row naming every label of a merged motif ("relative pin; tactic: Ba7-f2 capture"); the full report text also prints the restricted and free moves (Captain, 2026-10-24; before, move report rows listed the moves too) | restricted movement, held to, restricted moves, free moves, motif repeats | implemented |
-| `Conditions` | What a fact depends on, printed beside it: a threat line assumes the opponent passes, a parry by check only defers the threat, why no created threat was searched, how far a line was read, which engine and budget, how many legal moves were not judged | conditions, `creates_threat_skipped`, `walked_plies`, `legal_moves` | implemented |
-| `PositionWalk` | From 2026-10-25 (Captain): the move report text is laid out per move as a walk through the positions of its line: the move-level rows, then one position block per position (the position as a FEN, its evaluation, the root evaluation first and the line score after, the move played from it and its side, the motifs present there as uses, then its other facts in impact order); no tempo facts for now. Engine, budget and opening rows come first, always. Called `PlyWalk` from 2026-10-24 to 2026-10-25: a start block, then per walked ply the move followed by the position it reaches, tempo and initiative facts included (before that: the position facts in the header and each move's facts in one list) | position walk, position block, line score, `line_fens` | implemented |
+| `Conditions` | What a fact depends on, printed beside it: a threat line assumes the opponent passes, a parry by check only defers the threat, why no created threat was searched, how far a line was read and whether it stopped at a terminal draw or unsettled, why a move has no refutation, which engine and budget, how many legal moves were not judged (the terminal draw, unsettled walk and skipped refutation from 2026-10-25) | conditions, `creates_threat_skipped`, `walked_plies`, `legal_moves`, terminal draw, settled walk, `refutation_skipped` | implemented |
+| `PositionWalk` | From 2026-10-25 (Captain): the move report text is laid out per move as a walk through the positions of its line: the move-level rows, then one position block per position (the position as a FEN, its evaluation, the root evaluation first and the line score after, the move played from it and its side, its tempo facts, the motifs present there as uses, then its other facts in impact order). Tempo facts: the root's and the move's tempo value in the first two blocks, a tempo gained in the block its move is played from, an initiative run in the block of its first ply (from 2026-10-25, R13; before: no tempo facts). Engine, budget and opening rows come first, always. Called `PlyWalk` from 2026-10-24 to 2026-10-25: a start block, then per walked ply the move followed by the position it reaches, tempo and initiative facts included (before that: the position facts in the header and each move's facts in one list) | position walk, position block, line score, `line_fens`, tempo value, tempo gained, initiative run | implemented |
 | `TemplateRendering` | Fixed sentences filled from report fields, adding no claim; the output never says "candidate". Without `--full-report`: one block per move report, with their conditions and `SEE` for a capture's value; today's output, later the fallback. With `--full-report`: the full report text, every computed fact, always template text (before 2026-10-23: filled from the whole report, the only text) | template rendering, full report text | implemented |
 | `FactSheet` | A compact text form of the report for the model; the core claims (verdict, refutation, conditions) at every level, tactic and blunder evidence first | fact sheet, fact selection | planned |
 | `LevelPrompt` | Instructions for a beginner, club or advanced reader | level | planned |
@@ -1051,6 +1073,7 @@ flowchart TD
     UtOwn{"Made at ply 1 or 2?"}
     UtUsed{"Used later in the walk?"}
     UtPressed{"Is the king pressed?"}
+    UtWitness{"Is the king pressed on the changed file?"}
     UtKeep["Kept in the move report"]
     UtCut["Full report only"]
     UtMate -->|yes| UtCut
@@ -1069,8 +1092,10 @@ flowchart TD
     UtOwn -->|no| UtUsed
     UtUsed -->|yes| UtKeep
     UtUsed -->|no| UtCut
-    UtPressed -->|yes| UtKeep
+    UtPressed -->|yes| UtWitness
     UtPressed -->|no| UtCut
+    UtWitness -->|yes| UtKeep
+    UtWitness -->|no| UtCut
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
@@ -1082,10 +1107,11 @@ flowchart TD
 | `UtContext` | The change only records something else: castling rights lost by castling, material that changed hands while some side is still ahead at the end, a king zone attacker that left, a king-file fact of a king that stands elsewhere at the end | use test, superseded change | implemented |
 | `UtKind` | Material, the exchange, the bishop pair, a rook on the seventh, an outpost and a bad bishop always count; pawn islands and pawn chains never do | use test, static fact | implemented |
 | `UtLead` | A lead in mobility, space or development counts only in a tempo-dependent position | tempo-dependent position, dynamic fact | implemented |
-| `UtCastle` | While the king can still castle, a gap or open file next to it counts only if the king is pressed | king files, king pressed | implemented |
+| `UtCastle` | While the king can still castle, a gap or open file next to it counts only if the king is pressed on the changed file (from 2026-10-25; before: the king is pressed) | king files, king pressed, shelter witness | implemented |
 | `UtOwn` | The move or its reply made the change (weak pawns, passed pawns, castling rights, king files, rook files) | use test | implemented |
-| `UtUsed` | Weak pawn attacked at the end or captured, or won; passed pawn advanced, or gone by moving or capture; rook moved along its file; castling rights, king files and king zone attackers: the king is pressed | use test, king pressed | implemented |
+| `UtUsed` | Weak pawn attacked at the end or captured, or won; passed pawn advanced, or gone by moving or capture; rook moved along its file; castling rights and king zone attackers: the king is pressed; king files: the king is pressed on the changed file (from 2026-10-25; before: the king is pressed) | use test, king pressed, shelter witness | implemented |
 | `UtPressed` | From the change's ply on, the opponent checks or captures next to the king, or at the end two of its pieces attack the king's zone | king pressed | implemented |
+| `UtWitness` | For a king-file fact: the check, the capture or the end-of-walk attack lands on or passes through a square of the changed file next to the king; a check from elsewhere does not count | shelter witness | implemented |
 | `UtKeep` | The change is in use and enters the move report | `in_use` | implemented |
 | `UtCut` | The change stays in the full report only | `in_use` | implemented |
 
@@ -1101,6 +1127,11 @@ flowchart TD
     PlNeither["Neither"]
     PlCounterThreat["Counter-threat: the tempo goes back"]
     PlPure["Pure reply: the ply before gained a tempo"]
+    PlGains{"Does the reply keep a gain after the exchange settles?"}
+    PlForced{"Was the reply forced?"}
+    PlGaining["Gaining reply"]
+    PlUnforced["Unforced reply"]
+    PlUnresolved["Unresolved reply"]
     PlFirst -->|no, or ply 1| PlOwn
     PlFirst -->|yes| PlStops
     PlStops -->|no| PlOwn
@@ -1108,7 +1139,13 @@ flowchart TD
     PlOwn -->|yes| PlThreatening
     PlOwn -->|no| PlNeither
     PlCounter -->|yes| PlCounterThreat
-    PlCounter -->|no| PlPure
+    PlCounter -->|no| PlGains
+    PlGains -->|yes| PlGaining
+    PlGains -->|unknown| PlUnresolved
+    PlGains -->|no| PlForced
+    PlForced -->|yes| PlPure
+    PlForced -->|no| PlUnforced
+    PlForced -->|unknown| PlUnresolved
     classDef planned stroke-dasharray:6 4,color:#888
     classDef partial stroke-dasharray:2 2
     classDef external stroke-dasharray:1 3,color:#999
@@ -1123,7 +1160,12 @@ flowchart TD
 | `PlThreatening` | A threatening move that answers no threat, or answers one without stopping it | threatening move, ply label | implemented |
 | `PlNeither` | No threat made, none stopped | ply label | implemented |
 | `PlCounterThreat` | Stops the threat and threatens back | counter-threat | implemented |
-| `PlPure` | Stops the threat and threatens nothing: the threatening ply gained a tempo | pure reply, tempo gained | implemented |
+| `PlPure` | Stops the threat, threatens nothing, keeps no gain and was forced: the threatening ply gained a tempo. Before 2026-10-25: any reply that stops the threat and threatens nothing | pure reply, tempo gained | implemented |
+| `PlGains` | The reply gain, to the settle point after the reply: at least a pawn or mate; unknown when the walk ends before the exchange settles | reply gain, settle point | implemented |
+| `PlForced` | The forced test: every acceptable reply stops the threat too; unknown when all five searched lines are acceptable and all stop it | forced test, acceptable reply | implemented |
+| `PlGaining` | Stops the threat and keeps a gain: no tempo for the threatening ply | gaining reply | implemented |
+| `PlUnforced` | Stops the threat, gains nothing, but another acceptable reply would have left it: no tempo | unforced reply | implemented |
+| `PlUnresolved` | The gain or the forced test is unknown: no tempo | unresolved reply | implemented |
 
 ### L3 · Game-count table (`GameTable`)
 

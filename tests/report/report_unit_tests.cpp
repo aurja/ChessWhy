@@ -37,6 +37,9 @@ TEST_CASE("enum values use the schema spellings", "[unit]") {
     CHECK(to_string(InputSource::Pgn) == "pgn");
     CHECK(to_string(Terminal::Checkmate) == "checkmate");
     CHECK(to_string(Terminal::Stalemate) == "stalemate");
+    CHECK(to_string(DrawKind::Stalemate) == "stalemate");
+    CHECK(to_string(DrawKind::InsufficientMaterial) == "insufficient_material");
+    CHECK(to_string(RefutationSkip::GameOver) == "game_over");
     CHECK(to_string(ConsequenceClass::Mate) == "mate");
     CHECK(to_string(ConsequenceClass::Material) == "material");
     CHECK(to_string(ConsequenceClass::Promotion) == "promotion");
@@ -64,12 +67,18 @@ TEST_CASE("enum values use the schema spellings", "[unit]") {
     CHECK(to_string(TempoPlyLabel::PureReply) == "pure_reply");
     CHECK(to_string(TempoPlyLabel::CounterThreat) == "counter_threat");
     CHECK(to_string(TempoPlyLabel::Neither) == "neither");
+    CHECK(to_string(TempoPlyLabel::GainingReply) == "gaining_reply");
+    CHECK(to_string(TempoPlyLabel::UnforcedReply) == "unforced_reply");
+    CHECK(to_string(TempoPlyLabel::UnresolvedReply) == "unresolved_reply");
     CHECK(to_string(InitiativeEnding::Spent) == "spent");
     CHECK(to_string(InitiativeEnding::Contested) == "contested");
     CHECK(to_string(InitiativeEnding::Runs) == "runs");
     CHECK(to_string(InitiativeEnding::Unfinished) == "unfinished");
+    CHECK(to_string(InitiativeEnding::Answered) == "answered");
+    CHECK(to_string(InitiativeEnding::Unresolved) == "unresolved");
     CHECK(to_string(InitiativeOutcome::Converted) == "converted");
     CHECK(to_string(InitiativeOutcome::Evaporated) == "evaporated");
+    CHECK(to_string(InitiativeOutcome::Unknown) == "unknown");
     CHECK(to_string(TempoLedgerSkip::InCheck) == "in_check");
     CHECK(to_string(TempoLedgerSkip::NullMoveUnreliable) == "null_move_unreliable");
     CHECK(to_string(TempoLedgerSkip::NotDetailed) == "not_detailed");
@@ -80,7 +89,7 @@ TEST_CASE("enum values use the schema spellings", "[unit]") {
     CHECK(to_string(HeldTo::Kind::Squares) == "squares");
 }
 
-TEST_CASE("JSON follows v8 report key order", "[unit]") {
+TEST_CASE("JSON follows v9 report key order", "[unit]") {
     using namespace chesswhy;
 
     const auto report = test_examples::normal_position();
@@ -116,7 +125,8 @@ TEST_CASE("JSON follows v8 report key order", "[unit]") {
     CHECK(keys(json["threats"]["black"]) == threat_keys);
     CHECK(json["threats"]["white"]["opportunity"].is_null());
     CHECK(keys(json["threats"]["white"]["consequence"]) ==
-          std::vector<std::string>{"source", "class", "mate_in", "material", "promotes", "plies"});
+          std::vector<std::string>{"source", "class", "mate_in", "material", "promotes", "plies",
+                                   "terminal_draw", "settled"});
     CHECK(keys(json["threats"]["urgency"]) ==
           std::vector<std::string>{"source", "more_urgent", "rule"});
     const std::vector<std::string> move_keys{"source",
@@ -141,6 +151,7 @@ TEST_CASE("JSON follows v8 report key order", "[unit]") {
                                              "tempo_ledger",
                                              "tempo_ledger_skipped",
                                              "refutation",
+                                             "refutation_skipped",
                                              "motifs",
                                              "opportunity",
                                              "tactic_labels",
@@ -164,8 +175,8 @@ TEST_CASE("JSON follows v8 report key order", "[unit]") {
           std::vector<std::string>{"san", "uci", "games"});
     CHECK(keys(json["candidates"][0]["positional"][0]) ==
           std::vector<std::string>{"source", "ply", "change", "holds_at_end", "net_change",
-                                   "in_use", "tag", "side", "pieces", "file", "value"});
-    CHECK(json["schema_version"] == 8);
+                                   "captured", "in_use", "tag", "side", "pieces", "file", "value"});
+    CHECK(json["schema_version"] == 9);
     CHECK(json["document"] == "full");
     CHECK(json["position"]["positional"][0]["source"] == "rule");
     CHECK(json["position"]["positional"][0]["tag"] == "bishop_pair");
@@ -186,7 +197,7 @@ TEST_CASE("JSON follows v8 report key order", "[unit]") {
     CHECK(keys(pgn["opening"]["last_named"]) == std::vector<std::string>{"eco", "name", "ply"});
 }
 
-TEST_CASE("v8 analysis fields and restriction serialize", "[unit]") {
+TEST_CASE("v9 analysis fields and restriction serialize", "[unit]") {
     const auto json = chesswhy::to_json(chesswhy::test_examples::schema_example());
     const auto& position = json["position"];
     const auto& candidate = json["candidates"][0];
@@ -210,7 +221,7 @@ TEST_CASE("v8 analysis fields and restriction serialize", "[unit]") {
     CHECK(pin["restriction"]["held_to"]["name"] == "e");
 }
 
-TEST_CASE("tempo fields serialize in v8", "[unit]") {
+TEST_CASE("tempo fields serialize in v9", "[unit]") {
     using namespace chesswhy;
 
     Report report = test_examples::normal_position();
@@ -235,7 +246,9 @@ TEST_CASE("tempo fields serialize in v8", "[unit]") {
                                        .threat_rank = 2,
                                        .stops_threat = std::nullopt,
                                        .label = TempoPlyLabel::Threatening,
-                                       .tempo_gained = true},
+                                       .tempo_gained = true,
+                                       .reply_gain = std::nullopt,
+                                       .forced_test = std::nullopt},
                               TempoPly{.ply = 2,
                                        .san = "e5",
                                        .side = Side::White,
@@ -244,7 +257,9 @@ TEST_CASE("tempo fields serialize in v8", "[unit]") {
                                        .threat_rank = 0,
                                        .stops_threat = true,
                                        .label = TempoPlyLabel::PureReply,
-                                       .tempo_gained = false},
+                                       .tempo_gained = false,
+                                       .reply_gain = std::nullopt,
+                                       .forced_test = std::nullopt},
                               TempoPly{.ply = 3,
                                        .san = "Nf3",
                                        .side = Side::Black,
@@ -253,7 +268,9 @@ TEST_CASE("tempo fields serialize in v8", "[unit]") {
                                        .threat_rank = std::nullopt,
                                        .stops_threat = std::nullopt,
                                        .label = TempoPlyLabel::Neither,
-                                       .tempo_gained = false}},
+                                       .tempo_gained = false,
+                                       .reply_gain = std::nullopt,
+                                       .forced_test = std::nullopt}},
                     .tempi = Tempi{.white = 0, .black = 1},
                     .runs = {InitiativeRun{.holder = Side::Black,
                                            .start_ply = 1,
@@ -280,10 +297,12 @@ TEST_CASE("tempo fields serialize in v8", "[unit]") {
     CHECK(move["tempo_value"]["value"].get<double>() == Catch::Approx(0.025));
     CHECK(move["tempo_value"]["label"] == "non_tempo");
     const auto& ledger = move["tempo_ledger"];
-    CHECK(keys(ledger) == std::vector<std::string>{"plies", "tempi", "runs", "source"});
     CHECK(keys(ledger["plies"][0]) ==
           std::vector<std::string>{"ply", "san", "side", "threatening", "by_check", "threat_rank",
-                                   "stops_threat", "label", "tempo_gained"});
+                                   "stops_threat", "label", "tempo_gained", "reply_gain",
+                                   "forced_test"});
+    CHECK(ledger["plies"][0]["reply_gain"].is_null());
+    CHECK(ledger["plies"][0]["forced_test"].is_null());
     CHECK(ledger["plies"][0]["label"] == "threatening");
     CHECK(ledger["plies"][0]["tempo_gained"] == true);
     CHECK(ledger["plies"][1]["stops_threat"] == true);
@@ -300,10 +319,10 @@ TEST_CASE("tempo fields serialize in v8", "[unit]") {
     CHECK(move["positional"][0]["in_use"] == true);
 }
 
-TEST_CASE("motif JSON uses the schema v8 shape", "[unit]") {
+TEST_CASE("motif JSON uses the schema v9 shape", "[unit]") {
     const auto json = chesswhy::to_json(chesswhy::test_examples::normal_position());
 
-    CHECK(json["schema_version"] == 8);
+    CHECK(json["schema_version"] == 9);
     CHECK(
         json["position"]["motifs"][0].dump() ==
         R"({"source":"rule","tag":"hanging_piece","side":"white","ply":0,"actor":{"square":"d5","piece":"n"},"targets":[],"gain":3,"threat":null,"restriction":null,"contribution":null})");
@@ -322,7 +341,7 @@ TEST_CASE("motif JSON uses the schema v8 shape", "[unit]") {
     CHECK(pin["threat"]["square"] == "f4");
 }
 
-TEST_CASE("opportunity judgements and tactic-line fields serialize in v8", "[unit]") {
+TEST_CASE("opportunity judgements and tactic-line fields serialize in v9", "[unit]") {
     using namespace chesswhy;
 
     const auto forced = to_json(test_examples::forced_opportunity());

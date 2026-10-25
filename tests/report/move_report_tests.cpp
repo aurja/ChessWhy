@@ -29,7 +29,9 @@ using namespace chesswhy;
                                     .mate_in = std::nullopt,
                                     .material = 1,
                                     .promotes = false,
-                                    .plies = 2};
+                                    .plies = 2,
+                                    .terminal_draw = std::nullopt,
+                                    .settled = true};
     value.is_tactic = true;
     value.allows_tactic = verdict == Verdict::Blunder;
     return value;
@@ -117,6 +119,7 @@ using namespace chesswhy;
         .change = PositionalChangeKind::Appears,
         .holds_at_end = holds,
         .net_change = net_change,
+        .captured = false,
         .in_use = in_use,
         .feature =
             PositionalFeature{
@@ -217,7 +220,7 @@ TEST_CASE("move report headers copy only the M4 position and game fields", "[uni
         GameMoveCount{.san = "c3", .uci = "c2c3", .games = 3});
 
     const auto document = move_reports(report);
-    CHECK(document.schema_version == 8);
+    CHECK(document.schema_version == 9);
     CHECK(document.input.moves == "all");
     CHECK(document.engine.multipv == 6);
     CHECK(document.position.fen == report.position.fen);
@@ -440,14 +443,16 @@ TEST_CASE("move report tempo projections are null exactly when no ledger exists"
                                        .threat_rank = 2,
                                        .stops_threat = std::nullopt,
                                        .label = TempoPlyLabel::Threatening,
-                                       .tempo_gained = true}},
+                                       .tempo_gained = true,
+                                       .reply_gain = std::nullopt,
+                                       .forced_test = std::nullopt}},
                     .tempi = Tempi{.white = 1, .black = 0},
                     .runs = {InitiativeRun{.holder = Side::White,
                                            .start_ply = 1,
                                            .end_ply = 1,
                                            .tempi = 1,
                                            .ending = InitiativeEnding::Unfinished,
-                                           .outcome = InitiativeOutcome::Converted}}};
+                                           .outcome = InitiativeOutcome::Unknown}}};
 
     const auto document = move_reports(report);
     REQUIRE(document.position.tempo_value.has_value());
@@ -474,6 +479,8 @@ TEST_CASE("move report tempo projections are null exactly when no ledger exists"
     CHECK(json["position"]["tempo_value"]["source"] == "engine");
     CHECK(json["moves"][0]["tempo_gained"][0]["source"] == "engine");
     CHECK(json["moves"][0]["initiative"][0]["source"] == "rule");
+    CHECK(json["moves"][0]["initiative"][0]["ending"] == "unfinished");
+    CHECK(json["moves"][0]["initiative"][0]["outcome"] == "unknown");
     CHECK(json["moves"][1]["tempo_gained"].is_null());
     CHECK(json["moves"][1]["initiative"].is_null());
     CHECK(json["moves"][1]["tempo_value"].is_null());
@@ -484,8 +491,13 @@ TEST_CASE("impact order sorts ranked groups stably around both positional base o
     move.parried_threat = ParriedThreat{.threat = threat(ConsequenceClass::Material)};
     move.created_threat = threat(ConsequenceClass::Material);
     move.motifs.push_back(motif_with(MotifContribution::Direct));
-    move.consequence = Consequence{
-        .cls = ConsequenceClass::Mate, .mate_in = 1, .material = 0, .promotes = false, .plies = 1};
+    move.consequence = Consequence{.cls = ConsequenceClass::Mate,
+                                   .mate_in = 1,
+                                   .material = 0,
+                                   .promotes = false,
+                                   .plies = 1,
+                                   .terminal_draw = std::nullopt,
+                                   .settled = true};
     move.tempo_value = TempoValue{.side = Side::White,
                                   .moves_units = 1200,
                                   .passes_units = 1000,
@@ -586,12 +598,17 @@ TEST_CASE("move report leaves restricted motifs unmerged when restriction or con
     }
 }
 
-TEST_CASE("move report JSON uses the v8 moves shape and stable key order", "[unit]") {
+TEST_CASE("move report JSON uses the v9 moves shape and stable key order", "[unit]") {
     auto report = base_report();
+    report.input.selection.keywords = {Selection::Keyword::All};
     report.candidates[0].parries_threat = ParryInfo{.parries = true};
+    report.candidates[0].consequence.terminal_draw =
+        TerminalDraw{.kind = DrawKind::Stalemate, .ply = 2};
+    report.candidates[0].positional.push_back(
+        positional_change(PositionalTag::MobilityLead, Side::White, 12, 1, true));
+    report.candidates[5].refutation_skipped = RefutationSkip::GameOver;
     report.threats.emplace();
     report.threats->black = threat(ConsequenceClass::Material);
-    report.candidates[0].refutation.reset();
     const auto json = to_json(move_reports(report));
     const auto keys = [](const nlohmann::ordered_json& value) {
         std::vector<std::string> result;
@@ -610,14 +627,21 @@ TEST_CASE("move report JSON uses the v8 moves shape and stable key order", "[uni
                                                              "legal_moves", "terminal",
                                                              "eval_white", "tempo_value"});
     CHECK(keys(json["moves"][0]) ==
-          std::vector<std::string>{
-              "rank",         "san",         "uci",           "eval",           "depth",
-              "loss",         "verdict",     "gives_check",   "line",           "walked_plies",
-              "line_fens",    "consequence", "is_tactic",     "allows_tactic",  "opportunity",
-              "motifs",       "root_motifs", "tactic_labels", "positional",     "tempo_value",
-              "tempo_gained", "initiative",  "impact_order",  "parried_threat", "created_threat",
-              "refutation",   "games"});
+          std::vector<std::string>{"rank",           "san",           "uci",
+                                   "eval",           "depth",         "loss",
+                                   "verdict",        "gives_check",   "line",
+                                   "walked_plies",   "line_fens",     "consequence",
+                                   "is_tactic",      "allows_tactic", "opportunity",
+                                   "motifs",         "root_motifs",   "tactic_labels",
+                                   "positional",     "tempo_value",   "tempo_gained",
+                                   "initiative",     "impact_order",  "parried_threat",
+                                   "created_threat", "refutation",    "refutation_skipped",
+                                   "games"});
     CHECK(keys(json["moves"][0]["parried_threat"]) == std::vector<std::string>{"threat", "test"});
-    CHECK(json["schema_version"] == 8);
+    CHECK(json["moves"][0]["consequence"]["terminal_draw"]["kind"] == "stalemate");
+    CHECK(json["moves"][0]["consequence"]["settled"] == true);
+    CHECK(json["moves"][0]["positional"][0]["captured"] == false);
+    CHECK(json["moves"][5]["refutation_skipped"] == "game_over");
+    CHECK(json["schema_version"] == 9);
     CHECK(json["document"] == "moves");
 }

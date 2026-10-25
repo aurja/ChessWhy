@@ -125,6 +125,7 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["change"] = to_string(change.change);
     value["holds_at_end"] = change.holds_at_end;
     value["net_change"] = change.net_change;
+    value["captured"] = change.captured;
     value["in_use"] = change.in_use ? Json(*change.in_use) : Json(nullptr);
     serialize_positional_feature_fields(value, change.feature);
     return value;
@@ -222,6 +223,12 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
 serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opportunity) {
     return opportunity ? serialize_opportunity(*opportunity) : Json(nullptr);
 }
+[[nodiscard]] Json serialize_terminal_draw(const TerminalDraw& draw) {
+    Json value = Json::object();
+    value["kind"] = to_string(draw.kind);
+    value["ply"] = draw.ply;
+    return value;
+}
 
 [[nodiscard]] Json serialize_consequence(const Consequence& consequence) {
     Json value = Json::object();
@@ -231,6 +238,10 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["material"] = consequence.material;
     value["promotes"] = consequence.promotes;
     value["plies"] = consequence.plies;
+    value["terminal_draw"] = consequence.terminal_draw
+                                 ? serialize_terminal_draw(*consequence.terminal_draw)
+                                 : Json(nullptr);
+    value["settled"] = consequence.settled;
     return value;
 }
 
@@ -245,6 +256,34 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     return value;
 }
 
+[[nodiscard]] Json serialize_reply_gain(const ReplyGain& gain) {
+    Json value = Json::object();
+    value["material"] = gain.material;
+    value["mates"] = gain.mates;
+    value["through_ply"] = gain.through_ply;
+    value["settled"] = gain.settled;
+    value["gains"] = gain.gains ? Json(*gain.gains) : Json(nullptr);
+    return value;
+}
+
+[[nodiscard]] Json serialize_forced_test(const ForcedTest& test) {
+    Json value = Json::object();
+    value["legal_moves"] = test.legal_moves;
+    Json lines = Json::array();
+    for (const ReplyLine& line : test.lines) {
+        Json serialized_line = Json::object();
+        serialized_line["san"] = line.san;
+        serialized_line["es"] = static_cast<double>(line.es_units) / 2000.0;
+        serialized_line["acceptable"] = line.acceptable;
+        serialized_line["stops_threat"] =
+            line.stops_threat ? Json(*line.stops_threat) : Json(nullptr);
+        lines.push_back(std::move(serialized_line));
+    }
+    value["lines"] = std::move(lines);
+    value["forced"] = test.forced ? Json(*test.forced) : Json(nullptr);
+    return value;
+}
+
 [[nodiscard]] Json serialize_tempo_ply(const TempoPly& ply) {
     Json value = Json::object();
     value["ply"] = ply.ply;
@@ -256,6 +295,9 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["stops_threat"] = ply.stops_threat ? Json(*ply.stops_threat) : Json(nullptr);
     value["label"] = to_string(ply.label);
     value["tempo_gained"] = ply.tempo_gained;
+    value["reply_gain"] = ply.reply_gain ? serialize_reply_gain(*ply.reply_gain) : Json(nullptr);
+    value["forced_test"] =
+        ply.forced_test ? serialize_forced_test(*ply.forced_test) : Json(nullptr);
     return value;
 }
 
@@ -349,6 +391,8 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["tempo_ledger_skipped"] =
         move.tempo_ledger_skipped ? Json(to_string(*move.tempo_ledger_skipped)) : Json(nullptr);
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
+    value["refutation_skipped"] =
+        move.refutation_skipped ? Json(to_string(*move.refutation_skipped)) : Json(nullptr);
     value["motifs"] = serialize_motifs(move.motifs);
     value["opportunity"] = serialize_optional_opportunity(move.opportunity);
     value["tactic_labels"] = serialize_tactic_labels(move.tactic_labels);
@@ -411,6 +455,23 @@ std::string to_string(Terminal terminal) {
         return "stalemate";
     }
     throw std::invalid_argument(invalid_enum("Terminal", terminal));
+}
+std::string to_string(DrawKind kind) {
+    switch (kind) {
+    case DrawKind::Stalemate:
+        return "stalemate";
+    case DrawKind::InsufficientMaterial:
+        return "insufficient_material";
+    }
+    throw std::invalid_argument(invalid_enum("DrawKind", kind));
+}
+
+std::string to_string(RefutationSkip skip) {
+    switch (skip) {
+    case RefutationSkip::GameOver:
+        return "game_over";
+    }
+    throw std::invalid_argument(invalid_enum("RefutationSkip", skip));
 }
 
 std::string to_string(ConsequenceClass cls) {
@@ -665,6 +726,12 @@ std::string to_string(TempoPlyLabel label) {
         return "counter_threat";
     case TempoPlyLabel::Neither:
         return "neither";
+    case TempoPlyLabel::GainingReply:
+        return "gaining_reply";
+    case TempoPlyLabel::UnforcedReply:
+        return "unforced_reply";
+    case TempoPlyLabel::UnresolvedReply:
+        return "unresolved_reply";
     }
     throw std::invalid_argument(invalid_enum("TempoPlyLabel", label));
 }
@@ -679,6 +746,10 @@ std::string to_string(InitiativeEnding ending) {
         return "runs";
     case InitiativeEnding::Unfinished:
         return "unfinished";
+    case InitiativeEnding::Answered:
+        return "answered";
+    case InitiativeEnding::Unresolved:
+        return "unresolved";
     }
     throw std::invalid_argument(invalid_enum("InitiativeEnding", ending));
 }
@@ -689,6 +760,8 @@ std::string to_string(InitiativeOutcome outcome) {
         return "converted";
     case InitiativeOutcome::Evaporated:
         return "evaporated";
+    case InitiativeOutcome::Unknown:
+        return "unknown";
     }
     throw std::invalid_argument(invalid_enum("InitiativeOutcome", outcome));
 }

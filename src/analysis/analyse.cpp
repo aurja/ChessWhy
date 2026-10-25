@@ -66,7 +66,7 @@ constexpr int kParryMarginUnits = 60;
 }
 [[nodiscard]] std::vector<chess::Move> walked_moves(const chess::Board& root,
                                                     std::span<const std::string> pv_uci) {
-    const auto plies = static_cast<std::size_t>(walked_plies(root, pv_uci));
+    const auto plies = static_cast<std::size_t>(walk(root, pv_uci).plies);
     std::vector<chess::Move> moves;
     moves.reserve(plies);
     chess::Board board = root;
@@ -122,6 +122,9 @@ void judge_refutation(engine::Engine& engine, const NodeBudget& budget,
                       std::uint64_t& nodes_searched, const chess::Board& root,
                       std::span<const std::string> pv_uci, const Eval& refuted_move_eval,
                       Threat& refutation) {
+    if (game_over(root)) {
+        return;
+    }
     const auto line_moves = walked_moves(root, pv_uci);
     if (line_moves.empty()) {
         return;
@@ -129,10 +132,6 @@ void judge_refutation(engine::Engine& engine, const NodeBudget& budget,
 
     chess::Movelist legal_moves;
     chess::movegen::legalmoves(legal_moves, root);
-    if (legal_moves.empty()) {
-        throw engine::EngineError("Stockfish refutation has a move after a terminal position");
-    }
-
     OpportunityJudgement judgement;
     if (legal_moves.size() == 1) {
         judgement.forced = true;
@@ -346,6 +345,10 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     result.positional = positional::line_changes(root, moves);
     result.detailed = false;
     result.opportunity = std::move(opportunity);
+    const bool after_move_game_over = game_over(after_move);
+    if (after_move_game_over) {
+        result.creates_threat_skipped = CreatesThreatSkip::GameOver;
+    }
 
     const bool tactic_line =
         result.is_tactic || (result.opportunity && result.opportunity->is_opportunity);
@@ -357,18 +360,22 @@ search_parry(engine::Engine& engine, const NodeBudget& budget, std::uint64_t& no
     }
 
     if (result.verdict != Verdict::Best && result.verdict != Verdict::Okay) {
-        const auto pv = std::span<const std::string>(line.pv_uci);
-        const auto reply = pv.size() > 1 ? pv.subspan(1) : std::span<const std::string>();
-        engine::Line reply_line;
-        if (line.mate.has_value()) {
-            reply_line.mate = -*line.mate;
-        }
-        result.refutation =
-            make_threat(after_move, reply, reply_line, report_side(after_move.sideToMove()));
-        result.refutation->is_tactic = result.allows_tactic;
-        if (result.allows_tactic) {
-            const auto refutation_moves = walked_moves(after_move, reply);
-            annotate_threat_line(after_move, refutation_moves, *result.refutation);
+        if (after_move_game_over) {
+            result.refutation_skipped = RefutationSkip::GameOver;
+        } else {
+            const auto pv = std::span<const std::string>(line.pv_uci);
+            const auto reply = pv.size() > 1 ? pv.subspan(1) : std::span<const std::string>();
+            engine::Line reply_line;
+            if (line.mate.has_value()) {
+                reply_line.mate = -*line.mate;
+            }
+            result.refutation =
+                make_threat(after_move, reply, reply_line, report_side(after_move.sideToMove()));
+            result.refutation->is_tactic = result.allows_tactic;
+            if (result.allows_tactic) {
+                const auto refutation_moves = walked_moves(after_move, reply);
+                annotate_threat_line(after_move, refutation_moves, *result.refutation);
+            }
         }
     }
     walked_line = std::move(moves);
@@ -389,6 +396,7 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
     after_move.makeMove(move);
     const bool has_reply = has_legal_moves(after_move);
     const bool mates = result.gives_check && !has_reply;
+    const bool after_move_game_over = game_over(after_move);
 
     if (!root.inCheck() && opponent_threat_rank >= 2 && opponent_line.has_value() &&
         !opponent_line->pv_uci.empty()) {
@@ -397,10 +405,10 @@ void complete_move_details(engine::Engine& engine, const NodeBudget& budget,
                          opponent_line->pv_uci.front(), *opponent_line);
     }
 
-    if (result.gives_check) {
-        result.creates_threat_skipped = CreatesThreatSkip::GivesCheck;
-    } else if (!has_reply) {
+    if (after_move_game_over) {
         result.creates_threat_skipped = CreatesThreatSkip::GameOver;
+    } else if (result.gives_check) {
+        result.creates_threat_skipped = CreatesThreatSkip::GivesCheck;
     } else {
         chess::Board null_after_move = after_move;
         null_after_move.makeNullMove();
@@ -450,10 +458,10 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
 
     TempoLedger ledger;
     ledger.plies.reserve(walked_line.size());
-    chess::Board board = root;
+    const std::vector<chess::Board> boards = board_positions(root, walked_line);
     for (std::size_t index = 0; index < walked_line.size(); ++index) {
-        board.makeMove(walked_line[index]);
-        const bool game_over = !has_legal_moves(board);
+        const chess::Board& board = boards[index + 1];
+        const bool after_move_game_over = game_over(board);
         TempoPly ply;
         ply.ply = static_cast<int>(index + 1);
         ply.san = result.line_san[index];
@@ -468,7 +476,7 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                 ply.threat_rank = rank;
                 ply.threatening = rank >= 2;
             }
-        } else if (!game_over) {
+        } else if (!after_move_game_over) {
             chess::Board null_board = board;
             null_board.makeNullMove();
             if (has_legal_moves(null_board)) {
@@ -486,8 +494,9 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
             }
         }
 
-        if (!ledger.plies.empty() && ledger.plies.back().threatening) {
-            if (game_over) {
+        const bool answers_threat = !ledger.plies.empty() && ledger.plies.back().threatening;
+        if (answers_threat) {
+            if (after_move_game_over) {
                 ply.stops_threat = true;
             } else {
                 engine::SearchRequest request;
@@ -501,9 +510,90 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
                     consequence_rank(consequence(board, reply_line.pv_uci, reply_line));
                 ply.stops_threat = rank < 2;
             }
+
+            if (ply.stops_threat.value_or(false) && !ply.threatening) {
+                const int k = static_cast<int>(index + 1);
+                const int through_ply = settle_ply(root, walked_line, k);
+                ply.reply_gain = reply_gain(boards, k, through_ply, result.consequence.settled);
+                if (ply.reply_gain->gains == false) {
+                    const chess::Board& before_reply = boards[index];
+                    const auto legal_moves = legal_move_count(before_reply);
+                    if (legal_moves == 0) {
+                        throw engine::EngineError("forced test reached a game-over reply board");
+                    }
+                    const int multipv = std::min(kMinMultiPv, static_cast<int>(legal_moves));
+                    engine::SearchRequest request;
+                    request.fen = before_reply.getFen();
+                    request.nodes = budget.l;
+                    request.multipv = multipv;
+                    const auto searched = engine.search(request);
+                    nodes_searched += searched.nodes;
+                    if (searched.lines.empty()) {
+                        throw engine::EngineError(
+                            "Stockfish forced test returned no principal variations");
+                    }
+
+                    const int best_es = es_units(searched.lines.front());
+                    ForcedTest forced_test;
+                    forced_test.legal_moves = static_cast<int>(legal_moves);
+                    forced_test.lines.reserve(searched.lines.size());
+                    for (const auto& alternative_line : searched.lines) {
+                        if (alternative_line.pv_uci.empty()) {
+                            throw engine::EngineError(
+                                "Stockfish forced test returned an empty principal variation");
+                        }
+                        const auto alternative_move =
+                            detail::legal_move(before_reply, alternative_line.pv_uci.front());
+                        if (alternative_move == chess::Move::NO_MOVE) {
+                            throw engine::EngineError(
+                                "Stockfish forced test returned an illegal first move");
+                        }
+                        const int alternative_es = es_units(alternative_line);
+                        const bool acceptable = alternative_es >= best_es - kPlayableUnits;
+                        std::optional<bool> stops_threat;
+                        if (acceptable) {
+                            if (alternative_move == walked_line[index]) {
+                                stops_threat = ply.stops_threat;
+                            } else {
+                                chess::Board after_alternative = before_reply;
+                                after_alternative.makeMove(alternative_move);
+                                if (game_over(after_alternative)) {
+                                    stops_threat = true;
+                                } else {
+                                    engine::SearchRequest reply_request;
+                                    reply_request.fen = after_alternative.getFen();
+                                    reply_request.nodes = budget.l;
+                                    reply_request.multipv = 1;
+                                    const auto reply_search = engine.search(reply_request);
+                                    nodes_searched += reply_search.nodes;
+                                    const auto& alternative_reply = first_line(reply_search);
+                                    const int rank = consequence_rank(
+                                        consequence(after_alternative, alternative_reply.pv_uci,
+                                                    alternative_reply));
+                                    stops_threat = rank < 2;
+                                }
+                            }
+                            if (!stops_threat) {
+                                throw engine::EngineError(
+                                    "forced test acceptable line has no threat result");
+                            }
+                        }
+                        forced_test.lines.push_back(ReplyLine{
+                            .san = chess::uci::moveToSan(before_reply, alternative_move),
+                            .es_units = alternative_es,
+                            .acceptable = acceptable,
+                            .stops_threat = stops_threat,
+                        });
+                    }
+                    forced_test.forced =
+                        forced_test_result(forced_test.lines, forced_test.legal_moves);
+                    ply.forced_test = std::move(forced_test);
+                }
+            }
         }
+
         ledger.plies.push_back(std::move(ply));
-        if (game_over) {
+        if (after_move_game_over) {
             break;
         }
     }
@@ -519,7 +609,7 @@ void complete_tempo_ledger(engine::Engine& engine, const NodeBudget& budget,
         }
     }
     ledger.runs = initiative_runs(ledger.plies, root, walked_line.first(ledger.plies.size()),
-                                  result.positional);
+                                  result.positional, result.consequence.settled);
     result.tempo_ledger = std::move(ledger);
     result.tempo_ledger_skipped.reset();
 }

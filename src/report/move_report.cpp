@@ -265,6 +265,7 @@ void serialize_positional_feature_fields(Json& value, const PositionalFeature& f
     value["change"] = to_string(change.change);
     value["holds_at_end"] = change.holds_at_end;
     value["net_change"] = change.net_change;
+    value["captured"] = change.captured;
     value["in_use"] = change.in_use ? Json(*change.in_use) : Json(nullptr);
     serialize_positional_feature_fields(value, change.feature);
     return value;
@@ -365,6 +366,15 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["material"] = consequence.material;
     value["promotes"] = consequence.promotes;
     value["plies"] = consequence.plies;
+    if (consequence.terminal_draw) {
+        Json terminal_draw = Json::object();
+        terminal_draw["kind"] = to_string(consequence.terminal_draw->kind);
+        terminal_draw["ply"] = consequence.terminal_draw->ply;
+        value["terminal_draw"] = std::move(terminal_draw);
+    } else {
+        value["terminal_draw"] = nullptr;
+    }
+    value["settled"] = consequence.settled;
     return value;
 }
 
@@ -443,6 +453,8 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["created_threat"] =
         move.created_threat ? serialize_threat(*move.created_threat) : Json(nullptr);
     value["refutation"] = move.refutation ? serialize_threat(*move.refutation) : Json(nullptr);
+    value["refutation_skipped"] =
+        move.refutation_skipped ? Json(to_string(*move.refutation_skipped)) : Json(nullptr);
     value["games"] = move.games ? Json(*move.games) : Json(nullptr);
     return value;
 }
@@ -642,6 +654,7 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     if (!playable(assessment.verdict) && assessment.refutation) {
         result.refutation = projected_threat(*assessment.refutation, true);
     }
+    result.refutation_skipped = assessment.refutation_skipped;
 
     int games = 0;
     if (has_games_for_move(report.games, assessment.uci, games)) {

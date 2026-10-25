@@ -261,6 +261,30 @@ void check_line_changes_and_identity() {
     require(kingside_disappears != pl03_changes.end() && kingside_disappears->holds_at_end,
             "PL03's disappeared castling right remains absent at the end");
 
+    chess::Board isolated_capture("3r2k1/8/2n5/8/3P4/2N5/8/R5K1 b - - 0 1");
+    const chess::Move rook_takes_pawn = legal_move(isolated_capture, "d8d4");
+    const std::array isolated_line{rook_takes_pawn};
+    const auto isolated_changes = reference_line_changes(isolated_capture, isolated_line);
+    const auto captured_isolani = std::ranges::find_if(isolated_changes, [](const auto& change) {
+        return change.feature.tag == PositionalTag::IsolatedPawn &&
+               change.feature.side == Side::White &&
+               change.change == PositionalChangeKind::Disappears;
+    });
+    require(captured_isolani != isolated_changes.end() && captured_isolani->captured,
+            "an isolated-pawn disappearance records its capture");
+
+    chess::Board en_passant("7k/8/8/3pP3/8/8/8/K7 w - d6 0 1");
+    const chess::Move ep_capture = legal_move(en_passant, "e5d6");
+    const std::array ep_line{ep_capture};
+    const auto ep_changes = reference_line_changes(en_passant, ep_line);
+    const auto captured_passer = std::ranges::find_if(ep_changes, [](const auto& change) {
+        return change.feature.tag == PositionalTag::PassedPawn &&
+               change.feature.side == Side::Black &&
+               change.change == PositionalChangeKind::Disappears;
+    });
+    require(captured_passer != ep_changes.end() && captured_passer->captured,
+            "en passant records the removed passed pawn as captured");
+
     chess::Board temporary_passer("4k3/8/2b5/1p6/P7/8/8/4K3 w - - 0 1");
     const chess::Move capture_pawn = legal_move(temporary_passer, "a4b5");
     chess::Board after_capture = temporary_passer;

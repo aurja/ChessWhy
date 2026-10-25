@@ -147,6 +147,12 @@ void write_tempo_value(std::ostringstream& output, const std::optional<TempoValu
         return "counter threat";
     case TempoPlyLabel::Neither:
         return "neither";
+    case TempoPlyLabel::GainingReply:
+        return "gaining reply";
+    case TempoPlyLabel::UnforcedReply:
+        return "unforced reply";
+    case TempoPlyLabel::UnresolvedReply:
+        return "unresolved reply";
     }
     return "";
 }
@@ -154,13 +160,44 @@ void write_tempo_value(std::ostringstream& output, const std::optional<TempoValu
 void write_initiative_run(std::ostringstream& output, const InitiativeRun& run) {
     output << "Initiative: " << side_name(run.holder) << " from ply " << run.start_ply << ", "
            << run.tempi << (run.tempi == 1 ? " tempo" : " tempi") << "; " << to_string(run.ending)
-           << " at ply " << run.end_ply << "; " << to_string(run.outcome) << " [rule]\n";
+           << " at ply " << run.end_ply << "; ";
+    if (run.outcome == InitiativeOutcome::Unknown) {
+        output << "outcome ";
+    }
+    output << to_string(run.outcome) << " [rule]\n";
 }
 
 void write_initiative_runs(std::ostringstream& output, const std::vector<InitiativeRun>& runs) {
     for (const InitiativeRun& run : runs) {
         write_initiative_run(output, run);
     }
+}
+
+void write_forced_test_suffix(std::ostringstream& output, const TempoPly& ply) {
+    if (!ply.forced_test) {
+        return;
+    }
+    const bool unforced = ply.label == TempoPlyLabel::UnforcedReply;
+    if (!unforced && ply.label != TempoPlyLabel::UnresolvedReply) {
+        return;
+    }
+
+    const ForcedTest& forced_test = *ply.forced_test;
+    output << (unforced ? " (acceptable, leaves the threat: " : " (acceptable, stops the threat: ");
+    bool has_line = false;
+    for (const ReplyLine& line : forced_test.lines) {
+        if (unforced &&
+            (!line.acceptable || !line.stops_threat.has_value() || *line.stops_threat)) {
+            continue;
+        }
+        if (has_line) {
+            output << ", ";
+        }
+        output << line.san;
+        has_line = true;
+    }
+    output << "; " << forced_test.lines.size() << " of " << forced_test.legal_moves
+           << " replies searched)";
 }
 
 void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) {
@@ -190,9 +227,14 @@ void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) 
             output << "; ";
         }
         output << ply.ply << ". " << ply.san << ' ' << tempo_ply_label_text(ply.label);
+        if (ply.label == TempoPlyLabel::GainingReply && ply.reply_gain) {
+            output << " (" << (ply.reply_gain->material >= 0 ? "+" : "") << ply.reply_gain->material
+                   << ')';
+        }
         if (ply.tempo_gained) {
             output << ", tempo gained";
         }
+        write_forced_test_suffix(output, ply);
         has_ply = true;
     }
     if (has_ply) {
@@ -248,14 +290,28 @@ void write_move_eval(std::ostringstream& output, const MoveReport& move) {
     output << std::fixed << std::setprecision(1) << static_cast<double>(move.eval.es_units) / 20.0;
 }
 
+void write_walk_settlement(std::ostringstream& output, const Consequence& consequence) {
+    if (consequence.terminal_draw) {
+        const char* kind = consequence.terminal_draw->kind == DrawKind::Stalemate
+                               ? "stalemate"
+                               : "insufficient material";
+        output << " (" << kind << ')';
+    } else if (!consequence.settled) {
+        output << " (not settled)";
+    }
+}
+
 void write_walk(std::ostringstream& output, const std::string& label, const MoveAssessment& move) {
-    output << label << " facts read to ply " << move.walked_plies << " of " << move.line_san.size()
-           << " [rule]\n";
+    output << label << " facts read to ply " << move.walked_plies << " of " << move.line_san.size();
+    write_walk_settlement(output, move.consequence);
+    output << " [rule]\n";
 }
 
 void write_walk(std::ostringstream& output, const MoveReport& move) {
     output << "Line: " << san_line(move.line_san) << "; facts read to ply " << move.walked_plies
-           << " of " << move.line_san.size() << " [engine]\n";
+           << " of " << move.line_san.size();
+    write_walk_settlement(output, move.consequence);
+    output << " [engine]\n";
 }
 
 [[nodiscard]] bool restricted_movement_tag(MotifTag tag) {
@@ -470,9 +526,7 @@ void write_consequence_summary(std::ostringstream& output, const Consequence& co
         } else {
             output << "null";
         }
-        return;
-    }
-    if (consequence.cls == ConsequenceClass::Material) {
+    } else if (consequence.cls == ConsequenceClass::Material) {
         if (include_side) {
             output << side_name(side) << ' ';
         }
@@ -481,12 +535,17 @@ void write_consequence_summary(std::ostringstream& output, const Consequence& co
         output << (material < 0 ? "loses " : "wins ") << absolute_material
                << (absolute_material == 1 ? " pawn net by ply " : " pawns net by ply ")
                << consequence.plies;
-    }
-    if (consequence.cls == ConsequenceClass::Promotion) {
+    } else if (consequence.cls == ConsequenceClass::Promotion) {
         if (include_side) {
             output << side_name(side) << ' ';
         }
         output << "promotes by ply " << consequence.plies;
+    }
+    if (consequence.terminal_draw) {
+        const char* kind = consequence.terminal_draw->kind == DrawKind::Stalemate
+                               ? "stalemate"
+                               : "insufficient material";
+        output << "; " << kind << " at ply " << consequence.terminal_draw->ply;
     }
 }
 
@@ -862,7 +921,31 @@ void write_move_report_group(std::ostringstream& output, const MoveReportDocumen
         }
         return;
     case ImpactGroup::Motifs: // Uses rows are written before the tactic labels
-    case ImpactGroup::Tempo:  // the move report text has no tempo rows
+        return;
+    case ImpactGroup::Tempo:
+        if (ply == 0 && document.position.tempo_value) {
+            output << "  ";
+            write_tempo_value(output, document.position.tempo_value);
+        }
+        if (ply == 1 && move.tempo_value) {
+            output << "  ";
+            write_tempo_value(output, move.tempo_value);
+        }
+        if (move.tempo_gained) {
+            for (const TempoGained& tempo : *move.tempo_gained) {
+                if (tempo.ply - 1 == ply) {
+                    output << "  Tempo: " << side_name(tempo.side) << " gains a tempo [engine]\n";
+                }
+            }
+        }
+        if (move.initiative) {
+            for (const InitiativeRun& run : *move.initiative) {
+                if (run.start_ply - 1 == ply) {
+                    output << "  ";
+                    write_initiative_run(output, run);
+                }
+            }
+        }
         return;
     case ImpactGroup::PositionalDynamic:
     case ImpactGroup::PositionalStatic:
@@ -894,13 +977,16 @@ void write_position_block(std::ostringstream& output, const MoveReportDocument& 
         write_position_move(output, position.side_to_move,
                             move.line_san.at(static_cast<std::size_t>(ply)), ply);
     }
+    write_move_report_group(output, document, move, ImpactGroup::Tempo, ply);
     write_move_motifs(output, move.motifs, ply);
     if (ply == 0) {
         write_move_motifs(output, move.root_motifs, ply);
     }
     write_move_tactic_labels(output, move.tactic_labels, ply);
     for (const ImpactGroup group : move.impact_order) {
-        write_move_report_group(output, document, move, group, ply);
+        if (group != ImpactGroup::Tempo) {
+            write_move_report_group(output, document, move, group, ply);
+        }
     }
 }
 
@@ -967,6 +1053,8 @@ void write_move_refutation(std::ostringstream& output, const std::string& label,
         write_tactic_labels(output, move.refutation->tactic_labels);
         write_motifs(output, move.refutation->motifs);
         write_consequence(output, label + " refutation consequence", move.refutation->consequence);
+    } else if (move.refutation_skipped) {
+        output << "Refuted by: none, the move ends the game [rule]\n";
     } else if (detailed) {
         output << label << " refutation: null [rule]\n";
     }
