@@ -1958,7 +1958,7 @@ def king_pressed(
         after = boards[ply]
         zone = king_zone(before, side) & chess.SquareSet(file_mask)
         capture_square = move.to_square
-        if before.is_en_passant(move):
+        if on_file and before.is_en_passant(move):
             capture_square += -8 if other == chess.WHITE else 8
         if before.is_capture(move) and capture_square in zone:
             return True

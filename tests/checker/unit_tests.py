@@ -1527,6 +1527,31 @@ class CheckerRelationsTests(unittest.TestCase):
         )
         self.assertEqual(failures, [])
 
+    def test_en_passant_king_zone_attacker_uses_landing_square(self) -> None:
+        root = chess.Board("8/8/3B4/4Pp2/6k1/8/8/K7 w - f6 0 1")
+        assessment: checker.JsonObject = {"line": ["exf6"], "walked_plies": 1}
+        walk = checker.replay_walk(root, assessment)
+        assert walk is not None
+        boards, moves = walk
+        change: checker.JsonObject = {
+            "tag": "king_zone_attacker",
+            "side": "black",
+            "change": "appears",
+            "ply": 1,
+            "pieces": [{"square": "d6", "piece": "B"}],
+        }
+
+        self.assertFalse(checker.use_test(change, boards, moves, False))
+
+    def test_en_passant_file_shelter_keeps_removed_square_behavior(self) -> None:
+        root = chess.Board("8/8/3B4/4Pp2/6k1/8/8/K7 w - f6 0 1")
+        assessment: checker.JsonObject = {"line": ["exf6"], "walked_plies": 1}
+        walk = checker.replay_walk(root, assessment)
+        assert walk is not None
+        boards, moves = walk
+
+        self.assertTrue(checker.king_pressed(chess.BLACK, 1, boards, moves, "f"))
+
     def test_use_test_covers_tags_timing_pressure_and_superseding(self) -> None:
         def is_used(
             fen: str,
