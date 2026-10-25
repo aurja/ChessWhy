@@ -970,17 +970,35 @@ TEST_CASE("full report tempo rows follow the v9 templates", "[unit]") {
                 tempo_ply(7, "Nf6", Side::Black, TempoPlyLabel::Threatening, false),
                 tempo_ply(8, "Qxf7", Side::White, TempoPlyLabel::UnresolvedReply, false,
                           ReplyGain{.material = 0, .mates = false, .through_ply = 10,
-                                    .settled = false, .gains = std::nullopt}),
+                                    .settled = false, .gains = std::nullopt},
+                          ForcedTest{
+                              .legal_moves = 18,
+                              .lines =
+                                  {ReplyLine{.san = "Qxf7",
+                                             .es_units = 0,
+                                             .acceptable = true,
+                                             .stops_threat = true},
+                                   ReplyLine{.san = "Kg8",
+                                             .es_units = 0,
+                                             .acceptable = false,
+                                             .stops_threat = false}},
+                              .forced = std::nullopt}),
                 tempo_ply(9, "Bc5", Side::Black, TempoPlyLabel::Threatening, false),
                 tempo_ply(10, "Rxd5", Side::White, TempoPlyLabel::UnforcedReply, false,
                           ReplyGain{.material = 0, .mates = false, .through_ply = 10,
                                     .settled = true, .gains = false},
-                          ForcedTest{.legal_moves = 24,
-                                     .lines = {ReplyLine{.san = "Rxd5",
-                                                         .es_units = 1000,
-                                                         .acceptable = true,
-                                                         .stops_threat = false}},
-                                     .forced = false}),
+                          ForcedTest{
+                              .legal_moves = 24,
+                              .lines =
+                                  {ReplyLine{.san = "Rxd5",
+                                             .es_units = 1000,
+                                             .acceptable = true,
+                                             .stops_threat = false},
+                                   ReplyLine{.san = "Qxd5",
+                                             .es_units = 500,
+                                             .acceptable = true,
+                                             .stops_threat = true}},
+                              .forced = false}),
             },
         .tempi = Tempi{.white = 0, .black = 2},
         .runs =
@@ -1017,8 +1035,10 @@ TEST_CASE("full report tempo rows follow the v9 templates", "[unit]") {
     CHECK(rendered.find("Tempo ledger: 1. Qxd5 threatening, tempo gained; 2. Nc3 pure reply; "
                         "3. Bf4 threatening; 4. Nxe4 gaining reply (+2); "
                         "5. Qa5 threatening, tempo gained; 6. Qd3 pure reply; "
-                        "7. Nf6 threatening; 8. Qxf7 unresolved reply; "
-                        "9. Bc5 threatening; 10. Rxd5 unforced reply; "
+                        "7. Nf6 threatening; 8. Qxf7 unresolved reply "
+                        "(acceptable, stops the threat: Qxf7, Kg8; 2 of 18 replies searched); "
+                        "9. Bc5 threatening; 10. Rxd5 unforced reply "
+                        "(acceptable, leaves the threat: Rxd5; 2 of 24 replies searched); "
                         "White 0 tempi, Black 2 [engine]") != std::string::npos);
     CHECK(rendered.find("Initiative: Black from ply 1, 1 tempo; answered at ply 4; "
                         "outcome unknown [rule]") != std::string::npos);

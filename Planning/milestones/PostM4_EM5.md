@@ -79,6 +79,8 @@ The tempo rows return to the move report text at the end of part 1 (R13, §3.8).
 | TAC2-1 unmoved pieces do not imply a surviving pin | G4 | contribution rule 3′ |
 | POS2-4 break cost over unsearchable moves | G4 | specify the legal search domain only; break cost stays an open proposal |
 | REP2-2 relevance filter drops deferred-parry conditions | G8 | relevance filter's mandatory conditions |
+| Checkpoint 2 (2026-10-25): the forced test's cost. F32 `--moves playable` takes 24.6–29.9 s (limit 30 s; 27.9 s at PostM4_EM4) and F12 14.2 s (limit 15 s) | — | forced test: cut its search cost (e.g. reuse the reply search), budgets unchanged |
+| Checkpoint 2 (2026-10-25): the engine collector's duplicate fallback may shorten Search A silently, as it shortened F32's forced test to 4 lines (scope proposal) | — | engine line collection: audit |
 
 ### Part 3 — contract and wording repairs
 
@@ -305,7 +307,12 @@ with old and new value for checkpoint 2; a change no rule explains is a bug, not
   `; insufficient material at ply k`.
 - A skipped refutation prints `Refuted by: none, the move ends the game [rule]`.
 - Ledger labels print `gaining reply`, `unforced reply`, `unresolved reply`; a gaining reply
-  adds ` (+N)` with its material.
+  adds ` (+N)` with its material. From checkpoint 2 (2026-10-25) the forced test prints as
+  evidence: an `unforced reply` adds ` (acceptable, leaves the threat: X, Y; m of L replies
+  searched)`, naming every searched line that is acceptable and does not stop the threat, in
+  engine order; an `unresolved reply` adds ` (acceptable, stops the threat: X, Y, Z; m of L
+  replies searched)`, naming every searched line; `m` is the lines returned, `L` the legal
+  replies. A `pure reply` prints no suffix.
 - Initiative rows: ending words `answered` and `unresolved`; the outcome `unknown` prints
   `outcome unknown`.
 
@@ -357,6 +364,8 @@ Batches: WP1 + WP2; then WP3 + WP4; then WP5; WP6 with the milestone-end gate.
       `reply_gain`, labels from `forced_test`, endings, outcomes, `captured` and the shelter
       witness, with a mutant per rule.
 - [ ] The move report text prints the §3.8 rows; V2 and F40 match §3.8.
+- [ ] The full report text prints the forced-test suffix of §3.7 on every unforced and
+      unresolved reply; F42 and F28 pin it.
 - [ ] Gates of AGENTS.md (batch and milestone end); `cli_timing` within limits.
 - [ ] `DEFINITIONS.md`, `CONCEPTS.md`, `CODE.md`, `FIXTURES.md`, `TESTS.md` current;
       `check_dbc` passes.
@@ -370,3 +379,4 @@ Batches: WP1 + WP2; then WP3 + WP4; then WP5; WP6 with the milestone-end gate.
 | 2026-10-25 | WP2 acceptance: PU10's `king_shield_gap` g (ply 5) becomes cut under P11, since at the end only `Ne1` attacks a g-file zone square; the freeze's "PU10 still kept" was not checked against rule (iii) | Deputy |
 | 2026-10-25 | P6: `m` is the number of distinct lines Stockfish returns when that is fewer than `min(5, legal)` (F32 `--moves all`, ply after `…f6 d4`: 4 of 5 lines, the 5th was a lowerbound at the node limit); never makes a short result `true` without an unacceptable line. The engine wrapper's line collection is unchanged | Deputy |
 | 2026-10-25 | §3.8 sample: F40 block 1 reads `17.2%`, not `17.3%`. The EM3 formatter prints the double 0.1725 as 17.2 (and 0.2965 as 29.6, as the sample already had); the formatter is unchanged (WP3) | Deputy |
+| 2026-10-25 | Checkpoint 2: re-bless list approved (F07, F21, F25, F28, F40, F41, F42; new F45, F46); P6 short MultiPV and §3.8 `17.2%` ratified; timing within limits, the forced test's cost goes to part 2 (budgets unchanged); §3.7 gains the forced-test suffix (the full report text printed no forced test) | Captain |

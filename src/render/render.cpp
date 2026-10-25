@@ -173,6 +173,35 @@ void write_initiative_runs(std::ostringstream& output, const std::vector<Initiat
     }
 }
 
+void write_forced_test_suffix(std::ostringstream& output, const TempoPly& ply) {
+    if (!ply.forced_test) {
+        return;
+    }
+    const bool unforced = ply.label == TempoPlyLabel::UnforcedReply;
+    if (!unforced && ply.label != TempoPlyLabel::UnresolvedReply) {
+        return;
+    }
+
+    const ForcedTest& forced_test = *ply.forced_test;
+    output << (unforced ? " (acceptable, leaves the threat: "
+                        : " (acceptable, stops the threat: ");
+    bool has_line = false;
+    for (const ReplyLine& line : forced_test.lines) {
+        if (unforced &&
+            (!line.acceptable || !line.stops_threat.has_value() || *line.stops_threat)) {
+            continue;
+        }
+        if (has_line) {
+            output << ", ";
+        }
+        output << line.san;
+        has_line = true;
+    }
+    output << "; " << forced_test.lines.size() << " of " << forced_test.legal_moves
+           << " replies searched)";
+}
+
+
 void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) {
     if (!move.tempo_ledger) {
         if (move.tempo_ledger_skipped) {
@@ -207,6 +236,7 @@ void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) 
         if (ply.tempo_gained) {
             output << ", tempo gained";
         }
+        write_forced_test_suffix(output, ply);
         has_ply = true;
     }
     if (has_ply) {
