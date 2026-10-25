@@ -201,3 +201,4 @@ the same-score unit test becomes an N6 score-order test (cp, mate for, mate agai
 
 | Date | Change | By |
 |---|---|---|
+| 2026-10-25 | Checkpoint 1 passed: diagrams approved. Forced-test timing risk (MultiPV 5 at depth 14, about 10× today's cost): build as frozen and measure at checkpoint 2 (option 1) | Captain |
