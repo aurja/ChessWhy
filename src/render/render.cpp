@@ -258,17 +258,11 @@ void write_tempo_ledger(std::ostringstream& output, const MoveAssessment& move) 
     return "";
 }
 
-void write_header(std::ostringstream& output, const EngineInfo& engine, Budget budget) {
+void write_header(std::ostringstream& output, const EngineInfo& engine, const InputInfo& input) {
     output << "Engine: " << engine.name << " (Threads=" << engine.threads
            << ", Hash=" << engine.hash_mb << " MB) [rule]\n";
-    const NodeBudget& nodes = engine.nodes;
-    output << "Budget: " << to_string(budget) << ", nodes A=" << nodes.a << ", B=" << nodes.b
-           << ", C=" << nodes.c << ", D=" << nodes.d << ", E=" << nodes.e << ", L=" << nodes.l
-           << ", R=" << nodes.r << " [rule]\n";
-}
-
-void write_header(std::ostringstream& output, const Report& report) {
-    write_header(output, report.engine, report.input.budget);
+    output << "Budgets: search depth " << input.search_budget << ", explanation depth "
+           << input.explanation_budget << " [rule]\n";
 }
 
 void write_engine_line_count(std::ostringstream& output, const Report& report) {
@@ -1128,7 +1122,7 @@ void write_eval(std::ostringstream& output, const std::string& label, const Eval
 std::string text(const Report& report) {
     std::ostringstream output;
     output.imbue(std::locale::classic());
-    write_header(output, report);
+    write_header(output, report.engine, report.input);
     output << "Position side to move: " << to_string(report.position.side_to_move) << " [rule]\n";
     output << "Position in check: " << boolean(report.position.in_check) << " [rule]\n";
     output << "Position terminal: ";
@@ -1204,7 +1198,7 @@ std::string text(const Report& report) {
 std::string text(const MoveReportDocument& document) {
     std::ostringstream output;
     output.imbue(std::locale::classic());
-    write_header(output, document.engine, document.input.budget);
+    write_header(output, document.engine, document.input);
     write_opening(output, document.opening);
     write_selection(output, document);
     if (document.moves.empty()) {

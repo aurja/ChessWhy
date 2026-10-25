@@ -11,7 +11,7 @@ struct MoveReportDocument;
 
 namespace chesswhy::render {
 
-// Uses only report fields; adds no chess claim. Ignores report.input.level in M1.
+// Uses only report fields; adds no chess claim.
 [[nodiscard]] std::string text(const Report& report);
 [[nodiscard]] std::string text(const MoveReportDocument& document);
 

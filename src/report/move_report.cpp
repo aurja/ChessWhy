@@ -479,8 +479,8 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["pgn_ply"] = input.pgn_ply ? Json(*input.pgn_ply) : Json(nullptr);
     value["moves"] = input.moves ? Json(*input.moves) : Json(nullptr);
     value["selection"] = serialize_selection(input.selection);
-    value["level"] = to_string(input.level);
-    value["budget"] = to_string(input.budget);
+    value["search_budget"] = input.search_budget;
+    value["explanation_budget"] = input.explanation_budget;
     return value;
 }
 
@@ -491,15 +491,6 @@ serialize_optional_opportunity(const std::optional<OpportunityJudgement>& opport
     value["hash_mb"] = engine.hash_mb;
     value["multipv"] = engine.multipv;
     value["reproducible"] = engine.reproducible;
-    Json nodes = Json::object();
-    nodes["A"] = engine.nodes.a;
-    nodes["B"] = engine.nodes.b;
-    nodes["C"] = engine.nodes.c;
-    nodes["D"] = engine.nodes.d;
-    nodes["E"] = engine.nodes.e;
-    nodes["L"] = engine.nodes.l;
-    nodes["R"] = engine.nodes.r;
-    value["nodes"] = std::move(nodes);
     value["nodes_searched"] = engine.nodes_searched;
     return value;
 }

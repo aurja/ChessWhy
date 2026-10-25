@@ -25,7 +25,7 @@ namespace {
     std::ostringstream selected_lines;
     std::string line;
     while (std::getline(rendered_lines, line)) {
-        if (line.starts_with("Engine:") || line.starts_with("Budget:") ||
+        if (line.starts_with("Engine:") || line.starts_with("Budgets:") ||
             line.starts_with("Engine lines:") || line.starts_with("Engine line 1:") ||
             line.starts_with("Engine line 1 facts read to ply") ||
             line.starts_with("Asked move 1 facts read to ply") ||
@@ -54,12 +54,9 @@ namespace {
     using namespace chesswhy;
     MoveReportDocument document;
     document.input.fen = test_examples::kF03;
-    document.input.budget = Budget::Standard;
     document.engine.name = "Stockfish 19";
     document.engine.threads = 1;
     document.engine.hash_mb = 64;
-    document.engine.nodes = NodeBudget{
-        .a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .l = 30000, .r = 100000};
     document.position = PositionSummary{
         .fen = test_examples::kF03,
         .side_to_move = Side::Black,
@@ -421,8 +418,6 @@ move_report_examples() {
 TEST_CASE("PostM3_EM2 template wording matches its golden lines", "[unit]") {
     using namespace chesswhy;
     Report report = test_examples::base_report(test_examples::kF03, Side::Black);
-    report.engine.nodes = NodeBudget{
-        .a = 1000000, .b = 200000, .c = 200000, .d = 100000, .e = 100000, .l = 30000, .r = 100000};
 
     MoveAssessment candidate;
     candidate.san = "g6";
@@ -812,15 +807,28 @@ TEST_CASE("full report text retains restricted and free move lists", "[unit]") {
                         "restricted: Nc2-c4; free: Nc2-c3 (ply 0) [rule]") != std::string::npos);
 }
 
-TEST_CASE("motif rows and level-independent output", "[unit]") {
+TEST_CASE("motif rows and budget metadata render for both document types", "[unit]") {
     auto report = chesswhy::test_examples::normal_position();
-    const std::string club_text = chesswhy::render::text(report);
-    report.input.level = chesswhy::Level::Beginner;
-    CHECK(chesswhy::render::text(report) == club_text);
-    CHECK(club_text.find("fork: N e5 → r c6, k g6 (ply 3) [rule]") != std::string::npos);
-    CHECK(club_text.find("promotion: Q e8 (ply 1) [rule]") != std::string::npos);
-    CHECK(club_text.find("skewer: q f6 → R f1 (ply 1) [rule]") == std::string::npos);
-    CHECK(club_text.find("back_rank_weakness: k e8 (ply 0) [rule]") != std::string::npos);
+    const std::string default_text = chesswhy::render::text(report);
+    CHECK(default_text.find("Budgets: search depth 18, explanation depth 14 [rule]") !=
+          std::string::npos);
+    report.input.search_budget = 20;
+    report.input.explanation_budget = 11;
+    const std::string custom_text = chesswhy::render::text(report);
+    CHECK(custom_text.find("Budgets: search depth 20, explanation depth 11 [rule]") !=
+          std::string::npos);
+
+    auto document = base_move_document();
+    document.input.search_budget = 20;
+    document.input.explanation_budget = 11;
+    const std::string document_text = chesswhy::render::text(document);
+    CHECK(document_text.find("Budgets: search depth 20, explanation depth 11 [rule]") !=
+          std::string::npos);
+
+    CHECK(default_text.find("fork: N e5 → r c6, k g6 (ply 3) [rule]") != std::string::npos);
+    CHECK(default_text.find("promotion: Q e8 (ply 1) [rule]") != std::string::npos);
+    CHECK(default_text.find("skewer: q f6 → R f1 (ply 1) [rule]") == std::string::npos);
+    CHECK(default_text.find("back_rank_weakness: k e8 (ply 0) [rule]") != std::string::npos);
 }
 
 TEST_CASE("positional and game facts render only from report fields", "[unit]") {
