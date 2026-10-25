@@ -1,6 +1,7 @@
 // Command line. Frozen by Planning/milestones/M1.md §CLI; --games by M3b §7.
 #pragma once
 
+#include "chesswhy/analysis.hpp"
 #include "chesswhy/report.hpp"
 
 #include <filesystem>
@@ -22,8 +23,8 @@ struct Options {
     int game = 1;
     std::optional<int> ply;
     std::optional<std::string> moves;
-    Level level = Level::Club;
-    Budget budget = Budget::Standard;
+    int search_budget = analysis::kDefaultSearchBudget;
+    int explanation_budget = analysis::kDefaultExplanationBudget;
     bool json = false;
     bool full_report = false;
     bool no_llm = false; // accepted; M1 always renders the template
