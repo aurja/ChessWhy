@@ -1107,7 +1107,7 @@ flowchart TD
 | `UtContext` | The change only records something else: castling rights lost by castling, material that changed hands while some side is still ahead at the end, a king zone attacker that left, a king-file fact of a king that stands elsewhere at the end | use test, superseded change | implemented |
 | `UtKind` | Material, the exchange, the bishop pair, a rook on the seventh, an outpost and a bad bishop always count; pawn islands and pawn chains never do | use test, static fact | implemented |
 | `UtLead` | A lead in mobility, space or development counts only in a tempo-dependent position | tempo-dependent position, dynamic fact | implemented |
-| `UtCastle` | While the king can still castle, a gap or open file next to it counts only if the king is pressed | king files, king pressed | implemented |
+| `UtCastle` | While the king can still castle, a gap or open file next to it counts only if the king is pressed on the changed file (from 2026-10-25; before: the king is pressed) | king files, king pressed, shelter witness | implemented |
 | `UtOwn` | The move or its reply made the change (weak pawns, passed pawns, castling rights, king files, rook files) | use test | implemented |
 | `UtUsed` | Weak pawn attacked at the end or captured, or won; passed pawn advanced, or gone by moving or capture; rook moved along its file; castling rights and king zone attackers: the king is pressed; king files: the king is pressed on the changed file (from 2026-10-25; before: the king is pressed) | use test, king pressed, shelter witness | implemented |
 | `UtPressed` | From the change's ply on, the opponent checks or captures next to the king, or at the end two of its pieces attack the king's zone | king pressed | implemented |

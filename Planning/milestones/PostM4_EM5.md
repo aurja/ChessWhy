@@ -81,6 +81,7 @@ The tempo rows return to the move report text at the end of part 1 (R13, §3.8).
 | REP2-2 relevance filter drops deferred-parry conditions | G8 | relevance filter's mandatory conditions |
 | Checkpoint 2 (2026-10-25): the forced test's cost. F32 `--moves playable` takes 24.6–29.9 s (limit 30 s; 27.9 s at PostM4_EM4) and F12 14.2 s (limit 15 s) | — | forced test: cut its search cost (e.g. reuse the reply search), budgets unchanged |
 | Checkpoint 2 (2026-10-25): the engine collector's duplicate fallback may shorten Search A silently, as it shortened F32's forced test to 4 lines (scope proposal) | — | engine line collection: audit |
+| Completion review (2026-10-25): en passant and the file-specific shelter witness. The checker presses the king from the removed pawn's square for king files and from the landing square otherwise; P11 is silent on which square counts for a file witness (scope proposal) | — | P11 wording: en passant square for the shelter witness |
 
 ### Part 3 — contract and wording repairs
 
@@ -356,18 +357,18 @@ Batches: WP1 + WP2; then WP3 + WP4; then WP5; WP6 with the milestone-end gate.
 
 ### 3.11 Acceptance
 
-- [ ] F45, F46, PU19, PU20 and the re-blessed F21, F40, F41, F07 pass with the §3.6 facts.
-- [ ] No refutation is built from a game-over board; `judge_refutation` never throws on F45.
-- [ ] Every `pure_reply` has `forced_test.forced` true and `reply_gain.gains` false; no
+- [x] F45, F46, PU19, PU20 and the re-blessed F21, F40, F41, F07 pass with the §3.6 facts.
+- [x] No refutation is built from a game-over board; `judge_refutation` never throws on F45.
+- [x] Every `pure_reply` has `forced_test.forced` true and `reply_gain.gains` false; no
       `tempo_gained` without a pure reply (checker).
-- [ ] The checker re-derives `walked_plies`, `settled` (when `plies < 10`), `terminal_draw`,
+- [x] The checker re-derives `walked_plies`, `settled` (when `plies < 10`), `terminal_draw`,
       `reply_gain`, labels from `forced_test`, endings, outcomes, `captured` and the shelter
       witness, with a mutant per rule.
-- [ ] The move report text prints the §3.8 rows; V2 and F40 match §3.8.
-- [ ] The full report text prints the forced-test suffix of §3.7 on every unforced and
+- [x] The move report text prints the §3.8 rows; V2 and F40 match §3.8.
+- [x] The full report text prints the forced-test suffix of §3.7 on every unforced and
       unresolved reply; F42 and F28 pin it.
-- [ ] Gates of AGENTS.md (batch and milestone end); `cli_timing` within limits.
-- [ ] `DEFINITIONS.md`, `CONCEPTS.md`, `CODE.md`, `FIXTURES.md`, `TESTS.md` current;
+- [x] Gates of AGENTS.md (batch and milestone end); `cli_timing` within limits.
+- [x] `DEFINITIONS.md`, `CONCEPTS.md`, `CODE.md`, `FIXTURES.md`, `TESTS.md` current;
       `check_dbc` passes.
 
 ## 4. Contract changes
