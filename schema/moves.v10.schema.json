@@ -348,7 +348,7 @@
         "eval": {"description": "Score evaluation for this move from the side to move's point of view [engine].", "$ref": "#/$defs/eval"},
         "depth": {"description": "Search depth of the line that gave eval: the MultiPV line or Search C [engine].", "type": "integer", "minimum": 1},
         "loss": {"description": "Loss from the best candidate's expected score, in [0, 1] [engine].", "type": "number", "minimum": 0, "maximum": 1},
-        "verdict": {"description": "Verdict from loss, exact score equality, and whether the move allows a tactic [engine].", "enum": ["best", "okay", "inaccuracy", "mistake", "blunder"]},
+        "verdict": {"description": "Verdict from loss, the at-least-score test against A-best, and whether the move allows a tactic [engine].", "enum": ["best", "okay", "inaccuracy", "mistake", "blunder"]},
         "gives_check": {"description": "Whether the move gives check [rule].", "type": "boolean"},
         "line": {"description": "SAN line from the current position, starting with this move, up to 10 plies [engine].", "$ref": "#/$defs/san_line"},
         "walked_plies": {"description": "Number of line plies from which motif and positional facts were read [rule].", "type": "integer", "minimum": 0},

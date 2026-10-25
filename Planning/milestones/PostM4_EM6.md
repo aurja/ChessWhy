@@ -184,18 +184,18 @@ the same-score unit test becomes an N6 score-order test (cp, mate for, mate agai
 
 ### 3.9 Acceptance
 
-- [ ] `chesswhy --fen <F47> --moves best,Rd3 --full-report --json`: candidate 1 `e8h8`;
+- [x] `chesswhy --fen <F47> --moves best,Rd3 --full-report --json`: candidate 1 `e8h8`;
       `d8d3` a candidate with verdict `best`, loss 0.
-- [ ] F32 candidate 1 is identical under `--moves best`, `top6` and `playable` (N11).
-- [ ] `--budget` and `--level` are rejected as unknown flags; out-of-range and non-integer
+- [x] F32 candidate 1 is identical under `--moves best`, `top6` and `playable` (N11).
+- [x] `--budget` and `--level` are rejected as unknown flags; out-of-range and non-integer
       budgets give `invalid integer for …`, exit 2 (E14, E23–E26).
-- [ ] Reports are v10: `input.search_budget` and `input.explanation_budget` present, no
+- [x] Reports are v10: `input.search_budget` and `input.explanation_budget` present, no
       `level`, `budget` or `engine.nodes`; both schemas validate every fixture report.
-- [ ] The checker applies N6's at-least test and N8 and passes on every fixture report.
-- [ ] Two builds of the same report are byte-identical (`cli_rerun_identity`).
-- [ ] `cli_timing` passes with no time limit (H6, checkpoint 2); the receipt records each
+- [x] The checker applies N6's at-least test and N8 and passes on every fixture report.
+- [x] Two builds of the same report are byte-identical (`cli_rerun_identity`).
+- [x] `cli_timing` passes with no time limit (H6, checkpoint 2); the receipt records each
       fixture's time and the F32 `--moves playable` and `--moves all` smoke times.
-- [ ] Milestone-end gate per AGENTS.md; DBC files current; `tools/check_dbc.py` passes.
+- [x] Milestone-end gate per AGENTS.md; DBC files current; `tools/check_dbc.py` passes.
 
 ## 4. Contract changes
 

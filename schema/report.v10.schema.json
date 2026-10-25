@@ -165,7 +165,7 @@
           "minimum": 1
         },
         "multipv": {
-          "description": "K: A-best's line plus the K - 1 requested of A-rest (1 with one legal move) [engine].",
+          "description": "K: A-best's line plus the K - 1 requested of A-rest (1 with one legal move) [rule].",
           "type": "integer",
           "minimum": 0
         },
@@ -1392,7 +1392,7 @@
           "maximum": 1
         },
         "verdict": {
-          "description": "Verdict from loss, exact score equality, and whether the move allows a tactic [engine].",
+          "description": "Verdict from loss, the at-least-score test against A-best, and whether the move allows a tactic [engine].",
           "enum": [
             "best",
             "okay",
