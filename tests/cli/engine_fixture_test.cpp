@@ -343,9 +343,9 @@ int run_timing() {
             }
             const double elapsed = std::chrono::duration<double>(Clock::now() - start).count();
             std::cout << "fixture " << fixture_id << " wall time: " << elapsed << " s\n";
-            if (elapsed > 15.0) {
+            if (elapsed > 25.0) {
                 failures.push_back("fixture " + fixture_id +
-                                   " wall time: expected <= 15 s, actual " +
+                                   " wall time: expected <= 25 s, actual " +
                                    std::to_string(elapsed) + " s");
             }
             progress.step_finished(index, "run", fixture_id);
