@@ -171,7 +171,8 @@
       },
       "playable_includes": ["cxd3"],
       "candidate": {
-        "cxd3": {"/parries_threat/value": true, "/parries_threat/test": "threat_move_illegal", "/parries_threat/source": "rule"}
+        "cxd3": {"/parries_threat/value": true, "/parries_threat/test": "threat_move_illegal", "/parries_threat/source": "rule"},
+        "Kg1": {"/walked_plies": 8, "/consequence/material": -6}
       }
     },
     {
@@ -439,8 +440,19 @@
       "reason": "The move report keeps the hanging queen on f6 as a relevant fact, but drops the unrelated d5 knight fact from the root summary.",
       "args": ["--fen", "4k3/8/5q2/3N4/8/8/8/4K3 w - - 0 1"],
       "equals": {
+        "/candidates/0/san": "Nxf6+",
         "/candidates/0/is_tactic": true,
-        "/candidates/0/creates_threat_skipped": "gives_check"
+        "/candidates/0/walked_plies": 1,
+        "/candidates/0/consequence/terminal_draw": {"kind": "insufficient_material", "ply": 1},
+        "/candidates/0/consequence/material": 9,
+        "/candidates/0/creates_threat_skipped": "game_over"
+      },
+      "moves_equals": {
+        "/moves/0/san": "Nxf6+",
+        "/moves/0/walked_plies": 1,
+        "/moves/0/consequence/terminal_draw": {"kind": "insufficient_material", "ply": 1},
+        "/moves/0/consequence/material": 9,
+        "/moves/0/is_tactic": true
       },
       "text_contains": "Uses: hanging_piece: q f6, SEE 9",
       "full_text_contains": "hanging_piece: N d5, SEE 3 (ply 2) [rule]"
@@ -496,10 +508,10 @@
         "/candidates/1/line": ["Qf8#"]
       }
     },
-    {"id":"F25","title":"Exchange Ruy Lopez bishop and c-pawn changes","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6","args":["--fen","r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4","--moves","Bxc6"],"positional_include":{"/position/positional":[{"tag":"bishop_pair","side":"white"},{"tag":"bishop_pair","side":"black"}],"/candidates/1/positional":[{"ply":2,"change":"appears","holds_at_end":true,"tag":"doubled_pawns","side":"black","file":"c"},{"ply":2,"change":"disappears","holds_at_end":true,"tag":"bishop_pair","side":"white"}]},"moves_equals":{"/moves/0/positional":[{"source":"rule","ply":2,"change":"disappears","holds_at_end":true,"net_change":true,"in_use":true,"tag":"bishop_pair","side":"white","pieces":[{"square":"c1","piece":"B"},{"square":"c6","piece":"B"}],"file":null,"value":null},{"source":"rule","ply":2,"change":"appears","holds_at_end":true,"net_change":true,"in_use":true,"tag":"doubled_pawns","side":"black","pieces":[{"square":"c6","piece":"p"},{"square":"c7","piece":"p"}],"file":"c","value":null}]},"reason":"Bxc6's move report keeps the net bishop-pair and doubled-pawn changes and omits the passing material_ahead change."},
+    {"id":"F25","title":"Exchange Ruy Lopez bishop and c-pawn changes","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6","args":["--fen","r1bqkbnr/1ppp1ppp/p1n5/1B2p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 4","--moves","Bxc6"],"positional_include":{"/position/positional":[{"tag":"bishop_pair","side":"white"},{"tag":"bishop_pair","side":"black"}],"/candidates/1/positional":[{"ply":2,"change":"appears","holds_at_end":true,"tag":"doubled_pawns","side":"black","file":"c"},{"ply":2,"change":"disappears","holds_at_end":true,"tag":"bishop_pair","side":"white"}]},"moves_equals":{"/moves/0/positional":[{"source":"rule","ply":2,"change":"disappears","holds_at_end":true,"net_change":true,"captured":true,"in_use":true,"tag":"bishop_pair","side":"white","pieces":[{"square":"c1","piece":"B"},{"square":"c6","piece":"B"}],"file":null,"value":null},{"source":"rule","ply":2,"change":"appears","holds_at_end":true,"net_change":true,"captured":false,"in_use":true,"tag":"doubled_pawns","side":"black","pieces":[{"square":"c6","piece":"p"},{"square":"c7","piece":"p"}],"file":"c","value":null}]},"reason":"Bxc6's move report keeps the net bishop-pair and doubled-pawn changes and omits the passing material_ahead change."},
     {"id":"F26","title":"Passed pawns in the rook ending","source":"Korchnoi - Karpov, Candidates' final 1974, before 58.a7 (F10 position)","args":["--fen","6R1/8/P7/8/1K6/6p1/5pk1/8 w - - 0 58","--moves","a7"],"positional_include":{"/position/positional":[{"tag":"passed_pawn","side":"white","file":"a","pieces":[{"square":"a6","piece":"P"}]},{"tag":"passed_pawn","side":"black","file":"g","pieces":[{"square":"g3","piece":"p"}]},{"tag":"material_ahead","side":"white","value":4}]},"reason":"The a6 and g3 pawns have no enemy pawn in front on their or adjacent files; White has material 6 to Black's 2."},
     {"id":"F27","title":"Kingside castling loses its right","source":"constructed","args":["--fen","k7/8/8/8/8/8/8/4K2R w K - 0 1","--moves","O-O"],"positional_include":{"/asked_moves/0/positional":[{"ply":1,"change":"disappears","holds_at_end":true,"tag":"castling_kingside","side":"white"}]},"reason":"O-O consumes White's remaining kingside castling right."},
-    {"id":"F28","title":"The Exchange Ruy Lopez doubled c-pawns","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6","args":["--fen","r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],"positional_include":{"/position/positional":[{"tag":"doubled_pawns","side":"black","file":"c"},{"tag":"bishop_pair","side":"black"}]},"reason":"Black's c6 and c7 pawns share a file, and its c8 and f8 bishops occupy opposite colours."}
+    {"id":"F28","title":"The Exchange Ruy Lopez doubled c-pawns","source":"constructed: Exchange Ruy Lopez after 1.e4 e5 2.Nf3 Nc6 3.Bb5 a6 4.Bxc6 dxc6","args":["--fen","r1bqkbnr/1pp2ppp/p1p5/4p3/4P3/5N2/PPPP1PPP/RNBQK2R w KQkq - 0 5"],"positional_include":{"/position/positional":[{"tag":"doubled_pawns","side":"black","file":"c"},{"tag":"bishop_pair","side":"black"}]},"candidate":{"d3":{"/tempo_ledger/plies/1/ply":2,"/tempo_ledger/plies/1/san":"f6","/tempo_ledger/plies/1/label":"unresolved_reply"}},"reason":"Black's c6 and c7 pawns share a file, and its c8 and f8 bishops occupy opposite colours; d3 pins the line's unresolved reply at ply 2."}
     ,
     {
       "id": "F29",
@@ -795,10 +807,17 @@
           "/tempo_ledger/plies/1/tempo_gained": true,
           "/tempo_ledger/plies/2/ply": 3,
           "/tempo_ledger/plies/2/san": "Qd8",
-          "/tempo_ledger/plies/2/label": "pure_reply"
+          "/tempo_ledger/plies/2/label": "pure_reply",
+          "/tempo_ledger/plies/2/forced_test/forced": true
+        },
+        "Bf5": {
+          "/tempo_ledger/plies/1/ply": 2,
+          "/tempo_ledger/plies/1/san": "Nc3",
+          "/tempo_ledger/plies/1/label": "unforced_reply"
         }
       },
-      "reason": "The Qxd5 line marks Nc3 as tempo-gaining and Qd8 as the pure reply."
+      "text_contains": "Initiative: White from ply 2, 1 tempo; spent at ply 4; evaporated [rule]",
+      "reason": "Qxd5 marks Nc3 as tempo-gaining and Qd8 as a forced pure reply; Bf5 records an unforced Nc3 reply, and the move report's initiative run is spent."
     },
     {
       "id": "F41",
@@ -814,15 +833,18 @@
           "/tempo_ledger/plies/0/san": "Bxa4",
           "/tempo_ledger/plies/0/label": "neither",
           "/tempo_ledger/plies/6/san": "Nxc2",
-          "/tempo_ledger/plies/6/label": "pure_reply"
+          "/tempo_ledger/plies/6/label": "gaining_reply",
+          "/tempo_ledger/plies/6/reply_gain/material": 2,
+          "/tempo_ledger/plies/6/reply_gain/through_ply": 7,
+          "/tempo_ledger/plies/6/reply_gain/gains": true
         }
       },
       "moves_equals": {
-        "/moves/0/tempo_gained": [{"ply": 6, "san": "Bxa7", "side": "white", "source": "engine"}],
-        "/moves/0/initiative": [{"holder": "white", "start_ply": 6, "end_ply": 7, "tempi": 1, "ending": "unfinished", "outcome": "evaporated", "source": "rule"}],
+        "/moves/0/tempo_gained": [],
+        "/moves/0/initiative": [],
         "/moves/1/tempo_gained": []
       },
-      "reason": "The root is tempo_dependent; Bxa4 is an even trade and threatens nothing, so the only tempo is White's Bxa7, answered by the pure reply Nxc2; its run is unfinished when the line ends. The Ba7 move report records no tempo."
+      "reason": "Nxc2 at ply 7 gains two material through ply 7, so it is a gaining reply rather than a pure reply; Bxa4 records no tempo or run, and Ba7 records no tempo."
     },
     {
       "id": "F42",
@@ -837,14 +859,17 @@
         "Qc4": {
           "/tempo_ledger/plies/1/ply": 2,
           "/tempo_ledger/plies/1/san": "bxc5",
-          "/tempo_ledger/plies/1/tempo_gained": true
+          "/tempo_ledger/plies/1/tempo_gained": false,
+          "/tempo_ledger/plies/2/ply": 3,
+          "/tempo_ledger/plies/2/san": "dxc5",
+          "/tempo_ledger/plies/2/label": "unforced_reply"
         }
       },
       "moves_equals": {
-        "/moves/0/tempo_gained": [{"ply": 2, "san": "bxc5", "side": "white", "source": "engine"}],
-        "/moves/0/initiative": [{"holder": "white", "start_ply": 2, "end_ply": 5, "tempi": 1, "ending": "runs", "outcome": "converted", "source": "rule"}]
+        "/moves/0/tempo_gained": [],
+        "/moves/0/initiative": []
       },
-      "reason": "The root tempo value is 1.0; Qc4's ledger marks White's bxc5 tempo gain and a converted initiative run."
+      "reason": "dxc5 is unforced because the acceptable Qxc5 alternative does not stop the threat; P7 therefore removes bxc5's tempo gain and the initiative run."
     },
     {
       "id": "F43",
@@ -873,6 +898,67 @@
         "/moves/0/impact_order": ["created_threat", "tempo"]
       },
       "reason": "The position reports non_tempo and its move report places tempo last in impact_order."
+    },
+    {
+      "id": "F45",
+      "title": "Queen capture ends in stalemate",
+      "source": "constructed",
+      "args": ["--fen", "8/8/8/8/6q1/6R1/5k2/7K b - - 0 1", "--moves", "Qxg3"],
+      "equals": {
+        "/asked_moves/0/san": "Qxg3",
+        "/asked_moves/0/walked_plies": 1,
+        "/asked_moves/0/consequence/terminal_draw": {"kind": "stalemate", "ply": 1},
+        "/asked_moves/0/consequence/material": 5,
+        "/asked_moves/0/is_tactic": true,
+        "/asked_moves/0/refutation": null,
+        "/asked_moves/0/refutation_skipped": "game_over",
+        "/asked_moves/0/creates_threat_skipped": "game_over"
+      },
+      "moves_equals": {
+        "/moves/0/san": "Qxg3",
+        "/moves/0/walked_plies": 1,
+        "/moves/0/consequence/terminal_draw": {"kind": "stalemate", "ply": 1},
+        "/moves/0/consequence/material": 5,
+        "/moves/0/is_tactic": true,
+        "/moves/0/refutation": null,
+        "/moves/0/refutation_skipped": "game_over"
+      },
+      "text_contains": "facts read to ply 1 of 1 (stalemate)",
+      "full_text_contains": "Asked move 1 facts read to ply 1 of 1 (stalemate) [rule]",
+      "reason": "Qxg3 captures the rook and immediately stalemates; the one-ply terminal consequence keeps its material gain and skips further searches."
+    },
+    {
+      "id": "F46",
+      "title": "Rook captures an isolated pawn",
+      "source": "constructed",
+      "args": ["--fen", "3r2k1/8/2n5/8/3P4/2N5/8/R5K1 b - - 0 1", "--moves", "Rxd4"],
+      "candidate": {
+        "Rxd4": {
+          "/walked_plies": 6,
+          "/consequence/material": 1,
+          "/positional/1/ply": 1,
+          "/positional/1/change": "disappears",
+          "/positional/1/tag": "isolated_pawn",
+          "/positional/1/side": "white",
+          "/positional/1/file": "d",
+          "/positional/1/captured": true,
+          "/tempo_ledger/runs/0/ending": "unfinished",
+          "/tempo_ledger/runs/0/outcome": "unknown"
+        }
+      },
+      "moves_equals": {
+        "/moves/0/positional/1/ply": 1,
+        "/moves/0/positional/1/change": "disappears",
+        "/moves/0/positional/1/tag": "isolated_pawn",
+        "/moves/0/positional/1/side": "white",
+        "/moves/0/positional/1/file": "d",
+        "/moves/0/positional/1/captured": true,
+        "/moves/0/initiative": [
+          {"holder": "black", "start_ply": 3, "end_ply": 6, "tempi": 2, "ending": "unfinished", "outcome": "unknown", "source": "rule"}
+        ]
+      },
+      "text_contains": "Initiative: Black from ply 3, 2 tempi; unfinished at ply 6; outcome unknown [rule]",
+      "reason": "Rxd4 captures White's isolated d-pawn at ply 1; its retained Black run is unfinished and has unknown outcome."
     }
   ],
   "unit_fixtures": [
