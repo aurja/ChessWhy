@@ -66,4 +66,4 @@ fixes) to PostM4_EM5.
    by the Captain 2026-10-24/25.
 2. The Captain closed the milestone at its current scope (R4, 2026-10-25) and chose
    PostM4_EM5's shape (three parts), VER2-1 option A and REP2-1 option 1.
-3. Merge into `main`: awaits the Captain.
+3. Merged into `main` 2026-10-25 on the Captain's approval.

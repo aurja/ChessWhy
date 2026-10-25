@@ -50,8 +50,8 @@ Updated 2026-10-25.
   `unit`, labels `corpus`, `timing`, `sanitize`, ASan at `-O1`. Release
   `unit|engine|games|corpus` 205/205 in 376 s, `timing` 261 s (F12 12.0 s, limit 15 s);
   ASan/UBSan `unit|sanitize` 168/168 in 101 s; F32 `--moves playable` 27.9 s (limit 30 s).
-- Milestone: **PostM4_EM4 the conceptual critique and the move report text complete**
-  (2026-10-25; merge into `main` awaits the Captain). Receipt
+- Milestone: **PostM4_EM4 the conceptual critique and the move report text complete, merged
+  into `main` 2026-10-25** (branch `postm4-em4`). Receipt
   `Planning/receipts/PostM4_EM4.md`; contract `Planning/milestones/PostM4_EM4.md`. Report
   v8: motif repeats merged (`also`), compact restricted-movement rows, `line_fens`, the
   position walk (no tempo rows in the move report text for now). Conceptual critique of all
