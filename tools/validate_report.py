@@ -2426,9 +2426,7 @@ def projected_threat(value: JsonValue, filter_motifs: bool) -> JsonValue:
     if threat is None:
         return None
     projected = dict(threat)
-    projected["motifs"] = (
-        relevant_motifs(threat.get("motifs")) if filter_motifs else []
-    )
+    projected["motifs"] = relevant_motifs(threat.get("motifs")) if filter_motifs else []
     return projected
 
 
@@ -2636,11 +2634,7 @@ def project_assessment(
         "gives_check": assessment.get("gives_check"),
         "line": assessment.get("line"),
         "walked_plies": assessment.get("walked_plies"),
-        **(
-            {"line_fens": cast(JsonValue, line_fens)}
-            if line_fens is not None
-            else {}
-        ),
+        **({"line_fens": cast(JsonValue, line_fens)} if line_fens is not None else {}),
         "consequence": assessment.get("consequence"),
         "is_tactic": assessment.get("is_tactic"),
         "allows_tactic": assessment.get("allows_tactic"),
@@ -2908,9 +2902,7 @@ def check_line_fens(moves_document: JsonValue, failures: list[Failure]) -> None:
             f"line_fens must contain {walked_plies} FENs",
             len(line_fens) == walked_plies,
         )
-        for ply, (expected_fen, actual_fen) in enumerate(
-            zip(expected_fens, line_fens)
-        ):
+        for ply, (expected_fen, actual_fen) in enumerate(zip(expected_fens, line_fens)):
             fen_pointer = f"{pointer}/line_fens/{ply}"
             if not isinstance(actual_fen, str):
                 fail(
@@ -2922,9 +2914,7 @@ def check_line_fens(moves_document: JsonValue, failures: list[Failure]) -> None:
                 continue
             try:
                 actual_position = chess.Board(actual_fen).fen(en_passant="legal")
-                expected_position = chess.Board(expected_fen).fen(
-                    en_passant="legal"
-                )
+                expected_position = chess.Board(expected_fen).fen(en_passant="legal")
             except ValueError:
                 fail(
                     failures,

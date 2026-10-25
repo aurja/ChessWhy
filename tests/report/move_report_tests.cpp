@@ -96,7 +96,7 @@ using namespace chesswhy;
     motif.ply = 3;
     motif.actor = PieceOnSquare{.square = 48, .piece = 'B'};
     motif.targets = {PieceOnSquare{.square = 34, .piece = 'N'}};
-    motif.threat = std::move(threat);
+    motif.threat = threat;
     motif.restriction = std::move(restriction);
     motif.contribution = contribution;
     return motif;
@@ -542,8 +542,9 @@ TEST_CASE("move reports merge restricted-movement repeats and serialize their la
     CHECK(document.moves[0].motifs[1].tag == MotifTag::Fork);
     REQUIRE(document.moves[0].motifs[0].also.size() == 1);
     CHECK(document.moves[0].motifs[0].also[0].tag == MotifTag::PinTactical);
-    REQUIRE(document.moves[0].motifs[0].also[0].threat.has_value());
-    CHECK(document.moves[0].motifs[0].also[0].threat->kind == ThreatKind::Capture);
+    const auto& merged_threat = document.moves[0].motifs[0].also[0].threat;
+    REQUIRE(merged_threat.has_value());
+    CHECK((merged_threat && merged_threat->kind == ThreatKind::Capture));
     CHECK(document.moves[0].motifs[1].also.empty());
 
     const auto json = to_json(document);

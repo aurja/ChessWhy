@@ -478,9 +478,7 @@ class CheckerRelationsTests(unittest.TestCase):
             return {
                 "schema_version": 8,
                 "document": "full",
-                "input": {
-                    "selection": {"keywords": ["all"], "top": None, "moves": []}
-                },
+                "input": {"selection": {"keywords": ["all"], "top": None, "moves": []}},
                 "engine": {"multipv": 1},
                 "position": {
                     "fen": START_FEN,
@@ -565,17 +563,12 @@ class CheckerRelationsTests(unittest.TestCase):
         wrong_order_motifs = array_field(
             object_value(array_field(wrong_order, "moves")[0]), "motifs"
         )
-        wrong_order_also = array_field(
-            object_value(wrong_order_motifs[0]), "also"
-        )
+        wrong_order_also = array_field(object_value(wrong_order_motifs[0]), "also")
         wrong_order_also.reverse()
         order_failures: list[checker.Failure] = []
         checker.check_projection(three_report, wrong_order, order_failures)
         self.assertTrue(
-            any(
-                path.startswith("/moves/0/motifs/0/also")
-                for path, _ in order_failures
-            )
+            any(path.startswith("/moves/0/motifs/0/also") for path, _ in order_failures)
         )
 
     def test_projection_detects_move_fact_mismatch(self) -> None:
@@ -712,9 +705,7 @@ class CheckerRelationsTests(unittest.TestCase):
         self.assertEqual(len(array_field(first_move, "line_fens")), 2)
 
         def remove_last_line_fen(document: checker.JsonObject) -> None:
-            _ = array_field(
-                array_field(document, "moves")[0], "line_fens"
-            ).pop()
+            _ = array_field(array_field(document, "moves")[0], "line_fens").pop()
 
         mutations: list[tuple[str, Mutation]] = [
             (

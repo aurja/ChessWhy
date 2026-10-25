@@ -294,7 +294,8 @@ void set_turn(chess::Board& board, Color side) {
             .gain = gain,
             .threat = std::nullopt,
             .restriction = std::nullopt,
-            .contribution = std::nullopt};
+            .contribution = std::nullopt,
+            .also = {}};
 }
 
 [[nodiscard]] bool terminal_position(const chess::Board& board) {

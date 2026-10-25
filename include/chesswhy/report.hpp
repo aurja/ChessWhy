@@ -281,7 +281,7 @@ struct Motif {
                                                    // OverloadedDefender or PinTactical
     std::optional<MotifContribution> contribution; // null: not judged (PostM2_EM1 §4.2)
     // Move reports only (PostM4_EM4 §2.1); empty in the full report and not serialised there.
-    std::vector<MotifLabel> also{};
+    std::vector<MotifLabel> also;
 };
 
 // A tactic-side label (PostM2_EM1 §4.4). Source: rule. Set only on tactic lines.
